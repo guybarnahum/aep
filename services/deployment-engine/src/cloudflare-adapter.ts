@@ -12,37 +12,41 @@ export interface DeployOutput {
 }
 
 export class CloudflareWranglerAdapter {
-  deploy(input: DeployInput): DeployOutput {
-    const { serviceName, workingDir, envId } = input;
 
-    const deploymentName = `${serviceName}-${envId}`;
+    deploy(input: DeployInput): DeployOutput {
+        const { serviceName, workingDir, envId } = input;
 
-    console.log(`[deploy] deploying ${deploymentName}`);
+        const deploymentName = `${serviceName}-${envId}`;
 
-    // ⚠️ assumes wrangler is authenticated locally
-    const cmd = `
-      npx wrangler deploy \
-        --name ${deploymentName} \
-        --cwd ${workingDir}
-    `;
+        console.log(`[deploy] deploying ${deploymentName}`);
 
-    try {
-      const output = execSync(cmd, {
-        stdio: "pipe",
-      }).toString();
+        const cmd = `
+            npx wrangler deploy \
+            --name ${deploymentName} \
+            --cwd ${workingDir}
+        `;
 
-      console.log("[deploy output]", output);
+        try {
+            const output = execSync(cmd, {
+            stdio: "pipe",
+            }).toString();
 
-      // Simple deterministic URL (Cloudflare standard)
-      const url = `https://${deploymentName}.workers.dev`;
+            console.log("[deploy output]", output);
 
-      return {
-        deploymentId: deploymentName,
-        url,
-      };
-    } catch (err: any) {
-      console.error("[deploy error]", err?.stdout?.toString());
-      throw new Error("Deployment failed");
+            const urlMatch = output.match(/https:\/\/[^\s]+/);
+            if (!urlMatch) {
+            throw new Error("Could not parse deployed URL from Wrangler output");
+            }
+
+            const url = urlMatch[0];
+
+            return {
+            deploymentId: deploymentName,
+            url,
+            };
+        } catch (err: any) {
+            console.error("[deploy error]", err?.stdout?.toString?.() ?? err);
+            throw new Error("Deployment failed");
+        }
     }
-  }
 }
