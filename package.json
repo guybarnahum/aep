@@ -9,9 +9,18 @@
     "services/*",
     "examples/*"
   ],
+  "devDependencies": {
+    "tsx": "^4.21.0",
+    "typescript": "^5.8.0"
+  },
   "scripts": {
+    "bootstrap": "bash scripts/dev/bootstrap.sh",
     "build": "echo 'wire workspace build steps here'",
     "dev:control-plane": "wrangler dev --config core/control-plane/wrangler.toml",
-    "dev:sample-worker": "wrangler dev --config examples/sample-worker/wrangler.toml"
+    "dev:sample-worker": "wrangler dev --config examples/sample-worker/wrangler.toml",
+    "dev:deploy": "tsx scripts/test-deploy.ts"
+  },
+  "devDependencies": {
+    "tsx": "^4.21.0"
   }
 }
