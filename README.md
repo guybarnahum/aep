@@ -14,6 +14,16 @@ The current MVP target is a **trusted preview lifecycle**:
 4. tear the preview down
 5. prove cleanup via audit data and event trace
 
+## MVP definition of done
+
+AEP is considered functional when:
+
+- A repo can be deployed as a preview environment
+- Health and smoke checks run successfully
+- The full execution is visible via event trace
+- The environment is fully torn down
+- Cleanup audit proves no resources remain
+
 ## Repository layout
 
 ```text
@@ -41,15 +51,13 @@ The current MVP target is a **trusted preview lifecycle**:
 - `infra/cloudflare/d1/migrations/` — D1 schema migration
 - `.github/workflows/` — preview deploy workflow template
 
-## Immediate next steps
+## Next steps
 
-1. Create a GitHub repo named `aep`
-2. Copy this starter pack into the repo root
-3. Create a D1 database and apply `infra/cloudflare/d1/migrations/0001_mvp.sql`
-4. Deploy `examples/sample-worker`
-5. Deploy `core/control-plane`
-6. Call `POST /workflow/start` on the control plane
-7. Iterate on the deployment adapter to replace placeholder deploy/test/teardown hooks
+1. Create a D1 database and apply `infra/cloudflare/d1/migrations/0001_mvp.sql`
+2. Deploy `examples/sample-worker`
+3. Deploy `core/control-plane`
+4. Call `POST /workflow/start` on the control plane
+5. Iterate on the deployment adapter to replace placeholder deploy/test/teardown hooks
 
 ## Example request
 
