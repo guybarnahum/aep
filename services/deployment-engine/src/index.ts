@@ -1,3 +1,5 @@
+import { CloudflareWranglerAdapter } from "./cloudflare-adapter";
+
 export interface DeployArgs {
   serviceName: string;
   workflowRunId: string;
@@ -15,15 +17,26 @@ export interface DeploymentAdapter {
 }
 
 export class CloudflarePreviewAdapter implements DeploymentAdapter {
+  private readonly adapter = new CloudflareWranglerAdapter();
+
   async deployPreview(args: DeployArgs): Promise<DeployResult> {
+    const result = this.adapter.deploy({
+      serviceName: args.serviceName,
+      workingDir: "examples/sample-worker",
+      envId: args.workflowRunId,
+    });
+
     return {
       provider: "cloudflare",
-      deploymentRef: `preview:${args.workflowRunId}`,
-      previewUrl: `https://${args.serviceName}-${args.workflowRunId}.example.workers.dev`,
+      deploymentRef: result.deploymentId,
+      previewUrl: result.url,
     };
   }
 
-  async teardownPreview(_deploymentRef: string): Promise<void> {
-    // Replace with real Wrangler or Cloudflare API teardown.
+  async teardownPreview(deploymentRef: string): Promise<void> {
+    // Commit 1 note:
+    // Keep teardown as a no-op placeholder until Commit 3.
+    // At that point, this should call a real Wrangler/API delete flow.
+    console.log(`[teardown] not yet implemented for ${deploymentRef}`);
   }
 }
