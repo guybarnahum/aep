@@ -1,0 +1,16 @@
+name = "aep-control-plane"
+main = "src/index.ts"
+compatibility_date = "2025-01-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "aep"
+database_id = "REPLACE_ME"
+
+[[durable_objects.bindings]]
+name = "WORKFLOW_COORDINATOR"
+class_name = "WorkflowCoordinatorDO"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["WorkflowCoordinatorDO"]

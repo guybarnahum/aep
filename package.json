@@ -1,0 +1,17 @@
+{
+  "name": "aep",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "apps/*",
+    "core/*",
+    "packages/*",
+    "services/*",
+    "examples/*"
+  ],
+  "scripts": {
+    "build": "echo 'wire workspace build steps here'",
+    "dev:control-plane": "wrangler dev --config core/control-plane/wrangler.toml",
+    "dev:sample-worker": "wrangler dev --config examples/sample-worker/wrangler.toml"
+  }
+}
