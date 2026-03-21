@@ -1,7 +1,7 @@
-import { CloudflarePreviewAdapter } from "../../services/deployment-engine/src/index";
+import { WorkerDeploymentAdapter } from "../../services/deployment-engine/src/worker-adapter";
 
 async function main() {
-  const adapter = new CloudflarePreviewAdapter();
+  const adapter = new WorkerDeploymentAdapter();
 
   const result = await adapter.deployPreview({
     serviceName: "sample-worker",

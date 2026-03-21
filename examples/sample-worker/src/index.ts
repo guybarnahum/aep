@@ -2,7 +2,7 @@ export default {
   async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url);
 
-    if (request.method === "GET" && url.pathname === "/health") {
+    if (request.method === "GET" && url.pathname === "/healthz") {
       return Response.json({ ok: true, service: "sample-worker" });
     }
 

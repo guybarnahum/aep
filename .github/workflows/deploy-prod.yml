@@ -70,8 +70,15 @@ jobs:
             --method POST \
             --path /workflow/start \
             --payload '{"tenant_id":"t_demo","project_id":"p_demo","repo_url":"https://github.com/example/repo","branch":"main","service_name":"sample-worker"}' \
-            --expect-status 200 \
-            --expect-json-key workflow_id
+            --expect-status 202 \
+            --expect-json-key workflow_run_id \
+            --poll-path-template /workflow/{id} \
+            --poll-id-key workflow_run_id \
+            --poll-success-key run.status \
+            --poll-success-values completed \
+            --poll-failure-values failed,cancelled \
+            --poll-attempts 20 \
+            --poll-interval-ms 3000
 
       - name: Write summary
         if: always()

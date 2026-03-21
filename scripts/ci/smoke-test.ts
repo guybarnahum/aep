@@ -29,7 +29,7 @@
  *     --path /workflow/start \
  *     --payload '{"tenant_id":"t_demo","project_id":"p_demo","repo_url":"https://github.com/example/repo","branch":"main","service_name":"sample-worker"}' \
  *     --expect-status 200 \
- *     --expect-json-key workflow_id
+ *     --expect-json-key workflow_run_id
  *
  * Async poll usage:
  *
@@ -40,9 +40,9 @@
  *     --path /workflow/start \
  *     --payload '{"tenant_id":"t_demo","project_id":"p_demo","repo_url":"https://github.com/example/repo","branch":"main","service_name":"sample-worker"}' \
  *     --expect-status 200 \
- *     --expect-json-key workflow_id \
+ *     --expect-json-key workflow_run_id \
  *     --poll-path-template /workflow/status/{id} \
- *     --poll-id-key workflow_id \
+ *     --poll-id-key workflow_run_id \
  *     --poll-success-key status \
  *     --poll-success-values succeeded,completed,ok \
  *     --poll-failure-values failed,error \

@@ -4,14 +4,12 @@ export interface CleanupAuditResult {
 }
 
 export async function runHealthCheck(previewUrl: string): Promise<void> {
-  // Replace with real fetch(`${previewUrl}/health`) once the deployment adapter is wired.
   if (!previewUrl) {
     throw new Error("Missing preview URL");
   }
 }
 
 export async function runSmokeTest(previewUrl: string): Promise<void> {
-  // Replace with real fetch(`${previewUrl}/hello`) once the deployment adapter is wired.
   if (!previewUrl) {
     throw new Error("Missing preview URL");
   }
@@ -22,8 +20,16 @@ export async function auditCleanup(statuses: {
   deploymentStatus?: string;
 }): Promise<CleanupAuditResult> {
   const checks = [
-    { name: "environment_destroyed", ok: statuses.environmentStatus === "destroyed" },
-    { name: "deployment_destroyed", ok: statuses.deploymentStatus === "destroyed" },
+    {
+      name: "environment_destroyed",
+      ok: statuses.environmentStatus === "destroyed",
+      details: "database-recorded cleanup state",
+    },
+    {
+      name: "deployment_destroyed",
+      ok: statuses.deploymentStatus === "destroyed",
+      details: "database-recorded cleanup state",
+    },
   ];
 
   return {

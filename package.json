@@ -9,20 +9,23 @@
     "services/*",
     "examples/*"
   ],
-  "devDependencies": {
-    "tsx": "^4.21.0",
-    "typescript": "^5.8.0"
-  },
   "scripts": {
     "bootstrap": "bash scripts/dev/bootstrap.sh",
-    "build": "echo 'wire workspace build steps here'",
+    "build": "npm run typecheck",
+    "typecheck": "tsc -p core/control-plane/tsconfig.json --noEmit",
+    "test": "npm run typecheck",
     "dev:control-plane": "wrangler dev --config core/control-plane/wrangler.toml",
     "dev:sample-worker": "wrangler dev --config examples/sample-worker/wrangler.toml",
     "dev:deploy": "tsx scripts/dev/test-deploy.ts",
-    "dev:smoke-test": "tsx scripts/ci/smoke-test.ts",
-    "dev:wait-for-url": "tsx scripts/ci/wait-for-url.ts"
+    "deploy:node": "tsx scripts/deploy/run-node-deploy.ts",
+    "wait:url": "tsx scripts/ci/wait-for-url.ts",
+    "check:health": "tsx scripts/ci/check-health.ts",
+    "smoke:test": "tsx scripts/ci/smoke-test.ts"
   },
   "devDependencies": {
-    "tsx": "^4.21.0"
+    "@cloudflare/workers-types": "^4.20250320.0",
+    "tsx": "^4.21.0",
+    "typescript": "^5.8.0",
+    "wrangler": "^4.8.0"
   }
 }

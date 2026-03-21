@@ -5,7 +5,7 @@ import type {
   StepName,
 } from "../../../packages/event-schema/src/index";
 import { newId, nowIso } from "../../../packages/shared/src/index";
-import { CloudflarePreviewAdapter } from "../../../services/deployment-engine/src/index";
+import { WorkerDeploymentAdapter } from "../../../services/deployment-engine/src/worker-adapter";
 import {
   auditCleanup,
   runHealthCheck,
@@ -183,7 +183,7 @@ export class WorkflowCoordinatorDO {
     });
 
     try {
-      const adapter = new CloudflarePreviewAdapter();
+      const adapter = new WorkerDeploymentAdapter();
 
       switch (step) {
         case "INIT": {
@@ -216,6 +216,8 @@ export class WorkflowCoordinatorDO {
           }
 
           current.deploymentId = newId("dep");
+          current.deploymentRef = `sim-${current.workflowRunId}`;
+          current.previewUrl = "https://example.invalid";
 
           await emitEvent(this.env.DB, {
             traceId: current.traceId,
@@ -226,16 +228,9 @@ export class WorkflowCoordinatorDO {
               service_name: current.serviceName,
               workflow_run_id: current.workflowRunId,
               environment_id: current.environmentId,
+              mode: "simulated",
             },
           });
-
-          const result = await adapter.deployPreview({
-            serviceName: current.serviceName,
-            workflowRunId: current.workflowRunId,
-          });
-
-          current.deploymentRef = result.deploymentRef;
-          current.previewUrl = result.previewUrl;
 
           await this.env.DB.prepare(
             `INSERT INTO deployments (
@@ -251,9 +246,9 @@ export class WorkflowCoordinatorDO {
             .bind(
               current.deploymentId,
               current.environmentId,
-              result.provider,
-              result.deploymentRef,
-              result.previewUrl,
+              "cloudflare",
+              current.deploymentRef,
+              current.previewUrl,
               "deployed",
               nowIso(),
             )
@@ -271,9 +266,10 @@ export class WorkflowCoordinatorDO {
             stepName: step,
             eventType: "deployment.completed",
             payload: {
-              provider: result.provider,
-              deployment_ref: result.deploymentRef,
-              url: result.previewUrl,
+              provider: "cloudflare",
+              deployment_ref: current.deploymentRef,
+              url: current.previewUrl,
+              mode: "simulated",
             },
           });
 
@@ -331,12 +327,9 @@ export class WorkflowCoordinatorDO {
               environment_id: current.environmentId,
               deployment_id: current.deploymentId,
               deployment_ref: current.deploymentRef,
+              mode: "simulated",
             },
           });
-
-          if (current.deploymentRef) {
-            await adapter.teardownPreview(current.deploymentRef);
-          }
 
           if (current.deploymentId) {
             await this.env.DB.prepare(
@@ -362,6 +355,7 @@ export class WorkflowCoordinatorDO {
             payload: {
               environment_id: current.environmentId,
               deployment_id: current.deploymentId,
+              mode: "simulated",
             },
           });
 

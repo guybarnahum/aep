@@ -4,12 +4,6 @@ import type { StartWorkflowRequest } from "../../../packages/event-schema/src/in
 import { newId, nowIso } from "../../../packages/shared/src/index";
 import { handleHealthz } from "./routes/healthz";
 
-export interface Env {
-  APP_ENV?: string;
-  GIT_SHA?: string;
-  DB?: D1Database;
-}
-
 async function json(request: Request): Promise<unknown> {
   return request.json();
 }
@@ -110,7 +104,7 @@ export default {
     if (request.method === "GET" && url.pathname === "/healthz") {
       return handleHealthz(request, env);
     }
-    
+
     return new Response("Not found", { status: 404 });
   },
 } satisfies ExportedHandler<Env>;

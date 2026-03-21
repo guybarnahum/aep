@@ -44,13 +44,38 @@ jobs:
           echo "GIT_SHA=${GITHUB_SHA}" >> $GITHUB_ENV
 
       - name: Wait for readiness
-        run: node scripts/wait-for-url.ts "$DEPLOY_URL/healthz"
+        run: |
+          npx tsx scripts/ci/wait-for-url.ts \
+            --url "$DEPLOY_URL/healthz" \
+            --attempts 24 \
+            --interval-ms 5000 \
+            --timeout-ms 8000
 
       - name: Health check
-        run: node scripts/check-health.ts "$DEPLOY_URL/healthz" "$GIT_SHA" staging
+        run: |
+          npx tsx scripts/ci/check-health.ts \
+            --url "$DEPLOY_URL/healthz" \
+            --env staging \
+            --sha "$GIT_SHA" \
+            --service control-plane
 
       - name: Smoke test
-        run: node scripts/smoke-test.ts "$DEPLOY_URL" staging
+        run: |
+          npx tsx scripts/ci/smoke-test.ts \
+            --base-url "$DEPLOY_URL" \
+            --env staging \
+            --method POST \
+            --path /workflow/start \
+            --payload '{"tenant_id":"t_demo","project_id":"p_demo","repo_url":"https://github.com/example/repo","branch":"main","service_name":"sample-worker"}' \
+            --expect-status 202 \
+            --expect-json-key workflow_run_id \
+            --poll-path-template /workflow/{id} \
+            --poll-id-key workflow_run_id \
+            --poll-success-key run.status \
+            --poll-success-values completed \
+            --poll-failure-values failed,cancelled \
+            --poll-attempts 20 \
+            --poll-interval-ms 3000
 
       - name: Write summary
         if: always()
