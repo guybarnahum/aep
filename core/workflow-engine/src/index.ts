@@ -5,7 +5,7 @@ import type {
   StepName,
 } from "../../../packages/event-schema/src/index";
 import { newId, nowIso } from "../../../packages/shared/src/index";
-import { WorkerDeploymentAdapter } from "../../../services/deployment-engine/src/worker-adapter";
+// Unused import { WorkerDeploymentAdapter } from "../../../services/deployment-engine/src/worker-adapter";
 import {
   auditCleanup,
   runHealthCheck,
@@ -382,7 +382,6 @@ export class WorkflowCoordinatorDO {
           const result = await auditCleanup({
             environmentStatus: envCheck?.status,
             deploymentStatus: depCheck?.status,
-            previewUrl: current.previewUrl,
           });
 
           await emitEvent(this.env.DB, {
@@ -392,7 +391,7 @@ export class WorkflowCoordinatorDO {
             eventType: result.ok
               ? "cleanup.audit.passed"
               : "cleanup.audit.failed",
-            payload: result,
+            payload: result as unknown as Record<string, unknown>,
           });
 
           if (!result.ok) {
