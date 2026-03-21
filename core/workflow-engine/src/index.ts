@@ -183,7 +183,7 @@ export class WorkflowCoordinatorDO {
     });
 
     try {
-      const adapter = new WorkerDeploymentAdapter();
+      // Unused for now : const adapter = new WorkerDeploymentAdapter();
 
       switch (step) {
         case "INIT": {
