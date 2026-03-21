@@ -6,6 +6,7 @@ compatibility_date = "2025-01-01"
 binding = "DB"
 database_name = "aep"
 database_id = "REPLACE_ME"
+migrations_dir = "../../infra/cloudflare/d1/migrations"
 
 [[durable_objects.bindings]]
 name = "WORKFLOW_COORDINATOR"
@@ -17,5 +18,30 @@ new_sqlite_classes = ["WorkflowCoordinatorDO"]
 
 [vars]
 APP_ENV = "dev"
-GIT_SHA = "dev"
+
+SERVICE_NAME = "control-plane"
+
+[env.staging]
+name = "aep-control-plane-staging"
+
+[[env.staging.d1_databases]]
+binding = "DB"
+database_name = "aep-staging"
+database_id = "e09731a1-d37c-4833-8b79-e462643e2c36"
+
+[[env.staging.durable_objects.bindings]]
+name = "WORKFLOW_COORDINATOR"
+class_name = "WorkflowCoordinatorDO"
+
+[env.staging.vars]
+APP_ENV = "staging"
+GIT_SHA = "staging"
+SERVICE_NAME = "control-plane"
+
+[env.production]
+name = "aep-control-plane-production"
+
+[env.production.vars]
+APP_ENV = "production"
+GIT_SHA = "production"
 SERVICE_NAME = "control-plane"
