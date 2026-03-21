@@ -1,0 +1,82 @@
+name: Deploy Production
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm test
+
+  deploy-prod:
+    needs: test
+    runs-on: ubuntu-latest
+    environment: production  # <-- IMPORTANT: use GitHub env protection
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+      - run: npm run build
+
+      - name: Deploy to Cloudflare (production)
+        id: deploy
+        run: |
+          npx wrangler deploy --env production | tee deploy.log
+
+      - name: Export deploy metadata
+        run: |
+          echo "DEPLOY_URL=${{ secrets.PROD_BASE_URL }}" >> $GITHUB_ENV
+          echo "GIT_SHA=${GITHUB_SHA}" >> $GITHUB_ENV
+
+      - name: Wait for readiness
+        run: |
+          npx tsx scripts/ci/wait-for-url.ts \
+            --url "$DEPLOY_URL/healthz" \
+            --attempts 24 \
+            --interval-ms 5000 \
+            --timeout-ms 8000
+
+      - name: Health check
+        run: |
+          npx tsx scripts/ci/check-health.ts \
+            --url "$DEPLOY_URL/healthz" \
+            --env production \
+            --sha "$GIT_SHA" \
+            --service control-plane
+
+      - name: Smoke test
+        run: |
+          npx tsx scripts/ci/smoke-test.ts \
+            --base-url "$DEPLOY_URL" \
+            --env production \
+            --method POST \
+            --path /workflow/start \
+            --payload '{"tenant_id":"t_demo","project_id":"p_demo","repo_url":"https://github.com/example/repo","branch":"main","service_name":"sample-worker"}' \
+            --expect-status 200 \
+            --expect-json-key workflow_id
+
+      - name: Write summary
+        if: always()
+        run: |
+          echo "## 🚀 Production Deploy Summary" >> $GITHUB_STEP_SUMMARY
+          echo "- URL: $DEPLOY_URL" >> $GITHUB_STEP_SUMMARY
+          echo "- SHA: $GIT_SHA" >> $GITHUB_STEP_SUMMARY
+          echo "- Trigger: $GITHUB_EVENT_NAME" >> $GITHUB_STEP_SUMMARY

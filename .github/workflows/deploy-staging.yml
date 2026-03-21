@@ -1,0 +1,60 @@
+name: Deploy Staging
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm test
+
+  deploy-staging:
+    needs: test
+    runs-on: ubuntu-latest
+    environment: staging
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+      - run: npm run build
+
+      - name: Deploy to Cloudflare
+        id: deploy
+        run: |
+          npx wrangler deploy --env staging | tee deploy.log
+
+      - name: Export deploy metadata
+        run: |
+          echo "DEPLOY_URL=${{ secrets.STAGING_BASE_URL }}" >> $GITHUB_ENV
+          echo "GIT_SHA=${GITHUB_SHA}" >> $GITHUB_ENV
+
+      - name: Wait for readiness
+        run: node scripts/wait-for-url.ts "$DEPLOY_URL/healthz"
+
+      - name: Health check
+        run: node scripts/check-health.ts "$DEPLOY_URL/healthz" "$GIT_SHA" staging
+
+      - name: Smoke test
+        run: node scripts/smoke-test.ts "$DEPLOY_URL" staging
+
+      - name: Write summary
+        if: always()
+        run: |
+          echo "## Deploy summary" >> $GITHUB_STEP_SUMMARY
+          echo "- URL: $DEPLOY_URL" >> $GITHUB_STEP_SUMMARY
+          echo "- SHA: $GIT_SHA" >> $GITHUB_STEP_SUMMARY

@@ -14,3 +14,8 @@ class_name = "WorkflowCoordinatorDO"
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["WorkflowCoordinatorDO"]
+
+[vars]
+APP_ENV = "dev"
+GIT_SHA = "dev"
+SERVICE_NAME = "control-plane"

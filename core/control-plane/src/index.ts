@@ -2,6 +2,13 @@ import { WorkflowCoordinatorDO } from "../../workflow-engine/src/index";
 import type { Env } from "../../types/src/index";
 import type { StartWorkflowRequest } from "../../../packages/event-schema/src/index";
 import { newId, nowIso } from "../../../packages/shared/src/index";
+import { handleHealthz } from "./routes/healthz";
+
+export interface Env {
+  APP_ENV?: string;
+  GIT_SHA?: string;
+  DB?: D1Database;
+}
 
 async function json(request: Request): Promise<unknown> {
   return request.json();
@@ -100,6 +107,10 @@ export default {
       return Response.json({ ok: true, app: "aep-control-plane" });
     }
 
+    if (request.method === "GET" && url.pathname === "/healthz") {
+      return handleHealthz(request, env);
+    }
+    
     return new Response("Not found", { status: 404 });
   },
 } satisfies ExportedHandler<Env>;

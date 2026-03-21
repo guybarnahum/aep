@@ -18,7 +18,9 @@
     "build": "echo 'wire workspace build steps here'",
     "dev:control-plane": "wrangler dev --config core/control-plane/wrangler.toml",
     "dev:sample-worker": "wrangler dev --config examples/sample-worker/wrangler.toml",
-    "dev:deploy": "tsx scripts/dev/test-deploy.ts"
+    "dev:deploy": "tsx scripts/dev/test-deploy.ts",
+    "dev:smoke-test": "tsx scripts/ci/smoke-test.ts",
+    "dev:wait-for-url": "tsx scripts/ci/wait-for-url.ts"
   },
   "devDependencies": {
     "tsx": "^4.21.0"
