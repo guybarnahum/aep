@@ -18,7 +18,6 @@ new_sqlite_classes = ["WorkflowCoordinatorDO"]
 
 [vars]
 APP_ENV = "dev"
-
 SERVICE_NAME = "control-plane"
 
 [env.staging]
@@ -35,7 +34,6 @@ class_name = "WorkflowCoordinatorDO"
 
 [env.staging.vars]
 APP_ENV = "staging"
-GIT_SHA = "staging"
 SERVICE_NAME = "control-plane"
 
 [env.production]
@@ -43,5 +41,4 @@ name = "aep-control-plane-production"
 
 [env.production.vars]
 APP_ENV = "production"
-GIT_SHA = "production"
 SERVICE_NAME = "control-plane"

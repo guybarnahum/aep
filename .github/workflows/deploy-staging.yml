@@ -22,6 +22,10 @@ jobs:
     environment: staging
     permissions:
       contents: read
+    env:
+      GIT_SHA: ${{ github.sha }}
+      DEPLOY_URL: ${{ secrets.STAGING_BASE_URL }}
+
     steps:
       - uses: actions/checkout@v4
 
@@ -31,6 +35,14 @@ jobs:
           cache: npm
 
       - run: npm ci
+
+      - name: Generate build metadata
+        run: |
+          mkdir -p core/control-plane/src/generated
+          cat > core/control-plane/src/generated/build-meta.ts <<EOF
+          export const BUILD_GIT_SHA = "${GIT_SHA}";
+          EOF
+
       - run: npm run build
 
       - name: Deploy to Cloudflare
@@ -42,11 +54,6 @@ jobs:
           npx wrangler deploy \
             --config core/control-plane/wrangler.toml \
             --env staging | tee deploy.log
-
-      - name: Export deploy metadata
-        run: |
-          echo "DEPLOY_URL=${{ secrets.STAGING_BASE_URL }}" >> $GITHUB_ENV
-          echo "GIT_SHA=${GITHUB_SHA}" >> $GITHUB_ENV
 
       - name: Wait for readiness
         run: |
