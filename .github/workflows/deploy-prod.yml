@@ -9,6 +9,8 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    env:
+      GIT_SHA: ${{ github.sha }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -16,6 +18,14 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
+
+      - name: Generate build metadata
+        run: |
+          mkdir -p core/control-plane/src/generated
+          cat > core/control-plane/src/generated/build-meta.ts <<EOF
+          export const BUILD_GIT_SHA = "${GIT_SHA}";
+          EOF
+
       - run: npm test
 
   deploy-prod:
