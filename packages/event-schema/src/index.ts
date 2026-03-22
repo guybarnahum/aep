@@ -1,3 +1,5 @@
+import type { Provider } from "../../../packages/shared/src";
+
 export type WorkflowStatus =
   | "queued"
   | "running"
@@ -21,6 +23,7 @@ export interface StartWorkflowRequest {
   repo_url: string;
   branch: string;
   service_name: string;
+  provider?: Provider;
 }
 
 export interface EventPayload {

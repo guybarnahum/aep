@@ -1,7 +1,12 @@
 import { WorkflowCoordinatorDO } from "../../workflow-engine/src/index";
 import type { Env } from "../../types/src/index";
 import type { StartWorkflowRequest } from "../../../packages/event-schema/src/index";
-import { newId, nowIso } from "../../../packages/shared/src/index";
+import {
+  DEFAULT_PROVIDER,
+  newId,
+  nowIso,
+  isProvider,
+} from "../../../packages/shared/src/index";
 import { handleHealthz } from "./routes/healthz";
 
 async function json(request: Request): Promise<unknown> {
@@ -32,6 +37,7 @@ export default {
           repo_url: requireString(body.repo_url, "repo_url"),
           branch: requireString(body.branch, "branch"),
           service_name: requireString(body.service_name, "service_name"),
+          provider: isProvider(body.provider) ? body.provider : DEFAULT_PROVIDER,
         };
 
         const workflowRunId = newId("run");
@@ -59,23 +65,40 @@ export default {
         await stub.fetch(
           new Request("https://do/start", {
             method: "POST",
-            body: JSON.stringify({ ...payload, workflow_run_id: workflowRunId, trace_id: traceId }),
+            body: JSON.stringify({
+              ...payload,
+              workflow_run_id: workflowRunId,
+              trace_id: traceId,
+            }),
           }),
         );
 
-        return Response.json({ workflow_run_id: workflowRunId, trace_id: traceId, status: "queued" }, { status: 202 });
+        return Response.json(
+          {
+            workflow_run_id: workflowRunId,
+            trace_id: traceId,
+            status: "queued",
+          },
+          { status: 202 },
+        );
       } catch (error) {
-        return badRequest(error instanceof Error ? error.message : "Invalid request body");
+        return badRequest(
+          error instanceof Error ? error.message : "Invalid request body",
+        );
       }
     }
 
     if (request.method === "GET" && url.pathname.startsWith("/workflow/")) {
       const workflowRunId = url.pathname.split("/")[2];
-      const run = await env.DB.prepare(`SELECT * FROM workflow_runs WHERE id = ?`).bind(workflowRunId).first();
+      const run = await env.DB.prepare(`SELECT * FROM workflow_runs WHERE id = ?`)
+        .bind(workflowRunId)
+        .first();
       if (!run) {
         return Response.json({ error: "Not found" }, { status: 404 });
       }
-      const steps = await env.DB.prepare(`SELECT * FROM workflow_steps WHERE workflow_run_id = ? ORDER BY started_at ASC`)
+      const steps = await env.DB.prepare(
+        `SELECT * FROM workflow_steps WHERE workflow_run_id = ? ORDER BY started_at ASC`,
+      )
         .bind(workflowRunId)
         .all();
       return Response.json({ run, steps: steps.results ?? [] });
@@ -83,7 +106,9 @@ export default {
 
     if (request.method === "GET" && url.pathname.startsWith("/trace/")) {
       const traceId = url.pathname.split("/")[2];
-      const events = await env.DB.prepare(`SELECT * FROM events WHERE trace_id = ? ORDER BY timestamp ASC`)
+      const events = await env.DB.prepare(
+        `SELECT * FROM events WHERE trace_id = ? ORDER BY timestamp ASC`,
+      )
         .bind(traceId)
         .all();
       return Response.json({ trace_id: traceId, events: events.results ?? [] });
@@ -94,7 +119,10 @@ export default {
       const id = env.WORKFLOW_COORDINATOR.idFromName(workflowRunId);
       const stub = env.WORKFLOW_COORDINATOR.get(id);
       await stub.fetch(new Request("https://do/cancel", { method: "POST" }));
-      return Response.json({ workflow_run_id: workflowRunId, status: "cancellation_requested" });
+      return Response.json({
+        workflow_run_id: workflowRunId,
+        status: "cancellation_requested",
+      });
     }
 
     if (request.method === "GET" && url.pathname === "/health") {

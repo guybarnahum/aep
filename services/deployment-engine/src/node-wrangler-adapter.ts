@@ -1,4 +1,5 @@
 import { execSync } from "child_process";
+import { DEFAULT_PROVIDER } from "../../../packages/shared/src/index";
 import type { DeploymentAdapter, DeployArgs, DeployResult } from "./types";
 
 export interface NodeWranglerDeployInput {
@@ -15,6 +16,12 @@ export class NodeWranglerAdapter implements DeploymentAdapter {
   ) {}
 
   async deployPreview(args: DeployArgs): Promise<DeployResult> {
+    if (args.provider !== DEFAULT_PROVIDER) {
+      throw new Error(
+        `NodeWranglerAdapter only supports provider=${DEFAULT_PROVIDER}. Received provider=${args.provider}`,
+      );
+    }
+
     const input: NodeWranglerDeployInput = {
       serviceName: args.serviceName,
       workingDir: this.options.workingDir ?? "examples/sample-worker",
@@ -47,7 +54,7 @@ export class NodeWranglerAdapter implements DeploymentAdapter {
       const url = urlMatch[0];
 
       return {
-        provider: "cloudflare",
+        provider: args.provider,
         deploymentRef: deploymentName,
         previewUrl: url,
       };

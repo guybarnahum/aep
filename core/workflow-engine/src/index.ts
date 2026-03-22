@@ -4,7 +4,8 @@ import type {
   StartWorkflowRequest,
   StepName,
 } from "../../../packages/event-schema/src/index";
-import { newId, nowIso } from "../../../packages/shared/src/index";
+import type { Provider } from "../../../packages/shared/src/index";
+import { DEFAULT_PROVIDER, newId, nowIso } from "../../../packages/shared/src/index";
 // Unused import { WorkerDeploymentAdapter } from "../../../services/deployment-engine/src/worker-adapter";
 import {
   auditCleanup,
@@ -20,6 +21,7 @@ interface State {
   repoUrl: string;
   branch: string;
   serviceName: string;
+  provider: Provider;
   environmentId?: string;
   deploymentId?: string;
   deploymentRef?: string;
@@ -61,6 +63,7 @@ export class WorkflowCoordinatorDO {
         repoUrl: body.repo_url,
         branch: body.branch,
         serviceName: body.service_name,
+        provider: body.provider ?? (DEFAULT_PROVIDER as Provider),
         cancelled: false,
       };
 
@@ -120,6 +123,7 @@ export class WorkflowCoordinatorDO {
         service_name: current.serviceName,
         repo_url: current.repoUrl,
         branch: current.branch,
+        provider: current.provider,
       },
     });
 
@@ -225,6 +229,7 @@ export class WorkflowCoordinatorDO {
             stepName: step,
             eventType: "deployment.started",
             payload: {
+              provider: current.provider,
               service_name: current.serviceName,
               workflow_run_id: current.workflowRunId,
               environment_id: current.environmentId,
@@ -246,7 +251,7 @@ export class WorkflowCoordinatorDO {
             .bind(
               current.deploymentId,
               current.environmentId,
-              "cloudflare",
+              current.provider,
               current.deploymentRef,
               current.previewUrl,
               "deployed",
@@ -266,7 +271,7 @@ export class WorkflowCoordinatorDO {
             stepName: step,
             eventType: "deployment.completed",
             payload: {
-              provider: "cloudflare",
+              provider: current.provider,
               deployment_ref: current.deploymentRef,
               url: current.previewUrl,
               mode: "simulated",
@@ -324,6 +329,7 @@ export class WorkflowCoordinatorDO {
             stepName: step,
             eventType: "teardown.started",
             payload: {
+              provider: current.provider,
               environment_id: current.environmentId,
               deployment_id: current.deploymentId,
               deployment_ref: current.deploymentRef,
@@ -353,6 +359,7 @@ export class WorkflowCoordinatorDO {
             stepName: step,
             eventType: "teardown.completed",
             payload: {
+              provider: current.provider,
               environment_id: current.environmentId,
               deployment_id: current.deploymentId,
               mode: "simulated",

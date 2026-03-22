@@ -1,12 +1,18 @@
+import type { Provider } from "../../../packages/shared/src/index";
+
 export interface DeployArgs {
+  provider: Provider;
   serviceName: string;
   workflowRunId: string;
+  repoUrl?: string;
+  branch?: string;
 }
 
 export interface DeployResult {
-  provider: string;
+  provider: Provider;
   deploymentRef: string;
   previewUrl: string;
+  metadata?: Record<string, unknown>;
 }
 
 export interface DeploymentAdapter {

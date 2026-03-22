@@ -1,8 +1,13 @@
 #!/usr/bin/env node
 
+import { DEFAULT_PROVIDER, isProvider } from "../../packages/shared/src/index";
 import { NodeWranglerAdapter } from "../../services/deployment-engine/src/node-wrangler-adapter";
 
-function parseArgs(argv: string[]): { serviceName: string; workflowRunId: string } {
+function parseArgs(argv: string[]): {
+  provider: typeof DEFAULT_PROVIDER;
+  serviceName: string;
+  workflowRunId: string;
+} {
   const args = new Map<string, string>();
 
   for (let i = 0; i < argv.length; i += 1) {
@@ -23,24 +28,30 @@ function parseArgs(argv: string[]): { serviceName: string; workflowRunId: string
 
   const serviceName = args.get("service-name");
   const workflowRunId = args.get("workflow-run-id");
+  const rawProvider = args.get("provider");
 
   if (!serviceName || !workflowRunId) {
     throw new Error(
-      "Usage: tsx scripts/deploy/run-node-deploy.ts --service-name sample-worker --workflow-run-id run_123",
+      "Usage: tsx scripts/deploy/run-node-deploy.ts --service-name sample-worker --workflow-run-id run_123 [--provider cloudflare]",
     );
   }
 
-  return { serviceName, workflowRunId };
+  return {
+    provider: isProvider(rawProvider) ? rawProvider : DEFAULT_PROVIDER,
+    serviceName,
+    workflowRunId,
+  };
 }
 
 async function main(): Promise<void> {
-  const { serviceName, workflowRunId } = parseArgs(process.argv.slice(2));
+  const { provider, serviceName, workflowRunId } = parseArgs(process.argv.slice(2));
 
   const adapter = new NodeWranglerAdapter({
     workingDir: "examples/sample-worker",
   });
 
   const result = await adapter.deployPreview({
+    provider,
     serviceName,
     workflowRunId,
   });
