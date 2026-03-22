@@ -6,6 +6,8 @@ import {
   newId,
   nowIso,
   isProvider,
+  sha256Hex,
+  timingSafeEqual,
 } from "../../../packages/shared/src/index";
 import { handleHealthz } from "./routes/healthz";
 
@@ -22,6 +24,18 @@ function requireString(value: unknown, field: string): string {
     throw new Error(`Invalid ${field}`);
   }
   return value;
+}
+
+async function verifyCallbackToken(
+  storedHash: string,
+  providedToken: string | null,
+): Promise<boolean> {
+  if (!providedToken) {
+    return false;
+  }
+
+  const providedHash = await sha256Hex(providedToken);
+  return timingSafeEqual(storedHash, providedHash);
 }
 
 export default {
@@ -123,6 +137,115 @@ export default {
         workflow_run_id: workflowRunId,
         status: "cancellation_requested",
       });
+    }
+
+    if (
+      request.method === "POST" &&
+      url.pathname.match(/^\/internal\/deploy-jobs\/[^/]+\/callback$/)
+    ) {
+      const jobId = url.pathname.split("/")[3];
+      const authHeader = request.headers.get("authorization");
+      const token = authHeader?.startsWith("Bearer ")
+        ? authHeader.slice("Bearer ".length)
+        : null;
+
+      const body = (await json(request)) as {
+        status: "succeeded" | "failed";
+        result?: Record<string, unknown>;
+        error_message?: string;
+      };
+
+      const job = await env.DB.prepare(
+        `SELECT id, workflow_run_id, step_name, provider, status, request_json, callback_token_hash
+         FROM deploy_jobs
+         WHERE id = ?`,
+      )
+        .bind(jobId)
+        .first<{
+          id: string;
+          workflow_run_id: string;
+          step_name: string;
+          provider: string;
+          status: string;
+          request_json: string;
+          callback_token_hash: string;
+        }>();
+
+      if (!job) {
+        return Response.json({ error: "Deploy job not found" }, { status: 404 });
+      }
+
+      const ok = await verifyCallbackToken(job.callback_token_hash, token);
+      if (!ok) {
+        return Response.json({ error: "Unauthorized callback" }, { status: 401 });
+      }
+
+      const requestJson = JSON.parse(job.request_json) as {
+        deployment_ref?: string;
+      };
+
+      if (body.status === "succeeded") {
+        await env.DB.prepare(
+          `UPDATE deploy_jobs
+           SET status = ?, result_json = ?, completed_at = ?
+           WHERE id = ?`,
+        )
+          .bind(
+            "succeeded",
+            JSON.stringify(body.result ?? {}),
+            nowIso(),
+            jobId,
+          )
+          .run();
+
+        if (requestJson.deployment_ref) {
+          await env.DB.prepare(
+            `UPDATE deployments
+             SET status = ?, destroyed_at = ?
+             WHERE deployment_ref = ?`,
+          )
+            .bind("destroyed", nowIso(), requestJson.deployment_ref)
+            .run();
+        }
+
+        await env.DB.prepare(
+          `UPDATE environments
+           SET status = ?, destroyed_at = ?
+           WHERE workflow_run_id = ?`,
+        )
+          .bind("destroyed", nowIso(), job.workflow_run_id)
+          .run();
+      } else {
+        await env.DB.prepare(
+          `UPDATE deploy_jobs
+           SET status = ?, error_message = ?, completed_at = ?
+           WHERE id = ?`,
+        )
+          .bind(
+            "failed",
+            body.error_message ?? "External job failed",
+            nowIso(),
+            jobId,
+          )
+          .run();
+      }
+
+      const doId = env.WORKFLOW_COORDINATOR.idFromName(job.workflow_run_id);
+      const stub = env.WORKFLOW_COORDINATOR.get(doId);
+      await stub.fetch(new Request("https://do/resume", { method: "POST" }));
+
+      return Response.json({ ok: true, job_id: jobId, status: body.status });
+    }
+
+    if (request.method === "GET" && url.pathname.startsWith("/deploy-jobs/")) {
+      const jobId = url.pathname.split("/")[2];
+      const job = await env.DB.prepare(`SELECT * FROM deploy_jobs WHERE id = ?`)
+        .bind(jobId)
+        .first();
+      if (!job) {
+        return Response.json({ error: "Not found" }, { status: 404 });
+      }
+      return Response.json({ job });
     }
 
     if (request.method === "GET" && url.pathname === "/health") {

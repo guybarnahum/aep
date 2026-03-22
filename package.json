@@ -18,6 +18,7 @@
     "dev:sample-worker": "wrangler dev --config examples/sample-worker/wrangler.toml",
     "dev:deploy": "tsx scripts/dev/test-deploy.ts",
     "deploy:node": "tsx scripts/deploy/run-node-deploy.ts",
+    "teardown:node": "tsx scripts/deploy/run-node-teardown.ts",
     "wait:url": "tsx scripts/ci/wait-for-url.ts",
     "check:health": "tsx scripts/ci/check-health.ts",
     "smoke:test": "tsx scripts/ci/smoke-test.ts"

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { DEFAULT_PROVIDER, isProvider } from "../../packages/shared/src/index";
-import { NodeWranglerAdapter } from "../../services/deployment-engine/src/node-wrangler-adapter";
+import { getNodeDeploymentAdapter } from "../../services/deployment-engine/src";
 
 function parseArgs(argv: string[]): {
   provider: typeof DEFAULT_PROVIDER;
@@ -46,7 +46,7 @@ function parseArgs(argv: string[]): {
 async function main(): Promise<void> {
   const { provider, serviceName, workflowRunId } = parseArgs(process.argv.slice(2));
 
-  const adapter = new NodeWranglerAdapter({
+  const adapter = getNodeDeploymentAdapter(provider, {
     workingDir: "examples/sample-worker",
   });
 

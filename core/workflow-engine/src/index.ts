@@ -5,8 +5,12 @@ import type {
   StepName,
 } from "../../../packages/event-schema/src/index";
 import type { Provider } from "../../../packages/shared/src/index";
-import { DEFAULT_PROVIDER, newId, nowIso } from "../../../packages/shared/src/index";
-// Unused import { WorkerDeploymentAdapter } from "../../../services/deployment-engine/src/worker-adapter";
+import {
+  DEFAULT_PROVIDER,
+  newId,
+  nowIso,
+  sha256Hex,
+} from "../../../packages/shared/src/index";
 import {
   auditCleanup,
   runHealthCheck,
@@ -26,6 +30,8 @@ interface State {
   deploymentId?: string;
   deploymentRef?: string;
   previewUrl?: string;
+  waitingJobId?: string;
+  waitingStep?: StepName;
   cancelled: boolean;
 }
 
@@ -103,6 +109,20 @@ export class WorkflowCoordinatorDO {
       return Response.json(current ?? {});
     }
 
+    if (request.method === "POST" && url.pathname === "/resume") {
+      const current = await this.state.storage.get<State>("state");
+
+      if (!current) {
+        return Response.json(
+          { ok: false, error: "workflow state not found" },
+          { status: 404 },
+        );
+      }
+
+      this.state.waitUntil(this.resumeWorkflow());
+      return Response.json({ ok: true });
+    }
+
     return new Response("Not found", { status: 404 });
   }
 
@@ -139,6 +159,10 @@ export class WorkflowCoordinatorDO {
 
         await this.runStep(step, current);
         await this.state.storage.put("state", current);
+
+        if (current.waitingJobId) {
+          return;
+        }
       }
 
       const finalStatus = current.cancelled ? "cancelled" : "completed";
@@ -467,4 +491,125 @@ export class WorkflowCoordinatorDO {
       .bind(status, completedAt, workflowRunId)
       .run();
   }
+
+  private async createExternalJob(args: {
+    stepName: StepName;
+    jobType: "teardown_preview";
+    provider: Provider;
+    request: Record<string, unknown>;
+  }): Promise<{ jobId: string; callbackToken: string }> {
+    const current = await this.state.storage.get<State>("state");
+
+    if (!current) {
+      throw new Error("workflow state not found");
+    }
+
+    const jobId = newId("job");
+    const callbackToken = crypto.randomUUID();
+    const callbackTokenHash = await sha256Hex(callbackToken);
+
+    await this.env.DB.prepare(
+      `INSERT INTO deploy_jobs (
+        id,
+        workflow_run_id,
+        step_name,
+        job_type,
+        provider,
+        status,
+        request_json,
+        callback_token_hash,
+        created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    )
+      .bind(
+        jobId,
+        current.workflowRunId,
+        args.stepName,
+        args.jobType,
+        args.provider,
+        "queued",
+        JSON.stringify(args.request),
+        callbackTokenHash,
+        nowIso(),
+      )
+      .run();
+
+    await emitEvent(this.env.DB, {
+      traceId: current.traceId,
+      workflowRunId: current.workflowRunId,
+      stepName: args.stepName,
+      eventType: "deploy_job.created",
+      payload: {
+        job_id: jobId,
+        job_type: args.jobType,
+        provider: args.provider,
+      },
+    });
+
+    current.waitingJobId = jobId;
+    current.waitingStep = args.stepName;
+    await this.state.storage.put("state", current);
+
+    return { jobId, callbackToken };
+  }
+
+  private async resumeWorkflow(): Promise<void> {
+    const current = await this.state.storage.get<State>("state");
+
+    if (!current) {
+      throw new Error("workflow state not found");
+    }
+
+    if (!current.waitingJobId || !current.waitingStep) {
+      return;
+    }
+
+    const job = await this.env.DB.prepare(
+      `SELECT status FROM deploy_jobs WHERE id = ?`,
+    )
+      .bind(current.waitingJobId)
+      .first<{ status: string }>();
+
+    if (!job) {
+      throw new Error("waiting job not found");
+    }
+
+    if (job.status !== "succeeded") {
+      if (job.status === "failed") {
+        throw new Error(`External job failed: ${current.waitingJobId}`);
+      }
+      return;
+    }
+
+    current.waitingJobId = undefined;
+    current.waitingStep = undefined;
+    await this.state.storage.put("state", current);
+
+    await emitEvent(this.env.DB, {
+      traceId: current.traceId,
+      workflowRunId: current.workflowRunId,
+      eventType: "workflow.resumed",
+      payload: {
+        resumed_after_step: "TEARDOWN",
+      },
+    });
+
+    await this.runStep("CLEANUP_AUDIT", current);
+    await this.state.storage.put("state", current);
+
+    await this.runStep("COMPLETE", current);
+    await this.state.storage.put("state", current);
+
+    const finalStatus = current.cancelled ? "cancelled" : "completed";
+
+    await this.setWorkflowStatus(current.workflowRunId, finalStatus);
+
+    await emitEvent(this.env.DB, {
+      traceId: current.traceId,
+      workflowRunId: current.workflowRunId,
+      eventType: "workflow.completed",
+      payload: { status: finalStatus },
+    });
+  }
 }
+

@@ -4,7 +4,7 @@ compatibility_date = "2025-01-01"
 
 [[d1_databases]]
 binding = "DB"
-database_name = "aep"
+database_name = "aep-db"
 database_id = "REPLACE_ME"
 migrations_dir = "../../infra/cloudflare/d1/migrations"
 

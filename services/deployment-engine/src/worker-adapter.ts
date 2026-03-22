@@ -1,15 +1,7 @@
-import type { DeploymentAdapter, DeployArgs, DeployResult } from "./types";
-
-export class WorkerDeploymentAdapter implements DeploymentAdapter {
-  async deployPreview(_args: DeployArgs): Promise<DeployResult> {
-    throw new Error(
-      "Real deployment cannot be executed inside the Worker runtime. Use the Node Wrangler adapter from CI or a deploy runner.",
-    );
-  }
-
-  async teardownPreview(_deploymentRef: string): Promise<void> {
-    throw new Error(
-      "Real teardown cannot be executed inside the Worker runtime. Use the Node Wrangler adapter from CI or a deploy runner.",
-    );
-  }
-}
+// Temporary compatibility shim for refactoring.
+// This file maintains backward compatibility during the multi-provider migration.
+// It re-exports the Cloudflare adapter with the legacy NodeWranglerAdapter name
+// to avoid breaking existing imports before the refactoring is complete.
+// TODO: Remove this file once all internal imports have been migrated to the
+// new provider-based structure under ./providers/
+export { CloudflareWorkerDeploymentAdapter as WorkerDeploymentAdapter } from "./providers/cloudflare/worker-adapter";
