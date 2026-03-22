@@ -27,6 +27,7 @@ name = "aep-control-plane-staging"
 binding = "DB"
 database_name = "aep-staging"
 database_id = "e09731a1-d37c-4833-8b79-e462643e2c36"
+migrations_dir = "../../infra/cloudflare/d1/migrations"
 
 [[env.staging.durable_objects.bindings]]
 name = "WORKFLOW_COORDINATOR"
