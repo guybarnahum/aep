@@ -17,14 +17,11 @@ jobs:
         with:
           node-version: 20
           cache: npm
+
       - run: npm ci
 
       - name: Generate build metadata
-        run: |
-          mkdir -p core/control-plane/src/generated
-          cat > core/control-plane/src/generated/build-meta.ts <<EOF
-          export const BUILD_GIT_SHA = "${GIT_SHA}";
-          EOF
+        run: ./scripts/ci/generate-build-meta.sh
 
       - run: npm test
 
@@ -37,6 +34,9 @@ jobs:
     env:
       GIT_SHA: ${{ github.sha }}
       DEPLOY_URL: ${{ secrets.PROD_BASE_URL }}
+      CF_ENV: production
+      D1_DATABASE_NAME: aep-production
+      WRANGLER_CONFIG: core/control-plane/wrangler.toml
 
     steps:
       - uses: actions/checkout@v4
@@ -49,23 +49,24 @@ jobs:
       - run: npm ci
 
       - name: Generate build metadata
-        run: |
-          mkdir -p core/control-plane/src/generated
-          cat > core/control-plane/src/generated/build-meta.ts <<EOF
-          export const BUILD_GIT_SHA = "${GIT_SHA}";
-          EOF
+        run: ./scripts/ci/generate-build-meta.sh
 
       - run: npm run build
 
-      - name: Deploy to Cloudflare (production)
-        id: deploy
+      - name: Deploy to Cloudflare
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           npx wrangler deploy \
-            --config core/control-plane/wrangler.toml \
-            --env production | tee deploy.log
+            --config "$WRANGLER_CONFIG" \
+            --env "$CF_ENV" | tee deploy.log
+
+      - name: Apply D1 migrations
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: ./scripts/ci/apply-d1-migrations.sh | tee migrations.log
 
       - name: Wait for readiness
         run: |
@@ -73,21 +74,21 @@ jobs:
             --url "$DEPLOY_URL/healthz" \
             --attempts 24 \
             --interval-ms 5000 \
-            --timeout-ms 8000
+            --timeout-ms 8000 | tee wait-for-url.log
 
       - name: Health check
         run: |
           npx tsx scripts/ci/check-health.ts \
             --url "$DEPLOY_URL/healthz" \
-            --env production \
+            --env "$CF_ENV" \
             --sha "$GIT_SHA" \
-            --service control-plane
+            --service control-plane | tee health-check.log
 
       - name: Smoke test
         run: |
           npx tsx scripts/ci/smoke-test.ts \
             --base-url "$DEPLOY_URL" \
-            --env production \
+            --env "$CF_ENV" \
             --method POST \
             --path /workflow/start \
             --payload '{"tenant_id":"t_demo","project_id":"p_demo","repo_url":"https://github.com/example/repo","branch":"main","service_name":"sample-worker"}' \
@@ -99,12 +100,23 @@ jobs:
             --poll-success-values completed \
             --poll-failure-values failed,cancelled \
             --poll-attempts 20 \
-            --poll-interval-ms 3000
+            --poll-interval-ms 3000 | tee smoke-test.log
 
       - name: Write summary
         if: always()
         run: |
-          echo "## 🚀 Production Deploy Summary" >> $GITHUB_STEP_SUMMARY
-          echo "- URL: $DEPLOY_URL" >> $GITHUB_STEP_SUMMARY
-          echo "- SHA: $GIT_SHA" >> $GITHUB_STEP_SUMMARY
-          echo "- Trigger: $GITHUB_EVENT_NAME" >> $GITHUB_STEP_SUMMARY
+          echo "## Production deploy summary" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Environment: $CF_ENV" >> "$GITHUB_STEP_SUMMARY"
+          echo "- URL: $DEPLOY_URL" >> "$GITHUB_STEP_SUMMARY"
+          echo "- SHA: $GIT_SHA" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Database: $D1_DATABASE_NAME" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Trigger: $GITHUB_EVENT_NAME" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "### Steps" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Build metadata generated" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Worker deployed" >> "$GITHUB_STEP_SUMMARY"
+          echo "- D1 migrations applied" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Readiness check passed" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Health check passed" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Smoke test completed" >> "$GITHUB_STEP_SUMMARY"
