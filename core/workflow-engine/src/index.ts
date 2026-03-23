@@ -129,6 +129,39 @@ export class WorkflowCoordinatorDO {
       return Response.json({ ok: true });
     }
 
+    if (request.method === "POST" && url.pathname === "/callback-update") {
+      const current = await this.state.storage.get<State>("state");
+
+      if (!current) {
+        return Response.json(
+          { ok: false, error: "workflow state not found" },
+          { status: 404 },
+        );
+      }
+
+      const body = (await request.json()) as {
+        deploymentRef?: string;
+        previewUrl?: string;
+        deploymentId?: string;
+      };
+
+      if (body.deploymentRef) {
+        current.deploymentRef = body.deploymentRef;
+      }
+
+      if (body.previewUrl) {
+        current.previewUrl = body.previewUrl;
+      }
+
+      if (body.deploymentId) {
+        current.deploymentId = body.deploymentId;
+      }
+
+      await this.state.storage.put("state", current);
+
+      return Response.json({ ok: true });
+    }
+
     return new Response("Not found", { status: 404 });
   }
 
@@ -630,6 +663,7 @@ export class WorkflowCoordinatorDO {
     const jobId = newId("job");
     const callbackToken = crypto.randomUUID();
     const callbackTokenHash = await sha256Hex(callbackToken);
+    const createdAt = nowIso();
 
     await this.env.DB.prepare(
       `INSERT INTO deploy_jobs (
@@ -653,7 +687,7 @@ export class WorkflowCoordinatorDO {
         "queued",
         JSON.stringify(args.request),
         callbackTokenHash,
-        nowIso(),
+        createdAt,
       )
       .run();
 
@@ -666,8 +700,22 @@ export class WorkflowCoordinatorDO {
         job_id: jobId,
         job_type: args.jobType,
         provider: args.provider,
+        created_at: createdAt,
       },
     });
+
+    if (this.env.APP_ENV === "dev") {
+      await emitEvent(this.env.DB, {
+        traceId: current.traceId,
+        workflowRunId: current.workflowRunId,
+        stepName: args.stepName,
+        eventType: "deploy_job.debug_token",
+        payload: {
+          job_id: jobId,
+          callback_token: callbackToken,
+        },
+      });
+    }
 
     current.waitingJobId = jobId;
     current.waitingStep = args.stepName;

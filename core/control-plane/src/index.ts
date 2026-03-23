@@ -257,6 +257,8 @@ export default {
             );
           }
 
+          let resolvedDeploymentId: string | undefined;
+
           const existingDeployment = await env.DB.prepare(
             `SELECT id FROM deployments WHERE environment_id = ? LIMIT 1`,
           )
@@ -264,6 +266,8 @@ export default {
             .first<{ id: string }>();
 
           if (existingDeployment) {
+            resolvedDeploymentId = existingDeployment.id;
+
             await env.DB.prepare(
               `UPDATE deployments
                SET deployment_provider = ?, deployment_ref = ?, url = ?, status = ?
@@ -278,6 +282,8 @@ export default {
               )
               .run();
           } else if (requestJson.environment_id) {
+            resolvedDeploymentId = newId("dep");
+
             await env.DB.prepare(
               `INSERT INTO deployments (
                 id,
@@ -290,7 +296,7 @@ export default {
               ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
             )
               .bind(
-                newId("dep"),
+                resolvedDeploymentId,
                 requestJson.environment_id,
                 job.provider,
                 deploymentRef,
@@ -310,6 +316,20 @@ export default {
               .bind("deployed", previewUrl, requestJson.environment_id)
               .run();
           }
+
+          const doId = env.WORKFLOW_COORDINATOR.idFromName(job.workflow_run_id);
+          const stub = env.WORKFLOW_COORDINATOR.get(doId);
+
+          await stub.fetch(
+            new Request("https://do/callback-update", {
+              method: "POST",
+              body: JSON.stringify({
+                deploymentRef,
+                previewUrl,
+                deploymentId: resolvedDeploymentId,
+              }),
+            }),
+          );
         } else if (job.job_type === "teardown_preview") {
           if (requestJson.deployment_ref) {
             await env.DB.prepare(
