@@ -263,7 +263,7 @@ export default {
           )
           .run();
       }
-
+      
       const doId = env.WORKFLOW_COORDINATOR.idFromName(job.workflow_run_id);
       const stub = env.WORKFLOW_COORDINATOR.get(doId);
       await stub.fetch(new Request("https://do/resume", { method: "POST" }));

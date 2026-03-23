@@ -365,7 +365,7 @@ export class WorkflowCoordinatorDO {
             throw new Error("deploymentRef missing before TEARDOWN");
           }
 
-          const { jobId, callbackToken } = await this.createExternalJob({
+          const { jobId, callbackToken } = await this.createExternalJob(current, {
             stepName: step,
             jobType: "teardown_preview",
             provider: current.provider,
@@ -524,17 +524,15 @@ export class WorkflowCoordinatorDO {
       .run();
   }
 
-  private async createExternalJob(args: {
-    stepName: StepName;
-    jobType: "teardown_preview";
-    provider: Provider;
-    request: Record<string, unknown>;
-  }): Promise<{ jobId: string; callbackToken: string }> {
-    const current = await this.state.storage.get<State>("state");
-
-    if (!current) {
-      throw new Error("workflow state not found");
-    }
+  private async createExternalJob(
+    current: State,
+    args: {
+      stepName: StepName;
+      jobType: "teardown_preview";
+      provider: Provider;
+      request: Record<string, unknown>;
+    },
+  ): Promise<{ jobId: string; callbackToken: string }> {
 
     const jobId = newId("job");
     const callbackToken = crypto.randomUUID();
@@ -642,7 +640,7 @@ export class WorkflowCoordinatorDO {
         return;
       }
     }
-    
+
     const finalStatus = current.cancelled ? "cancelled" : "completed";
 
     await this.setWorkflowStatus(current.workflowRunId, finalStatus);
