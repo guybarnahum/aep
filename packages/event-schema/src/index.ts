@@ -17,6 +17,8 @@ export type StepName =
   | "CLEANUP_AUDIT"
   | "COMPLETE";
 
+export type TeardownMode = "sync" | "async";
+
 export interface StartWorkflowRequest {
   tenant_id: string;
   project_id: string;
@@ -24,6 +26,7 @@ export interface StartWorkflowRequest {
   branch: string;
   service_name: string;
   provider?: Provider;
+  teardown_mode?: TeardownMode;
 }
 
 export interface EventPayload {

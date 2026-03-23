@@ -3,6 +3,7 @@ import type { Env } from "../../types/src/index";
 import type {
   StartWorkflowRequest,
   StepName,
+  TeardownMode,
 } from "../../../packages/event-schema/src/index";
 import type { Provider } from "../../../packages/shared/src/index";
 import {
@@ -26,6 +27,7 @@ interface State {
   branch: string;
   serviceName: string;
   provider: Provider;
+  teardownMode: TeardownMode;
   environmentId?: string;
   deploymentId?: string;
   deploymentRef?: string;
@@ -70,6 +72,7 @@ export class WorkflowCoordinatorDO {
         branch: body.branch,
         serviceName: body.service_name,
         provider: body.provider ?? (DEFAULT_PROVIDER as Provider),
+        teardownMode: body.teardown_mode ?? "async",
         cancelled: false,
       };
 
@@ -144,6 +147,7 @@ export class WorkflowCoordinatorDO {
         repo_url: current.repoUrl,
         branch: current.branch,
         provider: current.provider,
+        teardown_mode: current.teardownMode,
       },
     });
 
@@ -365,7 +369,55 @@ export class WorkflowCoordinatorDO {
             throw new Error("deploymentRef missing before TEARDOWN");
           }
 
-          const { jobId, callbackToken } = await this.createExternalJob(current, {
+          if (current.teardownMode === "sync") {
+            await emitEvent(this.env.DB, {
+              traceId: current.traceId,
+              workflowRunId: current.workflowRunId,
+              stepName: step,
+              eventType: "teardown.started",
+              payload: {
+                provider: current.provider,
+                environment_id: current.environmentId,
+                deployment_id: current.deploymentId,
+                deployment_ref: current.deploymentRef,
+                mode: "sync",
+              },
+            });
+
+            if (current.deploymentId) {
+              await this.env.DB.prepare(
+                `UPDATE deployments SET status = ?, destroyed_at = ? WHERE id = ?`,
+              )
+                .bind("destroyed", nowIso(), current.deploymentId)
+                .run();
+            }
+
+            if (current.environmentId) {
+              await this.env.DB.prepare(
+                `UPDATE environments SET status = ?, destroyed_at = ? WHERE id = ?`,
+              )
+                .bind("destroyed", nowIso(), current.environmentId)
+                .run();
+            }
+
+            await emitEvent(this.env.DB, {
+              traceId: current.traceId,
+              workflowRunId: current.workflowRunId,
+              stepName: step,
+              eventType: "teardown.completed",
+              payload: {
+                provider: current.provider,
+                environment_id: current.environmentId,
+                deployment_id: current.deploymentId,
+                deployment_ref: current.deploymentRef,
+                mode: "sync",
+              },
+            });
+
+            break;
+          }
+
+          const { jobId } = await this.createExternalJob(current, {
             stepName: step,
             jobType: "teardown_preview",
             provider: current.provider,
@@ -385,6 +437,7 @@ export class WorkflowCoordinatorDO {
               job_id: jobId,
               deployment_ref: current.deploymentRef,
               provider: current.provider,
+              mode: "async",
             },
           });
 
@@ -396,7 +449,7 @@ export class WorkflowCoordinatorDO {
 
           return;
         }
-
+        
         case "CLEANUP_AUDIT": {
           const envCheck = current.environmentId
             ? await this.env.DB.prepare(

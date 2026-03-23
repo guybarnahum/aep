@@ -91,7 +91,7 @@ jobs:
             --env "$CF_ENV" \
             --method POST \
             --path /workflow/start \
-            --payload '{"tenant_id":"t_demo","project_id":"p_demo","repo_url":"https://github.com/example/repo","branch":"main","service_name":"sample-worker"}' \
+            --payload '{"tenant_id":"t_demo","project_id":"p_demo","repo_url":"https://github.com/example/repo","branch":"main","service_name":"sample-worker","teardown_mode":"sync"}' \
             --expect-status 202 \
             --expect-json-key workflow_run_id \
             --poll-path-template /workflow/{id} \

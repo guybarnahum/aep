@@ -26,6 +26,10 @@ function requireString(value: unknown, field: string): string {
   return value;
 }
 
+function parseTeardownMode(value: unknown): "sync" | "async" {
+  return value === "sync" ? "sync" : "async";
+}
+
 async function verifyCallbackToken(
   storedHash: string,
   providedToken: string | null,
@@ -52,6 +56,7 @@ export default {
           branch: requireString(body.branch, "branch"),
           service_name: requireString(body.service_name, "service_name"),
           provider: isProvider(body.provider) ? body.provider : DEFAULT_PROVIDER,
+          teardown_mode: parseTeardownMode(body.teardown_mode),
         };
 
         const workflowRunId = newId("run");
@@ -263,7 +268,7 @@ export default {
           )
           .run();
       }
-      
+
       const doId = env.WORKFLOW_COORDINATOR.idFromName(job.workflow_run_id);
       const stub = env.WORKFLOW_COORDINATOR.get(doId);
       await stub.fetch(new Request("https://do/resume", { method: "POST" }));
