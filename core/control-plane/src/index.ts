@@ -46,6 +46,20 @@ async function verifyCallbackToken(
   return timingSafeEqual(storedHash, providedHash);
 }
 
+type DeployJobType = "deploy_preview" | "teardown_preview";
+
+type DeployJobCallbackBody = {
+  status: "succeeded" | "failed";
+  result?: Record<string, unknown>;
+  error_message?: string;
+};
+
+type DeployPreviewResult = {
+  deployment_ref?: string;
+  preview_url?: string;
+  url?: string;
+};
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
@@ -159,14 +173,10 @@ export default {
         ? authHeader.slice("Bearer ".length)
         : null;
 
-      const body = (await json(request)) as {
-        status: "succeeded" | "failed";
-        result?: Record<string, unknown>;
-        error_message?: string;
-      };
+      const body = (await json(request)) as DeployJobCallbackBody;
 
       const job = await env.DB.prepare(
-        `SELECT id, workflow_run_id, step_name, provider, status, request_json, callback_token_hash
+        `SELECT id, workflow_run_id, step_name, job_type, provider, status, request_json, callback_token_hash
          FROM deploy_jobs
          WHERE id = ?`,
       )
@@ -175,6 +185,7 @@ export default {
           id: string;
           workflow_run_id: string;
           step_name: string;
+          job_type: DeployJobType;
           provider: string;
           status: string;
           request_json: string;
@@ -192,7 +203,11 @@ export default {
 
       const requestJson = JSON.parse(job.request_json) as {
         deployment_ref?: string;
+        environment_id?: string;
+        service_name?: string;
       };
+
+      const deployResult = (body.result ?? {}) as DeployPreviewResult;
 
       if (body.status === "succeeded") {
         const completedAt = nowIso();
@@ -224,23 +239,101 @@ export default {
           )
           .run();
 
-        if (requestJson.deployment_ref) {
-          await env.DB.prepare(
-            `UPDATE deployments
-             SET status = ?, destroyed_at = ?
-             WHERE deployment_ref = ?`,
-          )
-            .bind("destroyed", completedAt, requestJson.deployment_ref)
-            .run();
-        }
+        if (job.job_type === "deploy_preview") {
+          const deploymentRef = deployResult.deployment_ref;
+          const previewUrl = deployResult.preview_url ?? deployResult.url;
 
-        await env.DB.prepare(
-          `UPDATE environments
-           SET status = ?, destroyed_at = ?
-           WHERE workflow_run_id = ?`,
-        )
-          .bind("destroyed", completedAt, job.workflow_run_id)
-          .run();
+          if (!deploymentRef) {
+            return Response.json(
+              { error: "deploy_preview callback missing deployment_ref" },
+              { status: 400 },
+            );
+          }
+
+          if (!previewUrl) {
+            return Response.json(
+              { error: "deploy_preview callback missing preview_url" },
+              { status: 400 },
+            );
+          }
+
+          const existingDeployment = await env.DB.prepare(
+            `SELECT id FROM deployments WHERE environment_id = ? LIMIT 1`,
+          )
+            .bind(requestJson.environment_id ?? null)
+            .first<{ id: string }>();
+
+          if (existingDeployment) {
+            await env.DB.prepare(
+              `UPDATE deployments
+               SET deployment_provider = ?, deployment_ref = ?, url = ?, status = ?
+               WHERE id = ?`,
+            )
+              .bind(
+                job.provider,
+                deploymentRef,
+                previewUrl,
+                "deployed",
+                existingDeployment.id,
+              )
+              .run();
+          } else if (requestJson.environment_id) {
+            await env.DB.prepare(
+              `INSERT INTO deployments (
+                id,
+                environment_id,
+                deployment_provider,
+                deployment_ref,
+                url,
+                status,
+                created_at
+              ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            )
+              .bind(
+                newId("dep"),
+                requestJson.environment_id,
+                job.provider,
+                deploymentRef,
+                previewUrl,
+                "deployed",
+                completedAt,
+              )
+              .run();
+          }
+
+          if (requestJson.environment_id) {
+            await env.DB.prepare(
+              `UPDATE environments
+               SET status = ?, preview_url = ?
+               WHERE id = ?`,
+            )
+              .bind("deployed", previewUrl, requestJson.environment_id)
+              .run();
+          }
+        } else if (job.job_type === "teardown_preview") {
+          if (requestJson.deployment_ref) {
+            await env.DB.prepare(
+              `UPDATE deployments
+               SET status = ?, destroyed_at = ?
+               WHERE deployment_ref = ?`,
+            )
+              .bind("destroyed", completedAt, requestJson.deployment_ref)
+              .run();
+          }
+
+          await env.DB.prepare(
+            `UPDATE environments
+             SET status = ?, destroyed_at = ?
+             WHERE workflow_run_id = ?`,
+          )
+            .bind("destroyed", completedAt, job.workflow_run_id)
+            .run();
+        } else {
+          return Response.json(
+            { error: `Unsupported job_type: ${String(job.job_type)}` },
+            { status: 400 },
+          );
+        }
       } else {
         const completedAt = nowIso();
         const errorMessage = body.error_message ?? "External job failed";
