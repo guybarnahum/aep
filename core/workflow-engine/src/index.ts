@@ -191,16 +191,30 @@ export class WorkflowCoordinatorDO {
     }
   }
 
-  private async runStep(step: StepName, current: State): Promise<void> {
-    const stepId = newId("step");
+  private async runStep(
+    step: StepName,
+    current: State,
+    options: { existingStepId?: string } = {},
+  ): Promise<void> {
+    const stepId = options.existingStepId ?? newId("step");
     const startedAt = nowIso();
 
-    await this.env.DB.prepare(
-      `INSERT INTO workflow_steps (id, workflow_run_id, step_name, status, started_at)
-       VALUES (?, ?, ?, ?, ?)`,
-    )
-      .bind(stepId, current.workflowRunId, step, "running", startedAt)
-      .run();
+    if (options.existingStepId) {
+      await this.env.DB.prepare(
+        `UPDATE workflow_steps
+         SET status = ?, error_message = NULL
+         WHERE id = ?`,
+      )
+        .bind("running", stepId)
+        .run();
+    } else {
+      await this.env.DB.prepare(
+        `INSERT INTO workflow_steps (id, workflow_run_id, step_name, status, started_at)
+         VALUES (?, ?, ?, ?, ?)`,
+      )
+        .bind(stepId, current.workflowRunId, step, "running", startedAt)
+        .run();
+    }
 
     await emitEvent(this.env.DB, {
       traceId: current.traceId,
@@ -347,50 +361,40 @@ export class WorkflowCoordinatorDO {
         }
 
         case "TEARDOWN": {
-          await emitEvent(this.env.DB, {
-            traceId: current.traceId,
-            workflowRunId: current.workflowRunId,
+          if (!current.deploymentRef) {
+            throw new Error("deploymentRef missing before TEARDOWN");
+          }
+
+          const { jobId, callbackToken } = await this.createExternalJob({
             stepName: step,
-            eventType: "teardown.started",
-            payload: {
-              provider: current.provider,
-              environment_id: current.environmentId,
-              deployment_id: current.deploymentId,
+            jobType: "teardown_preview",
+            provider: current.provider,
+            request: {
+              workflow_run_id: current.workflowRunId,
               deployment_ref: current.deploymentRef,
-              mode: "simulated",
+              provider: current.provider,
             },
           });
-
-          if (current.deploymentId) {
-            await this.env.DB.prepare(
-              `UPDATE deployments SET status = ?, destroyed_at = ? WHERE id = ?`,
-            )
-              .bind("destroyed", nowIso(), current.deploymentId)
-              .run();
-          }
-
-          if (current.environmentId) {
-            await this.env.DB.prepare(
-              `UPDATE environments SET status = ?, destroyed_at = ? WHERE id = ?`,
-            )
-              .bind("destroyed", nowIso(), current.environmentId)
-              .run();
-          }
 
           await emitEvent(this.env.DB, {
             traceId: current.traceId,
             workflowRunId: current.workflowRunId,
             stepName: step,
-            eventType: "teardown.completed",
+            eventType: "teardown.job_dispatched",
             payload: {
+              job_id: jobId,
+              deployment_ref: current.deploymentRef,
               provider: current.provider,
-              environment_id: current.environmentId,
-              deployment_id: current.deploymentId,
-              mode: "simulated",
             },
           });
 
-          break;
+          await this.env.DB.prepare(
+            `UPDATE workflow_steps SET status = ?, completed_at = NULL WHERE id = ?`,
+          )
+            .bind("waiting", stepId)
+            .run();
+
+          return;
         }
 
         case "CLEANUP_AUDIT": {
@@ -474,6 +478,34 @@ export class WorkflowCoordinatorDO {
       });
 
       throw error;
+    }
+  }
+
+  private async findWaitingStepId(
+    workflowRunId: string,
+    step: StepName,
+  ): Promise<string | null> {
+    const row = await this.env.DB.prepare(
+      `SELECT id
+       FROM workflow_steps
+       WHERE workflow_run_id = ? AND step_name = ? AND status = ?
+       ORDER BY started_at DESC
+       LIMIT 1`,
+    )
+      .bind(workflowRunId, step, "waiting")
+      .first<{ id: string }>();
+
+    return row?.id ?? null;
+  }
+
+  private getResumePlan(step: StepName): StepName[] {
+    switch (step) {
+      case "TEARDOWN":
+        return ["CLEANUP_AUDIT", "COMPLETE"];
+      case "DEPLOY":
+        return ["HEALTH_CHECK", "SMOKE_TEST", "TEARDOWN", "CLEANUP_AUDIT", "COMPLETE"];
+      default:
+        throw new Error(`No resume plan defined for step: ${step}`);
     }
   }
 
@@ -581,6 +613,12 @@ export class WorkflowCoordinatorDO {
       return;
     }
 
+    const resumedAfterStep = current.waitingStep;
+
+    if (!resumedAfterStep) {
+      throw new Error("waitingStep missing during resume");
+    }
+
     current.waitingJobId = undefined;
     current.waitingStep = undefined;
     await this.state.storage.put("state", current);
@@ -590,16 +628,21 @@ export class WorkflowCoordinatorDO {
       workflowRunId: current.workflowRunId,
       eventType: "workflow.resumed",
       payload: {
-        resumed_after_step: "TEARDOWN",
+        resumed_after_step: resumedAfterStep,
       },
     });
 
-    await this.runStep("CLEANUP_AUDIT", current);
-    await this.state.storage.put("state", current);
+    const nextSteps = this.getResumePlan(resumedAfterStep);
 
-    await this.runStep("COMPLETE", current);
-    await this.state.storage.put("state", current);
+    for (const step of nextSteps) {
+      await this.runStep(step, current);
+      await this.state.storage.put("state", current);
 
+      if (current.waitingJobId) {
+        return;
+      }
+    }
+    
     const finalStatus = current.cancelled ? "cancelled" : "completed";
 
     await this.setWorkflowStatus(current.workflowRunId, finalStatus);

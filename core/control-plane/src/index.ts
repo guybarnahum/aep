@@ -185,6 +185,8 @@ export default {
       };
 
       if (body.status === "succeeded") {
+        const completedAt = nowIso();
+
         await env.DB.prepare(
           `UPDATE deploy_jobs
            SET status = ?, result_json = ?, completed_at = ?
@@ -193,8 +195,22 @@ export default {
           .bind(
             "succeeded",
             JSON.stringify(body.result ?? {}),
-            nowIso(),
+            completedAt,
             jobId,
+          )
+          .run();
+
+        await env.DB.prepare(
+          `UPDATE workflow_steps
+           SET status = ?, completed_at = ?, error_message = NULL
+           WHERE workflow_run_id = ? AND step_name = ? AND status = ?`,
+        )
+          .bind(
+            "completed",
+            completedAt,
+            job.workflow_run_id,
+            job.step_name,
+            "waiting",
           )
           .run();
 
@@ -204,7 +220,7 @@ export default {
              SET status = ?, destroyed_at = ?
              WHERE deployment_ref = ?`,
           )
-            .bind("destroyed", nowIso(), requestJson.deployment_ref)
+            .bind("destroyed", completedAt, requestJson.deployment_ref)
             .run();
         }
 
@@ -213,9 +229,12 @@ export default {
            SET status = ?, destroyed_at = ?
            WHERE workflow_run_id = ?`,
         )
-          .bind("destroyed", nowIso(), job.workflow_run_id)
+          .bind("destroyed", completedAt, job.workflow_run_id)
           .run();
       } else {
+        const completedAt = nowIso();
+        const errorMessage = body.error_message ?? "External job failed";
+
         await env.DB.prepare(
           `UPDATE deploy_jobs
            SET status = ?, error_message = ?, completed_at = ?
@@ -223,9 +242,24 @@ export default {
         )
           .bind(
             "failed",
-            body.error_message ?? "External job failed",
-            nowIso(),
+            errorMessage,
+            completedAt,
             jobId,
+          )
+          .run();
+
+        await env.DB.prepare(
+          `UPDATE workflow_steps
+           SET status = ?, completed_at = ?, error_message = ?
+           WHERE workflow_run_id = ? AND step_name = ? AND status = ?`,
+        )
+          .bind(
+            "failed",
+            completedAt,
+            errorMessage,
+            job.workflow_run_id,
+            job.step_name,
+            "waiting",
           )
           .run();
       }
@@ -237,14 +271,20 @@ export default {
       return Response.json({ ok: true, job_id: jobId, status: body.status });
     }
 
-    if (request.method === "GET" && url.pathname.startsWith("/deploy-jobs/")) {
-      const jobId = url.pathname.split("/")[2];
+    if (request.method === "GET" && url.pathname.startsWith("/debug/deploy-jobs/")) {
+      if (env.APP_ENV !== "dev") {
+        return Response.json({ error: "Not found" }, { status: 404 });
+      }
+
+      const jobId = url.pathname.split("/")[3];
       const job = await env.DB.prepare(`SELECT * FROM deploy_jobs WHERE id = ?`)
         .bind(jobId)
         .first();
+
       if (!job) {
         return Response.json({ error: "Not found" }, { status: 404 });
       }
+
       return Response.json({ job });
     }
 
