@@ -9,9 +9,12 @@
  * - fetches trace data
  * - extracts deploy job id + dev callback token from trace
  * - runs the node deploy runner with callback arguments
+ * - if teardown_mode=async, waits for TEARDOWN to enter waiting
+ * - extracts teardown job id + dev callback token from trace
+ * - runs the node teardown runner with callback arguments
  * - polls workflow to completed
  * - verifies key workflow steps and key trace milestones
- *
+ * 
  * Example:
  *
  *   npx tsx scripts/ci/async-deploy-check.ts \
@@ -19,7 +22,7 @@
  *     --env dev \
  *     --provider cloudflare \
  *     --service-name sample-worker \
- *     --payload '{"tenant_id":"t_demo","project_id":"p_demo","repo_url":"https://github.com/example/repo","branch":"main","service_name":"sample-worker","deploy_mode":"async","teardown_mode":"sync"}' \
+ *     --payload '{"tenant_id":"t_demo","project_id":"p_demo","repo_url":"https://github.com/example/repo","branch":"main","service_name":"sample-worker","deploy_mode":"async","teardown_mode":"async"}' \ 
  *     --poll-attempts 20 \
  *     --poll-interval-ms 3000
  */
@@ -44,6 +47,7 @@ type CliOptions = {
   pollAttempts: number;
   pollIntervalMs: number;
   deployRunnerPath: string;
+  teardownRunnerPath: string;
 };
 
 type RequestResult = {
@@ -145,7 +149,7 @@ function buildDefaultPayload(serviceName: string): string {
     branch: "main",
     service_name: serviceName,
     deploy_mode: "async",
-    teardown_mode: "sync",
+    teardown_mode: "async",
   });
 }
 
@@ -191,7 +195,9 @@ function parseArgs(argv: string[]): CliOptions {
     pollAttempts: parsePositiveInt(args.get("poll-attempts") ?? "20", "poll-attempts"),
     pollIntervalMs: parsePositiveInt(args.get("poll-interval-ms") ?? "3000", "poll-interval-ms"),
     deployRunnerPath: args.get("deploy-runner-path") ?? "scripts/deploy/run-node-deploy.ts",
+    teardownRunnerPath: args.get("teardown-runner-path") ?? "scripts/deploy/run-node-teardown.ts",
   };
+
 }
 
 async function requestJson(options: {
@@ -310,7 +316,26 @@ function getRunStatus(workflow: WorkflowStatusResponse): string | undefined {
   return workflow.run?.status;
 }
 
-function extractJobIdAndToken(trace: TraceResponse): {
+function getPayloadString(payload: Record<string, unknown>, key: string): string | undefined {
+  const value = payload[key];
+  return typeof value === "string" && value ? value : undefined;
+}
+
+function payloadHasJobType(
+  payload: Record<string, unknown>,
+  jobType: "deploy_preview" | "teardown_preview",
+): boolean {
+  return payload["job_type"] === jobType;
+}
+
+function payloadHasModeAsync(payload: Record<string, unknown>): boolean {
+  return payload["mode"] === "async";
+}
+
+function extractJobIdAndToken(
+  trace: TraceResponse,
+  phase: "deploy" | "teardown",
+): {
   jobId?: string;
   callbackToken?: string;
 } {
@@ -324,18 +349,29 @@ function extractJobIdAndToken(trace: TraceResponse): {
     const payload = getTraceEventPayload(event);
 
     if (!jobId) {
-      if (eventType === "deploy.job_dispatched" || eventType === "deploy_job.created") {
-        const value = payload["job_id"];
-        if (typeof value === "string" && value) {
-          jobId = value;
+      if (phase === "deploy") {
+        if (
+          eventType === "deploy.job_dispatched" ||
+          (eventType === "deploy_job.created" && payloadHasJobType(payload, "deploy_preview"))
+        ) {
+          jobId = getPayloadString(payload, "job_id");
+        }
+      } else {
+        if (
+          eventType === "teardown.job_dispatched" ||
+          (eventType === "deploy_job.created" && payloadHasJobType(payload, "teardown_preview"))
+        ) {
+          jobId = getPayloadString(payload, "job_id");
         }
       }
     }
 
     if (!callbackToken && eventType === "deploy_job.debug_token") {
-      const value = payload["callback_token"];
-      if (typeof value === "string" && value) {
-        callbackToken = value;
+      const tokenJobId = getPayloadString(payload, "job_id");
+      const token = getPayloadString(payload, "callback_token");
+
+      if (jobId && tokenJobId === jobId && token) {
+        callbackToken = token;
       }
     }
 
@@ -399,6 +435,52 @@ async function runNodeDeploy(args: {
   });
 }
 
+async function runNodeTeardown(args: {
+  teardownRunnerPath: string;
+  provider: string;
+  deploymentRef: string;
+  callbackUrl: string;
+  callbackToken: string;
+}): Promise<void> {
+  const commandArgs = [
+    "tsx",
+    args.teardownRunnerPath,
+    "--deployment-ref",
+    args.deploymentRef,
+    "--provider",
+    args.provider,
+    "--callback-url",
+    args.callbackUrl,
+    "--callback-token",
+    args.callbackToken,
+  ];
+
+  console.log("🧹 Running node teardown runner");
+  console.log(`   Command: npx ${commandArgs.join(" ")}`);
+
+  await new Promise<void>((resolve, reject) => {
+    const child = spawn("npx", commandArgs, {
+      stdio: "inherit",
+      env: process.env,
+      shell: false,
+    });
+
+    child.on("error", reject);
+
+    child.on("exit", (code, signal) => {
+      if (signal) {
+        reject(new Error(`Teardown runner terminated by signal ${signal}`));
+        return;
+      }
+      if (code !== 0) {
+        reject(new Error(`Teardown runner exited with code ${code ?? "unknown"}`));
+        return;
+      }
+      resolve();
+    });
+  });
+}
+
 function requireTraceEvents(trace: TraceResponse, required: string[]): void {
   const seen = new Set((trace.events ?? []).map((e) => e.event_type).filter(Boolean) as string[]);
   const missing = required.filter((name) => !seen.has(name));
@@ -413,6 +495,20 @@ function requireCompletedSteps(workflow: WorkflowStatusResponse, required: strin
   if (missing.length > 0) {
     fail(`Expected completed steps missing or incomplete: ${missing.join(", ")}`);
   }
+}
+
+function extractDeploymentRefFromTrace(trace: TraceResponse): string | undefined {
+  const events = trace.events ?? [];
+
+  for (const event of events) {
+    const payload = getTraceEventPayload(event);
+    const deploymentRef = getPayloadString(payload, "deployment_ref");
+    if (deploymentRef) {
+      return deploymentRef;
+    }
+  }
+
+  return undefined;
 }
 
 async function main(): Promise<void> {
@@ -531,7 +627,7 @@ async function main(): Promise<void> {
       console.warn(traceResult.bodyText);
     } else {
       const trace = asTraceResponse(traceResult.bodyJson);
-      const extracted = extractJobIdAndToken(trace);
+      const extracted = extractJobIdAndToken(trace, "deploy");
 
       jobId = extracted.jobId;
       callbackToken = extracted.callbackToken;
@@ -581,8 +677,9 @@ async function main(): Promise<void> {
     callbackToken,
   });
 
-  console.log("==> Polling workflow to completed");
+  console.log("==> Polling workflow after deploy callback");
   let finalWorkflow: WorkflowStatusResponse | undefined;
+  let teardownWaiting = false;
 
   for (let attempt = 1; attempt <= cli.pollAttempts; attempt += 1) {
     const result = await requestJson({
@@ -594,15 +691,16 @@ async function main(): Promise<void> {
 
     if (result.status < 200 || result.status >= 300) {
       console.warn(
-        `⚠️  Completion poll ${attempt}/${cli.pollAttempts} returned ${result.status} ${result.statusText}`,
+        `⚠️  Post-deploy poll ${attempt}/${cli.pollAttempts} returned ${result.status} ${result.statusText}`,
       );
       console.warn(result.bodyText);
     } else {
       const workflow = asWorkflowStatusResponse(result.bodyJson);
       const runStatus = stringifyValue(getRunStatus(workflow));
+      const teardownStatus = stringifyValue(getStepStatus(workflow, "TEARDOWN"));
 
       console.log(
-        `   Attempt ${attempt}/${cli.pollAttempts}: run.status=${runStatus}, time=${result.durationMs}ms`,
+        `   Attempt ${attempt}/${cli.pollAttempts}: run.status=${runStatus}, TEARDOWN=${teardownStatus}, time=${result.durationMs}ms`,
       );
 
       if (runStatus === "failed" || runStatus === "cancelled") {
@@ -615,10 +713,126 @@ async function main(): Promise<void> {
         finalWorkflow = workflow;
         break;
       }
+
+      if (teardownStatus === "waiting") {
+        teardownWaiting = true;
+        break;
+      }
     }
 
     if (attempt < cli.pollAttempts) {
       await sleep(cli.pollIntervalMs);
+    }
+  }
+
+  if (teardownWaiting) {
+    console.log("✅ TEARDOWN entered waiting");
+
+    let teardownJobId: string | undefined;
+    let teardownCallbackToken: string | undefined;
+
+    for (let attempt = 1; attempt <= cli.pollAttempts; attempt += 1) {
+      const traceResult = await requestJson({
+        url: traceUrl,
+        method: "GET",
+        timeoutMs: cli.timeoutMs,
+        headers,
+      });
+
+      if (traceResult.status < 200 || traceResult.status >= 300) {
+        console.warn(
+          `⚠️  Teardown trace attempt ${attempt}/${cli.pollAttempts} returned ${traceResult.status} ${traceResult.statusText}`,
+        );
+        console.warn(traceResult.bodyText);
+      } else {
+        const trace = asTraceResponse(traceResult.bodyJson);
+        const extracted = extractJobIdAndToken(trace, "teardown");
+
+        teardownJobId = extracted.jobId;
+        teardownCallbackToken = extracted.callbackToken;
+
+        console.log(
+          `   Teardown trace attempt ${attempt}/${cli.pollAttempts}: job_id=${teardownJobId ?? "(missing)"}, callback_token=${teardownCallbackToken ? "<present>" : "(missing)"}`,
+        );
+
+        if (teardownJobId && teardownCallbackToken) {
+          const deploymentRef = extractDeploymentRefFromTrace(trace);
+          if (!deploymentRef) {
+            fail("Could not extract deployment_ref from trace for teardown.");
+          }
+
+          const teardownCallbackUrl = joinUrl(
+            cli.baseUrl,
+            `/internal/deploy-jobs/${encodeURIComponent(teardownJobId)}/callback`,
+          );
+
+          await runNodeTeardown({
+            teardownRunnerPath: cli.teardownRunnerPath,
+            provider: cli.provider,
+            deploymentRef,
+            callbackUrl: teardownCallbackUrl,
+            callbackToken: teardownCallbackToken,
+          });
+
+          break;
+        }
+      }
+
+      if (attempt < cli.pollAttempts) {
+        await sleep(cli.pollIntervalMs);
+      }
+    }
+
+    if (!teardownJobId) {
+      fail(
+        "Could not extract teardown job_id from trace. Expected teardown.job_dispatched or deploy_job.created(teardown_preview).",
+      );
+    }
+
+    if (!teardownCallbackToken) {
+      fail(
+        "Could not extract teardown callback_token from trace. Expected deploy_job.debug_token event in dev.",
+      );
+    }
+
+    console.log("==> Polling workflow to completed after teardown callback");
+
+    for (let attempt = 1; attempt <= cli.pollAttempts; attempt += 1) {
+      const result = await requestJson({
+        url: workflowUrl,
+        method: "GET",
+        timeoutMs: cli.timeoutMs,
+        headers,
+      });
+
+      if (result.status < 200 || result.status >= 300) {
+        console.warn(
+          `⚠️  Final completion poll ${attempt}/${cli.pollAttempts} returned ${result.status} ${result.statusText}`,
+        );
+        console.warn(result.bodyText);
+      } else {
+        const workflow = asWorkflowStatusResponse(result.bodyJson);
+        const runStatus = stringifyValue(getRunStatus(workflow));
+
+        console.log(
+          `   Attempt ${attempt}/${cli.pollAttempts}: run.status=${runStatus}, time=${result.durationMs}ms`,
+        );
+
+        if (runStatus === "failed" || runStatus === "cancelled") {
+          fail(
+            `Workflow ended in failure state '${runStatus}'.\nResponse:\n${JSON.stringify(workflow, null, 2)}`,
+          );
+        }
+
+        if (runStatus === "completed") {
+          finalWorkflow = workflow;
+          break;
+        }
+      }
+
+      if (attempt < cli.pollAttempts) {
+        await sleep(cli.pollIntervalMs);
+      }
     }
   }
 
