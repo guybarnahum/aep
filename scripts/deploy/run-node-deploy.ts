@@ -95,6 +95,17 @@ async function main(): Promise<void> {
   });
 
   try {
+
+    if (callbackUrl && callbackToken) {
+      await postCallback({
+        callbackUrl,
+        callbackToken,
+        body: {
+          status: "running",
+        },
+      });
+    }
+    
     const result = await adapter.deployPreview({
       provider,
       serviceName,

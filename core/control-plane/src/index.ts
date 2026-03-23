@@ -76,7 +76,7 @@ function normalizeTraceEventRow(row: Record<string, unknown>): Record<string, un
 type DeployJobType = "deploy_preview" | "teardown_preview";
 
 type DeployJobCallbackBody = {
-  status: "succeeded" | "failed";
+  status: "running" | "succeeded" | "failed";
   result?: Record<string, unknown>;
   error_message?: string;
 };
@@ -242,6 +242,35 @@ export default {
       };
 
       const deployResult = (body.result ?? {}) as DeployPreviewResult;
+      
+      if (body.status === "running") {
+        const startedAt = nowIso();
+
+        await env.DB.prepare(
+          `UPDATE deploy_jobs
+           SET status = ?, started_at = ?
+           WHERE id = ?`,
+        )
+          .bind("running", startedAt, jobId)
+          .run();
+
+        await emitEvent(env.DB, {
+          traceId: job.trace_id,
+          workflowRunId: job.workflow_run_id,
+          stepName: job.step_name as never,
+          eventType:
+            job.job_type === "deploy_preview"
+              ? "deploy.job_started"
+              : "teardown.job_started",
+          payload: {
+            job_id: jobId,
+            job_type: job.job_type,
+            provider: job.provider,
+          },
+        });
+
+        return Response.json({ ok: true, job_id: jobId, status: body.status });
+      }
 
       if (body.status === "succeeded") {
         const completedAt = nowIso();

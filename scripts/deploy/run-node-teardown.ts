@@ -73,6 +73,17 @@ async function main(): Promise<void> {
   });
 
   try {
+
+    if (callbackUrl && callbackToken) {
+      await postCallback({
+        callbackUrl,
+        callbackToken,
+        body: {
+          status: "running",
+        },
+      });
+    }
+
     await adapter.teardownPreview(deploymentRef);
 
     const result = {
