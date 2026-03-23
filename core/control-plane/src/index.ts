@@ -26,6 +26,10 @@ function requireString(value: unknown, field: string): string {
   return value;
 }
 
+function parseDeployMode(value: unknown): "sync" | "async" {
+  return value === "async" ? "async" : "sync";
+}
+
 function parseTeardownMode(value: unknown): "sync" | "async" {
   return value === "sync" ? "sync" : "async";
 }
@@ -56,6 +60,7 @@ export default {
           branch: requireString(body.branch, "branch"),
           service_name: requireString(body.service_name, "service_name"),
           provider: isProvider(body.provider) ? body.provider : DEFAULT_PROVIDER,
+          deploy_mode: parseDeployMode(body.deploy_mode),
           teardown_mode: parseTeardownMode(body.teardown_mode),
         };
 

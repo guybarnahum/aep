@@ -17,6 +17,7 @@ export type StepName =
   | "CLEANUP_AUDIT"
   | "COMPLETE";
 
+export type DeployMode = "sync" | "async";
 export type TeardownMode = "sync" | "async";
 
 export interface StartWorkflowRequest {
@@ -26,6 +27,7 @@ export interface StartWorkflowRequest {
   branch: string;
   service_name: string;
   provider?: Provider;
+  deploy_mode?: DeployMode;
   teardown_mode?: TeardownMode;
 }
 

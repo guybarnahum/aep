@@ -3,6 +3,7 @@ import type { Env } from "../../types/src/index";
 import type {
   StartWorkflowRequest,
   StepName,
+  DeployMode,
   TeardownMode,
 } from "../../../packages/event-schema/src/index";
 import type { Provider } from "../../../packages/shared/src/index";
@@ -27,6 +28,7 @@ interface State {
   branch: string;
   serviceName: string;
   provider: Provider;
+  deployMode: DeployMode;
   teardownMode: TeardownMode;
   environmentId?: string;
   deploymentId?: string;
@@ -72,6 +74,7 @@ export class WorkflowCoordinatorDO {
         branch: body.branch,
         serviceName: body.service_name,
         provider: body.provider ?? (DEFAULT_PROVIDER as Provider),
+        deployMode: body.deploy_mode ?? "sync",
         teardownMode: body.teardown_mode ?? "async",
         cancelled: false,
       };
@@ -147,6 +150,7 @@ export class WorkflowCoordinatorDO {
         repo_url: current.repoUrl,
         branch: current.branch,
         provider: current.provider,
+        deploy_mode: current.deployMode,
         teardown_mode: current.teardownMode,
       },
     });
@@ -261,66 +265,103 @@ export class WorkflowCoordinatorDO {
             throw new Error("environmentId missing before DEPLOY");
           }
 
-          current.deploymentId = newId("dep");
-          current.deploymentRef = `sim-${current.workflowRunId}`;
-          current.previewUrl = "https://example.invalid";
+          if (current.deployMode === "sync") {
+            current.deploymentId = newId("dep");
+            current.deploymentRef = `sim-${current.workflowRunId}`;
+            current.previewUrl = "https://example.invalid";
 
-          await emitEvent(this.env.DB, {
-            traceId: current.traceId,
-            workflowRunId: current.workflowRunId,
+            await emitEvent(this.env.DB, {
+              traceId: current.traceId,
+              workflowRunId: current.workflowRunId,
+              stepName: step,
+              eventType: "deployment.started",
+              payload: {
+                provider: current.provider,
+                service_name: current.serviceName,
+                workflow_run_id: current.workflowRunId,
+                environment_id: current.environmentId,
+                mode: "simulated",
+              },
+            });
+
+            await this.env.DB.prepare(
+              `INSERT INTO deployments (
+                id,
+                environment_id,
+                deployment_provider,
+                deployment_ref,
+                url,
+                status,
+                created_at
+              ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            )
+              .bind(
+                current.deploymentId,
+                current.environmentId,
+                current.provider,
+                current.deploymentRef,
+                current.previewUrl,
+                "deployed",
+                nowIso(),
+              )
+              .run();
+
+            await this.env.DB.prepare(
+              `UPDATE environments SET status = ?, preview_url = ? WHERE id = ?`,
+            )
+              .bind("deployed", current.previewUrl, current.environmentId)
+              .run();
+
+            await emitEvent(this.env.DB, {
+              traceId: current.traceId,
+              workflowRunId: current.workflowRunId,
+              stepName: step,
+              eventType: "deployment.completed",
+              payload: {
+                provider: current.provider,
+                deployment_ref: current.deploymentRef,
+                url: current.previewUrl,
+                mode: "simulated",
+              },
+            });
+
+            break;
+          }
+
+          const { jobId } = await this.createExternalJob(current, {
             stepName: step,
-            eventType: "deployment.started",
-            payload: {
-              provider: current.provider,
-              service_name: current.serviceName,
+            jobType: "deploy_preview",
+            provider: current.provider,
+            request: {
               workflow_run_id: current.workflowRunId,
               environment_id: current.environmentId,
-              mode: "simulated",
+              service_name: current.serviceName,
+              provider: current.provider,
             },
           });
-
-          await this.env.DB.prepare(
-            `INSERT INTO deployments (
-              id,
-              environment_id,
-              deployment_provider,
-              deployment_ref,
-              url,
-              status,
-              created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-          )
-            .bind(
-              current.deploymentId,
-              current.environmentId,
-              current.provider,
-              current.deploymentRef,
-              current.previewUrl,
-              "deployed",
-              nowIso(),
-            )
-            .run();
-
-          await this.env.DB.prepare(
-            `UPDATE environments SET status = ?, preview_url = ? WHERE id = ?`,
-          )
-            .bind("deployed", current.previewUrl, current.environmentId)
-            .run();
 
           await emitEvent(this.env.DB, {
             traceId: current.traceId,
             workflowRunId: current.workflowRunId,
             stepName: step,
-            eventType: "deployment.completed",
+            eventType: "deploy.job_dispatched",
             payload: {
+              job_id: jobId,
+              workflow_run_id: current.workflowRunId,
+              environment_id: current.environmentId,
+              service_name: current.serviceName,
               provider: current.provider,
-              deployment_ref: current.deploymentRef,
-              url: current.previewUrl,
-              mode: "simulated",
+              mode: "async",
             },
           });
 
-          break;
+          await this.env.DB.prepare(
+            `UPDATE workflow_steps SET status = ?, completed_at = NULL WHERE id = ?`,
+          )
+            .bind("waiting", stepId)
+            .run();
+
+          return;
         }
 
         case "HEALTH_CHECK": {
@@ -449,7 +490,7 @@ export class WorkflowCoordinatorDO {
 
           return;
         }
-        
+
         case "CLEANUP_AUDIT": {
           const envCheck = current.environmentId
             ? await this.env.DB.prepare(
@@ -581,12 +622,11 @@ export class WorkflowCoordinatorDO {
     current: State,
     args: {
       stepName: StepName;
-      jobType: "teardown_preview";
+      jobType: "deploy_preview" | "teardown_preview";
       provider: Provider;
       request: Record<string, unknown>;
     },
   ): Promise<{ jobId: string; callbackToken: string }> {
-
     const jobId = newId("job");
     const callbackToken = crypto.randomUUID();
     const callbackTokenHash = await sha256Hex(callbackToken);
@@ -706,4 +746,3 @@ export class WorkflowCoordinatorDO {
     });
   }
 }
-
