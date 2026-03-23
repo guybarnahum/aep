@@ -1,3 +1,4 @@
+import { emitEvent } from "../../observability/src/index";
 import { WorkflowCoordinatorDO } from "../../workflow-engine/src/index";
 import type { Env } from "../../types/src/index";
 import type { StartWorkflowRequest } from "../../../packages/event-schema/src/index";
@@ -44,6 +45,32 @@ async function verifyCallbackToken(
 
   const providedHash = await sha256Hex(providedToken);
   return timingSafeEqual(storedHash, providedHash);
+}
+
+function normalizeTraceEventRow(row: Record<string, unknown>): Record<string, unknown> {
+  const payloadJson = row["payload_json"];
+  let payload: Record<string, unknown> = {};
+
+  if (typeof payloadJson === "string" && payloadJson.trim() !== "") {
+    try {
+      const parsed = JSON.parse(payloadJson);
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        payload = parsed as Record<string, unknown>;
+      }
+    } catch {
+      payload = {};
+    }
+  }
+
+  return {
+    id: row["id"],
+    trace_id: row["trace_id"],
+    workflow_run_id: row["workflow_run_id"],
+    step_name: row["step_name"],
+    event_type: row["event_type"],
+    timestamp: row["timestamp"],
+    payload,
+  };
 }
 
 type DeployJobType = "deploy_preview" | "teardown_preview";
@@ -149,7 +176,12 @@ export default {
       )
         .bind(traceId)
         .all();
-      return Response.json({ trace_id: traceId, events: events.results ?? [] });
+
+      const normalizedEvents = (events.results ?? []).map((row) =>
+        normalizeTraceEventRow(row as Record<string, unknown>),
+      );
+
+      return Response.json({ trace_id: traceId, events: normalizedEvents });
     }
 
     if (request.method === "POST" && url.pathname.match(/^\/workflow\/[^/]+\/cancel$/)) {
@@ -176,9 +208,10 @@ export default {
       const body = (await json(request)) as DeployJobCallbackBody;
 
       const job = await env.DB.prepare(
-        `SELECT id, workflow_run_id, step_name, job_type, provider, status, request_json, callback_token_hash
-         FROM deploy_jobs
-         WHERE id = ?`,
+        `SELECT dj.id, dj.workflow_run_id, dj.step_name, dj.job_type, dj.provider, dj.status, dj.request_json, dj.callback_token_hash, wr.trace_id
+         FROM deploy_jobs dj
+         JOIN workflow_runs wr ON wr.id = dj.workflow_run_id
+         WHERE dj.id = ?`,
       )
         .bind(jobId)
         .first<{
@@ -190,6 +223,7 @@ export default {
           status: string;
           request_json: string;
           callback_token_hash: string;
+          trace_id: string;
         }>();
 
       if (!job) {
@@ -224,6 +258,21 @@ export default {
             jobId,
           )
           .run();
+
+        await emitEvent(env.DB, {
+          traceId: job.trace_id,
+          workflowRunId: job.workflow_run_id,
+          stepName: job.step_name as never,
+          eventType:
+            job.job_type === "deploy_preview"
+              ? "deploy.job_succeeded"
+              : "teardown.job_succeeded",
+          payload: {
+            job_id: jobId,
+            job_type: job.job_type,
+            provider: job.provider,
+          },
+        });
 
         await env.DB.prepare(
           `UPDATE workflow_steps
@@ -370,6 +419,22 @@ export default {
             jobId,
           )
           .run();
+
+        await emitEvent(env.DB, {
+          traceId: job.trace_id,
+          workflowRunId: job.workflow_run_id,
+          stepName: job.step_name as never,
+          eventType:
+            job.job_type === "deploy_preview"
+              ? "deploy.job_failed"
+              : "teardown.job_failed",
+          payload: {
+            job_id: jobId,
+            job_type: job.job_type,
+            provider: job.provider,
+            error_message: errorMessage,
+          },
+        });
 
         await env.DB.prepare(
           `UPDATE workflow_steps
