@@ -181,6 +181,83 @@ jobs:
             esac
           }
 
+          status_text() {
+            case "$1" in
+              success) echo "passed" ;;
+              failure) echo "failed" ;;
+              cancelled) echo "cancelled" ;;
+              skipped) echo "skipped" ;;
+              *) echo "unknown" ;;
+            esac
+          }
+
+          scenario_note() {
+            local key="$1"
+            local outcome="$2"
+
+            case "$key" in
+              A1)
+                if [[ "$outcome" == "success" ]]; then
+                  echo "Confirmed end-to-end async deploy and teardown happy path."
+                else
+                  echo "Happy path failed; inspect deploy/teardown orchestration before debugging edge cases."
+                fi
+                ;;
+              A2)
+                if [[ "$outcome" == "success" ]]; then
+                  echo "Confirmed duplicate terminal callback is a no-op."
+                else
+                  echo "Duplicate terminal callback handling may be non-idempotent."
+                fi
+                ;;
+              A3)
+                if [[ "$outcome" == "success" ]]; then
+                  echo "Confirmed regressive callback is ignored."
+                else
+                  echo "Regressive callback may be mutating state unexpectedly."
+                fi
+                ;;
+              A4)
+                if [[ "$outcome" == "success" ]]; then
+                  echo "Confirmed stale attempt callback cannot mutate logical job state."
+                else
+                  echo "Stale callback protection may be broken."
+                fi
+                ;;
+              B1)
+                if [[ "$outcome" == "success" ]]; then
+                  echo "Confirmed retryable deploy failure can recover via a later attempt."
+                else
+                  echo "Retry scheduling or retry recovery may be broken."
+                fi
+                ;;
+              B2)
+                if [[ "$outcome" == "success" ]]; then
+                  echo "Confirmed non-retryable deploy failure terminates workflow cleanly."
+                else
+                  echo "Terminal failure propagation may be broken."
+                fi
+                ;;
+              B3)
+                if [[ "$outcome" == "success" ]]; then
+                  echo "Confirmed retry exhaustion terminates workflow after retry budget is consumed."
+                else
+                  echo "Retry exhaustion may leave workflow or job state ambiguous."
+                fi
+                ;;
+              B4)
+                if [[ "$outcome" == "success" ]]; then
+                  echo "Confirmed timeout advancement can create a retry and recover."
+                else
+                  echo "Timeout advancement or retry-after-timeout may be broken."
+                fi
+                ;;
+              *)
+                echo "No interpretation available."
+                ;;
+            esac
+          }
+
           DEPLOY_OUTCOME="${{ steps.deploy_cf.outcome }}"
           MIGRATIONS_OUTCOME="${{ steps.d1_migrations.outcome }}"
           READINESS_OUTCOME="${{ steps.wait_readiness.outcome }}"
@@ -194,58 +271,122 @@ jobs:
           B3_OUTCOME="${{ steps.b3_retry_exhaustion.outcome }}"
           B4_OUTCOME="${{ steps.b4_timeout_then_retry.outcome }}"
 
-          echo "## Async validation summary" >> "$GITHUB_STEP_SUMMARY"
+          echo "## Async orchestration validation summary" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "- Environment: $CF_ENV" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Runtime env: $HEALTH_RUNTIME_ENV" >> "$GITHUB_STEP_SUMMARY"
           echo "- URL: $DEPLOY_URL" >> "$GITHUB_STEP_SUMMARY"
           echo "- SHA: $GIT_SHA" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
+
           echo "### Environment bring-up" >> "$GITHUB_STEP_SUMMARY"
           echo "- $(status_emoji "$DEPLOY_OUTCOME") Worker deploy: $DEPLOY_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
           echo "- $(status_emoji "$MIGRATIONS_OUTCOME") D1 migrations: $MIGRATIONS_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
           echo "- $(status_emoji "$READINESS_OUTCOME") Readiness check: $READINESS_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
           echo "- $(status_emoji "$HEALTH_OUTCOME") Health check: $HEALTH_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "### Stage 2A scenarios" >> "$GITHUB_STEP_SUMMARY"
+
+          echo "### Stage 2A - attempt model and callback idempotency" >> "$GITHUB_STEP_SUMMARY"
           echo "- $(status_emoji "$A1_OUTCOME") A1 happy path: $A1_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
+          echo "  - $(scenario_note A1 "$A1_OUTCOME")" >> "$GITHUB_STEP_SUMMARY"
           echo "- $(status_emoji "$A2_OUTCOME") A2 duplicate terminal callback: $A2_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
+          echo "  - $(scenario_note A2 "$A2_OUTCOME")" >> "$GITHUB_STEP_SUMMARY"
           echo "- $(status_emoji "$A3_OUTCOME") A3 regressive callback ignored: $A3_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
+          echo "  - $(scenario_note A3 "$A3_OUTCOME")" >> "$GITHUB_STEP_SUMMARY"
           echo "- $(status_emoji "$A4_OUTCOME") A4 stale callback ignored: $A4_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
+          echo "  - $(scenario_note A4 "$A4_OUTCOME")" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "### Stage 2B scenarios" >> "$GITHUB_STEP_SUMMARY"
+
+          echo "### Stage 2B - retry and timeout policy" >> "$GITHUB_STEP_SUMMARY"
           echo "- $(status_emoji "$B1_OUTCOME") B1 retryable failure then success: $B1_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
+          echo "  - $(scenario_note B1 "$B1_OUTCOME")" >> "$GITHUB_STEP_SUMMARY"
           echo "- $(status_emoji "$B2_OUTCOME") B2 non-retryable failure: $B2_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
+          echo "  - $(scenario_note B2 "$B2_OUTCOME")" >> "$GITHUB_STEP_SUMMARY"
           echo "- $(status_emoji "$B3_OUTCOME") B3 retry exhaustion: $B3_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
+          echo "  - $(scenario_note B3 "$B3_OUTCOME")" >> "$GITHUB_STEP_SUMMARY"
           echo "- $(status_emoji "$B4_OUTCOME") B4 timeout then retry: $B4_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
+          echo "  - $(scenario_note B4 "$B4_OUTCOME")" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+
+          echo "### Failure triage" >> "$GITHUB_STEP_SUMMARY"
+
+          if [[ "$DEPLOY_OUTCOME" != "success" || "$MIGRATIONS_OUTCOME" != "success" || "$READINESS_OUTCOME" != "success" || "$HEALTH_OUTCOME" != "success" ]]; then
+            echo "- Environment bring-up failed. Start with deploy, migrations, readiness, and /healthz before investigating scenario logic." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "- Environment bring-up passed." >> "$GITHUB_STEP_SUMMARY"
+          fi
 
           if [[ "$A1_OUTCOME" != "success" ]]; then
-            echo "> A1 failed. Inspect \`a1-happy-path.log\`." >> "$GITHUB_STEP_SUMMARY"
+            echo "- A1 failed. Inspect the base async orchestration path first; edge-case scenario failures may be downstream noise." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+          if [[ "$A2_OUTCOME" != "success" || "$A3_OUTCOME" != "success" || "$A4_OUTCOME" != "success" ]]; then
+            echo "- One or more Stage 2A checks failed. Inspect callback idempotency, invalid-transition handling, and stale-attempt gating." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+          if [[ "$B1_OUTCOME" != "success" || "$B2_OUTCOME" != "success" || "$B3_OUTCOME" != "success" || "$B4_OUTCOME" != "success" ]]; then
+            echo "- One or more Stage 2B checks failed. Inspect retry scheduling, retry exhaustion, timeout advancement, and terminal workflow failure propagation." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+          if [[ "$A1_OUTCOME" == "success" && "$A2_OUTCOME" == "success" && "$A3_OUTCOME" == "success" && "$A4_OUTCOME" == "success" && "$B1_OUTCOME" == "success" && "$B2_OUTCOME" == "success" && "$B3_OUTCOME" == "success" && "$B4_OUTCOME" == "success" ]]; then
+            echo "- All async orchestration scenarios passed." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "### Operator checklist" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Inspect workflow run status first." >> "$GITHUB_STEP_SUMMARY"
+          echo "- If a scenario failed, inspect the matching scenario log step before reading raw trace output." >> "$GITHUB_STEP_SUMMARY"
+          echo "- For retry-related failures, inspect the latest logical job and attempt events in /trace." >> "$GITHUB_STEP_SUMMARY"
+          echo "- For teardown-related failures, verify whether cleanup may still be incomplete." >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+
+          if [[ "$A1_OUTCOME" != "success" ]]; then
+            echo "> A1 failed. Inspect \`a1-happy-path.log\`. This is the base async path and should be debugged before edge cases." >> "$GITHUB_STEP_SUMMARY"
           fi
 
           if [[ "$A2_OUTCOME" != "success" ]]; then
-            echo "> A2 failed. Inspect \`a2-duplicate-terminal.log\`." >> "$GITHUB_STEP_SUMMARY"
+            echo "> A2 failed. Inspect \`a2-duplicate-terminal.log\`. Focus on duplicate terminal callback idempotency." >> "$GITHUB_STEP_SUMMARY"
           fi
 
           if [[ "$A3_OUTCOME" != "success" ]]; then
-            echo "> A3 failed. Inspect \`a3-regressive-callback.log\`." >> "$GITHUB_STEP_SUMMARY"
+            echo "> A3 failed. Inspect \`a3-regressive-callback.log\`. Focus on invalid transition handling and state regression guards." >> "$GITHUB_STEP_SUMMARY"
           fi
 
           if [[ "$A4_OUTCOME" != "success" ]]; then
-            echo "> A4 failed. Inspect \`a4-stale-callback.log\`." >> "$GITHUB_STEP_SUMMARY"
+            echo "> A4 failed. Inspect \`a4-stale-callback.log\`. Focus on active-attempt gating and stale callback ignore semantics." >> "$GITHUB_STEP_SUMMARY"
           fi
 
           if [[ "$B1_OUTCOME" != "success" ]]; then
-            echo "> B1 failed. Inspect \`b1-retry-then-success.log\`." >> "$GITHUB_STEP_SUMMARY"
+            echo "> B1 failed. Inspect the retryable failure scenario log. Focus on retry scheduling and later-attempt recovery." >> "$GITHUB_STEP_SUMMARY"
           fi
 
           if [[ "$B2_OUTCOME" != "success" ]]; then
-            echo "> B2 failed. Inspect \`b2-non-retryable-failure.log\`." >> "$GITHUB_STEP_SUMMARY"
+            echo "> B2 failed. Inspect the non-retryable failure scenario log. Focus on terminal failure propagation to workflow.failed." >> "$GITHUB_STEP_SUMMARY"
           fi
 
           if [[ "$B3_OUTCOME" != "success" ]]; then
-            echo "> B3 failed. Inspect \`b3-retry-exhaustion.log\`." >> "$GITHUB_STEP_SUMMARY"
+            echo "> B3 failed. Inspect the retry exhaustion scenario log. Focus on retry budget enforcement and terminal workflow failure." >> "$GITHUB_STEP_SUMMARY"
           fi
 
           if [[ "$B4_OUTCOME" != "success" ]]; then
-            echo "> B4 failed. Inspect \`b4-timeout-then-retry.log\`." >> "$GITHUB_STEP_SUMMARY"
+            echo "> B4 failed. Inspect the timeout scenario log. Focus on timeout advancement, retry scheduling, and stale old-attempt safety." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+          ALL_ENV_OK="true"
+          if [[ "$DEPLOY_OUTCOME" != "success" || "$MIGRATIONS_OUTCOME" != "success" || "$READINESS_OUTCOME" != "success" || "$HEALTH_OUTCOME" != "success" ]]; then
+            ALL_ENV_OK="false"
+          fi
+
+          ALL_SCENARIOS_OK="true"
+          if [[ "$A1_OUTCOME" != "success" || "$A2_OUTCOME" != "success" || "$A3_OUTCOME" != "success" || "$A4_OUTCOME" != "success" || "$B1_OUTCOME" != "success" || "$B2_OUTCOME" != "success" || "$B3_OUTCOME" != "success" || "$B4_OUTCOME" != "success" ]]; then
+            ALL_SCENARIOS_OK="false"
+          fi
+
+          echo "### Overall verdict" >> "$GITHUB_STEP_SUMMARY"
+          if [[ "$ALL_ENV_OK" == "true" && "$ALL_SCENARIOS_OK" == "true" ]]; then
+            echo "- ✅ Async orchestration environment and all Stage 2A/2B scenarios passed." >> "$GITHUB_STEP_SUMMARY"
+          elif [[ "$ALL_ENV_OK" == "false" ]]; then
+            echo "- ❌ Environment bring-up failed; scenario results may be incomplete or misleading." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "- ❌ Environment bring-up passed, but one or more orchestration scenarios failed." >> "$GITHUB_STEP_SUMMARY"
           fi
