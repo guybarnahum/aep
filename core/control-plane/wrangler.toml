@@ -37,6 +37,23 @@ class_name = "WorkflowCoordinatorDO"
 APP_ENV = "staging"
 SERVICE_NAME = "control-plane"
 
+[env.async_validation]
+name = "aep-control-plane-async-validation"
+
+[[env.async_validation.d1_databases]]
+binding = "DB"
+database_name = "aep-async-validation"
+database_id = "0bb145d5-8414-4a14-bbf2-859efe07938a"
+migrations_dir = "../../infra/cloudflare/d1/migrations"
+
+[[env.async_validation.durable_objects.bindings]]
+name = "WORKFLOW_COORDINATOR"
+class_name = "WorkflowCoordinatorDO"
+
+[env.async_validation.vars]
+APP_ENV = "dev"
+SERVICE_NAME = "control-plane"
+
 [env.production]
 name = "aep-control-plane-production"
 
