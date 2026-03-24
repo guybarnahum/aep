@@ -37,6 +37,12 @@ type Json =
   | Json[]
   | { [key: string]: Json };
 
+type Scenario =
+  | "a1-happy-path"
+  | "a2-duplicate-succeeded"
+  | "a3-regressive-running-after-succeeded"
+  | "a4-stale-attempt-callback";
+
 type CliOptions = {
   baseUrl: string;
   env?: string;
@@ -48,6 +54,7 @@ type CliOptions = {
   pollIntervalMs: number;
   deployRunnerPath: string;
   teardownRunnerPath: string;
+  scenario: Scenario;
 };
 
 type RequestResult = {
@@ -87,6 +94,15 @@ type TraceEvent = {
 type TraceResponse = {
   trace_id?: string;
   events?: TraceEvent[];
+};
+
+type CallbackResponse = {
+  ok?: boolean;
+  attempt_id?: string;
+  status?: string;
+  duplicate?: boolean;
+  ignored?: boolean;
+  reason?: string | null;
 };
 
 function fail(message: string): never {
@@ -185,6 +201,18 @@ function parseArgs(argv: string[]): CliOptions {
 
   const serviceName = args.get("service-name") ?? "sample-worker";
 
+  const scenarioValue = args.get("scenario") ?? "a1-happy-path";
+  const allowedScenarios: Scenario[] = [
+    "a1-happy-path",
+    "a2-duplicate-succeeded",
+    "a3-regressive-running-after-succeeded",
+    "a4-stale-attempt-callback",
+  ];
+
+  if (!allowedScenarios.includes(scenarioValue as Scenario)) {
+    throw new Error(`Invalid --scenario: ${scenarioValue}`);
+  }
+
   return {
     baseUrl,
     env: args.get("env"),
@@ -196,6 +224,7 @@ function parseArgs(argv: string[]): CliOptions {
     pollIntervalMs: parsePositiveInt(args.get("poll-interval-ms") ?? "3000", "poll-interval-ms"),
     deployRunnerPath: args.get("deploy-runner-path") ?? "scripts/deploy/run-node-deploy.ts",
     teardownRunnerPath: args.get("teardown-runner-path") ?? "scripts/deploy/run-node-teardown.ts",
+    scenario: scenarioValue as Scenario,
   };
 
 }
@@ -233,6 +262,27 @@ async function requestJson(options: {
   } finally {
     clearTimeout(timer);
   }
+}
+
+async function postAttemptCallback(args: {
+  callbackUrl: string;
+  callbackToken: string;
+  timeoutMs: number;
+  body: Record<string, unknown>;
+}): Promise<RequestResult> {
+  return requestJson({
+    url: args.callbackUrl,
+    method: "POST",
+    timeoutMs: args.timeoutMs,
+    headers: {
+      accept: "application/json",
+      "content-type": "application/json",
+      authorization: `Bearer ${args.callbackToken}`,
+      "user-agent": "aep-ci-async-deploy-check/1.0",
+      "cache-control": "no-cache",
+    },
+    body: JSON.stringify(args.body),
+  });
 }
 
 function buildHeaders(env?: string): Record<string, string> {
@@ -289,6 +339,13 @@ function asTraceResponse(value: unknown): TraceResponse {
     fail("Trace response was not a JSON object.");
   }
   return value as TraceResponse;
+}
+
+function asCallbackResponse(value: unknown): CallbackResponse {
+  if (!isObject(value)) {
+    fail("Callback response was not a JSON object.");
+  }
+  return value as CallbackResponse;
 }
 
 function getTraceEventPayload(event: TraceEvent): Record<string, unknown> {
@@ -530,12 +587,99 @@ function extractDeploymentRefFromTrace(trace: TraceResponse): string | undefined
   return undefined;
 }
 
+function requireDuplicateCallbackResponse(
+  result: RequestResult,
+  expectedAttemptId: string,
+): void {
+  if (result.status < 200 || result.status >= 300) {
+    fail(
+      `Expected duplicate callback response to succeed, got ${result.status} ${result.statusText}.\nBody:\n${result.bodyText}`,
+    );
+  }
+
+  const body = asCallbackResponse(result.bodyJson);
+
+  if (body.ok !== true) {
+    fail(`Duplicate callback response had ok=${String(body.ok)} instead of true.`);
+  }
+
+  if (body.attempt_id !== expectedAttemptId) {
+    fail(
+      `Duplicate callback response attempt_id mismatch. Expected '${expectedAttemptId}', got '${String(body.attempt_id)}'.`,
+    );
+  }
+
+  if (body.duplicate !== true) {
+    fail(
+      `Duplicate callback response did not set duplicate=true.\nBody:\n${JSON.stringify(body, null, 2)}`,
+    );
+  }
+}
+
+function requireIgnoredInvalidTransitionResponse(
+  result: RequestResult,
+  expectedAttemptId: string,
+): void {
+  if (result.status < 200 || result.status >= 300) {
+    fail(
+      `Expected invalid-transition callback response to succeed, got ${result.status} ${result.statusText}.\nBody:\n${result.bodyText}`,
+    );
+  }
+
+  const body = asCallbackResponse(result.bodyJson);
+
+  if (body.ok !== true) {
+    fail(`Invalid-transition callback response had ok=${String(body.ok)} instead of true.`);
+  }
+
+  if (body.attempt_id !== expectedAttemptId) {
+    fail(
+      `Invalid-transition callback response attempt_id mismatch. Expected '${expectedAttemptId}', got '${String(body.attempt_id)}'.`,
+    );
+  }
+
+  if (body.ignored !== true) {
+    fail(
+      `Invalid-transition callback response did not set ignored=true.\nBody:\n${JSON.stringify(body, null, 2)}`,
+    );
+  }
+
+  if (body.reason !== "invalid_transition") {
+    fail(
+      `Invalid-transition callback response reason mismatch. Expected 'invalid_transition', got '${String(body.reason)}'.`,
+    );
+  }
+}
+
+async function supersedeJobForTest(args: {
+  baseUrl: string;
+  jobId: string;
+  timeoutMs: number;
+}): Promise<RequestResult> {
+  return requestJson({
+    url: joinUrl(
+      args.baseUrl,
+      `/internal/test/deploy-jobs/${encodeURIComponent(args.jobId)}/supersede`,
+    ),
+    method: "POST",
+    timeoutMs: args.timeoutMs,
+    headers: {
+      accept: "application/json",
+      "content-type": "application/json",
+      "user-agent": "aep-ci-async-deploy-check/1.0",
+      "cache-control": "no-cache",
+    },
+    body: "{}",
+  });
+}
+
 async function main(): Promise<void> {
   const startedAt = Date.now();
   const cli = parseArgs(process.argv.slice(2));
   const headers = buildHeaders(cli.env);
 
   console.log("🔁 AEP async deploy check");
+  console.log(`   Scenario:      ${cli.scenario}`);
   console.log(`   Env:           ${cli.env ?? "(not enforced)"}`);
   console.log(`   Base URL:      ${cli.baseUrl}`);
   console.log(`   Provider:      ${cli.provider}`);
@@ -698,6 +842,8 @@ async function main(): Promise<void> {
   console.log(`   Callback URL: ${callbackUrl}`);
   console.log("   Callback token: <redacted>");
 
+  let deploySucceededCallbackBody: Record<string, unknown> | undefined;
+
   await runNodeDeploy({
     deployRunnerPath: cli.deployRunnerPath,
     serviceName: cli.serviceName,
@@ -707,6 +853,14 @@ async function main(): Promise<void> {
     callbackUrl,
     callbackToken,
   });
+
+  deploySucceededCallbackBody = {
+    status: "succeeded",
+    result: {
+      deployment_ref: "duplicate-test-placeholder",
+      preview_url: "https://duplicate-test-placeholder.invalid",
+    },
+  };
 
   console.log("==> Polling workflow after deploy callback");
   let finalWorkflow: WorkflowStatusResponse | undefined;
@@ -754,6 +908,89 @@ async function main(): Promise<void> {
     if (attempt < cli.pollAttempts) {
       await sleep(cli.pollIntervalMs);
     }
+  }
+
+  if (cli.scenario === "a2-duplicate-succeeded") {
+    if (!deployAttemptId || !callbackToken || !deploySucceededCallbackBody) {
+      fail("A2 requires deploy attempt callback info and succeeded callback body.");
+    }
+
+    console.log("==> Replaying duplicate deploy succeeded callback (A2)");
+
+    const duplicateResult = await postAttemptCallback({
+      callbackUrl,
+      callbackToken,
+      timeoutMs: cli.timeoutMs,
+      body: deploySucceededCallbackBody,
+    });
+
+    requireDuplicateCallbackResponse(duplicateResult, deployAttemptId);
+    console.log("✅ Duplicate deploy succeeded callback was treated as no-op");
+  }
+
+  if (cli.scenario === "a3-regressive-running-after-succeeded") {
+    if (!deployAttemptId || !callbackToken) {
+      fail("A3 requires deploy attempt callback info.");
+    }
+
+    console.log("==> Replaying regressive deploy running callback after success (A3)");
+
+    const regressiveResult = await postAttemptCallback({
+      callbackUrl,
+      callbackToken,
+      timeoutMs: cli.timeoutMs,
+      body: {
+        status: "running",
+      },
+    });
+
+    requireIgnoredInvalidTransitionResponse(regressiveResult, deployAttemptId);
+    console.log("✅ Regressive deploy running callback was ignored");
+  }
+
+  if (cli.scenario === "a4-stale-attempt-callback") {
+    if (!jobId || !deployAttemptId || !callbackToken || !deploySucceededCallbackBody) {
+      fail("A4 requires deploy job/attempt callback info.");
+    }
+
+    console.log("==> Superseding active deploy attempt for stale-callback test (A4)");
+
+    const supersedeResult = await supersedeJobForTest({
+      baseUrl: cli.baseUrl,
+      jobId,
+      timeoutMs: cli.timeoutMs,
+    });
+
+    if (supersedeResult.status < 200 || supersedeResult.status >= 300) {
+      fail(
+        `A4 supersede request failed with ${supersedeResult.status} ${supersedeResult.statusText}.\nBody:\n${supersedeResult.bodyText}`,
+      );
+    }
+
+    console.log("==> Replaying stale deploy succeeded callback (A4)");
+
+    const staleResult = await postAttemptCallback({
+      callbackUrl,
+      callbackToken,
+      timeoutMs: cli.timeoutMs,
+      body: deploySucceededCallbackBody,
+    });
+
+    const staleBody = asCallbackResponse(staleResult.bodyJson);
+
+    if (staleResult.status < 200 || staleResult.status >= 300) {
+      fail(
+        `Expected stale callback response to succeed, got ${staleResult.status} ${staleResult.statusText}.\nBody:\n${staleResult.bodyText}`,
+      );
+    }
+
+    if (staleBody.ok !== true || staleBody.ignored !== true || staleBody.reason !== "stale_attempt") {
+      fail(
+        `Stale callback response mismatch.\nBody:\n${JSON.stringify(staleBody, null, 2)}`,
+      );
+    }
+
+    console.log("✅ Stale deploy callback was ignored");
   }
 
   if (teardownWaiting) {
@@ -914,22 +1151,29 @@ async function main(): Promise<void> {
   }
 
   const finalTrace = asTraceResponse(finalTraceResult.bodyJson);
-  requireTraceEvents(finalTrace, [
+  const requiredTraceEvents = [
     "workflow.started",
     "deploy_job.created",
     "deploy.attempt_created",
     "deploy.job_dispatched",
-    "teardown.attempt_created",
     "workflow.resumed",
-    "health_check.passed",
-    "smoke_test.passed",
-    "workflow.completed",
-  ]);
+  ];
+
+  if (cli.scenario === "a1-happy-path" || cli.scenario === "a2-duplicate-succeeded" || cli.scenario === "a3-regressive-running-after-succeeded") {
+    requiredTraceEvents.push(
+      "teardown.attempt_created",
+      "health_check.passed",
+      "smoke_test.passed",
+      "workflow.completed",
+    );
+  }
+
+  requireTraceEvents(finalTrace, requiredTraceEvents);
 
   console.log("✅ All expected trace milestones found");
 
   const totalDurationMs = Date.now() - startedAt;
-  console.log(`✅ Async deploy check passed in ${totalDurationMs}ms`);
+  console.log(`✅ Scenario ${cli.scenario} passed in ${totalDurationMs}ms`);
 }
 
 void main().catch((error: unknown) => {

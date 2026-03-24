@@ -75,6 +75,18 @@ function normalizeTraceEventRow(row: Record<string, unknown>): Record<string, un
 
 type DeployJobType = "deploy_preview" | "teardown_preview";
 
+type DeployJobAttemptStatus = "queued" | "running" | "succeeded" | "failed";
+
+type SupersedeDeployJobResponse = {
+  ok: true;
+  job_id: string;
+  superseded_attempt_id: string;
+  superseded_attempt_no: number;
+  new_attempt_id: string;
+  new_attempt_no: number;
+  callback_token?: string;
+};
+
 type DeployJobAttemptCallbackBody = {
   status: "running" | "succeeded" | "failed";
   result?: Record<string, unknown>;
@@ -135,6 +147,18 @@ function isActiveAttempt(
   attempt: { attempt_no: number },
 ): boolean {
   return job.active_attempt_no === attempt.attempt_no;
+}
+
+function getAttemptCreatedEventType(jobType: DeployJobType): string {
+  return jobType === "deploy_preview"
+    ? "deploy.attempt_created"
+    : "teardown.attempt_created";
+}
+
+function getAttemptSupersededEventType(jobType: DeployJobType): string {
+  return jobType === "deploy_preview"
+    ? "deploy.attempt_superseded"
+    : "teardown.attempt_superseded";
 }
 
 export default {
@@ -648,6 +672,188 @@ export default {
 
         return Response.json({ ok: true, attempt_id: attemptId, status: body.status });
       }
+    }
+
+    if (
+      request.method === "POST" &&
+      url.pathname.match(/^\/internal\/test\/deploy-jobs\/[^/]+\/supersede$/)
+    ) {
+      if (env.APP_ENV !== "dev") {
+        return Response.json({ error: "Not found" }, { status: 404 });
+      }
+
+      const jobId = url.pathname.split("/")[4];
+
+      const job = await env.DB.prepare(
+        `SELECT
+            dj.id,
+            dj.workflow_run_id,
+            dj.step_name,
+            dj.job_type,
+            dj.provider,
+            dj.status,
+            dj.request_json,
+            dj.attempt_count,
+            dj.active_attempt_no,
+            wr.trace_id
+         FROM deploy_jobs dj
+         JOIN workflow_runs wr ON wr.id = dj.workflow_run_id
+         WHERE dj.id = ?`,
+      )
+        .bind(jobId)
+        .first<{
+          id: string;
+          workflow_run_id: string;
+          step_name: string;
+          job_type: DeployJobType;
+          provider: string;
+          status: string;
+          request_json: string;
+          attempt_count: number;
+          active_attempt_no: number | null;
+          trace_id: string;
+        }>();
+
+      if (!job) {
+        return Response.json({ error: "Deploy job not found" }, { status: 404 });
+      }
+
+      if (job.status === "succeeded" || job.status === "failed") {
+        return Response.json(
+          { error: "Cannot supersede a terminal deploy job" },
+          { status: 400 },
+        );
+      }
+
+      if (job.active_attempt_no === null) {
+        return Response.json(
+          { error: "Deploy job has no active attempt" },
+          { status: 400 },
+        );
+      }
+
+      const currentAttempt = await env.DB.prepare(
+        `SELECT id, attempt_no, status
+         FROM deploy_job_attempts
+         WHERE job_id = ? AND attempt_no = ?`,
+      )
+        .bind(job.id, job.active_attempt_no)
+        .first<{
+          id: string;
+          attempt_no: number;
+          status: string;
+        }>();
+
+      if (!currentAttempt) {
+        return Response.json(
+          { error: "Active deploy job attempt not found" },
+          { status: 404 },
+        );
+      }
+
+      if (currentAttempt.status === "succeeded" || currentAttempt.status === "failed") {
+        return Response.json(
+          { error: "Cannot supersede a terminal attempt" },
+          { status: 400 },
+        );
+      }
+
+      const supersededAt = nowIso();
+      const newAttemptId = newId("attempt");
+      const newAttemptNo = currentAttempt.attempt_no + 1;
+      const callbackToken = crypto.randomUUID();
+      const callbackTokenHash = await sha256Hex(callbackToken);
+      const createdAt = supersededAt;
+
+      await env.DB.prepare(
+        `UPDATE deploy_job_attempts
+         SET superseded_at = ?
+         WHERE id = ?`,
+      )
+        .bind(supersededAt, currentAttempt.id)
+        .run();
+
+      await env.DB.prepare(
+        `INSERT INTO deploy_job_attempts (
+          id,
+          job_id,
+          attempt_no,
+          status,
+          callback_token_hash,
+          created_at
+        ) VALUES (?, ?, ?, ?, ?, ?)`,
+      )
+        .bind(
+          newAttemptId,
+          job.id,
+          newAttemptNo,
+          "queued",
+          callbackTokenHash,
+          createdAt,
+        )
+        .run();
+
+      await env.DB.prepare(
+        `UPDATE deploy_jobs
+         SET attempt_count = ?, active_attempt_no = ?, last_dispatched_at = ?
+         WHERE id = ?`,
+      )
+        .bind(newAttemptNo, newAttemptNo, createdAt, job.id)
+        .run();
+
+      await emitEvent(env.DB, {
+        traceId: job.trace_id,
+        workflowRunId: job.workflow_run_id,
+        stepName: job.step_name as never,
+        eventType: getAttemptSupersededEventType(job.job_type),
+        payload: {
+          job_id: job.id,
+          attempt_id: currentAttempt.id,
+          attempt_no: currentAttempt.attempt_no,
+          provider: job.provider,
+          superseded_at: supersededAt,
+        },
+      });
+
+      await emitEvent(env.DB, {
+        traceId: job.trace_id,
+        workflowRunId: job.workflow_run_id,
+        stepName: job.step_name as never,
+        eventType: getAttemptCreatedEventType(job.job_type),
+        payload: {
+          job_id: job.id,
+          attempt_id: newAttemptId,
+          attempt_no: newAttemptNo,
+          job_type: job.job_type,
+          provider: job.provider,
+          created_at: createdAt,
+        },
+      });
+
+      await emitEvent(env.DB, {
+        traceId: job.trace_id,
+        workflowRunId: job.workflow_run_id,
+        stepName: job.step_name as never,
+        eventType: "deploy_job.debug_token",
+        payload: {
+          job_id: job.id,
+          attempt_id: newAttemptId,
+          attempt_no: newAttemptNo,
+          callback_token: callbackToken,
+        },
+      });
+
+      const response: SupersedeDeployJobResponse = {
+        ok: true,
+        job_id: job.id,
+        superseded_attempt_id: currentAttempt.id,
+        superseded_attempt_no: currentAttempt.attempt_no,
+        new_attempt_id: newAttemptId,
+        new_attempt_no: newAttemptNo,
+        callback_token: callbackToken,
+      };
+
+      return Response.json(response);
     }
 
     if (request.method === "GET" && url.pathname.startsWith("/debug/deploy-jobs/")) {
