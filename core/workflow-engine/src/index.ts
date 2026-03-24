@@ -796,75 +796,90 @@ export class WorkflowCoordinatorDO {
       throw new Error("workflow state not found");
     }
 
-    if (!current.waitingJobId || !current.waitingStep) {
-      return;
-    }
-
-    const job = await this.env.DB.prepare(
-      `SELECT status FROM deploy_jobs WHERE id = ?`,
-    )
-      .bind(current.waitingJobId)
-      .first<{ status: string }>();
-
-    if (!job) {
-      throw new Error("waiting job not found");
-    }
-
-    if (job.status !== "succeeded") {
-      if (job.status === "failed") {
-        throw new Error(`External job failed: ${current.waitingJobId}`);
-      }
-
-      if (
-        job.status === "retry_scheduled" ||
-        job.status === "queued" ||
-        job.status === "running"
-      ) {
+    try {
+      if (!current.waitingJobId || !current.waitingStep) {
         return;
       }
 
-      return;
-    }
+      const job = await this.env.DB.prepare(
+        `SELECT status FROM deploy_jobs WHERE id = ?`,
+      )
+        .bind(current.waitingJobId)
+        .first<{ status: string }>();
 
-    const resumedAfterStep = current.waitingStep;
+      if (!job) {
+        throw new Error("waiting job not found");
+      }
 
-    if (!resumedAfterStep) {
-      throw new Error("waitingStep missing during resume");
-    }
+      if (job.status !== "succeeded") {
+        if (job.status === "failed") {
+          throw new Error(`External job failed: ${current.waitingJobId}`);
+        }
 
-    current.waitingJobId = undefined;
-    current.waitingStep = undefined;
-    await this.state.storage.put("state", current);
+        if (
+          job.status === "retry_scheduled" ||
+          job.status === "queued" ||
+          job.status === "running"
+        ) {
+          return;
+        }
 
-    await emitEvent(this.env.DB, {
-      traceId: current.traceId,
-      workflowRunId: current.workflowRunId,
-      eventType: "workflow.resumed",
-      payload: {
-        resumed_after_step: resumedAfterStep,
-      },
-    });
+        return;
+      }
 
-    const nextSteps = this.getResumePlan(resumedAfterStep);
+      const resumedAfterStep = current.waitingStep;
 
-    for (const step of nextSteps) {
-      await this.runStep(step, current);
+      if (!resumedAfterStep) {
+        throw new Error("waitingStep missing during resume");
+      }
+
+      current.waitingJobId = undefined;
+      current.waitingStep = undefined;
       await this.state.storage.put("state", current);
 
-      if (current.waitingJobId) {
-        return;
+      await emitEvent(this.env.DB, {
+        traceId: current.traceId,
+        workflowRunId: current.workflowRunId,
+        eventType: "workflow.resumed",
+        payload: {
+          resumed_after_step: resumedAfterStep,
+        },
+      });
+
+      const nextSteps = this.getResumePlan(resumedAfterStep);
+
+      for (const step of nextSteps) {
+        await this.runStep(step, current);
+        await this.state.storage.put("state", current);
+
+        if (current.waitingJobId) {
+          return;
+        }
       }
+
+      const finalStatus = current.cancelled ? "cancelled" : "completed";
+
+      await this.setWorkflowStatus(current.workflowRunId, finalStatus);
+
+      await emitEvent(this.env.DB, {
+        traceId: current.traceId,
+        workflowRunId: current.workflowRunId,
+        eventType: "workflow.completed",
+        payload: { status: finalStatus },
+      });
+    } catch (error) {
+      await this.setWorkflowStatus(current.workflowRunId, "failed");
+
+      await emitEvent(this.env.DB, {
+        traceId: current.traceId,
+        workflowRunId: current.workflowRunId,
+        eventType: "workflow.failed",
+        payload: {
+          message: error instanceof Error ? error.message : String(error),
+        },
+      });
+
+      throw error;
     }
-
-    const finalStatus = current.cancelled ? "cancelled" : "completed";
-
-    await this.setWorkflowStatus(current.workflowRunId, finalStatus);
-
-    await emitEvent(this.env.DB, {
-      traceId: current.traceId,
-      workflowRunId: current.workflowRunId,
-      eventType: "workflow.completed",
-      payload: { status: finalStatus },
-    });
   }
 }
