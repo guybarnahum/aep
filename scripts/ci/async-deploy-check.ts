@@ -351,41 +351,52 @@ function extractAttemptDispatchInfo(
   let jobId: string | undefined;
   let attemptId: string | undefined;
   let attemptNo: number | undefined;
-  let callbackToken: string | undefined;
+
+  const debugTokens: Array<{
+    jobId?: string;
+    attemptId?: string;
+    callbackToken?: string;
+  }> = [];
 
   for (const event of events) {
     const eventType = event.event_type ?? "";
     const payload = getTraceEventPayload(event);
 
     if (!jobId || !attemptId || attemptNo === undefined) {
-      if (phase === "deploy") {
-        if (eventType === "deploy.job_dispatched") {
-          jobId = getPayloadString(payload, "job_id");
-          attemptId = getPayloadString(payload, "attempt_id");
-          attemptNo = getPayloadNumber(payload, "attempt_no");
-        }
-      } else {
-        if (eventType === "teardown.job_dispatched") {
-          jobId = getPayloadString(payload, "job_id");
-          attemptId = getPayloadString(payload, "attempt_id");
-          attemptNo = getPayloadNumber(payload, "attempt_no");
-        }
+      if (phase === "deploy" && eventType === "deploy.job_dispatched") {
+        jobId = getPayloadString(payload, "job_id");
+        attemptId = getPayloadString(payload, "attempt_id");
+        attemptNo = getPayloadNumber(payload, "attempt_no");
+      }
+
+      if (phase === "teardown" && eventType === "teardown.job_dispatched") {
+        jobId = getPayloadString(payload, "job_id");
+        attemptId = getPayloadString(payload, "attempt_id");
+        attemptNo = getPayloadNumber(payload, "attempt_no");
       }
     }
 
-    if (!callbackToken && eventType === "deploy_job.debug_token") {
-      const tokenJobId = getPayloadString(payload, "job_id");
-      const tokenAttemptId = getPayloadString(payload, "attempt_id");
-      const token = getPayloadString(payload, "callback_token");
-
-      if (jobId && attemptId && tokenJobId === jobId && tokenAttemptId === attemptId && token) {
-        callbackToken = token;
-      }
+    if (eventType === "deploy_job.debug_token") {
+      debugTokens.push({
+        jobId: getPayloadString(payload, "job_id"),
+        attemptId: getPayloadString(payload, "attempt_id"),
+        callbackToken: getPayloadString(payload, "callback_token"),
+      });
     }
+  }
 
-    if (jobId && attemptId && attemptNo !== undefined && callbackToken) {
-      break;
-    }
+  let callbackToken: string | undefined;
+
+  if (jobId && attemptId) {
+    const match = debugTokens.find(
+      (tokenInfo) =>
+        tokenInfo.jobId === jobId &&
+        tokenInfo.attemptId === attemptId &&
+        typeof tokenInfo.callbackToken === "string" &&
+        tokenInfo.callbackToken.length > 0,
+    );
+
+    callbackToken = match?.callbackToken;
   }
 
   return { jobId, attemptId, attemptNo, callbackToken };
