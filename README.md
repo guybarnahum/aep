@@ -261,6 +261,49 @@ Current AWS adapter assumptions:
 - execution role ARN is supplied externally
 - no CloudFormation / CDK / API Gateway layer yet
 
+### Bootstrapping AWS secrets for GitHub Actions
+
+`scripts/dev/bootstrap-aws-github-secrets.sh` creates or reuses the AWS IAM pieces required for GitHub Actions OIDC and Lambda execution, then prints the exact secret values to add to GitHub.
+
+Prerequisites: `aws` (authenticated) and `jq` installed.
+
+Creates or reuses:
+- GitHub OIDC provider (`token.actions.githubusercontent.com`)
+- `aep-github-actions-role` — OIDC-federated, scoped to `repo:guybarnahum/aep:*`, with least-privilege Lambda CRUD + `iam:PassRole`
+- `aep-lambda-exec-role` — Lambda execution role with `AWSLambdaBasicExecutionRole`
+
+<details>
+<summary>Usage</summary>
+
+```bash
+chmod +x scripts/dev/bootstrap-aws-github-secrets.sh
+scripts/dev/bootstrap-aws-github-secrets.sh us-west-2
+```
+
+Target a different repo slug:
+
+```bash
+REPO_SLUG="your-org/your-repo" scripts/dev/bootstrap-aws-github-secrets.sh us-west-2
+```
+
+The script prints the three values to add as GitHub Actions secrets:
+
+```
+AWS_REGION=us-west-2
+AWS_LAMBDA_EXECUTION_ROLE_ARN=arn:aws:iam::<account>:role/aep-lambda-exec-role
+AWS_GITHUB_ACTIONS_ROLE_ARN=arn:aws:iam::<account>:role/aep-github-actions-role
+```
+
+The workflow already has the required OIDC permissions block:
+
+```yaml
+permissions:
+  id-token: write
+  contents: read
+```
+
+</details>
+
 ---
 
 ## Job Lifecycle Events (trace)
