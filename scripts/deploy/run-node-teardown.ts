@@ -32,7 +32,7 @@ function parseArgs(argv: string[]): {
 
   if (!deploymentRef) {
     throw new Error(
-      "Usage: tsx scripts/deploy/run-node-teardown.ts --deployment-ref sample-worker-run_test_3 [--provider cloudflare] [--callback-url ... --callback-token ...]",
+      "Usage: tsx scripts/deploy/run-node-teardown.ts --deployment-ref sample-worker-run_test_3 [--provider cloudflare] [--callback-url https://.../internal/deploy-job-attempts/attempt_123/callback --callback-token token]",
     );
   }
 

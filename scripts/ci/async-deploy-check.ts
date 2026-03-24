@@ -321,6 +321,11 @@ function getPayloadString(payload: Record<string, unknown>, key: string): string
   return typeof value === "string" && value ? value : undefined;
 }
 
+function getPayloadNumber(payload: Record<string, unknown>, key: string): number | undefined {
+  const value = payload[key];
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+}
+
 function payloadHasJobType(
   payload: Record<string, unknown>,
   jobType: "deploy_preview" | "teardown_preview",
@@ -332,55 +337,58 @@ function payloadHasModeAsync(payload: Record<string, unknown>): boolean {
   return payload["mode"] === "async";
 }
 
-function extractJobIdAndToken(
+function extractAttemptDispatchInfo(
   trace: TraceResponse,
   phase: "deploy" | "teardown",
 ): {
   jobId?: string;
+  attemptId?: string;
+  attemptNo?: number;
   callbackToken?: string;
 } {
   const events = trace.events ?? [];
 
   let jobId: string | undefined;
+  let attemptId: string | undefined;
+  let attemptNo: number | undefined;
   let callbackToken: string | undefined;
 
   for (const event of events) {
     const eventType = event.event_type ?? "";
     const payload = getTraceEventPayload(event);
 
-    if (!jobId) {
+    if (!jobId || !attemptId || attemptNo === undefined) {
       if (phase === "deploy") {
-        if (
-          eventType === "deploy.job_dispatched" ||
-          (eventType === "deploy_job.created" && payloadHasJobType(payload, "deploy_preview"))
-        ) {
+        if (eventType === "deploy.job_dispatched") {
           jobId = getPayloadString(payload, "job_id");
+          attemptId = getPayloadString(payload, "attempt_id");
+          attemptNo = getPayloadNumber(payload, "attempt_no");
         }
       } else {
-        if (
-          eventType === "teardown.job_dispatched" ||
-          (eventType === "deploy_job.created" && payloadHasJobType(payload, "teardown_preview"))
-        ) {
+        if (eventType === "teardown.job_dispatched") {
           jobId = getPayloadString(payload, "job_id");
+          attemptId = getPayloadString(payload, "attempt_id");
+          attemptNo = getPayloadNumber(payload, "attempt_no");
         }
       }
     }
 
     if (!callbackToken && eventType === "deploy_job.debug_token") {
       const tokenJobId = getPayloadString(payload, "job_id");
+      const tokenAttemptId = getPayloadString(payload, "attempt_id");
       const token = getPayloadString(payload, "callback_token");
 
-      if (jobId && tokenJobId === jobId && token) {
+      if (jobId && attemptId && tokenJobId === jobId && tokenAttemptId === attemptId && token) {
         callbackToken = token;
       }
     }
 
-    if (jobId && callbackToken) {
+    if (jobId && attemptId && attemptNo !== undefined && callbackToken) {
       break;
     }
   }
 
-  return { jobId, callbackToken };
+  return { jobId, attemptId, attemptNo, callbackToken };
 }
 
 async function runNodeDeploy(args: {
@@ -608,8 +616,10 @@ async function main(): Promise<void> {
 
   console.log("✅ DEPLOY entered waiting");
 
-  console.log("==> Fetching trace and extracting job id + callback token");
+  console.log("==> Fetching trace and extracting deploy attempt dispatch info");
   let jobId: string | undefined;
+  let deployAttemptId: string | undefined;
+  let deployAttemptNo: number | undefined;
   let callbackToken: string | undefined;
 
   for (let attempt = 1; attempt <= cli.pollAttempts; attempt += 1) {
@@ -627,16 +637,18 @@ async function main(): Promise<void> {
       console.warn(traceResult.bodyText);
     } else {
       const trace = asTraceResponse(traceResult.bodyJson);
-      const extracted = extractJobIdAndToken(trace, "deploy");
+      const extracted = extractAttemptDispatchInfo(trace, "deploy");
 
       jobId = extracted.jobId;
+      deployAttemptId = extracted.attemptId;
+      deployAttemptNo = extracted.attemptNo;
       callbackToken = extracted.callbackToken;
 
       console.log(
-        `   Trace attempt ${attempt}/${cli.pollAttempts}: job_id=${jobId ?? "(missing)"}, callback_token=${callbackToken ? "<present>" : "(missing)"}`,
+        `   Trace attempt ${attempt}/${cli.pollAttempts}: job_id=${jobId ?? "(missing)"}, attempt_id=${deployAttemptId ?? "(missing)"}, callback_token=${callbackToken ? "<present>" : "(missing)"}`,
       );
 
-      if (jobId && callbackToken) {
+      if (jobId && deployAttemptId && deployAttemptNo !== undefined && callbackToken) {
         break;
       }
     }
@@ -648,7 +660,13 @@ async function main(): Promise<void> {
 
   if (!jobId) {
     fail(
-      "Could not extract job_id from trace. Expected deploy.job_dispatched or deploy_job.created event with payload_json.",
+      "Could not extract deploy job_id from trace. Expected deploy.job_dispatched with attempt metadata.",
+    );
+  }
+
+  if (!deployAttemptId) {
+    fail(
+      "Could not extract deploy attempt_id from trace. Expected deploy.job_dispatched with attempt metadata.",
     );
   }
 
@@ -660,10 +678,12 @@ async function main(): Promise<void> {
 
   const callbackUrl = joinUrl(
     cli.baseUrl,
-    `/internal/deploy-jobs/${encodeURIComponent(jobId)}/callback`,
+    `/internal/deploy-job-attempts/${encodeURIComponent(deployAttemptId)}/callback`,
   );
 
   console.log(`   Job id:       ${jobId}`);
+  console.log(`   Attempt id:   ${deployAttemptId}`);
+  console.log(`   Attempt no:   ${deployAttemptNo ?? "(missing)"}`);
   console.log(`   Callback URL: ${callbackUrl}`);
   console.log("   Callback token: <redacted>");
 
@@ -729,6 +749,8 @@ async function main(): Promise<void> {
     console.log("✅ TEARDOWN entered waiting");
 
     let teardownJobId: string | undefined;
+    let teardownAttemptId: string | undefined;
+    let teardownAttemptNo: number | undefined;
     let teardownCallbackToken: string | undefined;
 
     for (let attempt = 1; attempt <= cli.pollAttempts; attempt += 1) {
@@ -746,16 +768,23 @@ async function main(): Promise<void> {
         console.warn(traceResult.bodyText);
       } else {
         const trace = asTraceResponse(traceResult.bodyJson);
-        const extracted = extractJobIdAndToken(trace, "teardown");
+        const extracted = extractAttemptDispatchInfo(trace, "teardown");
 
         teardownJobId = extracted.jobId;
+        teardownAttemptId = extracted.attemptId;
+        teardownAttemptNo = extracted.attemptNo;
         teardownCallbackToken = extracted.callbackToken;
 
         console.log(
-          `   Teardown trace attempt ${attempt}/${cli.pollAttempts}: job_id=${teardownJobId ?? "(missing)"}, callback_token=${teardownCallbackToken ? "<present>" : "(missing)"}`,
+          `   Teardown trace attempt ${attempt}/${cli.pollAttempts}: job_id=${teardownJobId ?? "(missing)"}, attempt_id=${teardownAttemptId ?? "(missing)"}, callback_token=${teardownCallbackToken ? "<present>" : "(missing)"}`,
         );
 
-        if (teardownJobId && teardownCallbackToken) {
+        if (
+          teardownJobId &&
+          teardownAttemptId &&
+          teardownAttemptNo !== undefined &&
+          teardownCallbackToken
+        ) {
           const deploymentRef = extractDeploymentRefFromTrace(trace);
           if (!deploymentRef) {
             fail("Could not extract deployment_ref from trace for teardown.");
@@ -763,7 +792,7 @@ async function main(): Promise<void> {
 
           const teardownCallbackUrl = joinUrl(
             cli.baseUrl,
-            `/internal/deploy-jobs/${encodeURIComponent(teardownJobId)}/callback`,
+            `/internal/deploy-job-attempts/${encodeURIComponent(teardownAttemptId)}/callback`,
           );
 
           await runNodeTeardown({
@@ -785,7 +814,13 @@ async function main(): Promise<void> {
 
     if (!teardownJobId) {
       fail(
-        "Could not extract teardown job_id from trace. Expected teardown.job_dispatched or deploy_job.created(teardown_preview).",
+        "Could not extract teardown job_id from trace. Expected teardown.job_dispatched with attempt metadata.",
+      );
+    }
+
+    if (!teardownAttemptId) {
+      fail(
+        "Could not extract teardown attempt_id from trace. Expected teardown.job_dispatched with attempt metadata.",
       );
     }
 
@@ -871,7 +906,9 @@ async function main(): Promise<void> {
   requireTraceEvents(finalTrace, [
     "workflow.started",
     "deploy_job.created",
+    "deploy.attempt_created",
     "deploy.job_dispatched",
+    "teardown.attempt_created",
     "workflow.resumed",
     "health_check.passed",
     "smoke_test.passed",

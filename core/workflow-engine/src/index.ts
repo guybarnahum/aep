@@ -361,7 +361,8 @@ export class WorkflowCoordinatorDO {
             break;
           }
 
-          const { jobId } = await this.createExternalJob(current, {
+          const { jobId, attemptId, attemptNo } =
+            await this.createExternalJobWithAttempt(current, {
             stepName: step,
             jobType: "deploy_preview",
             provider: current.provider,
@@ -380,6 +381,8 @@ export class WorkflowCoordinatorDO {
             eventType: "deploy.job_dispatched",
             payload: {
               job_id: jobId,
+              attempt_id: attemptId,
+              attempt_no: attemptNo,
               workflow_run_id: current.workflowRunId,
               environment_id: current.environmentId,
               service_name: current.serviceName,
@@ -491,7 +494,8 @@ export class WorkflowCoordinatorDO {
             break;
           }
 
-          const { jobId } = await this.createExternalJob(current, {
+          const { jobId, attemptId, attemptNo } =
+            await this.createExternalJobWithAttempt(current, {
             stepName: step,
             jobType: "teardown_preview",
             provider: current.provider,
@@ -509,6 +513,8 @@ export class WorkflowCoordinatorDO {
             eventType: "teardown.job_dispatched",
             payload: {
               job_id: jobId,
+              attempt_id: attemptId,
+              attempt_no: attemptNo,
               deployment_ref: current.deploymentRef,
               provider: current.provider,
               mode: "async",
@@ -651,7 +657,7 @@ export class WorkflowCoordinatorDO {
       .run();
   }
 
-  private async createExternalJob(
+  private async createExternalJobWithAttempt(
     current: State,
     args: {
       stepName: StepName;
@@ -659,8 +665,15 @@ export class WorkflowCoordinatorDO {
       provider: Provider;
       request: Record<string, unknown>;
     },
-  ): Promise<{ jobId: string; callbackToken: string }> {
+  ): Promise<{
+    jobId: string;
+    attemptId: string;
+    attemptNo: number;
+    callbackToken: string;
+  }> {
     const jobId = newId("job");
+    const attemptId = newId("attempt");
+    const attemptNo = 1;
     const callbackToken = crypto.randomUUID();
     const callbackTokenHash = await sha256Hex(callbackToken);
     const createdAt = nowIso();
@@ -674,9 +687,14 @@ export class WorkflowCoordinatorDO {
         provider,
         status,
         request_json,
+        max_attempts,
+        attempt_count,
+        active_attempt_no,
+        terminal_attempt_no,
+        last_dispatched_at,
         callback_token_hash,
         created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
       .bind(
         jobId,
@@ -686,6 +704,31 @@ export class WorkflowCoordinatorDO {
         args.provider,
         "queued",
         JSON.stringify(args.request),
+        3,
+        1,
+        1,
+        null,
+        createdAt,
+        "__deprecated_use_attempt_table__",
+        createdAt,
+      )
+      .run();
+
+    await this.env.DB.prepare(
+      `INSERT INTO deploy_job_attempts (
+        id,
+        job_id,
+        attempt_no,
+        status,
+        callback_token_hash,
+        created_at
+      ) VALUES (?, ?, ?, ?, ?, ?)`,
+    )
+      .bind(
+        attemptId,
+        jobId,
+        attemptNo,
+        "queued",
         callbackTokenHash,
         createdAt,
       )
@@ -704,6 +747,26 @@ export class WorkflowCoordinatorDO {
       },
     });
 
+    const attemptCreatedEventType =
+      args.jobType === "deploy_preview"
+        ? "deploy.attempt_created"
+        : "teardown.attempt_created";
+
+    await emitEvent(this.env.DB, {
+      traceId: current.traceId,
+      workflowRunId: current.workflowRunId,
+      stepName: args.stepName,
+      eventType: attemptCreatedEventType,
+      payload: {
+        job_id: jobId,
+        attempt_id: attemptId,
+        attempt_no: attemptNo,
+        job_type: args.jobType,
+        provider: args.provider,
+        created_at: createdAt,
+      },
+    });
+
     if (this.env.APP_ENV === "dev") {
       await emitEvent(this.env.DB, {
         traceId: current.traceId,
@@ -712,6 +775,8 @@ export class WorkflowCoordinatorDO {
         eventType: "deploy_job.debug_token",
         payload: {
           job_id: jobId,
+          attempt_id: attemptId,
+          attempt_no: attemptNo,
           callback_token: callbackToken,
         },
       });
@@ -721,7 +786,7 @@ export class WorkflowCoordinatorDO {
     current.waitingStep = args.stepName;
     await this.state.storage.put("state", current);
 
-    return { jobId, callbackToken };
+    return { jobId, attemptId, attemptNo, callbackToken };
   }
 
   private async resumeWorkflow(): Promise<void> {

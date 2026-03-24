@@ -4,6 +4,25 @@ A control plane for autonomous software systems.
 
 This repository is structured to let the MVP grow into the full AEP platform without reorganizing the repo later.
 
+## At a glance
+
+- Control plane runs on Cloudflare Workers + Durable Objects.
+- Infrastructure execution is externalized to Node runners.
+- Workflows support sync and async execution modes.
+- Async mode supports dispatch, callback, and resume.
+- Observability is trace-first with explicit lifecycle events.
+
+## Quick Navigation
+
+- [Architecture Overview](#-architecture-overview)
+- [Workflow Model](#-workflow-model)
+- [External Job Model](#-external-job-model)
+- [Observability](#-observability)
+- [CI / Deployment Flow](#-ci--deployment-flow)
+- [Local Development](#-local-development)
+- [Known Limitations](#️-known-limitations)
+- [Next Steps](#-next-steps-commit-4)
+
 ---
 
 # 🚀 Current Status (Commit 3 — Complete)
@@ -128,6 +147,13 @@ Supports:
 - multiple pauses per workflow
 - full external execution lifecycle
 
+### Mode comparison
+
+| Mode | Runtime behavior | Best for |
+| --- | --- | --- |
+| `sync` | Executes directly in workflow engine | CI smoke checks, deterministic validation |
+| `async` | Dispatches external jobs and waits for callback | Real orchestration and provider execution |
+
 ---
 
 # 🔁 External Job Model
@@ -144,8 +170,30 @@ queued → running → succeeded / failed
 
 - provider
 - request payload
+- status and lifecycle timestamps
+
+### Each attempt includes
+
 - callback token (hashed)
-- lifecycle timestamps
+- status and lifecycle timestamps
+
+### Logical jobs vs execution attempts
+
+AEP distinguishes between:
+
+- **logical job** - the workflow-level external operation (`DEPLOY` or `TEARDOWN`)
+- **execution attempt** - one concrete dispatch of that logical job
+
+Each attempt has its own callback token and lifecycle state.
+
+This allows the control plane to safely handle:
+
+- duplicate callbacks
+- out-of-order callbacks
+- stale callbacks from non-active attempts
+
+Only the active attempt for a logical job may mutate workflow state.
+Duplicate or stale callbacks are treated as no-op acknowledgements.
 
 ---
 
@@ -327,6 +375,7 @@ npx tsx scripts/ci/async-deploy-check.ts \
 
 - CI does not yet validate full async orchestration (sync-only today)
 - job retries / idempotency not yet implemented
+- retry scheduling and timeout policy are Stage 2B
 - partial failure recovery paths need deeper validation
 - provider coverage limited to Cloudflare
 

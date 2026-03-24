@@ -75,7 +75,7 @@ function normalizeTraceEventRow(row: Record<string, unknown>): Record<string, un
 
 type DeployJobType = "deploy_preview" | "teardown_preview";
 
-type DeployJobCallbackBody = {
+type DeployJobAttemptCallbackBody = {
   status: "running" | "succeeded" | "failed";
   result?: Record<string, unknown>;
   error_message?: string;
@@ -86,6 +86,56 @@ type DeployPreviewResult = {
   preview_url?: string;
   url?: string;
 };
+
+function isAttemptTerminalStatus(status: string): boolean {
+  return status === "succeeded" || status === "failed";
+}
+
+function isDuplicateAttemptTransition(
+  currentStatus: string,
+  nextStatus: "running" | "succeeded" | "failed",
+): boolean {
+  return currentStatus === nextStatus;
+}
+
+function isAllowedAttemptTransition(
+  currentStatus: string,
+  nextStatus: "running" | "succeeded" | "failed",
+): boolean {
+  if (currentStatus === "queued") {
+    return nextStatus === "running" || nextStatus === "succeeded" || nextStatus === "failed";
+  }
+
+  if (currentStatus === "running") {
+    return nextStatus === "succeeded" || nextStatus === "failed";
+  }
+
+  return false;
+}
+
+function buildNoopCallbackResponse(args: {
+  attemptId: string;
+  status: string;
+  duplicate?: boolean;
+  ignored?: boolean;
+  reason?: string;
+}): Response {
+  return Response.json({
+    ok: true,
+    attempt_id: args.attemptId,
+    status: args.status,
+    duplicate: args.duplicate ?? false,
+    ignored: args.ignored ?? false,
+    reason: args.reason ?? null,
+  });
+}
+
+function isActiveAttempt(
+  job: { active_attempt_no: number | null },
+  attempt: { attempt_no: number },
+): boolean {
+  return job.active_attempt_no === attempt.attempt_no;
+}
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
@@ -197,109 +247,199 @@ export default {
 
     if (
       request.method === "POST" &&
-      url.pathname.match(/^\/internal\/deploy-jobs\/[^/]+\/callback$/)
+      url.pathname.match(/^\/internal\/deploy-job-attempts\/[^/]+\/callback$/)
     ) {
-      const jobId = url.pathname.split("/")[3];
+      const attemptId = url.pathname.split("/")[3];
       const authHeader = request.headers.get("authorization");
       const token = authHeader?.startsWith("Bearer ")
         ? authHeader.slice("Bearer ".length)
         : null;
 
-      const body = (await json(request)) as DeployJobCallbackBody;
+      const body = (await json(request)) as DeployJobAttemptCallbackBody;
 
-      const job = await env.DB.prepare(
-        `SELECT dj.id, dj.workflow_run_id, dj.step_name, dj.job_type, dj.provider, dj.status, dj.request_json, dj.callback_token_hash, wr.trace_id
-         FROM deploy_jobs dj
+      const attempt = await env.DB.prepare(
+        `SELECT
+            dja.id,
+            dja.job_id,
+            dja.attempt_no,
+            dja.status AS attempt_status,
+            dja.callback_token_hash,
+            dja.result_json AS attempt_result_json,
+            dja.error_message AS attempt_error_message,
+            dja.superseded_at,
+
+            dj.workflow_run_id,
+            dj.step_name,
+            dj.job_type,
+            dj.provider,
+            dj.status AS job_status,
+            dj.request_json,
+            dj.active_attempt_no,
+            dj.terminal_attempt_no,
+
+            wr.trace_id
+         FROM deploy_job_attempts dja
+         JOIN deploy_jobs dj ON dj.id = dja.job_id
          JOIN workflow_runs wr ON wr.id = dj.workflow_run_id
-         WHERE dj.id = ?`,
+         WHERE dja.id = ?`,
       )
-        .bind(jobId)
+        .bind(attemptId)
         .first<{
           id: string;
+          job_id: string;
+          attempt_no: number;
+          attempt_status: string;
+          callback_token_hash: string;
+          attempt_result_json: string | null;
+          attempt_error_message: string | null;
+          superseded_at: string | null;
+
           workflow_run_id: string;
           step_name: string;
           job_type: DeployJobType;
           provider: string;
-          status: string;
+          job_status: string;
           request_json: string;
-          callback_token_hash: string;
+          active_attempt_no: number | null;
+          terminal_attempt_no: number | null;
+
           trace_id: string;
         }>();
 
-      if (!job) {
-        return Response.json({ error: "Deploy job not found" }, { status: 404 });
+      if (!attempt) {
+        return Response.json({ error: "Deploy job attempt not found" }, { status: 404 });
       }
 
-      const ok = await verifyCallbackToken(job.callback_token_hash, token);
+      const ok = await verifyCallbackToken(attempt.callback_token_hash, token);
       if (!ok) {
         return Response.json({ error: "Unauthorized callback" }, { status: 401 });
       }
 
-      const requestJson = JSON.parse(job.request_json) as {
+      const requestJson = JSON.parse(attempt.request_json) as {
         deployment_ref?: string;
         environment_id?: string;
         service_name?: string;
       };
 
       const deployResult = (body.result ?? {}) as DeployPreviewResult;
+
+      const activeAttempt = isActiveAttempt(
+        { active_attempt_no: attempt.active_attempt_no },
+        { attempt_no: attempt.attempt_no },
+      );
+
+      if (!activeAttempt) {
+        return buildNoopCallbackResponse({
+          attemptId,
+          status: body.status,
+          ignored: true,
+          reason: "stale_attempt",
+        });
+      }
+
+      if (isDuplicateAttemptTransition(attempt.attempt_status, body.status)) {
+        return buildNoopCallbackResponse({
+          attemptId,
+          status: body.status,
+          duplicate: true,
+        });
+      }
+
+      if (
+        isAttemptTerminalStatus(attempt.attempt_status) ||
+        !isAllowedAttemptTransition(attempt.attempt_status, body.status)
+      ) {
+        return buildNoopCallbackResponse({
+          attemptId,
+          status: body.status,
+          ignored: true,
+          reason: "invalid_transition",
+        });
+      }
       
       if (body.status === "running") {
         const startedAt = nowIso();
 
         await env.DB.prepare(
-          `UPDATE deploy_jobs
+          `UPDATE deploy_job_attempts
            SET status = ?, started_at = ?
            WHERE id = ?`,
         )
-          .bind("running", startedAt, jobId)
+          .bind("running", startedAt, attemptId)
+          .run();
+
+        await env.DB.prepare(
+          `UPDATE deploy_jobs
+           SET status = ?, last_dispatched_at = COALESCE(last_dispatched_at, ?)
+           WHERE id = ?`,
+        )
+          .bind("running", startedAt, attempt.job_id)
           .run();
 
         await emitEvent(env.DB, {
-          traceId: job.trace_id,
-          workflowRunId: job.workflow_run_id,
-          stepName: job.step_name as never,
+          traceId: attempt.trace_id,
+          workflowRunId: attempt.workflow_run_id,
+          stepName: attempt.step_name as never,
           eventType:
-            job.job_type === "deploy_preview"
+            attempt.job_type === "deploy_preview"
               ? "deploy.job_started"
               : "teardown.job_started",
           payload: {
-            job_id: jobId,
-            job_type: job.job_type,
-            provider: job.provider,
+            job_id: attempt.job_id,
+            attempt_id: attemptId,
+            attempt_no: attempt.attempt_no,
+            job_type: attempt.job_type,
+            provider: attempt.provider,
           },
         });
 
-        return Response.json({ ok: true, job_id: jobId, status: body.status });
+        return Response.json({ ok: true, attempt_id: attemptId, status: body.status });
       }
 
       if (body.status === "succeeded") {
         const completedAt = nowIso();
 
         await env.DB.prepare(
-          `UPDATE deploy_jobs
+          `UPDATE deploy_job_attempts
            SET status = ?, result_json = ?, completed_at = ?
            WHERE id = ?`,
         )
           .bind(
-            "succeeded",
-            JSON.stringify(body.result ?? {}),
-            completedAt,
-            jobId,
+          "succeeded",
+          JSON.stringify(body.result ?? {}),
+          completedAt,
+          attemptId,
+        )
+        .run();
+
+        await env.DB.prepare(
+          `UPDATE deploy_jobs
+           SET status = ?, result_json = ?, completed_at = ?, terminal_attempt_no = ?
+           WHERE id = ?`,
+        )
+        .bind(
+          "succeeded",
+          JSON.stringify(body.result ?? {}),
+          completedAt,
+          attempt.attempt_no,
+          attempt.job_id,
           )
           .run();
 
         await emitEvent(env.DB, {
-          traceId: job.trace_id,
-          workflowRunId: job.workflow_run_id,
-          stepName: job.step_name as never,
+          traceId: attempt.trace_id,
+          workflowRunId: attempt.workflow_run_id,
+          stepName: attempt.step_name as never,
           eventType:
-            job.job_type === "deploy_preview"
+            attempt.job_type === "deploy_preview"
               ? "deploy.job_succeeded"
               : "teardown.job_succeeded",
           payload: {
-            job_id: jobId,
-            job_type: job.job_type,
-            provider: job.provider,
+            job_id: attempt.job_id,
+            attempt_id: attemptId,
+            attempt_no: attempt.attempt_no,
+            job_type: attempt.job_type,
+            provider: attempt.provider,
           },
         });
 
@@ -311,13 +451,13 @@ export default {
           .bind(
             "completed",
             completedAt,
-            job.workflow_run_id,
-            job.step_name,
+            attempt.workflow_run_id,
+            attempt.step_name,
             "waiting",
           )
           .run();
 
-        if (job.job_type === "deploy_preview") {
+        if (attempt.job_type === "deploy_preview") {
           const deploymentRef = deployResult.deployment_ref;
           const previewUrl = deployResult.preview_url ?? deployResult.url;
 
@@ -352,7 +492,7 @@ export default {
                WHERE id = ?`,
             )
               .bind(
-                job.provider,
+                attempt.provider,
                 deploymentRef,
                 previewUrl,
                 "deployed",
@@ -376,7 +516,7 @@ export default {
               .bind(
                 resolvedDeploymentId,
                 requestJson.environment_id,
-                job.provider,
+                attempt.provider,
                 deploymentRef,
                 previewUrl,
                 "deployed",
@@ -395,7 +535,7 @@ export default {
               .run();
           }
 
-          const doId = env.WORKFLOW_COORDINATOR.idFromName(job.workflow_run_id);
+          const doId = env.WORKFLOW_COORDINATOR.idFromName(attempt.workflow_run_id);
           const stub = env.WORKFLOW_COORDINATOR.get(doId);
 
           await stub.fetch(
@@ -408,7 +548,7 @@ export default {
               }),
             }),
           );
-        } else if (job.job_type === "teardown_preview") {
+        } else if (attempt.job_type === "teardown_preview") {
           if (requestJson.deployment_ref) {
             await env.DB.prepare(
               `UPDATE deployments
@@ -424,20 +564,26 @@ export default {
              SET status = ?, destroyed_at = ?
              WHERE workflow_run_id = ?`,
           )
-            .bind("destroyed", completedAt, job.workflow_run_id)
+            .bind("destroyed", completedAt, attempt.workflow_run_id)
             .run();
         } else {
           return Response.json(
-            { error: `Unsupported job_type: ${String(job.job_type)}` },
+            { error: `Unsupported job_type: ${String(attempt.job_type)}` },
             { status: 400 },
           );
         }
+
+        const doId = env.WORKFLOW_COORDINATOR.idFromName(attempt.workflow_run_id);
+        const stub = env.WORKFLOW_COORDINATOR.get(doId);
+        await stub.fetch(new Request("https://do/resume", { method: "POST" }));
+
+        return Response.json({ ok: true, attempt_id: attemptId, status: body.status });
       } else {
         const completedAt = nowIso();
         const errorMessage = body.error_message ?? "External job failed";
 
         await env.DB.prepare(
-          `UPDATE deploy_jobs
+          `UPDATE deploy_job_attempts
            SET status = ?, error_message = ?, completed_at = ?
            WHERE id = ?`,
         )
@@ -445,22 +591,38 @@ export default {
             "failed",
             errorMessage,
             completedAt,
-            jobId,
+            attemptId,
+          )
+          .run();
+
+        await env.DB.prepare(
+          `UPDATE deploy_jobs
+           SET status = ?, error_message = ?, completed_at = ?, terminal_attempt_no = ?
+           WHERE id = ?`,
+        )
+          .bind(
+            "failed",
+            errorMessage,
+            completedAt,
+            attempt.attempt_no,
+            attempt.job_id,
           )
           .run();
 
         await emitEvent(env.DB, {
-          traceId: job.trace_id,
-          workflowRunId: job.workflow_run_id,
-          stepName: job.step_name as never,
+          traceId: attempt.trace_id,
+          workflowRunId: attempt.workflow_run_id,
+          stepName: attempt.step_name as never,
           eventType:
-            job.job_type === "deploy_preview"
+            attempt.job_type === "deploy_preview"
               ? "deploy.job_failed"
               : "teardown.job_failed",
           payload: {
-            job_id: jobId,
-            job_type: job.job_type,
-            provider: job.provider,
+            job_id: attempt.job_id,
+            attempt_id: attemptId,
+            attempt_no: attempt.attempt_no,
+            job_type: attempt.job_type,
+            provider: attempt.provider,
             error_message: errorMessage,
           },
         });
@@ -474,18 +636,18 @@ export default {
             "failed",
             completedAt,
             errorMessage,
-            job.workflow_run_id,
-            job.step_name,
+            attempt.workflow_run_id,
+            attempt.step_name,
             "waiting",
           )
           .run();
+
+        const doId = env.WORKFLOW_COORDINATOR.idFromName(attempt.workflow_run_id);
+        const stub = env.WORKFLOW_COORDINATOR.get(doId);
+        await stub.fetch(new Request("https://do/resume", { method: "POST" }));
+
+        return Response.json({ ok: true, attempt_id: attemptId, status: body.status });
       }
-
-      const doId = env.WORKFLOW_COORDINATOR.idFromName(job.workflow_run_id);
-      const stub = env.WORKFLOW_COORDINATOR.get(doId);
-      await stub.fetch(new Request("https://do/resume", { method: "POST" }));
-
-      return Response.json({ ok: true, job_id: jobId, status: body.status });
     }
 
     if (request.method === "GET" && url.pathname.startsWith("/debug/deploy-jobs/")) {
