@@ -237,6 +237,84 @@ function buildFailurePayload(args: {
   };
 }
 
+function isTerminalDeployJobStatus(status: string): boolean {
+  return status === "succeeded" || status === "failed";
+}
+
+function isRetryScheduledStatus(status: string): boolean {
+  return status === "retry_scheduled";
+}
+
+async function assertLogicalJobState(args: {
+  env: Env;
+  jobId: string;
+}): Promise<void> {
+  const row = await args.env.DB.prepare(
+    `SELECT status, completed_at, terminal_attempt_no, active_attempt_no, next_retry_at
+     FROM deploy_jobs
+     WHERE id = ?`,
+  )
+    .bind(args.jobId)
+    .first<{
+      status: string;
+      completed_at: string | null;
+      terminal_attempt_no: number | null;
+      active_attempt_no: number | null;
+      next_retry_at: string | null;
+    }>();
+
+  if (!row) {
+    throw new Error(`logical job not found after update: ${args.jobId}`);
+  }
+
+  if (isTerminalDeployJobStatus(row.status)) {
+    if (!row.completed_at) {
+      throw new Error(`terminal logical job missing completed_at: ${args.jobId}`);
+    }
+    if (row.terminal_attempt_no === null) {
+      throw new Error(`terminal logical job missing terminal_attempt_no: ${args.jobId}`);
+    }
+  }
+
+  if (isRetryScheduledStatus(row.status)) {
+    if (row.active_attempt_no === null) {
+      throw new Error(`retry_scheduled job missing active_attempt_no: ${args.jobId}`);
+    }
+    if (!row.next_retry_at) {
+      throw new Error(`retry_scheduled job missing next_retry_at: ${args.jobId}`);
+    }
+  }
+}
+
+async function assertWaitingStepConsistency(args: {
+  env: Env;
+  workflowRunId: string;
+  stepName: string;
+  expectedStatus: "waiting" | "completed" | "failed";
+}): Promise<void> {
+  const row = await args.env.DB.prepare(
+    `SELECT status
+     FROM workflow_steps
+     WHERE workflow_run_id = ? AND step_name = ?
+     ORDER BY started_at DESC
+     LIMIT 1`,
+  )
+    .bind(args.workflowRunId, args.stepName)
+    .first<{ status: string }>();
+
+  if (!row) {
+    throw new Error(
+      `workflow step not found for consistency check: run=${args.workflowRunId} step=${args.stepName}`,
+    );
+  }
+
+  if (row.status !== args.expectedStatus) {
+    throw new Error(
+      `workflow step consistency mismatch: run=${args.workflowRunId} step=${args.stepName} expected=${args.expectedStatus} actual=${row.status}`,
+    );
+  }
+}
+
 function shouldRetryAttempt(args: {
   retryable?: boolean;
   currentAttemptNo: number;
@@ -629,6 +707,11 @@ export default {
           )
           .run();
 
+        await assertLogicalJobState({
+          env,
+          jobId: attempt.job_id,
+        });
+
         await emitEvent(env.DB, {
           traceId: attempt.trace_id,
           workflowRunId: attempt.workflow_run_id,
@@ -662,6 +745,13 @@ export default {
             "waiting",
           )
           .run();
+
+        await assertWaitingStepConsistency({
+          env,
+          workflowRunId: attempt.workflow_run_id,
+          stepName: attempt.step_name,
+          expectedStatus: "completed",
+        });
 
         if (attempt.job_type === "deploy_preview") {
           const deploymentRef = deployResult.deployment_ref;
@@ -813,21 +903,25 @@ export default {
             attempt.job_type === "deploy_preview"
               ? "deploy.job_failed"
               : "teardown.job_failed",
-          payload: buildFailurePayload({
-            failureKind: retryable
-              ? "callback_failed_retryable"
-              : "callback_failed_non_retryable",
-            errorMessage,
-            retryable,
-            jobId: attempt.job_id,
-            attemptId,
-            attemptNo: attempt.attempt_no,
-            jobType: attempt.job_type,
-            provider: attempt.provider,
-            activeAttemptNo: attempt.active_attempt_no,
-            terminalAttemptNo: retryable ? null : attempt.attempt_no,
-            maxAttempts,
-          }),
+          payload: {
+            ...buildFailurePayload({
+              failureKind: retryable
+                ? "callback_failed_retryable"
+                : "callback_failed_non_retryable",
+              errorMessage,
+              retryable,
+              jobId: attempt.job_id,
+              attemptId,
+              attemptNo: attempt.attempt_no,
+              jobType: attempt.job_type,
+              provider: attempt.provider,
+              activeAttemptNo: attempt.active_attempt_no,
+              terminalAttemptNo: retryable ? null : attempt.attempt_no,
+              maxAttempts,
+            }),
+            resource_cleanup_may_be_incomplete:
+              attempt.job_type === "teardown_preview" ? true : null,
+          },
         });
 
         const shouldRetry = shouldRetryAttempt({
@@ -871,6 +965,18 @@ export default {
               attempt.job_id,
             )
             .run();
+
+          await assertLogicalJobState({
+            env,
+            jobId: attempt.job_id,
+          });
+
+          await assertWaitingStepConsistency({
+            env,
+            workflowRunId: attempt.workflow_run_id,
+            stepName: attempt.step_name,
+            expectedStatus: "waiting",
+          });
 
           await emitEvent(env.DB, {
             traceId: attempt.trace_id,
@@ -923,6 +1029,11 @@ export default {
           )
           .run();
 
+        await assertLogicalJobState({
+          env,
+          jobId: attempt.job_id,
+        });
+
         if (retryable && attempt.attempt_no >= maxAttempts) {
           await emitEvent(env.DB, {
             traceId: attempt.trace_id,
@@ -945,6 +1056,8 @@ export default {
               }),
               final_attempt_id: attemptId,
               final_attempt_no: attempt.attempt_no,
+              resource_cleanup_may_be_incomplete:
+                attempt.job_type === "teardown_preview" ? true : null,
             },
           });
         }
@@ -963,6 +1076,13 @@ export default {
             "waiting",
           )
           .run();
+
+        await assertWaitingStepConsistency({
+          env,
+          workflowRunId: attempt.workflow_run_id,
+          stepName: attempt.step_name,
+          expectedStatus: "failed",
+        });
 
         const doId = env.WORKFLOW_COORDINATOR.idFromName(attempt.workflow_run_id);
         const stub = env.WORKFLOW_COORDINATOR.get(doId);
@@ -1112,6 +1232,18 @@ export default {
           )
           .run();
 
+        await assertLogicalJobState({
+          env,
+          jobId: job.id,
+        });
+
+        await assertWaitingStepConsistency({
+          env,
+          workflowRunId: job.workflow_run_id,
+          stepName: job.step_name,
+          expectedStatus: "waiting",
+        });
+
         await emitEvent(env.DB, {
           traceId: job.trace_id,
           workflowRunId: job.workflow_run_id,
@@ -1164,6 +1296,11 @@ export default {
         )
         .run();
 
+      await assertLogicalJobState({
+        env,
+        jobId: job.id,
+      });
+
       await emitEvent(env.DB, {
         traceId: job.trace_id,
         workflowRunId: job.workflow_run_id,
@@ -1185,6 +1322,8 @@ export default {
           }),
           final_attempt_id: currentAttempt.id,
           final_attempt_no: currentAttempt.attempt_no,
+          resource_cleanup_may_be_incomplete:
+            job.job_type === "teardown_preview" ? true : null,
         },
       });
 
@@ -1202,6 +1341,13 @@ export default {
           "waiting",
         )
         .run();
+
+      await assertWaitingStepConsistency({
+        env,
+        workflowRunId: job.workflow_run_id,
+        stepName: job.step_name,
+        expectedStatus: "failed",
+      });
 
       const doId = env.WORKFLOW_COORDINATOR.idFromName(job.workflow_run_id);
       const stub = env.WORKFLOW_COORDINATOR.get(doId);

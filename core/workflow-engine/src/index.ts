@@ -50,6 +50,14 @@ const STEPS: StepName[] = [
   "COMPLETE",
 ];
 
+function isTerminalWorkflowStatus(status: string): boolean {
+  return status === "completed" || status === "failed" || status === "cancelled";
+}
+
+function isNonTerminalExternalJobStatus(status: string): boolean {
+  return status === "queued" || status === "running" || status === "retry_scheduled";
+}
+
 export class WorkflowCoordinatorDO {
   constructor(
     private readonly state: DurableObjectState,
@@ -202,6 +210,11 @@ export class WorkflowCoordinatorDO {
         await this.state.storage.put("state", current);
 
         if (current.waitingJobId) {
+          if (!current.waitingStep) {
+            throw new Error(
+              `waitingJobId set without waitingStep for workflow ${current.workflowRunId}`,
+            );
+          }
           return;
         }
       }
@@ -217,21 +230,7 @@ export class WorkflowCoordinatorDO {
         payload: { status: finalStatus },
       });
     } catch (error) {
-      await this.setWorkflowStatus(current.workflowRunId, "failed");
-
-      await emitEvent(this.env.DB, {
-        traceId: current.traceId,
-        workflowRunId: current.workflowRunId,
-        eventType: "workflow.failed",
-        payload: {
-          message: error instanceof Error ? error.message : String(error),
-          failure_kind: "external_job_failed",
-          waiting_job_id: current.waitingJobId ?? null,
-          waiting_step: current.waitingStep ?? null,
-        },
-      });
-
-      throw error;
+      await this.failWorkflow(current, error, { source: "runWorkflow" });
     }
   }
 
@@ -653,15 +652,56 @@ export class WorkflowCoordinatorDO {
     workflowRunId: string,
     status: string,
   ): Promise<void> {
-    const completedAt = ["completed", "failed", "cancelled"].includes(status)
-      ? nowIso()
-      : null;
+    const completedAt = isTerminalWorkflowStatus(status) ? nowIso() : null;
 
     await this.env.DB.prepare(
       `UPDATE workflow_runs SET status = ?, completed_at = ? WHERE id = ?`,
     )
       .bind(status, completedAt, workflowRunId)
       .run();
+
+    const row = await this.env.DB.prepare(
+      `SELECT status, completed_at FROM workflow_runs WHERE id = ?`,
+    )
+      .bind(workflowRunId)
+      .first<{ status: string; completed_at: string | null }>();
+
+    if (!row) {
+      throw new Error(`workflow run not found after status update: ${workflowRunId}`);
+    }
+
+    if (isTerminalWorkflowStatus(row.status) && !row.completed_at) {
+      throw new Error(
+        `terminal workflow run missing completed_at: ${workflowRunId} status=${row.status}`,
+      );
+    }
+  }
+
+  private async failWorkflow(
+    current: State,
+    error: unknown,
+    context: {
+      source: "runWorkflow" | "resumeWorkflow";
+    },
+  ): Promise<never> {
+    const message = error instanceof Error ? error.message : String(error);
+
+    await this.setWorkflowStatus(current.workflowRunId, "failed");
+
+    await emitEvent(this.env.DB, {
+      traceId: current.traceId,
+      workflowRunId: current.workflowRunId,
+      eventType: "workflow.failed",
+      payload: {
+        message,
+        failure_kind: "external_job_failed",
+        waiting_job_id: current.waitingJobId ?? null,
+        waiting_step: current.waitingStep ?? null,
+        source: context.source,
+      },
+    });
+
+    throw error instanceof Error ? error : new Error(message);
   }
 
   private async createExternalJobWithAttempt(
@@ -823,15 +863,13 @@ export class WorkflowCoordinatorDO {
           throw new Error(`External job failed: ${current.waitingJobId}`);
         }
 
-        if (
-          job.status === "retry_scheduled" ||
-          job.status === "queued" ||
-          job.status === "running"
-        ) {
+        if (isNonTerminalExternalJobStatus(job.status)) {
           return;
         }
 
-        return;
+        throw new Error(
+          `Unexpected external job status during resume: ${current.waitingJobId} status=${job.status}`,
+        );
       }
 
       const resumedAfterStep = current.waitingStep;
@@ -876,22 +914,30 @@ export class WorkflowCoordinatorDO {
         eventType: "workflow.completed",
         payload: { status: finalStatus },
       });
+
+      const finalRun = await this.env.DB.prepare(
+        `SELECT status, completed_at FROM workflow_runs WHERE id = ?`,
+      )
+        .bind(current.workflowRunId)
+        .first<{ status: string; completed_at: string | null }>();
+
+      if (!finalRun) {
+        throw new Error(`workflow run missing after completion: ${current.workflowRunId}`);
+      }
+
+      if (finalRun.status !== finalStatus) {
+        throw new Error(
+          `workflow final status mismatch after resume: expected=${finalStatus} actual=${finalRun.status}`,
+        );
+      }
+
+      if (isTerminalWorkflowStatus(finalRun.status) && !finalRun.completed_at) {
+        throw new Error(
+          `terminal workflow missing completed_at after resume: ${current.workflowRunId}`,
+        );
+      }
     } catch (error) {
-      await this.setWorkflowStatus(current.workflowRunId, "failed");
-
-      await emitEvent(this.env.DB, {
-        traceId: current.traceId,
-        workflowRunId: current.workflowRunId,
-        eventType: "workflow.failed",
-        payload: {
-          message: error instanceof Error ? error.message : String(error),
-          failure_kind: "external_job_failed",
-          waiting_job_id: current.waitingJobId ?? null,
-          waiting_step: current.waitingStep ?? null,
-        },
-      });
-
-      throw error;
+      await this.failWorkflow(current, error, { source: "resumeWorkflow" });
     }
   }
 }
