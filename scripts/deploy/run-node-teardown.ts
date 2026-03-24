@@ -106,7 +106,7 @@ async function postCallback(args: {
   });
 
   if (!res.ok) {
-    throw new Error(`Callback failed: ${res.status} ${await res.text()}`);
+    throw new Error(`Teardown callback failed: ${res.status} ${await res.text()}`);
   }
 }
 
@@ -136,7 +136,7 @@ async function main(): Promise<void> {
           body: {
             status: "failed",
             retryable: testRetryable,
-            error_message: "Injected test failure before running",
+            error_message: "Injected test teardown failure before running",
           },
         });
       }
@@ -175,7 +175,7 @@ async function main(): Promise<void> {
           body: {
             status: "failed",
             retryable: testRetryable,
-            error_message: "Injected test failure after running",
+            error_message: "Injected test teardown failure after running",
           },
         });
       }

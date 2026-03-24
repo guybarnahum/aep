@@ -45,7 +45,8 @@ type Scenario =
   | "b1-retryable-failure-then-success"
   | "b2-non-retryable-failure"
   | "b3-retry-exhaustion"
-  | "b4-timeout-then-retry";
+  | "b4-timeout-then-retry"
+  | "b5-teardown-non-retryable-failure";
 
 type CliOptions = {
   baseUrl: string;
@@ -215,6 +216,7 @@ function parseArgs(argv: string[]): CliOptions {
     "b2-non-retryable-failure",
     "b3-retry-exhaustion",
     "b4-timeout-then-retry",
+    "b5-teardown-non-retryable-failure",
   ];
 
   if (!allowedScenarios.includes(scenarioValue as Scenario)) {
@@ -1487,6 +1489,73 @@ async function main(): Promise<void> {
             cli.baseUrl,
             `/internal/deploy-job-attempts/${encodeURIComponent(teardownAttemptId)}/callback`,
           );
+
+          if (cli.scenario === "b5-teardown-non-retryable-failure") {
+            console.log("==> Injecting non-retryable teardown failure (B5)");
+
+            await runNodeTeardown({
+              teardownRunnerPath: cli.teardownRunnerPath,
+              provider: cli.provider,
+              deploymentRef,
+              callbackUrl: teardownCallbackUrl,
+              callbackToken: teardownCallbackToken,
+              extraArgs: [
+                "--test-fail-stage",
+                "after_running",
+                "--test-retryable",
+                "false",
+              ],
+            });
+
+            const failedWorkflow = await pollWorkflowToExpectedRunStatus({
+              workflowUrl,
+              headers,
+              timeoutMs: cli.timeoutMs,
+              pollAttempts: cli.pollAttempts,
+              pollIntervalMs: cli.pollIntervalMs,
+              expectedStatus: "failed",
+            });
+
+            if (getStepStatus(failedWorkflow, "TEARDOWN") !== "failed") {
+              fail("B5 expected TEARDOWN step to fail.");
+            }
+
+            console.log("✅ Workflow failed as expected for B5 teardown failure");
+
+            console.log("==> Fetching final trace");
+            const finalTraceResult = await requestJson({
+              url: traceUrl,
+              method: "GET",
+              timeoutMs: cli.timeoutMs,
+              headers,
+            });
+
+            if (finalTraceResult.status < 200 || finalTraceResult.status >= 300) {
+              fail(
+                `Final trace request failed with ${finalTraceResult.status} ${finalTraceResult.statusText}.\nBody:\n${finalTraceResult.bodyText}`,
+              );
+            }
+
+            const finalTrace = asTraceResponse(finalTraceResult.bodyJson);
+            requireTraceEvents(finalTrace, [
+              "workflow.started",
+              "deploy_job.created",
+              "deploy.attempt_created",
+              "deploy.job_dispatched",
+              "health_check.passed",
+              "smoke_test.passed",
+              "teardown.attempt_created",
+              "teardown.job_dispatched",
+              "teardown.job_failed",
+              "workflow.failed",
+            ]);
+
+            console.log("✅ All expected trace milestones found");
+
+            const totalDurationMs = Date.now() - startedAt;
+            console.log(`✅ Scenario ${cli.scenario} passed in ${totalDurationMs}ms`);
+            return;
+          }
 
           await runNodeTeardown({
             teardownRunnerPath: cli.teardownRunnerPath,

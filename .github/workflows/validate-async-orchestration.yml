@@ -168,6 +168,18 @@ jobs:
             --service-name sample-worker \
             --scenario b4-timeout-then-retry | tee b4-timeout-then-retry.log
 
+      - name: B5 teardown non-retryable failure
+        id: b5_teardown_non_retryable_failure
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          npx tsx scripts/ci/async-deploy-check.ts \
+            --base-url "$DEPLOY_URL" \
+            --provider "$PROVIDER" \
+            --service-name sample-worker \
+            --scenario b5-teardown-non-retryable-failure | tee b5-teardown-non-retryable-failure.log
+
       - name: Write summary
         if: always()
         run: |
@@ -252,6 +264,13 @@ jobs:
                   echo "Timeout advancement or retry-after-timeout may be broken."
                 fi
                 ;;
+              B5)
+                if [[ "$outcome" == "success" ]]; then
+                  echo "Confirmed teardown non-retryable failure terminates workflow and signals possible incomplete cleanup."
+                else
+                  echo "Teardown terminal failure handling or cleanup-risk signaling may be broken."
+                fi
+                ;;
               *)
                 echo "No interpretation available."
                 ;;
@@ -270,6 +289,7 @@ jobs:
           B2_OUTCOME="${{ steps.b2_non_retryable_failure.outcome }}"
           B3_OUTCOME="${{ steps.b3_retry_exhaustion.outcome }}"
           B4_OUTCOME="${{ steps.b4_timeout_then_retry.outcome }}"
+          B5_OUTCOME="${{ steps.b5_teardown_non_retryable_failure.outcome }}"
 
           echo "## Async orchestration validation summary" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
@@ -306,6 +326,8 @@ jobs:
           echo "  - $(scenario_note B3 "$B3_OUTCOME")" >> "$GITHUB_STEP_SUMMARY"
           echo "- $(status_emoji "$B4_OUTCOME") B4 timeout then retry: $B4_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
           echo "  - $(scenario_note B4 "$B4_OUTCOME")" >> "$GITHUB_STEP_SUMMARY"
+          echo "- $(status_emoji "$B5_OUTCOME") B5 teardown non-retryable failure: $B5_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
+          echo "  - $(scenario_note B5 "$B5_OUTCOME")" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
 
           echo "### Failure triage" >> "$GITHUB_STEP_SUMMARY"
@@ -324,11 +346,11 @@ jobs:
             echo "- One or more Stage 2A checks failed. Inspect callback idempotency, invalid-transition handling, and stale-attempt gating." >> "$GITHUB_STEP_SUMMARY"
           fi
 
-          if [[ "$B1_OUTCOME" != "success" || "$B2_OUTCOME" != "success" || "$B3_OUTCOME" != "success" || "$B4_OUTCOME" != "success" ]]; then
-            echo "- One or more Stage 2B checks failed. Inspect retry scheduling, retry exhaustion, timeout advancement, and terminal workflow failure propagation." >> "$GITHUB_STEP_SUMMARY"
+          if [[ "$B1_OUTCOME" != "success" || "$B2_OUTCOME" != "success" || "$B3_OUTCOME" != "success" || "$B4_OUTCOME" != "success" || "$B5_OUTCOME" != "success" ]]; then
+            echo "- One or more Stage 2B checks failed. Inspect retry scheduling, retry exhaustion, timeout advancement, teardown terminal failure handling, and workflow failure propagation." >> "$GITHUB_STEP_SUMMARY"
           fi
 
-          if [[ "$A1_OUTCOME" == "success" && "$A2_OUTCOME" == "success" && "$A3_OUTCOME" == "success" && "$A4_OUTCOME" == "success" && "$B1_OUTCOME" == "success" && "$B2_OUTCOME" == "success" && "$B3_OUTCOME" == "success" && "$B4_OUTCOME" == "success" ]]; then
+          if [[ "$A1_OUTCOME" == "success" && "$A2_OUTCOME" == "success" && "$A3_OUTCOME" == "success" && "$A4_OUTCOME" == "success" && "$B1_OUTCOME" == "success" && "$B2_OUTCOME" == "success" && "$B3_OUTCOME" == "success" && "$B4_OUTCOME" == "success" && "$B5_OUTCOME" == "success" ]]; then
             echo "- All async orchestration scenarios passed." >> "$GITHUB_STEP_SUMMARY"
           fi
 
@@ -372,13 +394,17 @@ jobs:
             echo "> B4 failed. Inspect the timeout scenario log. Focus on timeout advancement, retry scheduling, and stale old-attempt safety." >> "$GITHUB_STEP_SUMMARY"
           fi
 
+          if [[ "$B5_OUTCOME" != "success" ]]; then
+            echo "> B5 failed. Inspect \`b5-teardown-non-retryable-failure.log\`. Focus on teardown terminal failure propagation and cleanup-risk signaling." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
           ALL_ENV_OK="true"
           if [[ "$DEPLOY_OUTCOME" != "success" || "$MIGRATIONS_OUTCOME" != "success" || "$READINESS_OUTCOME" != "success" || "$HEALTH_OUTCOME" != "success" ]]; then
             ALL_ENV_OK="false"
           fi
 
           ALL_SCENARIOS_OK="true"
-          if [[ "$A1_OUTCOME" != "success" || "$A2_OUTCOME" != "success" || "$A3_OUTCOME" != "success" || "$A4_OUTCOME" != "success" || "$B1_OUTCOME" != "success" || "$B2_OUTCOME" != "success" || "$B3_OUTCOME" != "success" || "$B4_OUTCOME" != "success" ]]; then
+          if [[ "$A1_OUTCOME" != "success" || "$A2_OUTCOME" != "success" || "$A3_OUTCOME" != "success" || "$A4_OUTCOME" != "success" || "$B1_OUTCOME" != "success" || "$B2_OUTCOME" != "success" || "$B3_OUTCOME" != "success" || "$B4_OUTCOME" != "success" || "$B5_OUTCOME" != "success" ]]; then
             ALL_SCENARIOS_OK="false"
           fi
 
