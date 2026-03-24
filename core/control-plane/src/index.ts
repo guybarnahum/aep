@@ -97,6 +97,8 @@ type DeployJobAttemptCallbackBody = {
 type DeployPreviewResult = {
   deployment_ref?: string;
   preview_url?: string;
+  deploymentRef?: string;
+  previewUrl?: string;
   url?: string;
 };
 
@@ -754,8 +756,9 @@ export default {
         });
 
         if (attempt.job_type === "deploy_preview") {
-          const deploymentRef = deployResult.deployment_ref;
-          const previewUrl = deployResult.preview_url ?? deployResult.url;
+          const deploymentRef = deployResult.deployment_ref ?? deployResult.deploymentRef;
+          const previewUrl =
+            deployResult.preview_url ?? deployResult.previewUrl ?? deployResult.url;
 
           if (!deploymentRef) {
             return Response.json(

@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 
-import { DEFAULT_PROVIDER, isProvider } from "../../packages/shared/src/index";
+import { DEFAULT_PROVIDER } from "../../packages/shared/src/index";
 import { getNodeDeploymentAdapter } from "../../services/deployment-engine/src";
 
 type TestFailStage = "before_running" | "after_running";
 
 function parseArgs(argv: string[]): {
-  provider: typeof DEFAULT_PROVIDER;
+  provider: string;
   deploymentRef: string;
   callbackUrl?: string;
   callbackToken?: string;
@@ -81,7 +81,7 @@ function parseArgs(argv: string[]): {
   }
 
   return {
-    provider: isProvider(rawProvider) ? rawProvider : DEFAULT_PROVIDER,
+    provider: rawProvider ?? DEFAULT_PROVIDER,
     deploymentRef,
     callbackUrl,
     callbackToken,
@@ -89,6 +89,15 @@ function parseArgs(argv: string[]): {
     testRetryable,
     testSkipTerminalCallback,
   };
+}
+
+function requireSupportedProvider(provider: string): "cloudflare" {
+  switch (provider) {
+    case "cloudflare":
+      return "cloudflare";
+    default:
+      throw new Error(`Unsupported provider: ${provider}`);
+  }
 }
 
 async function postCallback(args: {
@@ -123,7 +132,9 @@ async function main(): Promise<void> {
     process.argv.slice(2),
   );
 
-  const adapter = getNodeDeploymentAdapter(provider, {
+  const selectedProvider = requireSupportedProvider(provider);
+
+  const adapter = getNodeDeploymentAdapter(selectedProvider, {
     workingDir: "examples/sample-worker",
   });
 
@@ -216,8 +227,8 @@ async function main(): Promise<void> {
     await adapter.teardownPreview(deploymentRef);
 
     const result = {
-      provider,
-      deploymentRef,
+      provider: selectedProvider,
+      deployment_ref: deploymentRef,
       status: "destroyed",
     };
 

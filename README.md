@@ -19,6 +19,7 @@ This repository is structured to let the MVP grow into the full AEP platform wit
 - [External Job Model](#-external-job-model)
 - [Observability](#-observability)
 - [CI / Deployment Flow](#-ci--deployment-flow)
+- [Async Orchestration Validation Matrix](#-async-orchestration-validation-a1-a4-b1-b5)
 - [Local Development](#-local-development)
 - [Known Limitations](#️-known-limitations)
 - [Next Steps](#-next-steps-commit-4)
@@ -209,6 +210,41 @@ Current policy:
 This keeps retry behavior internal to the control plane while preserving
 clear trace visibility across attempts.
 
+## Provider contract
+
+AEP separates orchestration from execution.
+
+### Control-plane responsibilities
+
+- manages logical jobs and attempts
+- handles callbacks
+- enforces retry and timeout policy
+- stores opaque request/result payloads
+
+### Provider responsibilities
+
+- execute deploy / teardown
+- send lifecycle callbacks (`running`, `succeeded`, `failed`)
+- return provider-specific result data
+
+### Contract
+
+Deploy result:
+- `deployment_ref` (required)
+- `preview_url` (optional)
+
+Teardown result:
+- `deployment_ref`
+- `status: destroyed`
+
+### Provider isolation
+
+The control-plane does not depend on any specific provider.
+
+All provider-specific logic lives in:
+- deploy/teardown runners
+- future deployment-engine adapters
+
 ---
 
 ## Job Lifecycle Events (trace)
@@ -299,6 +335,214 @@ GitHub Actions summary now reports **per-step outcome**:
 - smoke test
 
 Failures (e.g. SHA mismatch) are explicitly surfaced.
+
+---
+
+# 📐 Async orchestration validation (A1-A4, B1-B5)
+
+<details>
+<summary><strong>Expand scenario matrix and operator guidance</strong></summary>
+
+## Async orchestration validation (A1-A4, B1-B5)
+
+AEP validates its async orchestration model through a deterministic CI scenario matrix.
+
+These scenarios are executed in `Validate Async Orchestration` and are the primary contract for correctness of:
+
+- attempt model
+- callback idempotency
+- retry semantics
+- timeout handling
+- teardown and cleanup behavior
+
+---
+
+## Stage 2A - Attempt model and callback idempotency
+
+These scenarios validate correctness of the logical job + attempt model and ensure callback handling is safe under real-world conditions.
+
+### A1 - Happy path
+
+Flow:
+- deploy succeeds
+- health + smoke checks pass
+- teardown succeeds
+- workflow completes
+
+Proves:
+- end-to-end async orchestration works
+- deploy and teardown lifecycle is correct
+- trace and workflow state align
+
+---
+
+### A2 - Duplicate terminal callback
+
+Flow:
+- a `succeeded` callback is replayed for the same attempt
+
+Proves:
+- terminal callbacks are idempotent
+- duplicate delivery (real-world condition) does not corrupt state
+
+---
+
+### A3 - Regressive callback
+
+Flow:
+- a `running` callback is sent after a `succeeded` callback
+
+Proves:
+- invalid state regression is rejected
+- attempt state is monotonic
+
+---
+
+### A4 - Stale attempt callback
+
+Flow:
+- attempt 1 is superseded by attempt 2
+- callback for attempt 1 is replayed
+
+Proves:
+- only the active attempt can mutate logical job state
+- stale callbacks are ignored safely
+
+---
+
+## Stage 2B - Retry and timeout policy
+
+These scenarios validate operational behavior of async orchestration under failure.
+
+---
+
+### B1 - Retryable failure then success
+
+Flow:
+- attempt 1 fails with `retryable=true`
+- attempt 2 is created
+- attempt 2 succeeds
+
+Proves:
+- retry scheduling works
+- workflow remains `waiting` during retries
+- recovery via retry is correct
+
+---
+
+### B2 - Non-retryable failure
+
+Flow:
+- attempt fails with `retryable=false`
+
+Proves:
+- logical job fails immediately
+- workflow step fails
+- workflow run transitions to `failed`
+
+---
+
+### B3 - Retry exhaustion
+
+Flow:
+- attempts fail with `retryable=true` up to `max_attempts`
+- no further attempts are created
+
+Proves:
+- retry budget is enforced
+- logical job transitions to terminal `failed`
+- workflow run terminates cleanly (no stuck `running` state)
+
+---
+
+### B4 - Timeout then retry
+
+Flow:
+- attempt enters `running` but never completes
+- timeout advancement is triggered
+- new attempt is created
+- new attempt succeeds
+
+Proves:
+- timeout handling is explicit and recoverable
+- stale callbacks from timed-out attempts are ignored
+- retry after timeout behaves like normal retry
+
+---
+
+### B5 - Teardown non-retryable failure
+
+Flow:
+- deploy succeeds
+- teardown attempt fails with `retryable=false`
+- workflow run fails
+
+Proves:
+- teardown failures are treated as terminal
+- workflow failure is attributed to teardown step
+- system explicitly signals that cleanup may be incomplete
+
+---
+
+## Operator model
+
+When a workflow fails, the expected diagnosis flow is:
+
+1. Check workflow run status:
+  - `completed` vs `failed`
+2. Identify failing step:
+  - `DEPLOY`, `TEARDOWN`, `CLEANUP_AUDIT`, etc.
+3. Inspect trace (`/trace/:id`):
+  - locate latest logical job event
+  - locate latest attempt event
+  - check:
+    - `failure_kind`
+    - `retryable`
+    - `attempt_no` vs `max_attempts`
+    - timeout vs callback failure
+4. Interpret failure mode.
+
+| Failure type | Meaning | Action |
+| --- | --- | --- |
+| retryable failure | transient issue | system will retry |
+| retry exhausted | persistent failure | inspect provider or config |
+| non-retryable failure | hard failure | fix input/config |
+| timeout | missing callback | inspect external runner |
+| teardown failure | cleanup incomplete | verify environment state |
+
+---
+
+## Current operational guarantees
+
+- callbacks are idempotent and safe to replay
+- stale attempts cannot corrupt state
+- retry policy is bounded and explicit
+- timeout recovery is supported
+- no workflow remains indefinitely in an ambiguous `running` state
+- teardown failures are explicit and visible
+
+---
+
+## Current limitations
+
+- timeout advancement is explicitly triggered (no background scheduler yet)
+- retry policy is simple (fixed delays, bounded attempts)
+- provider support is currently Cloudflare-first
+
+---
+
+## Summary
+
+The A1-A4 and B1-B5 scenarios together define the correctness contract for AEP async orchestration.
+
+Any change to:
+- control-plane
+- workflow-engine
+- provider adapters
+
+must preserve these guarantees and keep all scenarios passing.
+
+</details>
 
 ---
 

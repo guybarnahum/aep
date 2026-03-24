@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { DEFAULT_PROVIDER, isProvider } from "../../packages/shared/src/index";
+import { DEFAULT_PROVIDER } from "../../packages/shared/src/index";
 import { getNodeDeploymentAdapter } from "../../services/deployment-engine/src";
 
 type TestFailStage = "before_running" | "after_running";
@@ -28,7 +28,7 @@ async function postCallback(args: {
 }
 
 function parseArgs(argv: string[]): {
-  provider: typeof DEFAULT_PROVIDER;
+  provider: string;
   serviceName: string;
   workflowRunId: string;
   jobId?: string;
@@ -109,7 +109,7 @@ function parseArgs(argv: string[]): {
   }
 
   return {
-    provider: isProvider(rawProvider) ? rawProvider : DEFAULT_PROVIDER,
+    provider: rawProvider ?? DEFAULT_PROVIDER,
     serviceName,
     workflowRunId,
     jobId,
@@ -119,6 +119,15 @@ function parseArgs(argv: string[]): {
     testRetryable,
     testSkipTerminalCallback,
   };
+}
+
+function requireSupportedProvider(provider: string): "cloudflare" {
+  switch (provider) {
+    case "cloudflare":
+      return "cloudflare";
+    default:
+      throw new Error(`Unsupported provider: ${provider}`);
+  }
 }
 
 async function main(): Promise<void> {
@@ -134,7 +143,9 @@ async function main(): Promise<void> {
     testSkipTerminalCallback,
   } = parseArgs(process.argv.slice(2));
 
-  const adapter = getNodeDeploymentAdapter(provider, {
+  const selectedProvider = requireSupportedProvider(provider);
+
+  const adapter = getNodeDeploymentAdapter(selectedProvider, {
     workingDir: "examples/sample-worker",
   });
 
@@ -225,12 +236,33 @@ async function main(): Promise<void> {
     }
     
     const result = await adapter.deployPreview({
-      provider,
+      provider: selectedProvider,
       serviceName,
       workflowRunId,
     });
 
-    console.log(JSON.stringify(result, null, 2));
+    let deploymentRef: string | undefined;
+    let previewUrl: string | undefined;
+
+    if ("deployment_ref" in result) {
+      deploymentRef = result.deployment_ref;
+      previewUrl = result.preview_url;
+    } else {
+      deploymentRef = result.deploymentRef;
+      previewUrl = result.previewUrl;
+    }
+
+    if (!deploymentRef) {
+      throw new Error("Deploy adapter result missing deployment_ref/deploymentRef");
+    }
+
+    const normalizedResult = {
+      provider: result.provider ?? selectedProvider,
+      deployment_ref: deploymentRef,
+      preview_url: previewUrl,
+    };
+
+    console.log(JSON.stringify(normalizedResult, null, 2));
 
     if (callbackUrl && callbackToken) {
         await postCallback({
@@ -239,8 +271,8 @@ async function main(): Promise<void> {
             body: {
             status: "succeeded",
             result: {
-                deployment_ref: result.deploymentRef,
-                preview_url: result.previewUrl,
+                deployment_ref: deploymentRef,
+                preview_url: previewUrl,
             },
             },
         });
