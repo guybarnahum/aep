@@ -3,6 +3,7 @@
 import { DEFAULT_PROVIDER } from "../../packages/shared/src/index";
 import { getNodeDeploymentAdapter } from "../../services/deployment-engine/src";
 
+type SupportedProvider = "cloudflare" | "aws";
 type TestFailStage = "before_running" | "after_running";
 
 function parseArgs(argv: string[]): {
@@ -91,12 +92,22 @@ function parseArgs(argv: string[]): {
   };
 }
 
-function requireSupportedProvider(provider: string): "cloudflare" {
+function requireSupportedProvider(provider: string): SupportedProvider {
   switch (provider) {
     case "cloudflare":
-      return "cloudflare";
+    case "aws":
+      return provider;
     default:
       throw new Error(`Unsupported provider: ${provider}`);
+  }
+}
+
+function getWorkingDirForProvider(provider: SupportedProvider): string {
+  switch (provider) {
+    case "cloudflare":
+      return "examples/sample-worker";
+    case "aws":
+      return "examples/aws-lambda";
   }
 }
 
@@ -135,7 +146,7 @@ async function main(): Promise<void> {
   const selectedProvider = requireSupportedProvider(provider);
 
   const adapter = getNodeDeploymentAdapter(selectedProvider, {
-    workingDir: "examples/sample-worker",
+    workingDir: getWorkingDirForProvider(selectedProvider),
   });
 
   try {

@@ -14,13 +14,15 @@ jobs:
     environment: async-validation
 
     env:
-      PROVIDER: ${{ github.event.inputs.provider }}
+      PROVIDER: ${{ github.event.inputs.provider || 'cloudflare' }}
       GIT_SHA: ${{ github.sha }}
       DEPLOY_URL: ${{ secrets.ASYNC_VALIDATION_BASE_URL }}
       CF_ENV: async_validation
       HEALTH_RUNTIME_ENV: dev
       D1_DATABASE_NAME: aep-async-validation
       WRANGLER_CONFIG: core/control-plane/wrangler.toml
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+      AWS_LAMBDA_EXECUTION_ROLE_ARN: ${{ secrets.AWS_LAMBDA_EXECUTION_ROLE_ARN }}
 
     steps:
       - uses: actions/checkout@v4
@@ -31,6 +33,13 @@ jobs:
           cache: npm
 
       - run: npm ci
+
+      - name: Configure AWS credentials
+        if: env.PROVIDER == 'aws'
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: ${{ secrets.AWS_REGION }}
+          role-to-assume: ${{ secrets.AWS_GITHUB_ACTIONS_ROLE_ARN }}
 
       - name: Generate build metadata
         run: ./scripts/ci/generate-build-meta.sh
@@ -85,6 +94,7 @@ jobs:
             --scenario a1-happy-path | tee a1-happy-path.log
 
       - name: A2 duplicate terminal callback
+        if: env.PROVIDER == 'cloudflare'
         id: a2_duplicate_terminal
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -97,6 +107,7 @@ jobs:
             --scenario a2-duplicate-succeeded | tee a2-duplicate-terminal.log
 
       - name: A3 regressive callback ignored
+        if: env.PROVIDER == 'cloudflare'
         id: a3_regressive_callback
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -109,6 +120,7 @@ jobs:
             --scenario a3-regressive-running-after-succeeded | tee a3-regressive-callback.log
 
       - name: A4 stale callback ignored
+        if: env.PROVIDER == 'cloudflare'
         id: a4_stale_callback
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -121,6 +133,7 @@ jobs:
             --scenario a4-stale-attempt-callback | tee a4-stale-callback.log
 
       - name: B1 retryable failure then success
+        if: env.PROVIDER == 'cloudflare'
         id: b1_retry_then_success
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -145,6 +158,7 @@ jobs:
             --scenario b2-non-retryable-failure | tee b2-non-retryable-failure.log
 
       - name: B3 retry exhaustion
+        if: env.PROVIDER == 'cloudflare'
         id: b3_retry_exhaustion
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -157,6 +171,7 @@ jobs:
             --scenario b3-retry-exhaustion | tee b3-retry-exhaustion.log
 
       - name: B4 timeout then retry
+        if: env.PROVIDER == 'cloudflare'
         id: b4_timeout_then_retry
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -218,6 +233,8 @@ jobs:
               A2)
                 if [[ "$outcome" == "success" ]]; then
                   echo "Confirmed duplicate terminal callback is a no-op."
+                elif [[ "$outcome" == "skipped" ]]; then
+                  echo "Skipped for AWS minimal provider validation."
                 else
                   echo "Duplicate terminal callback handling may be non-idempotent."
                 fi
@@ -225,6 +242,8 @@ jobs:
               A3)
                 if [[ "$outcome" == "success" ]]; then
                   echo "Confirmed regressive callback is ignored."
+                elif [[ "$outcome" == "skipped" ]]; then
+                  echo "Skipped for AWS minimal provider validation."
                 else
                   echo "Regressive callback may be mutating state unexpectedly."
                 fi
@@ -232,6 +251,8 @@ jobs:
               A4)
                 if [[ "$outcome" == "success" ]]; then
                   echo "Confirmed stale attempt callback cannot mutate logical job state."
+                elif [[ "$outcome" == "skipped" ]]; then
+                  echo "Skipped for AWS minimal provider validation."
                 else
                   echo "Stale callback protection may be broken."
                 fi
@@ -239,6 +260,8 @@ jobs:
               B1)
                 if [[ "$outcome" == "success" ]]; then
                   echo "Confirmed retryable deploy failure can recover via a later attempt."
+                elif [[ "$outcome" == "skipped" ]]; then
+                  echo "Skipped for AWS minimal provider validation."
                 else
                   echo "Retry scheduling or retry recovery may be broken."
                 fi
@@ -253,6 +276,8 @@ jobs:
               B3)
                 if [[ "$outcome" == "success" ]]; then
                   echo "Confirmed retry exhaustion terminates workflow after retry budget is consumed."
+                elif [[ "$outcome" == "skipped" ]]; then
+                  echo "Skipped for AWS minimal provider validation."
                 else
                   echo "Retry exhaustion may leave workflow or job state ambiguous."
                 fi
@@ -260,6 +285,8 @@ jobs:
               B4)
                 if [[ "$outcome" == "success" ]]; then
                   echo "Confirmed timeout advancement can create a retry and recover."
+                elif [[ "$outcome" == "skipped" ]]; then
+                  echo "Skipped for AWS minimal provider validation."
                 else
                   echo "Timeout advancement or retry-after-timeout may be broken."
                 fi
@@ -282,17 +309,18 @@ jobs:
           READINESS_OUTCOME="${{ steps.wait_readiness.outcome }}"
           HEALTH_OUTCOME="${{ steps.health_check.outcome }}"
           A1_OUTCOME="${{ steps.a1_happy_path.outcome }}"
-          A2_OUTCOME="${{ steps.a2_duplicate_terminal.outcome }}"
-          A3_OUTCOME="${{ steps.a3_regressive_callback.outcome }}"
-          A4_OUTCOME="${{ steps.a4_stale_callback.outcome }}"
-          B1_OUTCOME="${{ steps.b1_retry_then_success.outcome }}"
+          A2_OUTCOME="${{ steps.a2_duplicate_terminal.outcome || 'skipped' }}"
+          A3_OUTCOME="${{ steps.a3_regressive_callback.outcome || 'skipped' }}"
+          A4_OUTCOME="${{ steps.a4_stale_callback.outcome || 'skipped' }}"
+          B1_OUTCOME="${{ steps.b1_retry_then_success.outcome || 'skipped' }}"
           B2_OUTCOME="${{ steps.b2_non_retryable_failure.outcome }}"
-          B3_OUTCOME="${{ steps.b3_retry_exhaustion.outcome }}"
-          B4_OUTCOME="${{ steps.b4_timeout_then_retry.outcome }}"
+          B3_OUTCOME="${{ steps.b3_retry_exhaustion.outcome || 'skipped' }}"
+          B4_OUTCOME="${{ steps.b4_timeout_then_retry.outcome || 'skipped' }}"
           B5_OUTCOME="${{ steps.b5_teardown_non_retryable_failure.outcome }}"
 
           echo "## Async orchestration validation summary" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Provider: $PROVIDER" >> "$GITHUB_STEP_SUMMARY"
           echo "- Environment: $CF_ENV" >> "$GITHUB_STEP_SUMMARY"
           echo "- Runtime env: $HEALTH_RUNTIME_ENV" >> "$GITHUB_STEP_SUMMARY"
           echo "- URL: $DEPLOY_URL" >> "$GITHUB_STEP_SUMMARY"
@@ -342,77 +370,42 @@ jobs:
             echo "- A1 failed. Inspect the base async orchestration path first; edge-case scenario failures may be downstream noise." >> "$GITHUB_STEP_SUMMARY"
           fi
 
-          if [[ "$A2_OUTCOME" != "success" || "$A3_OUTCOME" != "success" || "$A4_OUTCOME" != "success" ]]; then
-            echo "- One or more Stage 2A checks failed. Inspect callback idempotency, invalid-transition handling, and stale-attempt gating." >> "$GITHUB_STEP_SUMMARY"
+          if [[ "$PROVIDER" == "cloudflare" && ( "$A2_OUTCOME" != "success" || "$A3_OUTCOME" != "success" || "$A4_OUTCOME" != "success" ) ]]; then
+            echo "- One or more Stage 2A callback-hardening checks failed. Inspect callback idempotency, invalid-transition handling, and stale-attempt gating." >> "$GITHUB_STEP_SUMMARY"
           fi
 
-          if [[ "$B1_OUTCOME" != "success" || "$B2_OUTCOME" != "success" || "$B3_OUTCOME" != "success" || "$B4_OUTCOME" != "success" || "$B5_OUTCOME" != "success" ]]; then
-            echo "- One or more Stage 2B checks failed. Inspect retry scheduling, retry exhaustion, timeout advancement, teardown terminal failure handling, and workflow failure propagation." >> "$GITHUB_STEP_SUMMARY"
+          if [[ "$B2_OUTCOME" != "success" || "$B5_OUTCOME" != "success" ]]; then
+            echo "- One or more required failure-path checks failed. Inspect terminal failure propagation and teardown cleanup-risk handling." >> "$GITHUB_STEP_SUMMARY"
           fi
 
-          if [[ "$A1_OUTCOME" == "success" && "$A2_OUTCOME" == "success" && "$A3_OUTCOME" == "success" && "$A4_OUTCOME" == "success" && "$B1_OUTCOME" == "success" && "$B2_OUTCOME" == "success" && "$B3_OUTCOME" == "success" && "$B4_OUTCOME" == "success" && "$B5_OUTCOME" == "success" ]]; then
-            echo "- All async orchestration scenarios passed." >> "$GITHUB_STEP_SUMMARY"
+          if [[ "$PROVIDER" == "cloudflare" && ( "$B1_OUTCOME" != "success" || "$B3_OUTCOME" != "success" || "$B4_OUTCOME" != "success" ) ]]; then
+            echo "- One or more Stage 2B retry/timeout checks failed. Inspect retry scheduling, retry exhaustion, timeout advancement, and workflow failure propagation." >> "$GITHUB_STEP_SUMMARY"
           fi
 
           echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "### Operator checklist" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Inspect workflow run status first." >> "$GITHUB_STEP_SUMMARY"
-          echo "- If a scenario failed, inspect the matching scenario log step before reading raw trace output." >> "$GITHUB_STEP_SUMMARY"
-          echo "- For retry-related failures, inspect the latest logical job and attempt events in /trace." >> "$GITHUB_STEP_SUMMARY"
-          echo "- For teardown-related failures, verify whether cleanup may still be incomplete." >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-
-          if [[ "$A1_OUTCOME" != "success" ]]; then
-            echo "> A1 failed. Inspect \`a1-happy-path.log\`. This is the base async path and should be debugged before edge cases." >> "$GITHUB_STEP_SUMMARY"
-          fi
-
-          if [[ "$A2_OUTCOME" != "success" ]]; then
-            echo "> A2 failed. Inspect \`a2-duplicate-terminal.log\`. Focus on duplicate terminal callback idempotency." >> "$GITHUB_STEP_SUMMARY"
-          fi
-
-          if [[ "$A3_OUTCOME" != "success" ]]; then
-            echo "> A3 failed. Inspect \`a3-regressive-callback.log\`. Focus on invalid transition handling and state regression guards." >> "$GITHUB_STEP_SUMMARY"
-          fi
-
-          if [[ "$A4_OUTCOME" != "success" ]]; then
-            echo "> A4 failed. Inspect \`a4-stale-callback.log\`. Focus on active-attempt gating and stale callback ignore semantics." >> "$GITHUB_STEP_SUMMARY"
-          fi
-
-          if [[ "$B1_OUTCOME" != "success" ]]; then
-            echo "> B1 failed. Inspect the retryable failure scenario log. Focus on retry scheduling and later-attempt recovery." >> "$GITHUB_STEP_SUMMARY"
-          fi
-
-          if [[ "$B2_OUTCOME" != "success" ]]; then
-            echo "> B2 failed. Inspect the non-retryable failure scenario log. Focus on terminal failure propagation to workflow.failed." >> "$GITHUB_STEP_SUMMARY"
-          fi
-
-          if [[ "$B3_OUTCOME" != "success" ]]; then
-            echo "> B3 failed. Inspect the retry exhaustion scenario log. Focus on retry budget enforcement and terminal workflow failure." >> "$GITHUB_STEP_SUMMARY"
-          fi
-
-          if [[ "$B4_OUTCOME" != "success" ]]; then
-            echo "> B4 failed. Inspect the timeout scenario log. Focus on timeout advancement, retry scheduling, and stale old-attempt safety." >> "$GITHUB_STEP_SUMMARY"
-          fi
-
-          if [[ "$B5_OUTCOME" != "success" ]]; then
-            echo "> B5 failed. Inspect \`b5-teardown-non-retryable-failure.log\`. Focus on teardown terminal failure propagation and cleanup-risk signaling." >> "$GITHUB_STEP_SUMMARY"
-          fi
+          echo "### Overall verdict" >> "$GITHUB_STEP_SUMMARY"
 
           ALL_ENV_OK="true"
           if [[ "$DEPLOY_OUTCOME" != "success" || "$MIGRATIONS_OUTCOME" != "success" || "$READINESS_OUTCOME" != "success" || "$HEALTH_OUTCOME" != "success" ]]; then
             ALL_ENV_OK="false"
           fi
 
-          ALL_SCENARIOS_OK="true"
-          if [[ "$A1_OUTCOME" != "success" || "$A2_OUTCOME" != "success" || "$A3_OUTCOME" != "success" || "$A4_OUTCOME" != "success" || "$B1_OUTCOME" != "success" || "$B2_OUTCOME" != "success" || "$B3_OUTCOME" != "success" || "$B4_OUTCOME" != "success" || "$B5_OUTCOME" != "success" ]]; then
-            ALL_SCENARIOS_OK="false"
+          if [[ "$PROVIDER" == "aws" ]]; then
+            ALL_REQUIRED_OK="true"
+            if [[ "$A1_OUTCOME" != "success" || "$B2_OUTCOME" != "success" || "$B5_OUTCOME" != "success" ]]; then
+              ALL_REQUIRED_OK="false"
+            fi
+          else
+            ALL_REQUIRED_OK="true"
+            if [[ "$A1_OUTCOME" != "success" || "$A2_OUTCOME" != "success" || "$A3_OUTCOME" != "success" || "$A4_OUTCOME" != "success" || "$B1_OUTCOME" != "success" || "$B2_OUTCOME" != "success" || "$B3_OUTCOME" != "success" || "$B4_OUTCOME" != "success" || "$B5_OUTCOME" != "success" ]]; then
+              ALL_REQUIRED_OK="false"
+            fi
           fi
 
-          echo "### Overall verdict" >> "$GITHUB_STEP_SUMMARY"
-          if [[ "$ALL_ENV_OK" == "true" && "$ALL_SCENARIOS_OK" == "true" ]]; then
-            echo "- ✅ Async orchestration environment and all Stage 2A/2B scenarios passed." >> "$GITHUB_STEP_SUMMARY"
+          if [[ "$ALL_ENV_OK" == "true" && "$ALL_REQUIRED_OK" == "true" ]]; then
+            echo "- ✅ Async orchestration validation passed for provider $PROVIDER." >> "$GITHUB_STEP_SUMMARY"
           elif [[ "$ALL_ENV_OK" == "false" ]]; then
             echo "- ❌ Environment bring-up failed; scenario results may be incomplete or misleading." >> "$GITHUB_STEP_SUMMARY"
           else
-            echo "- ❌ Environment bring-up passed, but one or more orchestration scenarios failed." >> "$GITHUB_STEP_SUMMARY"
+            echo "- ❌ Environment bring-up passed, but one or more required provider validation scenarios failed." >> "$GITHUB_STEP_SUMMARY"
           fi

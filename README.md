@@ -89,10 +89,10 @@ services/deployment-engine/src/providers/
 ### Current
 
 - ✅ Cloudflare (wrangler-based)
+- ✅ AWS (minimal Lambda Function URL adapter)
 
 ### Planned
 
-- AWS
 - GCP
 
 ### Design Principle
@@ -244,6 +244,22 @@ The control-plane does not depend on any specific provider.
 All provider-specific logic lives in:
 - deploy/teardown runners
 - future deployment-engine adapters
+
+### Current AWS scope
+
+The AWS provider is intentionally minimal in Commit 5:
+
+- deploys a small AWS Lambda
+- exposes it via Lambda Function URL
+- returns:
+  - `deployment_ref`
+  - `preview_url`
+- teardown deletes the Lambda resource
+
+Current AWS adapter assumptions:
+- AWS credentials are supplied externally
+- execution role ARN is supplied externally
+- no CloudFormation / CDK / API Gateway layer yet
 
 ---
 
@@ -528,6 +544,10 @@ When a workflow fails, the expected diagnosis flow is:
 - timeout advancement is explicitly triggered (no background scheduler yet)
 - retry policy is simple (fixed delays, bounded attempts)
 - provider support is currently Cloudflare-first
+- AWS provider validation currently covers:
+  - A1 happy path
+  - B2 non-retryable deploy failure
+  - B5 teardown non-retryable failure
 
 ---
 
