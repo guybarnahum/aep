@@ -180,6 +180,63 @@ function getAttemptTimedOutEventType(jobType: DeployJobType): string {
     : "teardown.attempt_timed_out";
 }
 
+function buildAttemptContextPayload(args: {
+  jobId: string;
+  attemptId?: string;
+  attemptNo?: number;
+  jobType: DeployJobType;
+  provider: string;
+  activeAttemptNo?: number | null;
+  terminalAttemptNo?: number | null;
+  maxAttempts?: number;
+}): Record<string, unknown> {
+  return {
+    job_id: args.jobId,
+    attempt_id: args.attemptId,
+    attempt_no: args.attemptNo,
+    job_type: args.jobType,
+    provider: args.provider,
+    active_attempt_no: args.activeAttemptNo ?? null,
+    terminal_attempt_no: args.terminalAttemptNo ?? null,
+    max_attempts: args.maxAttempts ?? null,
+  };
+}
+
+function buildFailurePayload(args: {
+  failureKind:
+    | "callback_failed_non_retryable"
+    | "callback_failed_retryable"
+    | "retry_exhausted"
+    | "attempt_timed_out"
+    | "external_job_failed";
+  errorMessage: string;
+  retryable?: boolean;
+  jobId: string;
+  attemptId?: string;
+  attemptNo?: number;
+  jobType: DeployJobType;
+  provider: string;
+  activeAttemptNo?: number | null;
+  terminalAttemptNo?: number | null;
+  maxAttempts?: number;
+}): Record<string, unknown> {
+  return {
+    ...buildAttemptContextPayload({
+      jobId: args.jobId,
+      attemptId: args.attemptId,
+      attemptNo: args.attemptNo,
+      jobType: args.jobType,
+      provider: args.provider,
+      activeAttemptNo: args.activeAttemptNo,
+      terminalAttemptNo: args.terminalAttemptNo,
+      maxAttempts: args.maxAttempts,
+    }),
+    error_message: args.errorMessage,
+    failure_kind: args.failureKind,
+    retryable: args.retryable ?? null,
+  };
+}
+
 function shouldRetryAttempt(args: {
   retryable?: boolean;
   currentAttemptNo: number;
@@ -247,11 +304,15 @@ async function createNextAttemptForJob(args: {
     stepName: args.stepName as never,
     eventType: getAttemptCreatedEventType(args.jobType),
     payload: {
-      job_id: args.jobId,
-      attempt_id: attemptId,
-      attempt_no: attemptNo,
-      job_type: args.jobType,
-      provider: args.provider,
+      ...buildAttemptContextPayload({
+        jobId: args.jobId,
+        attemptId,
+        attemptNo,
+        jobType: args.jobType,
+        provider: args.provider,
+        activeAttemptNo: attemptNo,
+        terminalAttemptNo: null,
+      }),
       created_at: createdAt,
     },
   });
@@ -523,13 +584,16 @@ export default {
             attempt.job_type === "deploy_preview"
               ? "deploy.job_started"
               : "teardown.job_started",
-          payload: {
-            job_id: attempt.job_id,
-            attempt_id: attemptId,
-            attempt_no: attempt.attempt_no,
-            job_type: attempt.job_type,
+          payload: buildAttemptContextPayload({
+            jobId: attempt.job_id,
+            attemptId,
+            attemptNo: attempt.attempt_no,
+            jobType: attempt.job_type,
             provider: attempt.provider,
-          },
+            activeAttemptNo: attempt.active_attempt_no,
+            terminalAttemptNo: attempt.terminal_attempt_no,
+            maxAttempts: attempt.max_attempts,
+          }),
         });
 
         return Response.json({ ok: true, attempt_id: attemptId, status: body.status });
@@ -573,13 +637,16 @@ export default {
             attempt.job_type === "deploy_preview"
               ? "deploy.job_succeeded"
               : "teardown.job_succeeded",
-          payload: {
-            job_id: attempt.job_id,
-            attempt_id: attemptId,
-            attempt_no: attempt.attempt_no,
-            job_type: attempt.job_type,
+          payload: buildAttemptContextPayload({
+            jobId: attempt.job_id,
+            attemptId,
+            attemptNo: attempt.attempt_no,
+            jobType: attempt.job_type,
             provider: attempt.provider,
-          },
+            activeAttemptNo: attempt.active_attempt_no,
+            terminalAttemptNo: attempt.attempt_no,
+            maxAttempts: attempt.max_attempts,
+          }),
         });
 
         await env.DB.prepare(
@@ -746,15 +813,21 @@ export default {
             attempt.job_type === "deploy_preview"
               ? "deploy.job_failed"
               : "teardown.job_failed",
-          payload: {
-            job_id: attempt.job_id,
-            attempt_id: attemptId,
-            attempt_no: attempt.attempt_no,
-            job_type: attempt.job_type,
-            provider: attempt.provider,
-            error_message: errorMessage,
+          payload: buildFailurePayload({
+            failureKind: retryable
+              ? "callback_failed_retryable"
+              : "callback_failed_non_retryable",
+            errorMessage,
             retryable,
-          },
+            jobId: attempt.job_id,
+            attemptId,
+            attemptNo: attempt.attempt_no,
+            jobType: attempt.job_type,
+            provider: attempt.provider,
+            activeAttemptNo: attempt.active_attempt_no,
+            terminalAttemptNo: retryable ? null : attempt.attempt_no,
+            maxAttempts,
+          }),
         });
 
         const shouldRetry = shouldRetryAttempt({
@@ -805,14 +878,24 @@ export default {
             stepName: attempt.step_name as never,
             eventType: getJobRetryScheduledEventType(attempt.job_type),
             payload: {
-              job_id: attempt.job_id,
+              ...buildFailurePayload({
+                failureKind: "callback_failed_retryable",
+                errorMessage,
+                retryable: true,
+                jobId: attempt.job_id,
+                attemptId,
+                attemptNo: attempt.attempt_no,
+                jobType: attempt.job_type,
+                provider: attempt.provider,
+                activeAttemptNo: nextAttempt.attemptNo,
+                terminalAttemptNo: null,
+                maxAttempts,
+              }),
               failed_attempt_id: attemptId,
               failed_attempt_no: attempt.attempt_no,
               next_attempt_id: nextAttempt.attemptId,
               next_attempt_no: nextAttempt.attemptNo,
-              provider: attempt.provider,
               retry_at: nextRetryAt,
-              error_message: errorMessage,
             },
           });
 
@@ -847,11 +930,21 @@ export default {
             stepName: attempt.step_name as never,
             eventType: getJobRetryExhaustedEventType(attempt.job_type),
             payload: {
-              job_id: attempt.job_id,
+              ...buildFailurePayload({
+                failureKind: "retry_exhausted",
+                errorMessage,
+                retryable: true,
+                jobId: attempt.job_id,
+                attemptId,
+                attemptNo: attempt.attempt_no,
+                jobType: attempt.job_type,
+                provider: attempt.provider,
+                activeAttemptNo: attempt.active_attempt_no,
+                terminalAttemptNo: attempt.attempt_no,
+                maxAttempts,
+              }),
               final_attempt_id: attemptId,
               final_attempt_no: attempt.attempt_no,
-              provider: attempt.provider,
-              error_message: errorMessage,
             },
           });
         }
@@ -970,13 +1063,19 @@ export default {
         workflowRunId: job.workflow_run_id,
         stepName: job.step_name as never,
         eventType: getAttemptTimedOutEventType(job.job_type),
-        payload: {
-          job_id: job.id,
-          attempt_id: currentAttempt.id,
-          attempt_no: currentAttempt.attempt_no,
+        payload: buildFailurePayload({
+          failureKind: "attempt_timed_out",
+          errorMessage,
+          retryable: true,
+          jobId: job.id,
+          attemptId: currentAttempt.id,
+          attemptNo: currentAttempt.attempt_no,
+          jobType: job.job_type,
           provider: job.provider,
-          error_message: errorMessage,
-        },
+          activeAttemptNo: job.active_attempt_no,
+          terminalAttemptNo: null,
+          maxAttempts: job.max_attempts,
+        }),
       });
 
       const shouldRetry = shouldRetryAttempt({
@@ -1019,14 +1118,24 @@ export default {
           stepName: job.step_name as never,
           eventType: getJobRetryScheduledEventType(job.job_type),
           payload: {
-            job_id: job.id,
+            ...buildFailurePayload({
+              failureKind: "attempt_timed_out",
+              errorMessage,
+              retryable: true,
+              jobId: job.id,
+              attemptId: currentAttempt.id,
+              attemptNo: currentAttempt.attempt_no,
+              jobType: job.job_type,
+              provider: job.provider,
+              activeAttemptNo: nextAttempt.attemptNo,
+              terminalAttemptNo: null,
+              maxAttempts: job.max_attempts,
+            }),
             failed_attempt_id: currentAttempt.id,
             failed_attempt_no: currentAttempt.attempt_no,
             next_attempt_id: nextAttempt.attemptId,
             next_attempt_no: nextAttempt.attemptNo,
-            provider: job.provider,
             retry_at: nextRetryAt,
-            error_message: errorMessage,
           },
         });
 
@@ -1061,11 +1170,21 @@ export default {
         stepName: job.step_name as never,
         eventType: getJobRetryExhaustedEventType(job.job_type),
         payload: {
-          job_id: job.id,
+          ...buildFailurePayload({
+            failureKind: "retry_exhausted",
+            errorMessage,
+            retryable: true,
+            jobId: job.id,
+            attemptId: currentAttempt.id,
+            attemptNo: currentAttempt.attempt_no,
+            jobType: job.job_type,
+            provider: job.provider,
+            activeAttemptNo: job.active_attempt_no,
+            terminalAttemptNo: currentAttempt.attempt_no,
+            maxAttempts: job.max_attempts,
+          }),
           final_attempt_id: currentAttempt.id,
           final_attempt_no: currentAttempt.attempt_no,
-          provider: job.provider,
-          error_message: errorMessage,
         },
       });
 
@@ -1231,10 +1350,15 @@ export default {
         stepName: job.step_name as never,
         eventType: getAttemptSupersededEventType(job.job_type),
         payload: {
-          job_id: job.id,
-          attempt_id: currentAttempt.id,
-          attempt_no: currentAttempt.attempt_no,
-          provider: job.provider,
+          ...buildAttemptContextPayload({
+            jobId: job.id,
+            attemptId: currentAttempt.id,
+            attemptNo: currentAttempt.attempt_no,
+            jobType: job.job_type,
+            provider: job.provider,
+            activeAttemptNo: newAttemptNo,
+            terminalAttemptNo: null,
+          }),
           superseded_at: supersededAt,
         },
       });

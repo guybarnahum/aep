@@ -225,6 +225,9 @@ export class WorkflowCoordinatorDO {
         eventType: "workflow.failed",
         payload: {
           message: error instanceof Error ? error.message : String(error),
+          failure_kind: "external_job_failed",
+          waiting_job_id: current.waitingJobId ?? null,
+          waiting_step: current.waitingStep ?? null,
         },
       });
 
@@ -388,6 +391,7 @@ export class WorkflowCoordinatorDO {
               service_name: current.serviceName,
               provider: current.provider,
               mode: "async",
+              max_attempts: 3,
             },
           });
 
@@ -518,6 +522,7 @@ export class WorkflowCoordinatorDO {
               deployment_ref: current.deploymentRef,
               provider: current.provider,
               mode: "async",
+              max_attempts: 3,
             },
           });
 
@@ -607,6 +612,8 @@ export class WorkflowCoordinatorDO {
         payload: {
           step,
           message: error instanceof Error ? error.message : String(error),
+          failure_kind: step === "CLEANUP_AUDIT" ? "cleanup_audit_failed" : "external_job_failed",
+          waiting_job_id: current.waitingJobId ?? null,
         },
       });
 
@@ -828,6 +835,7 @@ export class WorkflowCoordinatorDO {
       }
 
       const resumedAfterStep = current.waitingStep;
+      const resumedJobId = current.waitingJobId;
 
       if (!resumedAfterStep) {
         throw new Error("waitingStep missing during resume");
@@ -843,6 +851,7 @@ export class WorkflowCoordinatorDO {
         eventType: "workflow.resumed",
         payload: {
           resumed_after_step: resumedAfterStep,
+          waiting_job_id: resumedJobId ?? null,
         },
       });
 
@@ -876,6 +885,9 @@ export class WorkflowCoordinatorDO {
         eventType: "workflow.failed",
         payload: {
           message: error instanceof Error ? error.message : String(error),
+          failure_kind: "external_job_failed",
+          waiting_job_id: current.waitingJobId ?? null,
+          waiting_step: current.waitingStep ?? null,
         },
       });
 
