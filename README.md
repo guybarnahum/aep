@@ -22,11 +22,11 @@ This repository is structured to let the MVP grow into the full AEP platform wit
 - [Async Orchestration Validation Matrix](#-async-orchestration-validation-a1-a4-b1-b5)
 - [Local Development](#-local-development)
 - [Known Limitations](#️-known-limitations)
-- [Next Steps](#-next-steps-commit-4)
+- [Next Steps](#-next-steps)
 
 ---
 
-# 🚀 Current Status (Commit 3 — Complete)
+# 🚀 Current Status (Commit 5 — AWS minimal provider)
 
 AEP now supports **fully externalized infrastructure execution** with a clean separation between:
 
@@ -651,22 +651,22 @@ npx tsx scripts/ci/async-deploy-check.ts \
 
 # ⚠️ Known Limitations
 
-- CI does not yet validate full async orchestration (sync-only today)
-- job retries / idempotency not yet implemented
-- retry scheduling and timeout policy are Stage 2B
+- AWS provider is minimal: validates A1 (happy path), B2 (non-retryable deploy failure), B5 (teardown non-retryable failure)
+- Cloudflare remains the full validation matrix provider (A1–A4, B1–B5)
+- no scheduler yet (retry scheduling is manual / CI-driven)
+- no operator UI yet
+- no multi-tenant model yet
 - partial failure recovery paths need deeper validation
-- provider coverage limited to Cloudflare
 
 ---
 
-# 🔜 Next Steps (Commit 4)
+# 🔜 Next Steps
 
-1. async orchestration validation in CI
-2. job retry + idempotency model
-3. failure-path hardening
-4. additional providers (AWS, GCP)
-5. improved operator UI / dashboards
-6. optional workflow engine refactor (per-step handlers)
+1. expand AWS validation matrix (A2–A4, B1, B3, B4)
+2. GCP provider (stub → real)
+3. failure-path hardening and retry scheduling
+4. improved operator UI / dashboards
+5. optional workflow engine refactor (per-step handlers)
 
 ---
 

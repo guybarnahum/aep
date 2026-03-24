@@ -8,6 +8,10 @@ on:
         required: false
         default: "cloudflare"
 
+permissions:
+  id-token: write
+  contents: read
+
 jobs:
   validate-async:
     runs-on: ubuntu-latest

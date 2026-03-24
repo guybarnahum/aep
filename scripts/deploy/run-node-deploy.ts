@@ -95,7 +95,7 @@ function parseArgs(argv: string[]): {
 
   if (!serviceName || !workflowRunId) {
     throw new Error(
-      "Usage: tsx scripts/deploy/run-node-deploy.ts --service-name sample-worker --workflow-run-id run_123 [--provider cloudflare] [--job-id job_123 --callback-url https://.../internal/deploy-job-attempts/attempt_123/callback --callback-token token] [--test-fail-stage before_running|after_running] [--test-retryable true|false] [--test-skip-terminal-callback true|false]",
+      "Usage: tsx scripts/deploy/run-node-deploy.ts --service-name sample-worker --workflow-run-id run_123 [--provider cloudflare|aws] [--job-id job_123 --callback-url https://.../internal/deploy-job-attempts/attempt_123/callback --callback-token token] [--test-fail-stage before_running|after_running] [--test-retryable true|false] [--test-skip-terminal-callback true|false]",
     );
   }
 
