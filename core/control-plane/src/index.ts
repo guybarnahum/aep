@@ -91,6 +91,7 @@ type DeployJobAttemptCallbackBody = {
   status: "running" | "succeeded" | "failed";
   result?: Record<string, unknown>;
   error_message?: string;
+  retryable?: boolean;
 };
 
 type DeployPreviewResult = {
@@ -159,6 +160,118 @@ function getAttemptSupersededEventType(jobType: DeployJobType): string {
   return jobType === "deploy_preview"
     ? "deploy.attempt_superseded"
     : "teardown.attempt_superseded";
+}
+
+function getJobRetryScheduledEventType(jobType: DeployJobType): string {
+  return jobType === "deploy_preview"
+    ? "deploy.job_retry_scheduled"
+    : "teardown.job_retry_scheduled";
+}
+
+function getJobRetryExhaustedEventType(jobType: DeployJobType): string {
+  return jobType === "deploy_preview"
+    ? "deploy.job_retry_exhausted"
+    : "teardown.job_retry_exhausted";
+}
+
+function getAttemptTimedOutEventType(jobType: DeployJobType): string {
+  return jobType === "deploy_preview"
+    ? "deploy.attempt_timed_out"
+    : "teardown.attempt_timed_out";
+}
+
+function shouldRetryAttempt(args: {
+  retryable?: boolean;
+  currentAttemptNo: number;
+  maxAttempts: number;
+}): boolean {
+  return args.retryable === true && args.currentAttemptNo < args.maxAttempts;
+}
+
+function getNextRetryDelayMs(attemptNo: number): number {
+  if (attemptNo <= 1) {
+    return 15_000;
+  }
+
+  return 60_000;
+}
+
+function toIsoFromNow(delayMs: number): string {
+  return new Date(Date.now() + delayMs).toISOString();
+}
+
+async function createNextAttemptForJob(args: {
+  env: Env;
+  traceId: string;
+  workflowRunId: string;
+  stepName: string;
+  jobId: string;
+  jobType: DeployJobType;
+  provider: string;
+  currentAttemptNo: number;
+}): Promise<{
+  attemptId: string;
+  attemptNo: number;
+  callbackToken: string;
+  createdAt: string;
+}> {
+  const attemptId = newId("attempt");
+  const attemptNo = args.currentAttemptNo + 1;
+  const callbackToken = crypto.randomUUID();
+  const callbackTokenHash = await sha256Hex(callbackToken);
+  const createdAt = nowIso();
+
+  await args.env.DB.prepare(
+    `INSERT INTO deploy_job_attempts (
+      id,
+      job_id,
+      attempt_no,
+      status,
+      callback_token_hash,
+      created_at
+    ) VALUES (?, ?, ?, ?, ?, ?)`,
+  )
+    .bind(
+      attemptId,
+      args.jobId,
+      attemptNo,
+      "queued",
+      callbackTokenHash,
+      createdAt,
+    )
+    .run();
+
+  await emitEvent(args.env.DB, {
+    traceId: args.traceId,
+    workflowRunId: args.workflowRunId,
+    stepName: args.stepName as never,
+    eventType: getAttemptCreatedEventType(args.jobType),
+    payload: {
+      job_id: args.jobId,
+      attempt_id: attemptId,
+      attempt_no: attemptNo,
+      job_type: args.jobType,
+      provider: args.provider,
+      created_at: createdAt,
+    },
+  });
+
+  if (args.env.APP_ENV === "dev") {
+    await emitEvent(args.env.DB, {
+      traceId: args.traceId,
+      workflowRunId: args.workflowRunId,
+      stepName: args.stepName as never,
+      eventType: "deploy_job.debug_token",
+      payload: {
+        job_id: args.jobId,
+        attempt_id: attemptId,
+        attempt_no: attemptNo,
+        callback_token: callbackToken,
+      },
+    });
+  }
+
+  return { attemptId, attemptNo, callbackToken, createdAt };
 }
 
 export default {
@@ -298,6 +411,7 @@ export default {
             dj.provider,
             dj.status AS job_status,
             dj.request_json,
+            dj.max_attempts,
             dj.active_attempt_no,
             dj.terminal_attempt_no,
 
@@ -324,6 +438,7 @@ export default {
           provider: string;
           job_status: string;
           request_json: string;
+          max_attempts: number;
           active_attempt_no: number | null;
           terminal_attempt_no: number | null;
 
@@ -605,6 +720,10 @@ export default {
       } else {
         const completedAt = nowIso();
         const errorMessage = body.error_message ?? "External job failed";
+        const retryable = body.retryable === true;
+        const maxAttempts = typeof attempt.max_attempts === "number"
+          ? attempt.max_attempts
+          : 3;
 
         await env.DB.prepare(
           `UPDATE deploy_job_attempts
@@ -616,20 +735,6 @@ export default {
             errorMessage,
             completedAt,
             attemptId,
-          )
-          .run();
-
-        await env.DB.prepare(
-          `UPDATE deploy_jobs
-           SET status = ?, error_message = ?, completed_at = ?, terminal_attempt_no = ?
-           WHERE id = ?`,
-        )
-          .bind(
-            "failed",
-            errorMessage,
-            completedAt,
-            attempt.attempt_no,
-            attempt.job_id,
           )
           .run();
 
@@ -648,8 +753,108 @@ export default {
             job_type: attempt.job_type,
             provider: attempt.provider,
             error_message: errorMessage,
+            retryable,
           },
         });
+
+        const shouldRetry = shouldRetryAttempt({
+          retryable,
+          currentAttemptNo: attempt.attempt_no,
+          maxAttempts,
+        });
+
+        if (shouldRetry) {
+          await env.DB.prepare(
+            `UPDATE deploy_job_attempts
+             SET superseded_at = ?
+             WHERE id = ?`,
+          )
+            .bind(completedAt, attemptId)
+            .run();
+
+          const nextRetryAt = toIsoFromNow(getNextRetryDelayMs(attempt.attempt_no));
+          const nextAttempt = await createNextAttemptForJob({
+            env,
+            traceId: attempt.trace_id,
+            workflowRunId: attempt.workflow_run_id,
+            stepName: attempt.step_name,
+            jobId: attempt.job_id,
+            jobType: attempt.job_type,
+            provider: attempt.provider,
+            currentAttemptNo: attempt.attempt_no,
+          });
+
+          await env.DB.prepare(
+            `UPDATE deploy_jobs
+             SET status = ?, attempt_count = ?, active_attempt_no = ?, next_retry_at = ?, error_message = ?, completed_at = NULL
+             WHERE id = ?`,
+          )
+            .bind(
+              "retry_scheduled",
+              nextAttempt.attemptNo,
+              nextAttempt.attemptNo,
+              nextRetryAt,
+              errorMessage,
+              attempt.job_id,
+            )
+            .run();
+
+          await emitEvent(env.DB, {
+            traceId: attempt.trace_id,
+            workflowRunId: attempt.workflow_run_id,
+            stepName: attempt.step_name as never,
+            eventType: getJobRetryScheduledEventType(attempt.job_type),
+            payload: {
+              job_id: attempt.job_id,
+              failed_attempt_id: attemptId,
+              failed_attempt_no: attempt.attempt_no,
+              next_attempt_id: nextAttempt.attemptId,
+              next_attempt_no: nextAttempt.attemptNo,
+              provider: attempt.provider,
+              retry_at: nextRetryAt,
+              error_message: errorMessage,
+            },
+          });
+
+          return Response.json({
+            ok: true,
+            attempt_id: attemptId,
+            status: body.status,
+            retry_scheduled: true,
+            next_attempt_id: nextAttempt.attemptId,
+            next_attempt_no: nextAttempt.attemptNo,
+          });
+        }
+
+        await env.DB.prepare(
+          `UPDATE deploy_jobs
+           SET status = ?, error_message = ?, completed_at = ?, terminal_attempt_no = ?, next_retry_at = NULL
+           WHERE id = ?`,
+        )
+          .bind(
+            "failed",
+            errorMessage,
+            completedAt,
+            attempt.attempt_no,
+            attempt.job_id,
+          )
+          .run();
+
+        if (retryable && attempt.attempt_no >= maxAttempts) {
+          await emitEvent(env.DB, {
+            traceId: attempt.trace_id,
+            workflowRunId: attempt.workflow_run_id,
+            stepName: attempt.step_name as never,
+            eventType: getJobRetryExhaustedEventType(attempt.job_type),
+            payload: {
+              job_id: attempt.job_id,
+              final_attempt_id: attemptId,
+              final_attempt_no: attempt.attempt_no,
+              provider: attempt.provider,
+              error_message: errorMessage,
+            },
+          });
+        }
 
         await env.DB.prepare(
           `UPDATE workflow_steps
@@ -672,6 +877,225 @@ export default {
 
         return Response.json({ ok: true, attempt_id: attemptId, status: body.status });
       }
+    }
+
+    if (
+      request.method === "POST" &&
+      url.pathname.match(/^\/internal\/test\/deploy-jobs\/[^/]+\/advance-timeout$/)
+    ) {
+      if (env.APP_ENV !== "dev") {
+        return Response.json({ error: "Not found" }, { status: 404 });
+      }
+
+      const jobId = url.pathname.split("/")[4];
+
+      const job = await env.DB.prepare(
+        `SELECT
+            dj.id,
+            dj.workflow_run_id,
+            dj.step_name,
+            dj.job_type,
+            dj.provider,
+            dj.status,
+            dj.max_attempts,
+            dj.active_attempt_no,
+            wr.trace_id
+         FROM deploy_jobs dj
+         JOIN workflow_runs wr ON wr.id = dj.workflow_run_id
+         WHERE dj.id = ?`,
+      )
+        .bind(jobId)
+        .first<{
+          id: string;
+          workflow_run_id: string;
+          step_name: string;
+          job_type: DeployJobType;
+          provider: string;
+          status: string;
+          max_attempts: number;
+          active_attempt_no: number | null;
+          trace_id: string;
+        }>();
+
+      if (!job) {
+        return Response.json({ error: "Deploy job not found" }, { status: 404 });
+      }
+
+      if (job.active_attempt_no === null) {
+        return Response.json(
+          { error: "Deploy job has no active attempt" },
+          { status: 400 },
+        );
+      }
+
+      const currentAttempt = await env.DB.prepare(
+        `SELECT id, attempt_no, status
+         FROM deploy_job_attempts
+         WHERE job_id = ? AND attempt_no = ?`,
+      )
+        .bind(job.id, job.active_attempt_no)
+        .first<{
+          id: string;
+          attempt_no: number;
+          status: DeployJobAttemptStatus;
+        }>();
+
+      if (!currentAttempt) {
+        return Response.json(
+          { error: "Active deploy job attempt not found" },
+          { status: 404 },
+        );
+      }
+
+      if (currentAttempt.status !== "queued" && currentAttempt.status !== "running") {
+        return Response.json(
+          { error: "Only queued or running attempts can be advanced by timeout" },
+          { status: 400 },
+        );
+      }
+
+      const completedAt = nowIso();
+      const errorMessage = "Attempt timed out";
+
+      await env.DB.prepare(
+        `UPDATE deploy_job_attempts
+         SET status = ?, error_message = ?, completed_at = ?, superseded_at = ?
+         WHERE id = ?`,
+      )
+        .bind("failed", errorMessage, completedAt, completedAt, currentAttempt.id)
+        .run();
+
+      await emitEvent(env.DB, {
+        traceId: job.trace_id,
+        workflowRunId: job.workflow_run_id,
+        stepName: job.step_name as never,
+        eventType: getAttemptTimedOutEventType(job.job_type),
+        payload: {
+          job_id: job.id,
+          attempt_id: currentAttempt.id,
+          attempt_no: currentAttempt.attempt_no,
+          provider: job.provider,
+          error_message: errorMessage,
+        },
+      });
+
+      const shouldRetry = shouldRetryAttempt({
+        retryable: true,
+        currentAttemptNo: currentAttempt.attempt_no,
+        maxAttempts: typeof job.max_attempts === "number" ? job.max_attempts : 3,
+      });
+
+      if (shouldRetry) {
+        const nextRetryAt = toIsoFromNow(getNextRetryDelayMs(currentAttempt.attempt_no));
+        const nextAttempt = await createNextAttemptForJob({
+          env,
+          traceId: job.trace_id,
+          workflowRunId: job.workflow_run_id,
+          stepName: job.step_name,
+          jobId: job.id,
+          jobType: job.job_type,
+          provider: job.provider,
+          currentAttemptNo: currentAttempt.attempt_no,
+        });
+
+        await env.DB.prepare(
+          `UPDATE deploy_jobs
+           SET status = ?, attempt_count = ?, active_attempt_no = ?, next_retry_at = ?, error_message = ?, completed_at = NULL
+           WHERE id = ?`,
+        )
+          .bind(
+            "retry_scheduled",
+            nextAttempt.attemptNo,
+            nextAttempt.attemptNo,
+            nextRetryAt,
+            errorMessage,
+            job.id,
+          )
+          .run();
+
+        await emitEvent(env.DB, {
+          traceId: job.trace_id,
+          workflowRunId: job.workflow_run_id,
+          stepName: job.step_name as never,
+          eventType: getJobRetryScheduledEventType(job.job_type),
+          payload: {
+            job_id: job.id,
+            failed_attempt_id: currentAttempt.id,
+            failed_attempt_no: currentAttempt.attempt_no,
+            next_attempt_id: nextAttempt.attemptId,
+            next_attempt_no: nextAttempt.attemptNo,
+            provider: job.provider,
+            retry_at: nextRetryAt,
+            error_message: errorMessage,
+          },
+        });
+
+        return Response.json({
+          ok: true,
+          job_id: job.id,
+          timed_out_attempt_id: currentAttempt.id,
+          timed_out_attempt_no: currentAttempt.attempt_no,
+          retry_scheduled: true,
+          next_attempt_id: nextAttempt.attemptId,
+          next_attempt_no: nextAttempt.attemptNo,
+        });
+      }
+
+      await env.DB.prepare(
+        `UPDATE deploy_jobs
+         SET status = ?, error_message = ?, completed_at = ?, terminal_attempt_no = ?, next_retry_at = NULL
+         WHERE id = ?`,
+      )
+        .bind(
+          "failed",
+          errorMessage,
+          completedAt,
+          currentAttempt.attempt_no,
+          job.id,
+        )
+        .run();
+
+      await emitEvent(env.DB, {
+        traceId: job.trace_id,
+        workflowRunId: job.workflow_run_id,
+        stepName: job.step_name as never,
+        eventType: getJobRetryExhaustedEventType(job.job_type),
+        payload: {
+          job_id: job.id,
+          final_attempt_id: currentAttempt.id,
+          final_attempt_no: currentAttempt.attempt_no,
+          provider: job.provider,
+          error_message: errorMessage,
+        },
+      });
+
+      await env.DB.prepare(
+        `UPDATE workflow_steps
+         SET status = ?, completed_at = ?, error_message = ?
+         WHERE workflow_run_id = ? AND step_name = ? AND status = ?`,
+      )
+        .bind(
+          "failed",
+          completedAt,
+          errorMessage,
+          job.workflow_run_id,
+          job.step_name,
+          "waiting",
+        )
+        .run();
+
+      const doId = env.WORKFLOW_COORDINATOR.idFromName(job.workflow_run_id);
+      const stub = env.WORKFLOW_COORDINATOR.get(doId);
+      await stub.fetch(new Request("https://do/resume", { method: "POST" }));
+
+      return Response.json({
+        ok: true,
+        job_id: job.id,
+        timed_out_attempt_id: currentAttempt.id,
+        timed_out_attempt_no: currentAttempt.attempt_no,
+        retry_scheduled: false,
+        terminal_status: "failed",
+      });
     }
 
     if (

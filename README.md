@@ -195,6 +195,20 @@ This allows the control plane to safely handle:
 Only the active attempt for a logical job may mutate workflow state.
 Duplicate or stale callbacks are treated as no-op acknowledgements.
 
+## Retry and timeout model (Commit 4 Stage 2B)
+
+AEP logical jobs may span multiple execution attempts.
+
+Current policy:
+
+- retryable failures create a new active attempt up to `max_attempts`
+- non-retryable failures fail the logical job immediately
+- timed-out attempts may be advanced explicitly in dev/test
+- workflow steps remain `waiting` until the logical job is terminal
+
+This keeps retry behavior internal to the control plane while preserving
+clear trace visibility across attempts.
+
 ---
 
 ## Job Lifecycle Events (trace)

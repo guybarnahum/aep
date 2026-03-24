@@ -814,6 +814,15 @@ export class WorkflowCoordinatorDO {
       if (job.status === "failed") {
         throw new Error(`External job failed: ${current.waitingJobId}`);
       }
+
+      if (
+        job.status === "retry_scheduled" ||
+        job.status === "queued" ||
+        job.status === "running"
+      ) {
+        return;
+      }
+
       return;
     }
 

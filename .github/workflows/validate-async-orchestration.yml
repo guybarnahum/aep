@@ -120,6 +120,54 @@ jobs:
             --service-name sample-worker \
             --scenario a4-stale-attempt-callback | tee a4-stale-callback.log
 
+      - name: B1 retryable failure then success
+        id: b1_retry_then_success
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          npx tsx scripts/ci/async-deploy-check.ts \
+            --base-url "$DEPLOY_URL" \
+            --provider "$PROVIDER" \
+            --service-name sample-worker \
+            --scenario b1-retryable-failure-then-success | tee b1-retry-then-success.log
+
+      - name: B2 non-retryable failure
+        id: b2_non_retryable_failure
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          npx tsx scripts/ci/async-deploy-check.ts \
+            --base-url "$DEPLOY_URL" \
+            --provider "$PROVIDER" \
+            --service-name sample-worker \
+            --scenario b2-non-retryable-failure | tee b2-non-retryable-failure.log
+
+      - name: B3 retry exhaustion
+        id: b3_retry_exhaustion
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          npx tsx scripts/ci/async-deploy-check.ts \
+            --base-url "$DEPLOY_URL" \
+            --provider "$PROVIDER" \
+            --service-name sample-worker \
+            --scenario b3-retry-exhaustion | tee b3-retry-exhaustion.log
+
+      - name: B4 timeout then retry
+        id: b4_timeout_then_retry
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          npx tsx scripts/ci/async-deploy-check.ts \
+            --base-url "$DEPLOY_URL" \
+            --provider "$PROVIDER" \
+            --service-name sample-worker \
+            --scenario b4-timeout-then-retry | tee b4-timeout-then-retry.log
+
       - name: Write summary
         if: always()
         run: |
@@ -141,6 +189,10 @@ jobs:
           A2_OUTCOME="${{ steps.a2_duplicate_terminal.outcome }}"
           A3_OUTCOME="${{ steps.a3_regressive_callback.outcome }}"
           A4_OUTCOME="${{ steps.a4_stale_callback.outcome }}"
+          B1_OUTCOME="${{ steps.b1_retry_then_success.outcome }}"
+          B2_OUTCOME="${{ steps.b2_non_retryable_failure.outcome }}"
+          B3_OUTCOME="${{ steps.b3_retry_exhaustion.outcome }}"
+          B4_OUTCOME="${{ steps.b4_timeout_then_retry.outcome }}"
 
           echo "## Async validation summary" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
@@ -159,6 +211,12 @@ jobs:
           echo "- $(status_emoji "$A2_OUTCOME") A2 duplicate terminal callback: $A2_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
           echo "- $(status_emoji "$A3_OUTCOME") A3 regressive callback ignored: $A3_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
           echo "- $(status_emoji "$A4_OUTCOME") A4 stale callback ignored: $A4_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "### Stage 2B scenarios" >> "$GITHUB_STEP_SUMMARY"
+          echo "- $(status_emoji "$B1_OUTCOME") B1 retryable failure then success: $B1_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
+          echo "- $(status_emoji "$B2_OUTCOME") B2 non-retryable failure: $B2_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
+          echo "- $(status_emoji "$B3_OUTCOME") B3 retry exhaustion: $B3_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
+          echo "- $(status_emoji "$B4_OUTCOME") B4 timeout then retry: $B4_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
 
           if [[ "$A1_OUTCOME" != "success" ]]; then
             echo "> A1 failed. Inspect \`a1-happy-path.log\`." >> "$GITHUB_STEP_SUMMARY"
@@ -174,4 +232,20 @@ jobs:
 
           if [[ "$A4_OUTCOME" != "success" ]]; then
             echo "> A4 failed. Inspect \`a4-stale-callback.log\`." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+          if [[ "$B1_OUTCOME" != "success" ]]; then
+            echo "> B1 failed. Inspect \`b1-retry-then-success.log\`." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+          if [[ "$B2_OUTCOME" != "success" ]]; then
+            echo "> B2 failed. Inspect \`b2-non-retryable-failure.log\`." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+          if [[ "$B3_OUTCOME" != "success" ]]; then
+            echo "> B3 failed. Inspect \`b3-retry-exhaustion.log\`." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+          if [[ "$B4_OUTCOME" != "success" ]]; then
+            echo "> B4 failed. Inspect \`b4-timeout-then-retry.log\`." >> "$GITHUB_STEP_SUMMARY"
           fi

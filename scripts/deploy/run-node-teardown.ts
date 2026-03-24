@@ -3,11 +3,16 @@
 import { DEFAULT_PROVIDER, isProvider } from "../../packages/shared/src/index";
 import { getNodeDeploymentAdapter } from "../../services/deployment-engine/src";
 
+type TestFailStage = "before_running" | "after_running";
+
 function parseArgs(argv: string[]): {
   provider: typeof DEFAULT_PROVIDER;
   deploymentRef: string;
   callbackUrl?: string;
   callbackToken?: string;
+  testFailStage?: TestFailStage;
+  testRetryable?: boolean;
+  testSkipTerminalCallback?: boolean;
 } {
   const args = new Map<string, string>();
 
@@ -27,20 +32,62 @@ function parseArgs(argv: string[]): {
     i += 1;
   }
 
+  const parseOptionalBoolean = (value: string | undefined): boolean | undefined => {
+    if (value === undefined) {
+      return undefined;
+    }
+
+    if (value === "true") {
+      return true;
+    }
+
+    if (value === "false") {
+      return false;
+    }
+
+    throw new Error(`Expected boolean flag value 'true' or 'false', got '${value}'`);
+  };
+
   const deploymentRef = args.get("deployment-ref");
   const rawProvider = args.get("provider");
+  const callbackUrl = args.get("callback-url");
+  const callbackToken = args.get("callback-token");
+  const rawTestFailStage = args.get("test-fail-stage");
+  const testRetryable = parseOptionalBoolean(args.get("test-retryable"));
+  const testSkipTerminalCallback = parseOptionalBoolean(args.get("test-skip-terminal-callback"));
+
+  if (
+    rawTestFailStage !== undefined &&
+    rawTestFailStage !== "before_running" &&
+    rawTestFailStage !== "after_running"
+  ) {
+    throw new Error(
+      `Invalid --test-fail-stage: ${rawTestFailStage}. Expected before_running or after_running.`,
+    );
+  }
 
   if (!deploymentRef) {
     throw new Error(
-      "Usage: tsx scripts/deploy/run-node-teardown.ts --deployment-ref sample-worker-run_test_3 [--provider cloudflare] [--callback-url https://.../internal/deploy-job-attempts/attempt_123/callback --callback-token token]",
+      "Usage: tsx scripts/deploy/run-node-teardown.ts --deployment-ref sample-worker-run_test_3 [--provider cloudflare] [--callback-url https://.../internal/deploy-job-attempts/attempt_123/callback --callback-token token] [--test-fail-stage before_running|after_running] [--test-retryable true|false] [--test-skip-terminal-callback true|false]",
     );
+  }
+
+  if ((callbackUrl && !callbackToken) || (!callbackUrl && callbackToken)) {
+    throw new Error("callback-url and callback-token must be provided together");
+  }
+
+  if ((rawTestFailStage || testSkipTerminalCallback) && (!callbackUrl || !callbackToken)) {
+    throw new Error("Test callback injection flags require callback-url and callback-token");
   }
 
   return {
     provider: isProvider(rawProvider) ? rawProvider : DEFAULT_PROVIDER,
     deploymentRef,
-    callbackUrl: args.get("callback-url"),
-    callbackToken: args.get("callback-token"),
+    callbackUrl,
+    callbackToken,
+    testFailStage: rawTestFailStage,
+    testRetryable,
+    testSkipTerminalCallback,
   };
 }
 
@@ -64,7 +111,15 @@ async function postCallback(args: {
 }
 
 async function main(): Promise<void> {
-  const { provider, deploymentRef, callbackUrl, callbackToken } = parseArgs(
+  const {
+    provider,
+    deploymentRef,
+    callbackUrl,
+    callbackToken,
+    testFailStage,
+    testRetryable,
+    testSkipTerminalCallback,
+  } = parseArgs(
     process.argv.slice(2),
   );
 
@@ -73,6 +128,34 @@ async function main(): Promise<void> {
   });
 
   try {
+    if (testFailStage === "before_running") {
+      if (callbackUrl && callbackToken) {
+        await postCallback({
+          callbackUrl,
+          callbackToken,
+          body: {
+            status: "failed",
+            retryable: testRetryable,
+            error_message: "Injected test failure before running",
+          },
+        });
+      }
+
+      console.log(
+        JSON.stringify(
+          {
+            ok: true,
+            callback_sent: Boolean(callbackUrl && callbackToken),
+            deploymentRef,
+            injected_failure: "before_running",
+          },
+          null,
+          2,
+        ),
+      );
+
+      return;
+    }
 
     if (callbackUrl && callbackToken) {
       await postCallback({
@@ -82,6 +165,52 @@ async function main(): Promise<void> {
           status: "running",
         },
       });
+    }
+
+    if (testFailStage === "after_running") {
+      if (callbackUrl && callbackToken) {
+        await postCallback({
+          callbackUrl,
+          callbackToken,
+          body: {
+            status: "failed",
+            retryable: testRetryable,
+            error_message: "Injected test failure after running",
+          },
+        });
+      }
+
+      console.log(
+        JSON.stringify(
+          {
+            ok: true,
+            callback_sent: Boolean(callbackUrl && callbackToken),
+            deploymentRef,
+            injected_failure: "after_running",
+          },
+          null,
+          2,
+        ),
+      );
+
+      return;
+    }
+
+    if (testSkipTerminalCallback) {
+      console.log(
+        JSON.stringify(
+          {
+            ok: true,
+            callback_sent: Boolean(callbackUrl && callbackToken),
+            deploymentRef,
+            skipped_terminal_callback: true,
+          },
+          null,
+          2,
+        ),
+      );
+
+      return;
     }
 
     await adapter.teardownPreview(deploymentRef);

@@ -41,7 +41,11 @@ type Scenario =
   | "a1-happy-path"
   | "a2-duplicate-succeeded"
   | "a3-regressive-running-after-succeeded"
-  | "a4-stale-attempt-callback";
+  | "a4-stale-attempt-callback"
+  | "b1-retryable-failure-then-success"
+  | "b2-non-retryable-failure"
+  | "b3-retry-exhaustion"
+  | "b4-timeout-then-retry";
 
 type CliOptions = {
   baseUrl: string;
@@ -207,6 +211,10 @@ function parseArgs(argv: string[]): CliOptions {
     "a2-duplicate-succeeded",
     "a3-regressive-running-after-succeeded",
     "a4-stale-attempt-callback",
+    "b1-retryable-failure-then-success",
+    "b2-non-retryable-failure",
+    "b3-retry-exhaustion",
+    "b4-timeout-then-retry",
   ];
 
   if (!allowedScenarios.includes(scenarioValue as Scenario)) {
@@ -459,6 +467,60 @@ function extractAttemptDispatchInfo(
   return { jobId, attemptId, attemptNo, callbackToken };
 }
 
+function extractLatestAttemptForJob(
+  trace: TraceResponse,
+  jobId: string,
+): {
+  attemptId?: string;
+  attemptNo?: number;
+  callbackToken?: string;
+} {
+  const events = trace.events ?? [];
+  let latestAttemptId: string | undefined;
+  let latestAttemptNo: number | undefined;
+
+  const debugTokens: Array<{
+    attemptId?: string;
+    callbackToken?: string;
+  }> = [];
+
+  for (const event of events) {
+    const payload = getTraceEventPayload(event);
+    const eventType = event.event_type ?? "";
+
+    const payloadJobId = getPayloadString(payload, "job_id");
+    if (payloadJobId !== jobId) {
+      continue;
+    }
+
+    if (
+      eventType === "deploy.attempt_created" ||
+      eventType === "teardown.attempt_created"
+    ) {
+      latestAttemptId = getPayloadString(payload, "attempt_id");
+      latestAttemptNo = getPayloadNumber(payload, "attempt_no");
+    }
+
+    if (eventType === "deploy_job.debug_token") {
+      debugTokens.push({
+        attemptId: getPayloadString(payload, "attempt_id"),
+        callbackToken: getPayloadString(payload, "callback_token"),
+      });
+    }
+  }
+
+  let callbackToken: string | undefined;
+  if (latestAttemptId) {
+    callbackToken = debugTokens.find((d) => d.attemptId === latestAttemptId)?.callbackToken;
+  }
+
+  return {
+    attemptId: latestAttemptId,
+    attemptNo: latestAttemptNo,
+    callbackToken,
+  };
+}
+
 async function runNodeDeploy(args: {
   deployRunnerPath: string;
   serviceName: string;
@@ -467,6 +529,7 @@ async function runNodeDeploy(args: {
   jobId: string;
   callbackUrl: string;
   callbackToken: string;
+  extraArgs?: string[];
 }): Promise<void> {
   const commandArgs = [
     "tsx",
@@ -483,6 +546,7 @@ async function runNodeDeploy(args: {
     args.callbackUrl,
     "--callback-token",
     args.callbackToken,
+    ...(args.extraArgs ?? []),
   ];
 
   console.log("🚀 Running node deploy runner");
@@ -517,6 +581,7 @@ async function runNodeTeardown(args: {
   deploymentRef: string;
   callbackUrl: string;
   callbackToken: string;
+  extraArgs?: string[];
 }): Promise<void> {
   const commandArgs = [
     "tsx",
@@ -529,6 +594,7 @@ async function runNodeTeardown(args: {
     args.callbackUrl,
     "--callback-token",
     args.callbackToken,
+    ...(args.extraArgs ?? []),
   ];
 
   console.log("🧹 Running node teardown runner");
@@ -671,6 +737,112 @@ async function supersedeJobForTest(args: {
     },
     body: "{}",
   });
+}
+
+async function advanceJobTimeoutForTest(args: {
+  baseUrl: string;
+  jobId: string;
+  timeoutMs: number;
+}): Promise<RequestResult> {
+  return requestJson({
+    url: joinUrl(
+      args.baseUrl,
+      `/internal/test/deploy-jobs/${encodeURIComponent(args.jobId)}/advance-timeout`,
+    ),
+    method: "POST",
+    timeoutMs: args.timeoutMs,
+    headers: {
+      accept: "application/json",
+      "content-type": "application/json",
+      "user-agent": "aep-ci-async-deploy-check/1.0",
+      "cache-control": "no-cache",
+    },
+    body: "{}",
+  });
+}
+
+async function waitForLatestAttemptForJob(args: {
+  traceUrl: string;
+  headers: Record<string, string>;
+  timeoutMs: number;
+  pollAttempts: number;
+  pollIntervalMs: number;
+  jobId: string;
+  previousAttemptNo: number;
+}): Promise<{
+  attemptId: string;
+  attemptNo: number;
+  callbackToken: string;
+}> {
+  for (let attempt = 1; attempt <= args.pollAttempts; attempt += 1) {
+    const traceResult = await requestJson({
+      url: args.traceUrl,
+      method: "GET",
+      timeoutMs: args.timeoutMs,
+      headers: args.headers,
+    });
+
+    if (traceResult.status >= 200 && traceResult.status < 300) {
+      const trace = asTraceResponse(traceResult.bodyJson);
+      const latest = extractLatestAttemptForJob(trace, args.jobId);
+
+      if (
+        latest.attemptId &&
+        latest.attemptNo !== undefined &&
+        latest.attemptNo > args.previousAttemptNo &&
+        latest.callbackToken
+      ) {
+        return {
+          attemptId: latest.attemptId,
+          attemptNo: latest.attemptNo,
+          callbackToken: latest.callbackToken,
+        };
+      }
+    }
+
+    if (attempt < args.pollAttempts) {
+      await sleep(args.pollIntervalMs);
+    }
+  }
+
+  fail(`Did not observe a new attempt for job ${args.jobId} after attempt ${args.previousAttemptNo}.`);
+}
+
+async function pollWorkflowToExpectedRunStatus(args: {
+  workflowUrl: string;
+  headers: Record<string, string>;
+  timeoutMs: number;
+  pollAttempts: number;
+  pollIntervalMs: number;
+  expectedStatus: string;
+}): Promise<WorkflowStatusResponse> {
+  for (let attempt = 1; attempt <= args.pollAttempts; attempt += 1) {
+    const result = await requestJson({
+      url: args.workflowUrl,
+      method: "GET",
+      timeoutMs: args.timeoutMs,
+      headers: args.headers,
+    });
+
+    if (result.status >= 200 && result.status < 300) {
+      const workflow = asWorkflowStatusResponse(result.bodyJson);
+      const runStatus = stringifyValue(getRunStatus(workflow));
+
+      console.log(
+        `   Attempt ${attempt}/${args.pollAttempts}: run.status=${runStatus}, time=${result.durationMs}ms`,
+      );
+
+      if (runStatus === args.expectedStatus) {
+        return workflow;
+      }
+    }
+
+    if (attempt < args.pollAttempts) {
+      await sleep(args.pollIntervalMs);
+    }
+  }
+
+  fail(`Workflow did not reach expected status '${args.expectedStatus}' after ${args.pollAttempts} attempts.`);
 }
 
 async function main(): Promise<void> {
@@ -831,7 +1003,7 @@ async function main(): Promise<void> {
     );
   }
 
-  const callbackUrl = joinUrl(
+  let callbackUrl = joinUrl(
     cli.baseUrl,
     `/internal/deploy-job-attempts/${encodeURIComponent(deployAttemptId)}/callback`,
   );
@@ -899,15 +1071,278 @@ async function main(): Promise<void> {
 
   let deploySucceededCallbackBody: Record<string, unknown> | undefined;
 
-  await runNodeDeploy({
-    deployRunnerPath: cli.deployRunnerPath,
-    serviceName: cli.serviceName,
-    workflowRunId: start.workflow_run_id,
-    provider: cli.provider,
-    jobId,
-    callbackUrl,
-    callbackToken,
-  });
+  if (cli.scenario === "b1-retryable-failure-then-success") {
+    console.log("==> Injecting retryable deploy failure (B1)");
+
+    await runNodeDeploy({
+      deployRunnerPath: cli.deployRunnerPath,
+      serviceName: cli.serviceName,
+      workflowRunId: start.workflow_run_id,
+      provider: cli.provider,
+      jobId,
+      callbackUrl,
+      callbackToken,
+      extraArgs: [
+        "--test-fail-stage",
+        "after_running",
+        "--test-retryable",
+        "true",
+      ],
+    });
+
+    const nextAttempt = await waitForLatestAttemptForJob({
+      traceUrl,
+      headers,
+      timeoutMs: cli.timeoutMs,
+      pollAttempts: cli.pollAttempts,
+      pollIntervalMs: cli.pollIntervalMs,
+      jobId,
+      previousAttemptNo: deployAttemptNo ?? 0,
+    });
+
+    deployAttemptId = nextAttempt.attemptId;
+    deployAttemptNo = nextAttempt.attemptNo;
+    callbackToken = nextAttempt.callbackToken;
+    callbackUrl = joinUrl(
+      cli.baseUrl,
+      `/internal/deploy-job-attempts/${encodeURIComponent(deployAttemptId)}/callback`,
+    );
+
+    console.log(`   Retry attempt id: ${deployAttemptId}`);
+    console.log(`   Retry attempt no: ${deployAttemptNo}`);
+
+    await runNodeDeploy({
+      deployRunnerPath: cli.deployRunnerPath,
+      serviceName: cli.serviceName,
+      workflowRunId: start.workflow_run_id,
+      provider: cli.provider,
+      jobId,
+      callbackUrl,
+      callbackToken,
+    });
+  } else if (cli.scenario === "b2-non-retryable-failure") {
+    console.log("==> Injecting non-retryable deploy failure (B2)");
+
+    await runNodeDeploy({
+      deployRunnerPath: cli.deployRunnerPath,
+      serviceName: cli.serviceName,
+      workflowRunId: start.workflow_run_id,
+      provider: cli.provider,
+      jobId,
+      callbackUrl,
+      callbackToken,
+      extraArgs: [
+        "--test-fail-stage",
+        "after_running",
+        "--test-retryable",
+        "false",
+      ],
+    });
+
+    const failedWorkflow = await pollWorkflowToExpectedRunStatus({
+      workflowUrl,
+      headers,
+      timeoutMs: cli.timeoutMs,
+      pollAttempts: cli.pollAttempts,
+      pollIntervalMs: cli.pollIntervalMs,
+      expectedStatus: "failed",
+    });
+
+    if (getStepStatus(failedWorkflow, "DEPLOY") !== "failed") {
+      fail("B2 expected DEPLOY step to fail.");
+    }
+
+    console.log("✅ Workflow failed as expected for B2");
+
+    console.log("==> Fetching final trace");
+    const finalTraceResult = await requestJson({
+      url: traceUrl,
+      method: "GET",
+      timeoutMs: cli.timeoutMs,
+      headers,
+    });
+
+    if (finalTraceResult.status < 200 || finalTraceResult.status >= 300) {
+      fail(
+        `Final trace request failed with ${finalTraceResult.status} ${finalTraceResult.statusText}.\nBody:\n${finalTraceResult.bodyText}`,
+      );
+    }
+
+    const finalTrace = asTraceResponse(finalTraceResult.bodyJson);
+    requireTraceEvents(finalTrace, [
+      "workflow.started",
+      "deploy_job.created",
+      "deploy.attempt_created",
+      "deploy.job_dispatched",
+      "deploy.job_failed",
+      "workflow.failed",
+    ]);
+
+    console.log("✅ All expected trace milestones found");
+
+    const totalDurationMs = Date.now() - startedAt;
+    console.log(`✅ Scenario ${cli.scenario} passed in ${totalDurationMs}ms`);
+    return;
+  } else if (cli.scenario === "b3-retry-exhaustion") {
+    const maxAttempts = 3;
+
+    for (let current = 1; current <= maxAttempts; current += 1) {
+      console.log(`==> Injecting retryable deploy failure for attempt ${current}/${maxAttempts} (B3)`);
+
+      await runNodeDeploy({
+        deployRunnerPath: cli.deployRunnerPath,
+        serviceName: cli.serviceName,
+        workflowRunId: start.workflow_run_id,
+        provider: cli.provider,
+        jobId,
+        callbackUrl,
+        callbackToken,
+        extraArgs: [
+          "--test-fail-stage",
+          "after_running",
+          "--test-retryable",
+          "true",
+        ],
+      });
+
+      if (current < maxAttempts) {
+        const nextAttempt = await waitForLatestAttemptForJob({
+          traceUrl,
+          headers,
+          timeoutMs: cli.timeoutMs,
+          pollAttempts: cli.pollAttempts,
+          pollIntervalMs: cli.pollIntervalMs,
+          jobId,
+          previousAttemptNo: deployAttemptNo ?? current,
+        });
+
+        deployAttemptId = nextAttempt.attemptId;
+        deployAttemptNo = nextAttempt.attemptNo;
+        callbackToken = nextAttempt.callbackToken;
+        callbackUrl = joinUrl(
+          cli.baseUrl,
+          `/internal/deploy-job-attempts/${encodeURIComponent(deployAttemptId)}/callback`,
+        );
+
+        console.log(`   Next retry attempt id: ${deployAttemptId}`);
+        console.log(`   Next retry attempt no: ${deployAttemptNo}`);
+      }
+    }
+
+    const failedWorkflow = await pollWorkflowToExpectedRunStatus({
+      workflowUrl,
+      headers,
+      timeoutMs: cli.timeoutMs,
+      pollAttempts: cli.pollAttempts,
+      pollIntervalMs: cli.pollIntervalMs,
+      expectedStatus: "failed",
+    });
+
+    if (getStepStatus(failedWorkflow, "DEPLOY") !== "failed") {
+      fail("B3 expected DEPLOY step to fail after retry exhaustion.");
+    }
+
+    console.log("✅ Workflow failed as expected after retry exhaustion");
+
+    console.log("==> Fetching final trace");
+    const finalTraceResult = await requestJson({
+      url: traceUrl,
+      method: "GET",
+      timeoutMs: cli.timeoutMs,
+      headers,
+    });
+
+    if (finalTraceResult.status < 200 || finalTraceResult.status >= 300) {
+      fail(
+        `Final trace request failed with ${finalTraceResult.status} ${finalTraceResult.statusText}.\nBody:\n${finalTraceResult.bodyText}`,
+      );
+    }
+
+    const finalTrace = asTraceResponse(finalTraceResult.bodyJson);
+    requireTraceEvents(finalTrace, [
+      "workflow.started",
+      "deploy_job.created",
+      "deploy.attempt_created",
+      "deploy.job_dispatched",
+      "deploy.job_retry_scheduled",
+      "deploy.job_retry_exhausted",
+      "workflow.failed",
+    ]);
+
+    console.log("✅ All expected trace milestones found");
+
+    const totalDurationMs = Date.now() - startedAt;
+    console.log(`✅ Scenario ${cli.scenario} passed in ${totalDurationMs}ms`);
+    return;
+  } else if (cli.scenario === "b4-timeout-then-retry") {
+    console.log("==> Starting deploy attempt without terminal callback (B4)");
+
+    await runNodeDeploy({
+      deployRunnerPath: cli.deployRunnerPath,
+      serviceName: cli.serviceName,
+      workflowRunId: start.workflow_run_id,
+      provider: cli.provider,
+      jobId,
+      callbackUrl,
+      callbackToken,
+      extraArgs: ["--test-skip-terminal-callback", "true"],
+    });
+
+    console.log("==> Advancing deploy timeout for active attempt (B4)");
+
+    const timeoutAdvanceResult = await advanceJobTimeoutForTest({
+      baseUrl: cli.baseUrl,
+      jobId,
+      timeoutMs: cli.timeoutMs,
+    });
+
+    if (timeoutAdvanceResult.status < 200 || timeoutAdvanceResult.status >= 300) {
+      fail(
+        `B4 timeout advancement failed with ${timeoutAdvanceResult.status} ${timeoutAdvanceResult.statusText}.\nBody:\n${timeoutAdvanceResult.bodyText}`,
+      );
+    }
+
+    const nextAttempt = await waitForLatestAttemptForJob({
+      traceUrl,
+      headers,
+      timeoutMs: cli.timeoutMs,
+      pollAttempts: cli.pollAttempts,
+      pollIntervalMs: cli.pollIntervalMs,
+      jobId,
+      previousAttemptNo: deployAttemptNo ?? 0,
+    });
+
+    deployAttemptId = nextAttempt.attemptId;
+    deployAttemptNo = nextAttempt.attemptNo;
+    callbackToken = nextAttempt.callbackToken;
+    callbackUrl = joinUrl(
+      cli.baseUrl,
+      `/internal/deploy-job-attempts/${encodeURIComponent(deployAttemptId)}/callback`,
+    );
+
+    console.log(`   Retry attempt id: ${deployAttemptId}`);
+    console.log(`   Retry attempt no: ${deployAttemptNo}`);
+
+    await runNodeDeploy({
+      deployRunnerPath: cli.deployRunnerPath,
+      serviceName: cli.serviceName,
+      workflowRunId: start.workflow_run_id,
+      provider: cli.provider,
+      jobId,
+      callbackUrl,
+      callbackToken,
+    });
+  } else {
+    await runNodeDeploy({
+      deployRunnerPath: cli.deployRunnerPath,
+      serviceName: cli.serviceName,
+      workflowRunId: start.workflow_run_id,
+      provider: cli.provider,
+      jobId,
+      callbackUrl,
+      callbackToken,
+    });
+  }
 
   deploySucceededCallbackBody = {
     status: "succeeded",
@@ -1169,12 +1604,29 @@ async function main(): Promise<void> {
     "workflow.resumed",
   ];
 
-  if (cli.scenario === "a1-happy-path" || cli.scenario === "a2-duplicate-succeeded" || cli.scenario === "a3-regressive-running-after-succeeded") {
+  if (
+    cli.scenario === "a1-happy-path" ||
+    cli.scenario === "a2-duplicate-succeeded" ||
+    cli.scenario === "a3-regressive-running-after-succeeded" ||
+    cli.scenario === "b1-retryable-failure-then-success" ||
+    cli.scenario === "b4-timeout-then-retry"
+  ) {
     requiredTraceEvents.push(
       "teardown.attempt_created",
       "health_check.passed",
       "smoke_test.passed",
       "workflow.completed",
+    );
+  }
+
+  if (cli.scenario === "b1-retryable-failure-then-success") {
+    requiredTraceEvents.push("deploy.job_retry_scheduled");
+  }
+
+  if (cli.scenario === "b4-timeout-then-retry") {
+    requiredTraceEvents.push(
+      "deploy.attempt_timed_out",
+      "deploy.job_retry_scheduled",
     );
   }
 
