@@ -842,6 +842,61 @@ async function main(): Promise<void> {
   console.log(`   Callback URL: ${callbackUrl}`);
   console.log("   Callback token: <redacted>");
 
+  if (cli.scenario === "a4-stale-attempt-callback") {
+    if (!jobId || !deployAttemptId || !callbackToken) {
+      fail("A4 requires deploy job/attempt callback info.");
+    }
+
+    console.log("==> Superseding active deploy attempt for stale-callback test (A4)");
+
+    const supersedeResult = await supersedeJobForTest({
+      baseUrl: cli.baseUrl,
+      jobId,
+      timeoutMs: cli.timeoutMs,
+    });
+
+    if (supersedeResult.status < 200 || supersedeResult.status >= 300) {
+      fail(
+        `A4 supersede request failed with ${supersedeResult.status} ${supersedeResult.statusText}.\nBody:\n${supersedeResult.bodyText}`,
+      );
+    }
+
+    console.log("==> Replaying stale deploy running callback against old attempt (A4)");
+
+    const staleResult = await postAttemptCallback({
+      callbackUrl,
+      callbackToken,
+      timeoutMs: cli.timeoutMs,
+      body: {
+        status: "running",
+      },
+    });
+
+    const staleBody = asCallbackResponse(staleResult.bodyJson);
+
+    if (staleResult.status < 200 || staleResult.status >= 300) {
+      fail(
+        `Expected stale callback response to succeed, got ${staleResult.status} ${staleResult.statusText}.\nBody:\n${staleResult.bodyText}`,
+      );
+    }
+
+    if (
+      staleBody.ok !== true ||
+      staleBody.ignored !== true ||
+      staleBody.reason !== "stale_attempt"
+    ) {
+      fail(
+        `Stale callback response mismatch.\nBody:\n${JSON.stringify(staleBody, null, 2)}`,
+      );
+    }
+
+    console.log("✅ Stale deploy callback was ignored");
+
+    const totalDurationMs = Date.now() - startedAt;
+    console.log(`✅ Scenario ${cli.scenario} passed in ${totalDurationMs}ms`);
+    return;
+  }
+
   let deploySucceededCallbackBody: Record<string, unknown> | undefined;
 
   await runNodeDeploy({
@@ -946,51 +1001,6 @@ async function main(): Promise<void> {
 
     requireIgnoredInvalidTransitionResponse(regressiveResult, deployAttemptId);
     console.log("✅ Regressive deploy running callback was ignored");
-  }
-
-  if (cli.scenario === "a4-stale-attempt-callback") {
-    if (!jobId || !deployAttemptId || !callbackToken || !deploySucceededCallbackBody) {
-      fail("A4 requires deploy job/attempt callback info.");
-    }
-
-    console.log("==> Superseding active deploy attempt for stale-callback test (A4)");
-
-    const supersedeResult = await supersedeJobForTest({
-      baseUrl: cli.baseUrl,
-      jobId,
-      timeoutMs: cli.timeoutMs,
-    });
-
-    if (supersedeResult.status < 200 || supersedeResult.status >= 300) {
-      fail(
-        `A4 supersede request failed with ${supersedeResult.status} ${supersedeResult.statusText}.\nBody:\n${supersedeResult.bodyText}`,
-      );
-    }
-
-    console.log("==> Replaying stale deploy succeeded callback (A4)");
-
-    const staleResult = await postAttemptCallback({
-      callbackUrl,
-      callbackToken,
-      timeoutMs: cli.timeoutMs,
-      body: deploySucceededCallbackBody,
-    });
-
-    const staleBody = asCallbackResponse(staleResult.bodyJson);
-
-    if (staleResult.status < 200 || staleResult.status >= 300) {
-      fail(
-        `Expected stale callback response to succeed, got ${staleResult.status} ${staleResult.statusText}.\nBody:\n${staleResult.bodyText}`,
-      );
-    }
-
-    if (staleBody.ok !== true || staleBody.ignored !== true || staleBody.reason !== "stale_attempt") {
-      fail(
-        `Stale callback response mismatch.\nBody:\n${JSON.stringify(staleBody, null, 2)}`,
-      );
-    }
-
-    console.log("✅ Stale deploy callback was ignored");
   }
 
   if (teardownWaiting) {
