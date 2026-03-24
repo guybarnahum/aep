@@ -18,6 +18,7 @@ jobs:
       GIT_SHA: ${{ github.sha }}
       DEPLOY_URL: ${{ secrets.ASYNC_VALIDATION_BASE_URL }}
       CF_ENV: async_validation
+      HEALTH_RUNTIME_ENV: dev
       D1_DATABASE_NAME: aep-async-validation
       WRANGLER_CONFIG: core/control-plane/wrangler.toml
 
@@ -67,7 +68,7 @@ jobs:
         run: |
           npx tsx scripts/ci/check-health.ts \
             --url "$DEPLOY_URL/healthz" \
-            --env "$CF_ENV" \
+            --env "$HEALTH_RUNTIME_ENV" \
             --sha "$GIT_SHA" \
             --service control-plane | tee health-check.log
 
