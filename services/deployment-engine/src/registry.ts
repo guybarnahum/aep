@@ -1,4 +1,4 @@
-import type { Provider } from "@aep/shared/index";
+import type { Provider } from "@aep/shared";
 import type { DeploymentAdapter } from "./types";
 import { AwsNodeDeploymentAdapter } from "./providers/aws/node-adapter";
 import { CloudflareNodeDeploymentAdapter } from "./providers/cloudflare/node-adapter";
