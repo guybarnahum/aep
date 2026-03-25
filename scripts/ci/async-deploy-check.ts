@@ -274,6 +274,25 @@ async function requestJson(options: {
   }
 }
 
+// Variant of requestJson for use inside polling loops.
+// Converts network-level errors (e.g. connection refused, DNS failure) into a
+// status-0 sentinel result so the loop can warn and retry rather than crash.
+async function pollRequestJson(options: {
+  url: string;
+  method: string;
+  timeoutMs: number;
+  headers?: Record<string, string>;
+  body?: string;
+}): Promise<RequestResult> {
+  try {
+    return await requestJson(options);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.warn(`⚠️  Network error during poll (will retry): ${message}`);
+    return { status: 0, statusText: "network error", headers: new Headers(), bodyText: "", durationMs: 0 };
+  }
+}
+
 async function postAttemptCallback(args: {
   callbackUrl: string;
   callbackToken: string;
@@ -777,7 +796,7 @@ async function waitForLatestAttemptForJob(args: {
   callbackToken: string;
 }> {
   for (let attempt = 1; attempt <= args.pollAttempts; attempt += 1) {
-    const traceResult = await requestJson({
+    const traceResult = await pollRequestJson({
       url: args.traceUrl,
       method: "GET",
       timeoutMs: args.timeoutMs,
@@ -819,7 +838,7 @@ async function pollWorkflowToExpectedRunStatus(args: {
   expectedStatus: string;
 }): Promise<WorkflowStatusResponse> {
   for (let attempt = 1; attempt <= args.pollAttempts; attempt += 1) {
-    const result = await requestJson({
+    const result = await pollRequestJson({
       url: args.workflowUrl,
       method: "GET",
       timeoutMs: args.timeoutMs,
@@ -901,7 +920,7 @@ async function main(): Promise<void> {
   let waitingWorkflow: WorkflowStatusResponse | undefined;
 
   for (let attempt = 1; attempt <= cli.pollAttempts; attempt += 1) {
-    const result = await requestJson({
+    const result = await pollRequestJson({
       url: workflowUrl,
       method: "GET",
       timeoutMs: cli.timeoutMs,
@@ -952,7 +971,7 @@ async function main(): Promise<void> {
   let callbackToken: string | undefined;
 
   for (let attempt = 1; attempt <= cli.pollAttempts; attempt += 1) {
-    const traceResult = await requestJson({
+    const traceResult = await pollRequestJson({
       url: traceUrl,
       method: "GET",
       timeoutMs: cli.timeoutMs,
@@ -1359,7 +1378,7 @@ async function main(): Promise<void> {
   let teardownWaiting = false;
 
   for (let attempt = 1; attempt <= cli.pollAttempts; attempt += 1) {
-    const result = await requestJson({
+    const result = await pollRequestJson({
       url: workflowUrl,
       method: "GET",
       timeoutMs: cli.timeoutMs,
@@ -1449,7 +1468,7 @@ async function main(): Promise<void> {
     let teardownCallbackToken: string | undefined;
 
     for (let attempt = 1; attempt <= cli.pollAttempts; attempt += 1) {
-      const traceResult = await requestJson({
+      const traceResult = await pollRequestJson({
         url: traceUrl,
         method: "GET",
         timeoutMs: cli.timeoutMs,
@@ -1595,7 +1614,7 @@ async function main(): Promise<void> {
     console.log("==> Polling workflow to completed after teardown callback");
 
     for (let attempt = 1; attempt <= cli.pollAttempts; attempt += 1) {
-      const result = await requestJson({
+      const result = await pollRequestJson({
         url: workflowUrl,
         method: "GET",
         timeoutMs: cli.timeoutMs,
