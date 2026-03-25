@@ -27,6 +27,23 @@ a:hover {
   text-decoration: underline;
 }
 
+button,
+input {
+  font: inherit;
+}
+
+button {
+  color: inherit;
+  background: #0f172a;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  border-radius: 10px;
+  padding: 8px 12px;
+}
+
+.button {
+  cursor: pointer;
+}
+
 .app-shell {
   max-width: 1360px;
   margin: 0 auto;
@@ -57,6 +74,34 @@ a:hover {
   padding: 18px;
   margin-bottom: 18px;
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.22);
+}
+
+.toolbar-panel {
+  padding: 14px 18px;
+}
+
+.toolbar {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.toolbar-group {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.toolbar-actions {
+  align-items: center;
+}
+
+.checkbox-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .panel-header h2,
@@ -143,6 +188,14 @@ a:hover {
   margin-bottom: 6px;
 }
 
+.run-badge-actions {
+  margin-top: 8px;
+}
+
+.secondary-link {
+  font-size: 12px;
+}
+
 .status {
   display: inline-flex;
   align-items: center;
@@ -210,6 +263,17 @@ a:hover {
   color: #98a6b9;
 }
 
+.empty-state {
+  padding: 18px;
+  border-radius: 14px;
+  border: 1px dashed rgba(148, 163, 184, 0.2);
+  background: rgba(15, 23, 42, 0.45);
+}
+
+.small-empty {
+  padding: 12px;
+}
+
 .back-link {
   display: inline-block;
   margin-bottom: 10px;
@@ -223,7 +287,8 @@ a:hover {
 
   .app-header,
   .environment-row,
-  .service-card-header {
+  .service-card-header,
+  .toolbar {
     flex-direction: column;
     align-items: start;
   }

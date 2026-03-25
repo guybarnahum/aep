@@ -11,7 +11,7 @@
   ],
   "scripts": {
     "bootstrap": "bash scripts/dev/bootstrap.sh",
-    "build": "npm run typecheck",
+    "build": "npm run typecheck && npm run build:ui",
     "typecheck": "tsc -p core/control-plane/tsconfig.json --noEmit",
     "test": "npm run typecheck",
     "dev:control-plane": "wrangler dev --config core/control-plane/wrangler.toml",
@@ -21,6 +21,7 @@
     "dev:ops-console": "npm --workspace @aep/ops-console run dev",
     "build:dashboard": "npm --workspace @aep/dashboard run build",
     "build:ops-console": "npm --workspace @aep/ops-console run build",
+    "build:ui": "npm run build:dashboard && npm run build:ops-console",
     "deploy:node": "tsx scripts/deploy/run-node-deploy.ts",
     "teardown:node": "tsx scripts/deploy/run-node-teardown.ts",
     "wait:url": "tsx scripts/ci/wait-for-url.ts",

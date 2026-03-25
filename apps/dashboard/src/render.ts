@@ -33,9 +33,24 @@ function renderValue(value: unknown): string {
   return escapeHtml(value ?? "—");
 }
 
+function renderOpsConsoleLink(run: RunSummary | null): string {
+  if (!run) return "";
+
+  return `
+    <a
+      class="secondary-link"
+      href="http://localhost:5174/#run/${encodeURIComponent(run.run_id)}"
+      target="_blank"
+      rel="noreferrer"
+    >
+      Open in ops console
+    </a>
+  `;
+}
+
 function renderRunBadge(run: RunSummary | null): string {
   if (!run) {
-    return `<div class="muted">No runs yet.</div>`;
+    return `<div class="empty-state small-empty">No runs yet.</div>`;
   }
 
   return `
@@ -47,7 +62,32 @@ function renderRunBadge(run: RunSummary | null): string {
       <div class="muted small">
         ${escapeHtml(run.current_step ?? "—")} · ${escapeHtml(run.updated_at ?? "—")}
       </div>
+      <div class="run-badge-actions">
+        ${renderOpsConsoleLink(run)}
+      </div>
     </div>
+  `;
+}
+
+export function renderToolbar(args: {
+  autoRefresh: boolean;
+}): string {
+  return `
+    <section class="panel toolbar-panel">
+      <div class="toolbar">
+        <div class="toolbar-group">
+          <p class="muted">Tenant-facing service and environment view.</p>
+        </div>
+
+        <div class="toolbar-group toolbar-actions">
+          <label class="checkbox-label">
+            <input id="auto-refresh-toggle" type="checkbox" ${args.autoRefresh ? "checked" : ""} />
+            <span>Auto-refresh (15s)</span>
+          </label>
+          <button id="refresh-button" class="button" type="button">Refresh</button>
+        </div>
+      </div>
+    </section>
   `;
 }
 
@@ -59,7 +99,6 @@ export function renderTenantSelector(
     <section class="panel">
       <div class="panel-header">
         <h2>Tenants</h2>
-        <p class="muted">Customer-facing multi-tenant dashboard view.</p>
       </div>
 
       <div class="tenant-grid">
@@ -172,6 +211,7 @@ export function renderServiceOverview(overview: ServiceOverview): string {
                               <th>Status</th>
                               <th>Step</th>
                               <th>Updated</th>
+                              <th></th>
                             </tr>
                           </thead>
                           <tbody>
@@ -183,6 +223,7 @@ export function renderServiceOverview(overview: ServiceOverview): string {
                                     <td><span class="${statusClass(run.status)}">${escapeHtml(run.status)}</span></td>
                                     <td>${renderValue(run.current_step)}</td>
                                     <td>${renderValue(run.updated_at)}</td>
+                                    <td>${renderOpsConsoleLink(run)}</td>
                                   </tr>
                                 `,
                               )
@@ -190,7 +231,7 @@ export function renderServiceOverview(overview: ServiceOverview): string {
                           </tbody>
                         </table>
                       `
-                      : `<div class="muted">No recent runs.</div>`
+                      : `<div class="empty-state small-empty">No recent runs.</div>`
                   }
                 </div>
               </article>

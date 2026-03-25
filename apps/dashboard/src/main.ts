@@ -3,10 +3,11 @@ import {
   renderServiceOverview,
   renderTenantOverview,
   renderTenantSelector,
+  renderToolbar,
 } from "./render";
 import "./styles.css";
 
-const root: HTMLDivElement = (() => {
+const app: HTMLDivElement = (() => {
   const node = document.querySelector<HTMLDivElement>("#app");
   if (!node) {
     throw new Error("App root not found");
@@ -14,9 +15,20 @@ const root: HTMLDivElement = (() => {
   return node;
 })();
 
+const AUTO_REFRESH_MS = 15_000;
+let autoRefreshTimer: number | null = null;
+
 type Route =
   | { kind: "tenant"; tenantId: string }
   | { kind: "service"; tenantId: string; serviceId: string };
+
+function getAutoRefreshEnabled(): boolean {
+  return window.localStorage.getItem("dashboard.auto-refresh") === "true";
+}
+
+function setAutoRefreshEnabled(value: boolean): void {
+  window.localStorage.setItem("dashboard.auto-refresh", String(value));
+}
 
 function getRoute(defaultTenantId: string): Route {
   const hash = window.location.hash.replace(/^#/, "");
@@ -46,7 +58,7 @@ function getRoute(defaultTenantId: string): Route {
 }
 
 function renderShell(content: string, error?: string): void {
-  root.innerHTML = `
+  app.innerHTML = `
     <div class="app-shell">
       <header class="app-header">
         <div>
@@ -63,6 +75,36 @@ function renderShell(content: string, error?: string): void {
   `;
 }
 
+function attachToolbarHandlers(): void {
+  const refreshButton = document.querySelector<HTMLButtonElement>("#refresh-button");
+  const autoRefreshToggle =
+    document.querySelector<HTMLInputElement>("#auto-refresh-toggle");
+
+  refreshButton?.addEventListener("click", () => {
+    void renderRoute();
+  });
+
+  autoRefreshToggle?.addEventListener("change", () => {
+    setAutoRefreshEnabled(autoRefreshToggle.checked);
+    syncAutoRefresh();
+  });
+}
+
+function syncAutoRefresh(): void {
+  if (autoRefreshTimer !== null) {
+    window.clearInterval(autoRefreshTimer);
+    autoRefreshTimer = null;
+  }
+
+  if (!getAutoRefreshEnabled()) {
+    return;
+  }
+
+  autoRefreshTimer = window.setInterval(() => {
+    void renderRoute();
+  }, AUTO_REFRESH_MS);
+}
+
 async function renderRoute(): Promise<void> {
   renderShell(`<div class="loading">Loading…</div>`);
 
@@ -71,7 +113,11 @@ async function renderRoute(): Promise<void> {
     const defaultTenantId = tenants[0]?.tenant_id ?? "internal";
     const route = getRoute(defaultTenantId);
 
-    let content = renderTenantSelector(tenants, route.tenantId);
+    let content = renderToolbar({
+      autoRefresh: getAutoRefreshEnabled(),
+    });
+
+    content += renderTenantSelector(tenants, route.tenantId);
 
     if (route.kind === "service") {
       const overview = await getServiceOverview(route.tenantId, route.serviceId);
@@ -82,10 +128,13 @@ async function renderRoute(): Promise<void> {
     }
 
     renderShell(content);
+    attachToolbarHandlers();
+    syncAutoRefresh();
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Unknown UI error";
     renderShell(`<div class="loading">Unable to load dashboard.</div>`, message);
+    syncAutoRefresh();
   }
 }
 

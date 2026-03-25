@@ -30,7 +30,7 @@ function renderValue(value: unknown): string {
 
 function renderAttempts(job: RunJobView): string {
   if (job.attempts.length === 0) {
-    return `<div class="muted">No attempts</div>`;
+    return `<div class="empty-state small-empty">No attempts recorded.</div>`;
   }
 
   return `
@@ -63,7 +63,74 @@ function renderAttempts(job: RunJobView): string {
   `;
 }
 
+export function renderToolbar(args: {
+  selectedTenant: string;
+  selectedService: string;
+  autoRefresh: boolean;
+  tenants: string[];
+  services: string[];
+}): string {
+  return `
+    <section class="panel toolbar-panel">
+      <div class="toolbar">
+        <div class="toolbar-group">
+          <label>
+            <span class="toolbar-label">Tenant</span>
+            <select id="tenant-filter">
+              <option value="">All</option>
+              ${args.tenants
+                .map(
+                  (tenant) => `
+                    <option value="${escapeHtml(tenant)}" ${tenant === args.selectedTenant ? "selected" : ""}>
+                      ${escapeHtml(tenant)}
+                    </option>
+                  `,
+                )
+                .join("")}
+            </select>
+          </label>
+
+          <label>
+            <span class="toolbar-label">Service</span>
+            <select id="service-filter">
+              <option value="">All</option>
+              ${args.services
+                .map(
+                  (service) => `
+                    <option value="${escapeHtml(service)}" ${service === args.selectedService ? "selected" : ""}>
+                      ${escapeHtml(service)}
+                    </option>
+                  `,
+                )
+                .join("")}
+            </select>
+          </label>
+        </div>
+
+        <div class="toolbar-group toolbar-actions">
+          <label class="checkbox-label">
+            <input id="auto-refresh-toggle" type="checkbox" ${args.autoRefresh ? "checked" : ""} />
+            <span>Auto-refresh (15s)</span>
+          </label>
+          <button id="refresh-button" class="button" type="button">Refresh</button>
+        </div>
+      </div>
+    </section>
+  `;
+}
+
 export function renderRunsList(runs: RunSummary[]): string {
+  if (runs.length === 0) {
+    return `
+      <section class="panel">
+        <div class="empty-state">
+          <h2>No runs match the current filters.</h2>
+          <p class="muted">Try clearing tenant/service filters or trigger a new workflow run.</p>
+        </div>
+      </section>
+    `;
+  }
+
   return `
     <section class="panel">
       <div class="panel-header">
@@ -241,7 +308,7 @@ export function renderRunDetail(detail: RunDetail, apiBaseUrl: string): string {
               </div>
             </div>
           `
-          : `<div class="muted">No failure information for this run.</div>`
+          : `<div class="empty-state small-empty">No failure information for this run.</div>`
       }
     </section>
   `;

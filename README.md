@@ -39,6 +39,62 @@ This is the first milestone where:
 
 ---
 
+## Operator and tenant surfaces
+
+Commit 6 adds two thin browser surfaces on top of the control-plane read API.
+
+### Ops Console
+
+Internal infra-company operations surface.
+
+Purpose:
+- inspect recent workflow runs
+- inspect run detail, steps, jobs, and attempts
+- inspect latest failure context
+- jump to trace for source-of-truth event history
+
+Local dev:
+
+```bash
+npm run dev:ops-console
+```
+
+### Dashboard
+
+Tenant-facing service and environment surface.
+
+Purpose:
+
+- view tenants
+- view services by tenant
+- view environments per service
+- inspect latest and recent runs at a tenant/service/environment level
+- deep-link into the ops console for deeper operator inspection
+
+Local dev:
+
+```bash
+npm run dev:dashboard
+```
+
+### Control-plane read API
+
+These UI surfaces are backed by read-oriented endpoints exposed by the control-plane:
+
+- `GET /runs`
+- `GET /runs/:id`
+- `GET /runs/:id/summary`
+- `GET /runs/:id/jobs`
+- `GET /runs/:id/failure`
+- `GET /tenants`
+- `GET /tenants/:tenantId`
+- `GET /tenants/:tenantId/services`
+- `GET /tenants/:tenantId/services/:serviceId`
+
+The raw `/trace/:traceId` endpoint remains the source of truth for forensic inspection.
+
+---
+
 # 🧱 Architecture Overview
 
 ## Control Plane (Cloudflare Workers)
