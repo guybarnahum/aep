@@ -2,7 +2,7 @@ import type {
   EnvironmentSummary,
   ServiceSummary,
   TenantSummary,
-} from "./types";
+} from "@aep/control-plane/operator/types";
 
 const TENANTS: TenantSummary[] = [
   {

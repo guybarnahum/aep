@@ -4,9 +4,9 @@ import {
   listEnvironmentsForService,
   listSeededTenants,
   listServicesForTenant,
-} from "./metadata";
-import { listRunSummaries } from "./runs";
-import type { TenantSummary } from "./types";
+} from "@aep/control-plane/operator/metadata";
+import { listRunSummaries } from "@aep/control-plane/operator/runs";
+import type { TenantSummary } from "@aep/control-plane/operator/types";
 
 type D1Like = D1Database;
 

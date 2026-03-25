@@ -1,4 +1,4 @@
-import type { JobStatus, RunStatus } from "./types";
+import type { JobStatus, RunStatus } from "@aep/control-plane/operator/types";
 
 type RawRunRecord = {
   status?: string | null;

@@ -1,4 +1,4 @@
-import { getBuildInfo, type BuildInfoEnv } from "../lib/build-info";
+import { getBuildInfo, type BuildInfoEnv } from "@aep/control-plane/lib/build-info";
 
 export interface HealthzEnv extends BuildInfoEnv {
   DB?: D1Database;

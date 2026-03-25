@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
-import { DEFAULT_PROVIDER } from "../../packages/shared/src/index";
-import { getNodeDeploymentAdapter } from "../../services/deployment-engine/src";
+import { DEFAULT_PROVIDER } from "@aep/shared/index";
+import { getNodeDeploymentAdapter } from "@aep/deployment-engine/index";
 
 type SupportedProvider = "cloudflare" | "aws";
 type TestFailStage = "before_running" | "after_running";

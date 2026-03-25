@@ -1,6 +1,6 @@
 import { execSync } from "child_process";
-import { DEFAULT_PROVIDER } from "../../../../../packages/shared/src/index";
-import type { DeploymentAdapter, DeployArgs, DeployResult } from "../../types";
+import { DEFAULT_PROVIDER } from "@aep/shared/index";
+import type { DeploymentAdapter, DeployArgs, DeployResult } from "@aep/deployment-engine/types";
 
 export interface NodeWranglerDeployInput {
   serviceName: string;

@@ -2,7 +2,7 @@ import { execFileSync } from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { DeploymentAdapter, DeployArgs, DeployResult } from "../../types";
+import type { DeploymentAdapter, DeployArgs, DeployResult } from "@aep/deployment-engine/types";
 
 type AwsCliJson = Record<string, unknown>;
 
