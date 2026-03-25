@@ -1,5 +1,5 @@
 {
-  "name": "@aep/dashboard",
+  "name": "@aep/ops-console",
   "version": "0.1.0",
   "private": true,
   "type": "module",

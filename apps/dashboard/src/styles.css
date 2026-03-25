@@ -1,0 +1,235 @@
+:root {
+  color-scheme: dark;
+  font-family:
+    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", sans-serif;
+  background: #081018;
+  color: #e7eef7;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background:
+    radial-gradient(circle at top, rgba(56, 189, 248, 0.12), transparent 30%),
+    #081018;
+}
+
+a {
+  color: #93c5fd;
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+.app-shell {
+  max-width: 1360px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+.app-header {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.app-header h1 {
+  margin: 0;
+  font-size: 28px;
+}
+
+.app-header p {
+  margin: 6px 0 0;
+}
+
+.panel {
+  background: rgba(15, 23, 42, 0.9);
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 18px;
+  padding: 18px;
+  margin-bottom: 18px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.22);
+}
+
+.panel-header h2,
+.panel-header h3,
+.panel-header h4 {
+  margin: 0;
+}
+
+.muted {
+  color: #98a6b9;
+}
+
+.small {
+  font-size: 12px;
+}
+
+.tenant-grid,
+.service-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.environment-stack {
+  display: grid;
+  gap: 16px;
+}
+
+.tenant-card,
+.service-card {
+  display: block;
+  border-radius: 16px;
+  padding: 16px;
+  background: rgba(10, 17, 30, 0.7);
+  border: 1px solid rgba(148, 163, 184, 0.14);
+}
+
+.tenant-card-active {
+  border-color: rgba(96, 165, 250, 0.45);
+  box-shadow: inset 0 0 0 1px rgba(96, 165, 250, 0.2);
+}
+
+.tenant-card-top,
+.service-card-header,
+.environment-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.tenant-card h3,
+.service-card h3 {
+  margin: 0;
+}
+
+.tenant-stats {
+  display: flex;
+  gap: 16px;
+  margin-top: 12px;
+  color: #c8d4e4;
+}
+
+.environment-list {
+  display: grid;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.environment-row {
+  padding: 12px;
+  border-radius: 12px;
+  background: rgba(2, 8, 23, 0.5);
+  border: 1px solid rgba(148, 163, 184, 0.08);
+}
+
+.run-badge {
+  min-width: 260px;
+}
+
+.run-badge-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+
+.status {
+  display: inline-flex;
+  align-items: center;
+  min-width: 88px;
+  justify-content: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  background: rgba(148, 163, 184, 0.12);
+}
+
+.status-completed {
+  background: rgba(22, 163, 74, 0.16);
+  border-color: rgba(22, 163, 74, 0.35);
+}
+
+.status-failed {
+  background: rgba(220, 38, 38, 0.16);
+  border-color: rgba(220, 38, 38, 0.35);
+}
+
+.status-waiting {
+  background: rgba(217, 119, 6, 0.16);
+  border-color: rgba(217, 119, 6, 0.35);
+}
+
+.status-running {
+  background: rgba(37, 99, 235, 0.16);
+  border-color: rgba(37, 99, 235, 0.35);
+}
+
+.recent-runs {
+  margin-top: 18px;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.data-table th,
+.data-table td {
+  text-align: left;
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+}
+
+.data-table th {
+  color: #98a6b9;
+  font-weight: 600;
+}
+
+.error-banner {
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: rgba(220, 38, 38, 0.14);
+  border: 1px solid rgba(220, 38, 38, 0.3);
+  margin-bottom: 16px;
+}
+
+.loading {
+  padding: 20px 0;
+  color: #98a6b9;
+}
+
+.back-link {
+  display: inline-block;
+  margin-bottom: 10px;
+}
+
+@media (max-width: 920px) {
+  .tenant-grid,
+  .service-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .app-header,
+  .environment-row,
+  .service-card-header {
+    flex-direction: column;
+    align-items: start;
+  }
+
+  .data-table {
+    display: block;
+    overflow-x: auto;
+  }
+}
