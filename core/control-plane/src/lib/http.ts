@@ -1,5 +1,27 @@
+function withCors(headers?: HeadersInit): Headers {
+  const next = new Headers(headers);
+
+  if (!next.has("access-control-allow-origin")) {
+    next.set("access-control-allow-origin", "*");
+  }
+
+  if (!next.has("access-control-allow-methods")) {
+    next.set("access-control-allow-methods", "GET,POST,OPTIONS");
+  }
+
+  if (!next.has("access-control-allow-headers")) {
+    next.set("access-control-allow-headers", "content-type,authorization");
+  }
+
+  if (!next.has("access-control-max-age")) {
+    next.set("access-control-max-age", "86400");
+  }
+
+  return next;
+}
+
 export function json(data: unknown, init: ResponseInit = {}): Response {
-  const headers = new Headers(init.headers);
+  const headers = withCors(init.headers);
 
   if (!headers.has("content-type")) {
     headers.set("content-type", "application/json; charset=utf-8");
@@ -23,4 +45,11 @@ export function notFound(message: string): Response {
     },
     { status: 404 },
   );
+}
+
+export function corsPreflight(): Response {
+  return new Response(null, {
+    status: 204,
+    headers: withCors(),
+  });
 }

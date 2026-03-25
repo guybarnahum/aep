@@ -10,6 +10,7 @@ import {
   sha256Hex,
   timingSafeEqual,
 } from "../../../packages/shared/src/index";
+import { corsPreflight } from "./lib/http";
 import { handleHealthz } from "./routes/healthz";
 import {
   handleRunDetailRoute,
@@ -431,6 +432,11 @@ async function createNextAttemptForJob(args: {
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
+
+    if (request.method === "OPTIONS") {
+      return corsPreflight();
+    }
+
     const pathname = url.pathname;
 
     if (request.method === "GET" && pathname === "/runs") {
