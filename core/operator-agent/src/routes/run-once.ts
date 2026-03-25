@@ -1,10 +1,13 @@
-import { runTimeoutRecoveryOperator } from "../agents/timeout-recovery";
 import { getConfig } from "../config";
+import { runTimeoutRecoveryOperator } from "../agents/timeout-recovery";
 import { timeoutRecoveryEmployee } from "../org/employees";
 import type { EmployeeRunRequest } from "../types";
 
-export async function handleRunOnce(request: Request): Promise<Response> {
-  const config = getConfig();
+export async function handleRunOnce(
+  request: Request,
+  env?: Record<string, unknown>
+): Promise<Response> {
+  const config = getConfig(env);
 
   if (request.method !== "POST") {
     return new Response("Method Not Allowed", { status: 405 });
@@ -20,6 +23,20 @@ export async function handleRunOnce(request: Request): Promise<Response> {
     policyVersion: config.policyVersion,
   };
 
-  const result = await runTimeoutRecoveryOperator(runRequest);
-  return Response.json(result);
+  try {
+    const result = await runTimeoutRecoveryOperator(runRequest, env);
+    return Response.json(result);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return Response.json(
+      {
+        ok: false,
+        status: "control_plane_unavailable",
+        policyVersion: config.policyVersion,
+        controlPlaneBaseUrl: config.controlPlaneBaseUrl,
+        error: message,
+      },
+      { status: 503 }
+    );
+  }
 }
