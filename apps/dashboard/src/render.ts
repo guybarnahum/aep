@@ -33,13 +33,18 @@ function renderValue(value: unknown): string {
   return escapeHtml(value ?? "—");
 }
 
+function getOpsConsoleBaseUrl(): string {
+  const configured = import.meta.env.VITE_OPS_CONSOLE_BASE_URL;
+  return (configured && configured.trim()) || "http://localhost:5174";
+}
+
 function renderOpsConsoleLink(run: RunSummary | null): string {
   if (!run) return "";
 
   return `
     <a
       class="secondary-link"
-      href="http://localhost:5174/#run/${encodeURIComponent(run.run_id)}"
+      href="${escapeHtml(getOpsConsoleBaseUrl())}/#run/${encodeURIComponent(run.run_id)}"
       target="_blank"
       rel="noreferrer"
     >

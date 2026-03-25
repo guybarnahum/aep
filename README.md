@@ -77,6 +77,14 @@ Local dev:
 npm run dev:dashboard
 ```
 
+The dashboard supports an optional environment variable for deep-linking into the ops console:
+
+```bash
+VITE_OPS_CONSOLE_BASE_URL=http://localhost:5174
+```
+
+If not set, it defaults to `http://localhost:5174`.
+
 ### Control-plane read API
 
 These UI surfaces are backed by read-oriented endpoints exposed by the control-plane:
