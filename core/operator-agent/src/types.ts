@@ -79,32 +79,59 @@ export type CandidateReason =
   | "tenant_not_allowed"
   | "service_not_allowed";
 
-export interface TimeoutRecoveryDryRunDecision {
+export type TimeoutRecoveryMode = "dry-run" | "apply";
+
+export type TimeoutRecoveryResult =
+  | "skipped"
+  | "action_requested"
+  | "verified_applied"
+  | "verification_failed";
+
+export interface TraceEvent {
+  type: string;
+  job_id?: string;
+  run_id?: string;
+  attempt_id?: string;
+  timestamp?: string;
+  [key: string]: unknown;
+}
+
+export interface TimeoutRecoveryDecision {
   runId: string;
   jobId: string;
   tenant?: string;
   service?: string;
   jobType?: string;
   jobStatus?: string;
-  action: "would-advance-timeout";
-  mode: "dry-run";
+  action: "advance-timeout";
+  mode: TimeoutRecoveryMode;
   eligible: boolean;
   reason: CandidateReason;
+  result: TimeoutRecoveryResult;
+  traceEvidence?: string[];
 }
 
 export interface EmployeeRunResponse {
   ok: true;
-  status: "dry_run_completed";
+  status: "completed";
   policyVersion: string;
   trigger: EmployeeTrigger;
   employee: AgentIdentity;
   authority: AgentAuthority;
   budget: AgentBudget;
   controlPlaneBaseUrl: string;
+  dryRun: boolean;
   scanned: {
     runs: number;
     jobs: number;
   };
-  candidates: TimeoutRecoveryDryRunDecision[];
+  decisions: TimeoutRecoveryDecision[];
+  summary: {
+    eligible: number;
+    skipped: number;
+    actionRequested: number;
+    verifiedApplied: number;
+    verificationFailed: number;
+  };
   message: string;
 }

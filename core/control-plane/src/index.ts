@@ -580,18 +580,27 @@ export default {
     }
 
     if (request.method === "GET" && url.pathname.startsWith("/trace/")) {
-      const traceId = url.pathname.split("/")[2];
+      const traceOrRunId = url.pathname.split("/")[2];
+
+      const run = await env.DB.prepare(
+        `SELECT trace_id FROM workflow_runs WHERE id = ? LIMIT 1`,
+      )
+        .bind(traceOrRunId)
+        .first<{ trace_id: string | null }>();
+
+      const resolvedTraceId = run?.trace_id ?? traceOrRunId;
+
       const events = await env.DB.prepare(
         `SELECT * FROM events WHERE trace_id = ? ORDER BY timestamp ASC`,
       )
-        .bind(traceId)
+        .bind(resolvedTraceId)
         .all();
 
       const normalizedEvents = (events.results ?? []).map((row) =>
         normalizeTraceEventRow(row as Record<string, unknown>),
       );
 
-      return Response.json({ trace_id: traceId, events: normalizedEvents });
+      return Response.json({ trace_id: resolvedTraceId, events: normalizedEvents });
     }
 
     if (request.method === "POST" && url.pathname.match(/^\/workflow\/[^/]+\/cancel$/)) {

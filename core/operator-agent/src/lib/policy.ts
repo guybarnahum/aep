@@ -2,7 +2,8 @@ import type {
   AgentAuthority,
   JobSummary,
   RunSummary,
-  TimeoutRecoveryDryRunDecision,
+  TimeoutRecoveryDecision,
+  TimeoutRecoveryMode,
 } from "../types";
 
 function tenantAllowed(authority: AgentAuthority, run: RunSummary): boolean {
@@ -29,11 +30,12 @@ function serviceAllowed(authority: AgentAuthority, run: RunSummary): boolean {
   return authority.allowedServices.includes(run.service);
 }
 
-export function evaluateTimeoutRecoveryDryRun(
+export function evaluateTimeoutRecoveryPolicy(
   authority: AgentAuthority,
   run: RunSummary,
-  job: JobSummary
-): TimeoutRecoveryDryRunDecision {
+  job: JobSummary,
+  mode: TimeoutRecoveryMode
+): TimeoutRecoveryDecision {
   if (!tenantAllowed(authority, run)) {
     return {
       runId: run.id,
@@ -42,10 +44,11 @@ export function evaluateTimeoutRecoveryDryRun(
       service: run.service,
       jobType: job.job_type,
       jobStatus: job.status,
-      action: "would-advance-timeout",
-      mode: "dry-run",
+      action: "advance-timeout",
+      mode,
       eligible: false,
       reason: "tenant_not_allowed",
+      result: "skipped",
     };
   }
 
@@ -57,10 +60,11 @@ export function evaluateTimeoutRecoveryDryRun(
       service: run.service,
       jobType: job.job_type,
       jobStatus: job.status,
-      action: "would-advance-timeout",
-      mode: "dry-run",
+      action: "advance-timeout",
+      mode,
       eligible: false,
       reason: "service_not_allowed",
+      result: "skipped",
     };
   }
 
@@ -72,10 +76,11 @@ export function evaluateTimeoutRecoveryDryRun(
       service: run.service,
       jobType: job.job_type,
       jobStatus: job.status,
-      action: "would-advance-timeout",
-      mode: "dry-run",
+      action: "advance-timeout",
+      mode,
       eligible: false,
       reason: "not_timeout_eligible",
+      result: "skipped",
     };
   }
 
@@ -86,9 +91,10 @@ export function evaluateTimeoutRecoveryDryRun(
     service: run.service,
     jobType: job.job_type,
     jobStatus: job.status,
-    action: "would-advance-timeout",
-    mode: "dry-run",
+    action: "advance-timeout",
+    mode,
     eligible: true,
     reason: "eligible_timeout_recovery",
+    result: mode === "dry-run" ? "skipped" : "action_requested",
   };
 }

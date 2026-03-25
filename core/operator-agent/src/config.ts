@@ -14,15 +14,34 @@ function readEnvString(
   return typeof value === "string" && value.length > 0 ? value : fallback;
 }
 
+function readEnvBoolean(
+  env: Record<string, unknown> | undefined,
+  key: string,
+  fallback: boolean
+): boolean {
+  const value = env?.[key];
+
+  if (typeof value === "boolean") {
+    return value;
+  }
+
+  if (typeof value === "string") {
+    if (value === "true") return true;
+    if (value === "false") return false;
+  }
+
+  return fallback;
+}
+
 export function getConfig(env?: Record<string, unknown>): OperatorAgentConfig {
   return {
     serviceName: "aep-operator-agent",
-    policyVersion: "commit8-stage2",
+    policyVersion: "commit8-stage3",
     controlPlaneBaseUrl: readEnvString(
       env,
       "CONTROL_PLANE_BASE_URL",
       "http://127.0.0.1:8787"
     ),
-    dryRun: true,
+    dryRun: readEnvBoolean(env, "OPERATOR_AGENT_DRY_RUN", false),
   };
 }
