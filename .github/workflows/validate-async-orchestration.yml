@@ -16,6 +16,9 @@ jobs:
   validate-async:
     runs-on: ubuntu-latest
     environment: async-validation
+    defaults:
+      run:
+        shell: bash -eo pipefail {0}
 
     env:
       PROVIDER: ${{ github.event.inputs.provider || 'cloudflare' }}
