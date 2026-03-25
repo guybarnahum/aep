@@ -19,6 +19,7 @@
     "dev:deploy": "tsx scripts/dev/test-deploy.ts",
     "dev:dashboard": "npm --workspace @aep/dashboard run dev",
     "dev:ops-console": "npm --workspace @aep/ops-console run dev",
+    "dev:agent": "npm --workspace @aep/operator-agent run dev",
     "build:dashboard": "npm --workspace @aep/dashboard run build",
     "build:ops-console": "npm --workspace @aep/ops-console run build",
     "build:ui": "npm run build:dashboard && npm run build:ops-console",
