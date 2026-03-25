@@ -11,6 +11,19 @@ import {
   timingSafeEqual,
 } from "../../../packages/shared/src/index";
 import { handleHealthz } from "./routes/healthz";
+import {
+  handleRunDetailRoute,
+  handleRunFailureRoute,
+  handleRunJobsRoute,
+  handleRunsRoute,
+  handleRunSummaryRoute,
+} from "./routes/runs";
+import {
+  handleServiceOverviewRoute,
+  handleTenantOverviewRoute,
+  handleTenantsRoute,
+  handleTenantServicesRoute,
+} from "./routes/tenants";
 
 async function json(request: Request): Promise<unknown> {
   return request.json();
@@ -418,6 +431,63 @@ async function createNextAttemptForJob(args: {
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
+    const pathname = url.pathname;
+
+    if (request.method === "GET" && pathname === "/runs") {
+      return handleRunsRoute(request, env, url);
+    }
+
+    let match = pathname.match(/^\/runs\/([^/]+)\/summary$/);
+    if (request.method === "GET" && match) {
+      return handleRunSummaryRoute(request, env, decodeURIComponent(match[1]));
+    }
+
+    match = pathname.match(/^\/runs\/([^/]+)\/jobs$/);
+    if (request.method === "GET" && match) {
+      return handleRunJobsRoute(request, env, decodeURIComponent(match[1]));
+    }
+
+    match = pathname.match(/^\/runs\/([^/]+)\/failure$/);
+    if (request.method === "GET" && match) {
+      return handleRunFailureRoute(request, env, decodeURIComponent(match[1]));
+    }
+
+    match = pathname.match(/^\/runs\/([^/]+)$/);
+    if (request.method === "GET" && match) {
+      return handleRunDetailRoute(request, env, decodeURIComponent(match[1]));
+    }
+
+    if (request.method === "GET" && pathname === "/tenants") {
+      return handleTenantsRoute(request, env);
+    }
+
+    match = pathname.match(/^\/tenants\/([^/]+)\/services\/([^/]+)$/);
+    if (request.method === "GET" && match) {
+      return handleServiceOverviewRoute(
+        request,
+        env,
+        decodeURIComponent(match[1]),
+        decodeURIComponent(match[2]),
+      );
+    }
+
+    match = pathname.match(/^\/tenants\/([^/]+)\/services$/);
+    if (request.method === "GET" && match) {
+      return handleTenantServicesRoute(
+        request,
+        env,
+        decodeURIComponent(match[1]),
+      );
+    }
+
+    match = pathname.match(/^\/tenants\/([^/]+)$/);
+    if (request.method === "GET" && match) {
+      return handleTenantOverviewRoute(
+        request,
+        env,
+        decodeURIComponent(match[1]),
+      );
+    }
 
     if (request.method === "POST" && url.pathname === "/workflow/start") {
       try {
