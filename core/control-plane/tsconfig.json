@@ -14,7 +14,8 @@
       "@aep/types/*": ["../types/src/*"],
       "@aep/observability/*": ["../observability/src/*"],
       "@aep/shared/*": ["../../packages/shared/src/*"],
-      "@aep/event-schema/*": ["../../packages/event-schema/src/*"]
+      "@aep/event-schema/*": ["../../packages/event-schema/src/*"],
+      "@aep/deployment-engine/*": ["../../services/deployment-engine/src/*"]
     }
   },
   "include": [
