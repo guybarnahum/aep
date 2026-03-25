@@ -1,6 +1,18 @@
 export type RunStatus = "running" | "waiting" | "completed" | "failed";
 export type JobStatus = "waiting" | "running" | "completed" | "failed" | null;
 
+export type AdvanceTimeoutReason =
+  | "job_not_found"
+  | "job_terminal"
+  | "run_terminal"
+  | "attempt_missing"
+  | "attempt_not_timeout_eligible";
+
+export type JobOperatorActions = {
+  can_advance_timeout: boolean;
+  advance_timeout_reason: AdvanceTimeoutReason | null;
+};
+
 export type RunSummary = {
   run_id: string;
   tenant_id: string;
@@ -50,6 +62,7 @@ export type RunJobView = {
   completed_at: string | null;
   error_message: string | null;
   result_json: unknown;
+  operator_actions: JobOperatorActions;
   attempts: RunAttemptView[];
 };
 

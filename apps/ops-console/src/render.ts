@@ -28,6 +28,27 @@ function renderValue(value: unknown): string {
   return escapeHtml(value ?? "—");
 }
 
+function renderAdvanceTimeoutControl(job: RunJobView): string {
+  if (job.operator_actions.can_advance_timeout) {
+    return `
+      <button
+        class="button advance-timeout-button"
+        type="button"
+        data-job-id="${escapeHtml(job.job_id)}"
+        data-job-name="${escapeHtml(job.step_name)}"
+      >
+        Advance Timeout
+      </button>
+    `;
+  }
+
+  return `
+    <div class="muted small-note">
+      Action unavailable: ${renderValue(job.operator_actions.advance_timeout_reason)}
+    </div>
+  `;
+}
+
 function renderAttempts(job: RunJobView): string {
   if (job.attempts.length === 0) {
     return `<div class="empty-state small-empty">No attempts recorded.</div>`;
@@ -269,6 +290,13 @@ export function renderRunDetail(detail: RunDetail, apiBaseUrl: string): string {
                   <div><strong>Max attempts</strong><span>${renderValue(job.max_attempts)}</span></div>
                   <div><strong>Terminal attempt</strong><span>${renderValue(job.terminal_attempt_no)}</span></div>
                   <div><strong>Next retry</strong><span>${renderValue(job.next_retry_at)}</span></div>
+                </div>
+
+                <div class="job-actions">
+                  <strong>Operator action</strong>
+                  <div class="job-actions-row">
+                    ${renderAdvanceTimeoutControl(job)}
+                  </div>
                 </div>
 
                 <div class="job-error-block">

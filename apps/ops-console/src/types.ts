@@ -1,6 +1,43 @@
 export type RunStatus = "running" | "waiting" | "completed" | "failed";
 export type JobStatus = "waiting" | "running" | "completed" | "failed" | null;
 
+export type AdvanceTimeoutReason =
+  | "job_not_found"
+  | "job_terminal"
+  | "run_terminal"
+  | "attempt_missing"
+  | "attempt_not_timeout_eligible";
+
+export type JobOperatorActions = {
+  can_advance_timeout: boolean;
+  advance_timeout_reason: AdvanceTimeoutReason | null;
+};
+
+export type AdvanceTimeoutResponse =
+  | {
+      ok: true;
+      action: "advance-timeout";
+      result: "applied";
+      job_id: string;
+      run_id: string;
+      attempt_id: string;
+      message: string;
+      retry_scheduled: boolean;
+      next_attempt_id?: string;
+      next_attempt_no?: number;
+      terminal_status?: "failed";
+    }
+  | {
+      ok: false;
+      action: "advance-timeout";
+      result: "rejected_not_found" | "rejected_not_eligible";
+      job_id: string;
+      run_id?: string;
+      attempt_id?: string;
+      message: string;
+      reason: AdvanceTimeoutReason;
+    };
+
 export type RunSummary = {
   run_id: string;
   tenant_id: string;
@@ -50,6 +87,7 @@ export type RunJobView = {
   completed_at: string | null;
   error_message: string | null;
   result_json: unknown;
+  operator_actions: JobOperatorActions;
   attempts: RunAttemptView[];
 };
 

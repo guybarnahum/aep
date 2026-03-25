@@ -7,6 +7,7 @@ import {
   deriveRunStatus,
   deriveUpdatedAt,
 } from "./derive";
+import { deriveJobOperatorActions } from "./eligibility";
 import {
   fetchAttemptsForJob,
   fetchRecentRuns,
@@ -163,6 +164,14 @@ export async function getRunDetail(
     const attempts = await fetchAttemptsForJob(db, job.job_id);
     allAttempts.push(...attempts);
 
+    const preferredAttemptNo =
+      job.active_attempt_no ?? job.terminal_attempt_no ?? null;
+
+    const activeAttemptRecord =
+      attempts.find((attempt) => attempt.attempt_no === preferredAttemptNo) ??
+      attempts[attempts.length - 1] ??
+      null;
+
     const attemptViews: RunAttemptView[] = attempts.map((attempt) => ({
       job_id: attempt.job_id,
       attempt: attempt.attempt_no,
@@ -230,6 +239,12 @@ export async function getRunDetail(
       completed_at: job.completed_at,
       error_message: job.error_message,
       result_json: job.result_json ? safeParseJson(job.result_json) : null,
+      operator_actions: deriveJobOperatorActions({
+        runStatus: run.workflow_status,
+        jobStatus: job.status,
+        activeAttemptStatus: activeAttemptRecord?.status ?? null,
+        activeAttemptNo: job.active_attempt_no ?? null,
+      }),
       attempts: attemptViews,
     });
   }

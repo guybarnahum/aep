@@ -1,4 +1,4 @@
-import { getApiBaseUrl, getRun, getRuns } from "./api";
+import { getApiBaseUrl, getRun, getRuns, postAdvanceTimeout } from "./api";
 import { renderRunDetail, renderRunsList, renderToolbar } from "./render";
 import type { RunSummary } from "./types";
 import "./styles.css";
@@ -13,6 +13,8 @@ const app: HTMLDivElement = (() => {
 
 const AUTO_REFRESH_MS = 15_000;
 let autoRefreshTimer: number | null = null;
+let flashMessage: string | null = null;
+let flashKind: "success" | "error" | null = null;
 
 function getSelectedTenant(): string {
   return window.localStorage.getItem("ops-console.tenant-filter") ?? "";
@@ -48,6 +50,12 @@ function renderShell(content: string, error?: string): void {
         </div>
         <div class="muted">API: ${getApiBaseUrl()}</div>
       </header>
+
+      ${
+        flashMessage
+          ? `<div class="${flashKind === "success" ? "success-banner" : "error-banner"}">${flashMessage}</div>`
+          : ""
+      }
 
       ${error ? `<div class="error-banner">${error}</div>` : ""}
 
@@ -130,6 +138,51 @@ function filterRuns(runs: RunSummary[]): RunSummary[] {
   });
 }
 
+function attachRunDetailHandlers(runId: string): void {
+  const buttons = document.querySelectorAll<HTMLButtonElement>(
+    ".advance-timeout-button",
+  );
+
+  for (const button of buttons) {
+    button.addEventListener("click", async () => {
+      const jobId = button.dataset.jobId;
+      const jobName = button.dataset.jobName ?? "job";
+
+      if (!jobId) return;
+
+      const confirmed = window.confirm(
+        `Advance timeout for ${jobName}?\n\nThis triggers the existing timeout-handling path. It does not force success.`,
+      );
+
+      if (!confirmed) {
+        return;
+      }
+
+      try {
+        button.disabled = true;
+        flashMessage = null;
+        flashKind = null;
+
+        const result = await postAdvanceTimeout(jobId);
+        flashMessage = result.message;
+        flashKind = "success";
+
+        const detail = await getRun(runId);
+        renderShell(renderRunDetail(detail, getApiBaseUrl()));
+        attachRunDetailHandlers(runId);
+      } catch (error) {
+        flashMessage =
+          error instanceof Error ? error.message : "Advance-timeout failed.";
+        flashKind = "error";
+
+        const detail = await getRun(runId);
+        renderShell(renderRunDetail(detail, getApiBaseUrl()));
+        attachRunDetailHandlers(runId);
+      }
+    });
+  }
+}
+
 async function renderRoute(): Promise<void> {
   renderShell(`<div class="loading">Loading…</div>`);
 
@@ -139,6 +192,7 @@ async function renderRoute(): Promise<void> {
     if (route.kind === "run") {
       const detail = await getRun(route.runId);
       renderShell(renderRunDetail(detail, getApiBaseUrl()));
+      attachRunDetailHandlers(route.runId);
       syncAutoRefresh();
       return;
     }
