@@ -12,6 +12,7 @@ type RawAttemptRecord = {
 
 type RawJobRecord = {
   status?: string | null;
+  step_name?: string | null;
 };
 
 export function deriveRunStatus(args: {
@@ -19,32 +20,41 @@ export function deriveRunStatus(args: {
   jobs: RawJobRecord[];
   attempts: RawAttemptRecord[];
 }): RunStatus {
-  if (args.run.status === "completed" || args.run.completed_at) {
+  const latestJob = args.jobs[args.jobs.length - 1] ?? null;
+  const latestAttempt = [...args.attempts].sort(
+    (a, b) => (b.attempt_no ?? 0) - (a.attempt_no ?? 0),
+  )[0];
+
+  if (latestJob?.status === "failed") {
+    return "failed";
+  }
+
+  if (latestJob?.status === "waiting" || latestJob?.status === "retry_scheduled") {
+    return "waiting";
+  }
+
+  if (latestJob?.status === "running") {
+    return "running";
+  }
+
+  if (latestAttempt?.status === "failed") {
+    return "failed";
+  }
+
+  if (latestAttempt?.status === "running" || latestAttempt?.status === "queued") {
+    return "running";
+  }
+
+  if (
+    latestJob?.status === "succeeded" ||
+    latestJob?.status === "completed" ||
+    args.run.status === "completed" ||
+    !!args.run.completed_at
+  ) {
     return "completed";
   }
 
   if (args.run.status === "failed") {
-    return "failed";
-  }
-
-  const hasWaitingJob = args.jobs.some(
-    (job) => job.status === "waiting" || job.status === "retry_scheduled",
-  );
-  if (hasWaitingJob) {
-    return "waiting";
-  }
-
-  const hasRunningAttempt = args.attempts.some(
-    (attempt) => attempt.status === "running" || attempt.status === "queued",
-  );
-  if (hasRunningAttempt) {
-    return "running";
-  }
-
-  const hasFailedAttempt = args.attempts.some(
-    (attempt) => attempt.status === "failed",
-  );
-  if (hasFailedAttempt) {
     return "failed";
   }
 
@@ -84,7 +94,12 @@ export function deriveJobStatus(args: {
 
 export function deriveActiveAttempt(
   attempts: RawAttemptRecord[],
+  preferredAttemptNo?: number | null,
 ): number | null {
+  if (preferredAttemptNo !== undefined && preferredAttemptNo !== null) {
+    return preferredAttemptNo;
+  }
+
   const latestAttempt = [...attempts].sort(
     (a, b) => (b.attempt_no ?? 0) - (a.attempt_no ?? 0),
   )[0];
@@ -97,17 +112,18 @@ export function deriveLatestFailureKind(
   jobs: RawJobRecord[] = [],
   runStatus?: string | null,
 ): string | null {
+  const latestJob = jobs[jobs.length - 1] ?? null;
+
+  if (latestJob?.status === "failed") {
+    return "job_failed";
+  }
+
   const failedAttempt = [...attempts]
     .filter((attempt) => attempt.status === "failed")
     .sort((a, b) => (b.attempt_no ?? 0) - (a.attempt_no ?? 0))[0];
 
   if (failedAttempt) {
     return "attempt_failed";
-  }
-
-  const failedJob = jobs.find((job) => job.status === "failed");
-  if (failedJob) {
-    return "job_failed";
   }
 
   if (runStatus === "failed") {

@@ -10,6 +10,14 @@ const TENANTS: TenantSummary[] = [
     name: "Internal",
     service_count: 4,
     environment_count: 3,
+    source: "seeded",
+  },
+  {
+    tenant_id: "t_demo",
+    name: "Demo",
+    service_count: 4,
+    environment_count: 3,
+    source: "seeded",
   },
 ];
 
@@ -42,6 +50,35 @@ const SERVICES: ServiceSummary[] = [
     provider: "cloudflare",
     environments: ["dev", "qa", "validation"],
   },
+
+  {
+    tenant_id: "t_demo",
+    service_id: "dashboard",
+    service_name: "dashboard",
+    provider: "cloudflare",
+    environments: ["dev", "qa", "validation"],
+  },
+  {
+    tenant_id: "t_demo",
+    service_id: "operator-ui",
+    service_name: "operator-ui",
+    provider: "cloudflare",
+    environments: ["dev", "qa", "validation"],
+  },
+  {
+    tenant_id: "t_demo",
+    service_id: "proving-ground",
+    service_name: "proving-ground",
+    provider: "aws",
+    environments: ["dev", "qa", "validation"],
+  },
+  {
+    tenant_id: "t_demo",
+    service_id: "sample-worker",
+    service_name: "sample-worker",
+    provider: "cloudflare",
+    environments: ["dev", "qa", "validation"],
+  },
 ];
 
 const ENVIRONMENTS: EnvironmentSummary[] = SERVICES.flatMap((service) =>
@@ -52,16 +89,12 @@ const ENVIRONMENTS: EnvironmentSummary[] = SERVICES.flatMap((service) =>
   })),
 );
 
-export function listTenants(): TenantSummary[] {
+export function listSeededTenants(): TenantSummary[] {
   return TENANTS;
 }
 
-export function getTenant(tenantId: string): TenantSummary | null {
+export function getSeededTenant(tenantId: string): TenantSummary | null {
   return TENANTS.find((tenant) => tenant.tenant_id === tenantId) ?? null;
-}
-
-export function listServices(): ServiceSummary[] {
-  return SERVICES;
 }
 
 export function listServicesForTenant(tenantId: string): ServiceSummary[] {

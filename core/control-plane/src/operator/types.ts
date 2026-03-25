@@ -80,6 +80,7 @@ export type TenantSummary = {
   name: string;
   service_count: number;
   environment_count: number;
+  source?: "seeded" | "observed";
 };
 
 export type ServiceSummary = {

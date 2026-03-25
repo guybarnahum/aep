@@ -38,6 +38,18 @@ function coerceServiceName(serviceName: string | null, repoUrl: string | null): 
   return "unmapped";
 }
 
+function safeParseJson(value: string): unknown {
+  try {
+    return JSON.parse(value);
+  } catch {
+    return value;
+  }
+}
+
+function compareIsoDesc(a?: string | null, b?: string | null): number {
+  return (b ?? "").localeCompare(a ?? "");
+}
+
 export async function listRunSummaries(
   db: D1Like,
   limit = 25,
@@ -56,9 +68,7 @@ export async function listRunSummaries(
         })),
       );
 
-      const latestJob =
-        jobs[jobs.length - 1] ??
-        null;
+      const latestJob = jobs[jobs.length - 1] ?? null;
 
       const latestAttempts =
         attemptsByJob[attemptsByJob.length - 1]?.attempts ?? [];
@@ -89,9 +99,10 @@ export async function listRunSummaries(
           jobStatus: latestJob?.status ?? null,
           attempts: latestAttempts,
         }),
-        active_attempt:
-          latestJob?.active_attempt_no ??
-          deriveActiveAttempt(latestAttempts),
+        active_attempt: deriveActiveAttempt(
+          latestAttempts,
+          latestJob?.active_attempt_no ?? latestJob?.terminal_attempt_no ?? null,
+        ),
         latest_failure_kind: deriveLatestFailureKind(
           attemptsByJob.flatMap((entry) => entry.attempts),
           jobs,
@@ -138,8 +149,15 @@ export async function getRunDetail(
   const jobs = await fetchRunJobs(db, runId);
 
   const jobViews: RunJobView[] = [];
-  let latestFailure: RunFailureView | null = null;
-  const allAttempts = [];
+  const failureCandidates: Array<RunFailureView & { sort_at: string | null }> = [];
+  const allAttempts: Array<{
+    attempt_no?: number | null;
+    status?: string | null;
+    created_at?: string | null;
+    started_at?: string | null;
+    completed_at?: string | null;
+    superseded_at?: string | null;
+  }> = [];
 
   for (const job of jobs) {
     const attempts = await fetchAttemptsForJob(db, job.job_id);
@@ -160,10 +178,10 @@ export async function getRunDetail(
 
     const failedAttempt = [...attempts]
       .filter((attempt) => attempt.status === "failed")
-      .sort((a, b) => b.attempt_no - a.attempt_no)[0];
+      .sort((a, b) => compareIsoDesc(a.completed_at ?? a.created_at, b.completed_at ?? b.created_at))[0];
 
-    if (failedAttempt && !latestFailure) {
-      latestFailure = {
+    if (failedAttempt) {
+      failureCandidates.push({
         run_id: runId,
         step: job.step_name,
         logical_job_type: job.job_type,
@@ -173,11 +191,12 @@ export async function getRunDetail(
         failure_payload: failedAttempt.result_json
           ? safeParseJson(failedAttempt.result_json)
           : null,
-      };
+        sort_at: failedAttempt.completed_at ?? failedAttempt.created_at,
+      });
     }
 
-    if (!latestFailure && job.status === "failed") {
-      latestFailure = {
+    if (job.status === "failed") {
+      failureCandidates.push({
         run_id: runId,
         step: job.step_name,
         logical_job_type: job.job_type,
@@ -185,7 +204,8 @@ export async function getRunDetail(
         failure_kind: "job_failed",
         failure_message: job.error_message,
         failure_payload: job.result_json ? safeParseJson(job.result_json) : null,
-      };
+        sort_at: job.completed_at ?? job.created_at,
+      });
     }
 
     jobViews.push({
@@ -197,7 +217,10 @@ export async function getRunDetail(
         jobStatus: job.status,
         attempts,
       }),
-      active_attempt: job.active_attempt_no ?? deriveActiveAttempt(attempts),
+      active_attempt: deriveActiveAttempt(
+        attempts,
+        job.active_attempt_no ?? job.terminal_attempt_no ?? null,
+      ),
       max_attempts: job.max_attempts,
       attempt_count: job.attempt_count,
       terminal_attempt_no: job.terminal_attempt_no,
@@ -211,21 +234,25 @@ export async function getRunDetail(
     });
   }
 
-  if (!latestFailure && run.workflow_status === "failed") {
-    const failedStep = [...steps]
-      .filter((step) => step.status === "failed")
-      .sort((a, b) => (b.completed_at ?? "").localeCompare(a.completed_at ?? ""))[0];
+  const failedStep = [...steps]
+    .filter((step) => step.status === "failed")
+    .sort((a, b) => compareIsoDesc(a.completed_at ?? a.started_at, b.completed_at ?? b.started_at))[0];
 
-    latestFailure = {
+  if (run.workflow_status === "failed" && failedStep) {
+    failureCandidates.push({
       run_id: runId,
-      step: failedStep?.step_name ?? null,
+      step: failedStep.step_name,
       logical_job_type: null,
       attempt: null,
       failure_kind: "workflow_failed",
-      failure_message: failedStep?.error_message ?? null,
+      failure_message: failedStep.error_message ?? null,
       failure_payload: null,
-    };
+      sort_at: failedStep.completed_at ?? failedStep.started_at,
+    });
   }
+
+  const latestFailure =
+    failureCandidates.sort((a, b) => compareIsoDesc(a.sort_at, b.sort_at))[0] ?? null;
 
   const latestJob = jobViews[jobViews.length - 1] ?? null;
 
@@ -283,7 +310,17 @@ export async function getRunDetail(
       error_message: step.error_message,
     })),
     jobs: jobViews,
-    failure: latestFailure,
+    failure: latestFailure
+      ? {
+          run_id: latestFailure.run_id,
+          step: latestFailure.step,
+          logical_job_type: latestFailure.logical_job_type,
+          attempt: latestFailure.attempt,
+          failure_kind: latestFailure.failure_kind,
+          failure_message: latestFailure.failure_message,
+          failure_payload: latestFailure.failure_payload,
+        }
+      : null,
   };
 }
 
@@ -318,12 +355,4 @@ export async function getRunFailure(
 ): Promise<RunFailureView | null> {
   const detail = await getRunDetail(db, runId);
   return detail?.failure ?? null;
-}
-
-function safeParseJson(value: string): unknown {
-  try {
-    return JSON.parse(value);
-  } catch {
-    return value;
-  }
 }
