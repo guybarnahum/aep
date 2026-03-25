@@ -1,4 +1,4 @@
-import { buildTracePath } from "../lib/urls";
+import { buildTracePath } from "@aep/control-plane/lib/urls";
 import {
   deriveActiveAttempt,
   deriveEnvironmentName,
@@ -6,22 +6,22 @@ import {
   deriveLatestFailureKind,
   deriveRunStatus,
   deriveUpdatedAt,
-} from "./derive";
-import { deriveJobOperatorActions } from "./eligibility";
+} from "@aep/control-plane/operator/derive";
+import { deriveJobOperatorActions } from "@aep/control-plane/operator/eligibility";
 import {
   fetchAttemptsForJob,
   fetchRecentRuns,
   fetchRunById,
   fetchRunJobs,
   fetchRunSteps,
-} from "./queries";
+} from "@aep/control-plane/operator/queries";
 import type {
   RunAttemptView,
   RunDetail,
   RunFailureView,
   RunJobView,
   RunSummary,
-} from "./types";
+} from "@aep/control-plane/operator/types";
 
 type D1Like = D1Database;
 

@@ -1,6 +1,6 @@
-import { emitEvent } from "../../observability/src/index";
-import type { Env } from "../../types/src/index";
-import { newId, nowIso, sha256Hex } from "../../../packages/shared/src/index";
+import { emitEvent } from "@aep/observability/index";
+import type { Env } from "@aep/types/index";
+import { newId, nowIso, sha256Hex } from "@aep/shared/index";
 
 type DeployJobType = "deploy_preview" | "teardown_preview";
 

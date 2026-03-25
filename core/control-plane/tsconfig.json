@@ -6,7 +6,16 @@
     "strict": true,
     "noEmit": true,
     "types": ["@cloudflare/workers-types", "node"],
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "baseUrl": ".",
+    "paths": {
+      "@aep/control-plane/*": ["src/*"],
+      "@aep/workflow-engine/*": ["../workflow-engine/src/*"],
+      "@aep/types/*": ["../types/src/*"],
+      "@aep/observability/*": ["../observability/src/*"],
+      "@aep/shared/*": ["../../packages/shared/src/*"],
+      "@aep/event-schema/*": ["../../packages/event-schema/src/*"]
+    }
   },
   "include": [
     "src/**/*.ts",

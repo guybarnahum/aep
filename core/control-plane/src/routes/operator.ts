@@ -1,6 +1,6 @@
-import type { Env } from "../../types/src/index";
-import { json, notFound } from "../lib/http";
-import { advanceTimeoutForJob } from "../operator/advance-timeout";
+import type { Env } from "@aep/types/index";
+import { json, notFound } from "@aep/control-plane/lib/http";
+import { advanceTimeoutForJob } from "@aep/control-plane/operator/advance-timeout";
 
 function extractJobId(pathname: string): string | null {
   const match = pathname.match(/^\/operator\/jobs\/([^/]+)\/advance-timeout$/);
