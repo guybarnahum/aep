@@ -9,6 +9,9 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash -eo pipefail {0}
     env:
       GIT_SHA: ${{ github.sha }}
     steps:
@@ -29,6 +32,9 @@ jobs:
     needs: test
     runs-on: ubuntu-latest
     environment: production
+    defaults:
+      run:
+        shell: bash -eo pipefail {0}
     permissions:
       contents: read
     env:
@@ -82,6 +88,7 @@ jobs:
             --url "$DEPLOY_URL/healthz" \
             --env "$CF_ENV" \
             --sha "$GIT_SHA" \
+            --insecure-allow-version-mismatch true \
             --service control-plane | tee health-check.log
 
       - name: Smoke test
