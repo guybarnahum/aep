@@ -5,8 +5,8 @@ import { cloneAuthority } from "@aep/operator-agent/org/authority";
 import { cloneBudget } from "@aep/operator-agent/org/budgets";
 import { getEmployeeById } from "@aep/operator-agent/org/employees";
 import type {
+  AgentExecutionResponse,
   EmployeeRunRequest,
-  EmployeeRunResponse,
   EmployeeRunErrorResponse,
   OperatorAgentEnv,
   ResolvedEmployeeRunContext,
@@ -109,7 +109,7 @@ function resolveRunContext(
 export async function executeEmployeeRun(
   request: EmployeeRunRequest,
   env?: OperatorAgentEnv
-): Promise<EmployeeRunResponse> {
+): Promise<AgentExecutionResponse> {
   const validationError = validateRunRequest(request);
   if (validationError) {
     throw Object.assign(new Error(validationError.error), {
@@ -131,7 +131,7 @@ export async function executeEmployeeRun(
     case "timeout-recovery-operator":
       return runTimeoutRecoveryOperator(resolved, env);
     case "infra-ops-manager":
-      return runInfraOpsManager(resolved, env) as unknown as EmployeeRunResponse;
+      return runInfraOpsManager(resolved, env);
     default:
       throw Object.assign(
         new Error(

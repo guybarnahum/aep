@@ -1,7 +1,11 @@
 import { getConfig } from "@aep/operator-agent/config";
 import { executeEmployeeRun } from "@aep/operator-agent/lib/execute-employee-run";
 import { timeoutRecoveryEmployee } from "@aep/operator-agent/org/employees";
-import type { EmployeeRunRequest, OperatorAgentEnv } from "@aep/operator-agent/types";
+import type {
+  EmployeeRunRequest,
+  EmployeeRunResponse,
+  OperatorAgentEnv,
+} from "@aep/operator-agent/types";
 
 export async function handleCron(
   env: OperatorAgentEnv
@@ -19,10 +23,16 @@ export async function handleCron(
 
   const result = await executeEmployeeRun(runRequest, env);
 
+  if (!("dryRun" in result)) {
+    throw new Error("Unexpected non-worker response for cron timeout recovery run");
+  }
+
+  const workerResult: EmployeeRunResponse = result;
+
   console.log("[operator-agent] cron run completed", {
-    employeeId: result.employee.employeeId,
-    dryRun: result.dryRun,
-    scanned: result.scanned,
-    summary: result.summary,
+    employeeId: workerResult.employee.employeeId,
+    dryRun: workerResult.dryRun,
+    scanned: workerResult.scanned,
+    summary: workerResult.summary,
   });
 }

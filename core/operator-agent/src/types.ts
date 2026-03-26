@@ -86,7 +86,7 @@ export interface PaperclipRunResponse {
   taskId?: string;
   heartbeatId?: string;
   request: EmployeeRunRequest;
-  result: EmployeeRunResponse;
+  result: AgentExecutionResponse;
 }
 
 export type ManagerDecisionReason =
@@ -258,6 +258,10 @@ export interface EmployeeRunResponse {
   };
   message: string;
 }
+
+export type AgentExecutionResponse =
+  | EmployeeRunResponse
+  | ManagerDecisionResponse;
 
 export interface EmployeeRunErrorResponse {
   ok: false;

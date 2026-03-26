@@ -1,7 +1,7 @@
 import { getConfig } from "@aep/operator-agent/config";
 import type {
+  AgentExecutionResponse,
   EmployeeRunRequest,
-  EmployeeRunResponse,
   OperatorAgentEnv,
   PaperclipRunRequest,
   PaperclipRunResponse,
@@ -44,7 +44,7 @@ export function adaptPaperclipRequest(
 export function adaptPaperclipResponse(args: {
   payload: PaperclipRunRequest;
   request: EmployeeRunRequest;
-  result: EmployeeRunResponse;
+  result: AgentExecutionResponse;
 }): PaperclipRunResponse {
   return {
     ok: true,
