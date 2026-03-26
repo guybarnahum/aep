@@ -55,6 +55,7 @@ export interface EmployeeRunRequest {
   policyVersion: string;
   budgetOverride?: Partial<AgentBudget>;
   authorityOverride?: Partial<AgentAuthority>;
+  targetEmployeeIdOverride?: string;
 }
 
 export interface ResolvedEmployeeRunContext {
@@ -86,6 +87,53 @@ export interface PaperclipRunResponse {
   heartbeatId?: string;
   request: EmployeeRunRequest;
   result: EmployeeRunResponse;
+}
+
+export type ManagerDecisionReason =
+  | "repeated_verification_failures"
+  | "operator_action_failures_detected"
+  | "frequent_budget_exhaustion";
+
+export interface ManagerDecision {
+  timestamp: string;
+  managerEmployeeId: string;
+  managerEmployeeName: string;
+  departmentId: DepartmentId;
+  roleId: AgentRoleId;
+  policyVersion: string;
+  employeeId: string;
+  reason: ManagerDecisionReason;
+  recommendation:
+    | "escalate_to_human"
+    | "recommend_budget_adjustment"
+    | "recommend_pause_employee";
+  severity: "warning";
+  message: string;
+  evidence: {
+    windowEntryCount: number;
+    resultCounts: Partial<Record<TimeoutRecoveryResult, number>>;
+  };
+}
+
+export interface ManagerDecisionResponse {
+  ok: true;
+  status: "completed";
+  policyVersion: string;
+  trigger: EmployeeTrigger;
+  employee: AgentIdentity;
+  observedEmployeeId: string;
+  scanned: {
+    workLogEntries: number;
+  };
+  summary: {
+    repeatedVerificationFailures: number;
+    operatorActionFailures: number;
+    budgetExhaustionSignals: number;
+    decisionsEmitted: number;
+  };
+  decisions: ManagerDecision[];
+  message: string;
+  controlPlaneBaseUrl: string;
 }
 
 export interface RunSummary {

@@ -1,4 +1,5 @@
 import { getConfig } from "@aep/operator-agent/config";
+import { runInfraOpsManager } from "@aep/operator-agent/agents/infra-ops-manager";
 import { runTimeoutRecoveryOperator } from "@aep/operator-agent/agents/timeout-recovery";
 import { cloneAuthority } from "@aep/operator-agent/org/authority";
 import { cloneBudget } from "@aep/operator-agent/org/budgets";
@@ -129,6 +130,8 @@ export async function executeEmployeeRun(
   switch (resolved.employee.identity.roleId) {
     case "timeout-recovery-operator":
       return runTimeoutRecoveryOperator(resolved, env);
+    case "infra-ops-manager":
+      return runInfraOpsManager(resolved, env) as unknown as EmployeeRunResponse;
     default:
       throw Object.assign(
         new Error(

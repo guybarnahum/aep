@@ -2,7 +2,7 @@
 
 export {};
 
-const STAGE2_POLICY_VERSION = "commit9-stage2";
+const STAGE3_POLICY_VERSION = "commit9-stage3";
 
 type RunSummary = {
   id: string;
@@ -81,6 +81,48 @@ type PaperclipAgentRunResponse = {
     authorityOverride?: Record<string, unknown>;
   };
   result: AgentRunResponse;
+};
+
+type ManagerDecision = {
+  timestamp: string;
+  managerEmployeeId: string;
+  managerEmployeeName: string;
+  departmentId: string;
+  roleId: string;
+  policyVersion: string;
+  employeeId: string;
+  reason: string;
+  recommendation: string;
+  severity: string;
+  message: string;
+  evidence: {
+    windowEntryCount: number;
+    resultCounts: Record<string, number>;
+  };
+};
+
+type ManagerRunResponse = {
+  ok: true;
+  status: "completed";
+  policyVersion: string;
+  trigger: string;
+  employee: {
+    employeeId: string;
+    roleId: string;
+  };
+  observedEmployeeId: string;
+  scanned: {
+    workLogEntries: number;
+  };
+  summary: {
+    repeatedVerificationFailures: number;
+    operatorActionFailures: number;
+    budgetExhaustionSignals: number;
+    decisionsEmitted: number;
+  };
+  decisions: ManagerDecision[];
+  message: string;
+  controlPlaneBaseUrl: string;
 };
 
 function requireEnv(name: string): string {
@@ -224,7 +266,7 @@ async function runAgent(
       employeeId: "emp_timeout_recovery_01",
       roleId: "timeout-recovery-operator",
       trigger: "manual",
-      policyVersion: STAGE2_POLICY_VERSION,
+      policyVersion: STAGE3_POLICY_VERSION,
       ...(overrides ?? {}),
     }),
   });
@@ -245,7 +287,7 @@ async function runAgentViaPaperclip(
       departmentId: "aep-infra-ops",
       employeeId: "emp_timeout_recovery_01",
       roleId: "timeout-recovery-operator",
-      policyVersion: STAGE2_POLICY_VERSION,
+      policyVersion: STAGE3_POLICY_VERSION,
       trigger: "paperclip",
       taskId: "task_timeout_recovery_smoke",
       heartbeatId: "hb_stage2_smoke",
@@ -256,6 +298,37 @@ async function runAgentViaPaperclip(
   });
 
   return readJson<PaperclipAgentRunResponse>(response);
+}
+
+async function runManager(agentBaseUrl: string): Promise<ManagerRunResponse> {
+  const response = await fetch(`${agentBaseUrl}/agent/run`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({
+      departmentId: "aep-infra-ops",
+      employeeId: "emp_infra_ops_manager_01",
+      roleId: "infra-ops-manager",
+      trigger: "manual",
+      policyVersion: STAGE3_POLICY_VERSION,
+      targetEmployeeIdOverride: "emp_timeout_recovery_01",
+    }),
+  });
+
+  return readJson<ManagerRunResponse>(response);
+}
+
+async function getManagerLog(agentBaseUrl: string): Promise<{
+  ok: true;
+  managerEmployeeId: string;
+  count: number;
+  entries: ManagerDecision[];
+}> {
+  const response = await fetch(
+    `${agentBaseUrl}/agent/manager-log?managerEmployeeId=emp_infra_ops_manager_01&limit=20`
+  );
+  return readJson(response);
 }
 
 async function runAgentCompatibility(agentBaseUrl: string): Promise<AgentRunResponse> {
@@ -275,7 +348,7 @@ async function main(): Promise<void> {
     },
   });
 
-  if (overrideProbe.policyVersion !== STAGE2_POLICY_VERSION) {
+  if (overrideProbe.policyVersion !== STAGE3_POLICY_VERSION) {
     throw new Error(
       `Unexpected policyVersion from /agent/run: ${overrideProbe.policyVersion}`
     );
@@ -297,7 +370,7 @@ async function main(): Promise<void> {
     );
   }
 
-  if (paperclipProbe.request.policyVersion !== STAGE2_POLICY_VERSION) {
+  if (paperclipProbe.request.policyVersion !== STAGE3_POLICY_VERSION) {
     throw new Error(
       `Unexpected policyVersion from paperclip path: ${paperclipProbe.request.policyVersion}`
     );
@@ -424,6 +497,37 @@ async function main(): Promise<void> {
   }
 
   console.log("Verified /agent/run-once compatibility path");
+
+  const managerRun = await runManager(agentBaseUrl);
+
+  if (managerRun.employee.employeeId !== "emp_infra_ops_manager_01") {
+    throw new Error(
+      `Unexpected manager employeeId: ${managerRun.employee.employeeId}`
+    );
+  }
+
+  if (managerRun.observedEmployeeId !== "emp_timeout_recovery_01") {
+    throw new Error(
+      `Unexpected observedEmployeeId: ${managerRun.observedEmployeeId}`
+    );
+  }
+
+  if (managerRun.policyVersion !== STAGE3_POLICY_VERSION) {
+    throw new Error(
+      `Unexpected manager policyVersion: ${managerRun.policyVersion}`
+    );
+  }
+
+  const managerLog = await getManagerLog(agentBaseUrl);
+
+  if (!managerLog.ok) {
+    throw new Error("Manager log route did not return ok=true");
+  }
+
+  console.log("Verified manager advisory run and manager log route", {
+    decisionsEmitted: managerRun.summary.decisionsEmitted,
+    managerLogCount: managerLog.count,
+  });
 
   console.log("agent-timeout-recovery-check passed");
 }

@@ -29,8 +29,37 @@ export const timeoutRecoveryEmployee: AgentEmployeeDefinition = {
   },
 };
 
+export const infraOpsManagerEmployee: AgentEmployeeDefinition = {
+  identity: {
+    employeeId: "emp_infra_ops_manager_01",
+    employeeName: "Infra Ops Manager",
+    departmentId: "aep-infra-ops",
+    roleId: "infra-ops-manager",
+  },
+  authority: {
+    allowedOperatorActions: ["advance-timeout"],
+    allowedTenants: ["dev", "qa", "internal-aep"],
+    allowedServices: ["control-plane"],
+    requireTraceVerification: false,
+  },
+  budget: {
+    maxActionsPerScan: 0,
+    maxActionsPerHour: 0,
+    maxActionsPerTenantPerHour: 0,
+    tokenBudgetDaily: 0,
+    runtimeBudgetMsPerScan: 5000,
+    verificationReadsPerAction: 0,
+  },
+  escalation: {
+    onBudgetExhausted: "notify-human",
+    onRepeatedVerificationFailure: "notify-human",
+    onProdTenantAction: "require-manager-approval",
+  },
+};
+
 export const operatorEmployees: AgentEmployeeDefinition[] = [
   timeoutRecoveryEmployee,
+  infraOpsManagerEmployee,
 ];
 
 export function getEmployeeById(
