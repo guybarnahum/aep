@@ -43,55 +43,48 @@ type ManagerRunResponse = {
     reEnableDecisions: number;
     restrictionDecisions: number;
     clearedRestrictionDecisions: number;
-    crossWorkerAlerts: number;      escalationsCreated: number;    decisionsEmitted: number;
+    crossWorkerAlerts: number;
+    escalationsCreated: number;
+    decisionsEmitted: number;
   };
-  perEmployee: Array<{
-    employeeId: string;
-    workLogEntries: number;
-    verificationFailed: number;
-    operatorActionFailed: number;
-    budgetExhausted: number;
-    reEnableDecisions: number;
-    restrictionDecisions: number;
-    clearedRestrictionDecisions: number;
-  }>;
+  perEmployee: unknown[];
   decisions: ManagerDecision[];
   message: string;
   controlPlaneBaseUrl: string;
 };
 
-type ManagerLogResponse = {
-  ok: true;
-  managerEmployeeId: string;
-  count: number;
-  entries: ManagerDecision[];
-};
-
 type EscalationsResponse = {
   ok: true;
   count: number;
-  escalations: unknown[];
+  entries: Array<{
+    escalationId: string;
+    timestamp: string;
+    severity: string;
+    status: string;
+    reason: string;
+    affectedEmployeeIds: string[];
+    message: string;
+  }>;
 };
 
-type EmployeeControlsResponse = {
+type ControlHistoryResponse = {
   ok: true;
-  employeeId: string;
-  control: {
+  count: number;
+  entries: Array<{
+    historyId: string;
+    timestamp: string;
     employeeId: string;
-    state: "enabled" | "disabled_pending_review" | "disabled_by_manager" | "restricted";
-    transition: string;
-    updatedByEmployeeId: string;
-    updatedByRoleId: string;
-    policyVersion: string;
-    reason: string;
-    message: string;
-    budgetOverride?: Record<string, unknown>;
-    authorityOverride?: Record<string, unknown>;
-    evidence?: {
-      windowEntryCount: number;
-      resultCounts?: Record<string, number>;
+    previousState?: {
+      state: string;
+      blocked: boolean;
     };
-  } | null;
+    nextState?: {
+      state: string;
+      blocked: boolean;
+    };
+    transition: string;
+    reason: string;
+  }>;
 };
 
 function requireEnv(name: string): string {
@@ -133,25 +126,13 @@ async function runManager(
 }
 
 async function getEscalations(agentBaseUrl: string): Promise<EscalationsResponse> {
-  const response = await fetch(`${agentBaseUrl}/agent/escalations?limit=50`);
+  const response = await fetch(`${agentBaseUrl}/agent/escalations?limit=100`);
   return readJson<EscalationsResponse>(response);
 }
 
-async function getManagerLog(agentBaseUrl: string): Promise<ManagerLogResponse> {
-  const response = await fetch(
-    `${agentBaseUrl}/agent/manager-log?managerEmployeeId=emp_infra_ops_manager_01&limit=20`
-  );
-  return readJson<ManagerLogResponse>(response);
-}
-
-async function getEmployeeControls(
-  agentBaseUrl: string,
-  employeeId: string
-): Promise<EmployeeControlsResponse> {
-  const response = await fetch(
-    `${agentBaseUrl}/agent/employee-controls?employeeId=${encodeURIComponent(employeeId)}`
-  );
-  return readJson<EmployeeControlsResponse>(response);
+async function getControlHistory(agentBaseUrl: string): Promise<ControlHistoryResponse> {
+  const response = await fetch(`${agentBaseUrl}/agent/control-history?limit=100`);
+  return readJson<ControlHistoryResponse>(response);
 }
 
 async function main(): Promise<void> {
@@ -175,30 +156,6 @@ async function main(): Promise<void> {
     );
   }
 
-  if (
-    !Array.isArray(managerRun.observedEmployeeIds) ||
-    managerRun.observedEmployeeIds.length === 0
-  ) {
-    throw new Error("Expected observedEmployeeIds to be a non-empty array");
-  }
-
-  if (managerRun.scanned.employeesObserved !== observedEmployeeIds.length) {
-    throw new Error(
-      `Expected employeesObserved=${observedEmployeeIds.length}, got ${managerRun.scanned.employeesObserved}`
-    );
-  }
-
-  if (managerRun.perEmployee.length !== observedEmployeeIds.length) {
-    throw new Error(
-      `Expected perEmployee length=${observedEmployeeIds.length}, got ${managerRun.perEmployee.length}`
-    );
-  }
-
-  const managerLog = await getManagerLog(agentBaseUrl);
-  if (!managerLog.ok) {
-    throw new Error("Manager log route did not return ok=true");
-  }
-
   const escalations = await getEscalations(agentBaseUrl);
   if (!escalations.ok) {
     throw new Error("/agent/escalations did not return ok=true");
@@ -210,39 +167,69 @@ async function main(): Promise<void> {
     );
   }
 
-  const employeeControls = await getEmployeeControls(
-    agentBaseUrl,
-    observedEmployeeIds[0]
-  );
-
-  if (!employeeControls.ok) {
-    throw new Error("Employee controls route did not return ok=true");
+  const controlHistory = await getControlHistory(agentBaseUrl);
+  if (!controlHistory.ok) {
+    throw new Error("/agent/control-history did not return ok=true");
   }
 
-  if (
-    employeeControls.control?.state === "restricted" &&
-    !employeeControls.control.budgetOverride &&
-    !employeeControls.control.authorityOverride
-  ) {
+  if (controlHistory.count === 0 && managerRun.summary.restrictionDecisions > 0) {
     throw new Error(
-      "Restricted control must include at least one persisted overlay"
+      "Expected control history records when restriction decisions were made"
     );
   }
 
-  console.log("manager-advisory-check passed", {
+  for (const escalation of escalations.entries) {
+    if (!escalation.escalationId) {
+      throw new Error("Escalation missing escalationId");
+    }
+
+    if (!escalation.timestamp) {
+      throw new Error("Escalation missing timestamp");
+    }
+
+    if (!escalation.severity) {
+      throw new Error("Escalation missing severity");
+    }
+
+    if (!escalation.status) {
+      throw new Error("Escalation missing status");
+    }
+
+    if (!Array.isArray(escalation.affectedEmployeeIds)) {
+      throw new Error("Escalation missing affectedEmployeeIds array");
+    }
+  }
+
+  for (const entry of controlHistory.entries) {
+    if (!entry.historyId) {
+      throw new Error("Control history entry missing historyId");
+    }
+
+    if (!entry.timestamp) {
+      throw new Error("Control history entry missing timestamp");
+    }
+
+    if (!entry.employeeId) {
+      throw new Error("Control history entry missing employeeId");
+    }
+
+    if (!entry.transition) {
+      throw new Error("Control history entry missing transition");
+    }
+  }
+
+  console.log("escalation-audit-check passed", {
     observedEmployeeIds,
-    employeesObserved: managerRun.scanned.employeesObserved,
-    crossWorkerAlerts: managerRun.summary.crossWorkerAlerts,
-    escalationsCreated: managerRun.summary.escalationsCreated,
     decisionsEmitted: managerRun.summary.decisionsEmitted,
+    escalationsCreated: managerRun.summary.escalationsCreated,
+    escalationsInAuditLog: escalations.count,
+    controlStateTransitions: controlHistory.count,
     restrictionDecisions: managerRun.summary.restrictionDecisions,
-    managerLogCount: managerLog.count,
-    escalationsInStore: escalations.count,
   });
 }
 
 main().catch((error) => {
-  console.error("manager-advisory-check failed");
+  console.error("escalation-audit-check failed");
   console.error(error);
   process.exit(1);
 });

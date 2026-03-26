@@ -38,6 +38,8 @@ export function adaptPaperclipRequest(
     policyVersion: payload.policyVersion ?? config.policyVersion,
     budgetOverride: payload.budgetOverride,
     authorityOverride: payload.authorityOverride,
+    targetEmployeeIdOverride: (payload as unknown as Record<string, unknown>).targetEmployeeIdOverride as string | undefined,
+    targetEmployeeIdsOverride: (payload as unknown as Record<string, unknown>).targetEmployeeIdsOverride as string[] | undefined,
   };
 }
 
@@ -54,5 +56,7 @@ export function adaptPaperclipResponse(args: {
     heartbeatId: args.payload.heartbeatId,
     request: args.request,
     result: args.result,
+    executionSource: "paperclip",
+    cronFallbackRecommended: false,
   };
 }

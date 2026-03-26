@@ -21,13 +21,20 @@ export async function handleScheduledCron(
   cron: string,
   env: OperatorAgentEnv
 ): Promise<void> {
+  console.log("[operator-agent] scheduled trigger received (cron fallback path)", {
+    cron,
+    kind: classifyScheduledCron(cron),
+  });
+
   switch (classifyScheduledCron(cron)) {
     case "worker": {
+      console.log("[operator-agent] invoking worker cron as fallback/bootstrap");
       const { handleWorkerCron } = await import("@aep/operator-agent/triggers/cron");
       await handleWorkerCron(env);
       return;
     }
     case "manager": {
+      console.log("[operator-agent] invoking manager cron as fallback/bootstrap");
       const { handleManagerCron } = await import("@aep/operator-agent/triggers/manager-cron");
       await handleManagerCron(env);
       return;

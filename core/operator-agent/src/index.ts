@@ -1,3 +1,5 @@
+import { handleControlHistory } from "./routes/control-history";
+import { handleEscalations } from "./routes/escalations";
 import { handleHealthz } from "./routes/healthz";
 import { handleEmployeeControls } from "./routes/employee-controls";
 import { handleEmployees } from "./routes/employees";
@@ -41,6 +43,14 @@ export default {
 
     if (url.pathname === "/agent/employees") {
       return handleEmployees(request, env);
+    }
+
+    if (url.pathname === "/agent/escalations") {
+      return handleEscalations(request, env);
+    }
+
+    if (url.pathname === "/agent/control-history") {
+      return handleControlHistory(request, env);
     }
 
     return new Response("Not Found", { status: 404 });

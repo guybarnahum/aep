@@ -1,3 +1,4 @@
+import { EmployeeControlHistoryLog } from "@aep/operator-agent/lib/control-history-log";
 import type {
   EmployeeControlRecord,
   OperatorAgentEnv,
@@ -6,6 +7,10 @@ import type {
 
 function employeeControlKey(employeeId: string): string {
   return `employee-control:${employeeId}`;
+}
+
+function controlHistoryId(employeeId: string, timestamp: string): string {
+  return `${employeeId}:${timestamp}`;
 }
 
 function isBlockedState(state: EmployeeControlRecord["state"]): boolean {
@@ -54,6 +59,8 @@ export class EmployeeControlStore {
   }
 
   async put(record: EmployeeControlRecord): Promise<void> {
+    const previous = await this.get(record.employeeId);
+
     await this.env.OPERATOR_AGENT_KV?.put(
       employeeControlKey(record.employeeId),
       JSON.stringify(record),
@@ -61,6 +68,28 @@ export class EmployeeControlStore {
         expirationTtl: 60 * 60 * 24 * 14,
       }
     );
+
+    const history = new EmployeeControlHistoryLog(this.env);
+
+    await history.write({
+      historyId: controlHistoryId(record.employeeId, record.updatedAt),
+      timestamp: record.updatedAt,
+      employeeId: record.employeeId,
+      departmentId: "aep-infra-ops",
+      updatedByEmployeeId: record.updatedByEmployeeId,
+      updatedByRoleId: record.updatedByRoleId,
+      policyVersion: record.policyVersion,
+      transition: record.transition,
+      previousState: previous?.state,
+      nextState: record.state,
+      reason: record.reason,
+      message: record.message,
+      reviewAfter: record.reviewAfter,
+      expiresAt: record.expiresAt,
+      budgetOverride: record.budgetOverride,
+      authorityOverride: record.authorityOverride,
+      evidence: record.evidence,
+    });
   }
 
   async clear(employeeId: string): Promise<void> {

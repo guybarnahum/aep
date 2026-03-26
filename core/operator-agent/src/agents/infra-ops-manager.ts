@@ -1,10 +1,12 @@
 import { getConfig } from "@aep/operator-agent/config";
 import { EmployeeControlStore } from "@aep/operator-agent/lib/employee-control-store";
+import { EscalationLog } from "@aep/operator-agent/lib/escalation-log";
 import { ManagerDecisionLog } from "@aep/operator-agent/lib/manager-decision-log";
 import { listAgentWorkLogEntries } from "@aep/operator-agent/lib/work-log-reader";
 import type {
   AgentEmployeeDefinition,
   EmployeeControlRecord,
+  EscalationReason,
   ManagedEmployeeObservationSummary,
   ManagerDecision,
   ManagerDecisionReason,
@@ -108,6 +110,14 @@ function hasReachedTimeBoundary(
   return Boolean(boundaryIso && boundaryIso <= nowIso);
 }
 
+function escalationId(
+  timestamp: string,
+  reason: string,
+  employeeId: string
+): string {
+  return `${timestamp}:${reason}:${employeeId}`;
+}
+
 function resolveObservedEmployeeIds(
   context: ResolvedEmployeeRunContext,
   config: ReturnType<typeof getConfig>
@@ -142,6 +152,7 @@ export async function runInfraOpsManager(
   let totalOperatorActionFailed = 0;
   let totalBudgetExhausted = 0;
   let crossWorkerAlerts = 0;
+  let escalationsCreated = 0;
   let totalReEnableDecisions = 0;
   let totalRestrictionDecisions = 0;
   let totalClearedRestrictionDecisions = 0;
@@ -477,6 +488,59 @@ export async function runInfraOpsManager(
     await log.write(decision);
   }
 
+  const escalationLog = new EscalationLog(env ?? {});
+  for (const decision of decisions) {
+    const shouldEscalate =
+      decision.severity === "critical" ||
+      decision.reason === "cross_worker_budget_pressure" ||
+      decision.reason === "cross_worker_failure_pattern_detected";
+    if (!shouldEscalate) continue;
+    const affectedEmployeeIds =
+      decision.employeeId === "department"
+        ? observedEmployeeIds
+        : [decision.employeeId];
+    const escalationReasons = new Set<ManagerDecisionReason>([
+      "repeated_verification_failures",
+      "operator_action_failures_detected",
+      "frequent_budget_exhaustion",
+      "cross_worker_budget_pressure",
+      "cross_worker_failure_pattern_detected",
+    ]);
+    const rec: EscalationReason = escalationReasons.has(decision.reason)
+      ? (decision.reason as EscalationReason)
+      : "repeated_verification_failures";
+    await escalationLog.write({
+      escalationId: escalationId(
+        decision.timestamp,
+        decision.reason,
+        decision.employeeId
+      ),
+      timestamp: decision.timestamp,
+      companyId: context.request.companyId,
+      departmentId: decision.departmentId,
+      managerEmployeeId: decision.managerEmployeeId,
+      managerEmployeeName: decision.managerEmployeeName,
+      policyVersion: decision.policyVersion,
+      severity: decision.severity,
+      status: "open",
+      reason: rec,
+      affectedEmployeeIds,
+      message: decision.message,
+      recommendation:
+        decision.recommendation === "rebalance_team_capacity" ||
+        decision.recommendation === "pause_one_worker_keep_one_active" ||
+        decision.recommendation === "recommend_budget_adjustment"
+          ? decision.recommendation
+          : "escalate_to_human",
+      evidence: {
+        windowEntryCount: decision.evidence.windowEntryCount,
+        resultCounts: decision.evidence.resultCounts,
+        perEmployee,
+      },
+    });
+    escalationsCreated += 1;
+  }
+
   return {
     ok: true,
     status: "completed",
@@ -496,6 +560,7 @@ export async function runInfraOpsManager(
       restrictionDecisions: totalRestrictionDecisions,
       clearedRestrictionDecisions: totalClearedRestrictionDecisions,
       crossWorkerAlerts,
+      escalationsCreated,
       decisionsEmitted: decisions.length,
     },
     perEmployee,

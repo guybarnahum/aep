@@ -63,6 +63,18 @@ type WorkLogResponse = {
   entries: unknown[];
 };
 
+type EscalationsResponse = {
+  ok: true;
+  count: number;
+  escalations: unknown[];
+};
+
+type ControlHistoryResponse = {
+  ok: true;
+  count: number;
+  entries: unknown[];
+};
+
 function requireEnv(name: string): string {
   const value = process.env[name];
   if (!value) {
@@ -136,6 +148,22 @@ async function main(): Promise<void> {
     throw new Error("/agent/work-log did not return ok=true");
   }
 
+  const escalations = await readJson<EscalationsResponse>(
+    await fetch(`${agentBaseUrl}/agent/escalations?limit=10`)
+  );
+
+  if (!escalations.ok) {
+    throw new Error("/agent/escalations did not return ok=true");
+  }
+
+  const controlHistory = await readJson<ControlHistoryResponse>(
+    await fetch(`${agentBaseUrl}/agent/control-history?limit=10`)
+  );
+
+  if (!controlHistory.ok) {
+    throw new Error("/agent/control-history did not return ok=true");
+  }
+
   for (const employee of employees.employees) {
     if (!employee.effectiveAuthority) {
       throw new Error(
@@ -167,6 +195,8 @@ async function main(): Promise<void> {
     managerLogCount: managerLog.count,
     controlsListed: employeeControls.count ?? 1,
     workLogCount: workLog.count,
+    escalationsCount: escalations.count,
+    controlHistoryCount: controlHistory.count,
   });
 }
 

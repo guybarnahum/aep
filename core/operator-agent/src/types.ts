@@ -1,5 +1,16 @@
 export type EmployeeTrigger = "manual" | "cron" | "paperclip";
 
+export type EscalationSeverity = "warning" | "critical";
+
+export type EscalationStatus = "open" | "acknowledged" | "resolved";
+
+export type EscalationReason =
+  | "repeated_verification_failures"
+  | "operator_action_failures_detected"
+  | "frequent_budget_exhaustion"
+  | "cross_worker_budget_pressure"
+  | "cross_worker_failure_pattern_detected";
+
 export type DepartmentId = "aep-infra-ops";
 
 export type AgentRoleId =
@@ -88,6 +99,8 @@ export interface PaperclipRunResponse {
   heartbeatId?: string;
   request: EmployeeRunRequest;
   result: AgentExecutionResponse;
+  executionSource: "paperclip";
+  cronFallbackRecommended: boolean;
 }
 
 export type EmployeeControlState =
@@ -198,12 +211,74 @@ export interface ManagerDecisionResponse {
     restrictionDecisions: number;
     clearedRestrictionDecisions: number;
     crossWorkerAlerts: number;
+    escalationsCreated: number;
     decisionsEmitted: number;
   };
   perEmployee: ManagedEmployeeObservationSummary[];
   decisions: ManagerDecision[];
   message: string;
   controlPlaneBaseUrl: string;
+}
+
+export interface EscalationRecord {
+  escalationId: string;
+  timestamp: string;
+  companyId?: string;
+  departmentId: DepartmentId;
+  managerEmployeeId: string;
+  managerEmployeeName: string;
+  policyVersion: string;
+  severity: EscalationSeverity;
+  status: EscalationStatus;
+  reason: EscalationReason;
+  affectedEmployeeIds: string[];
+  message: string;
+  recommendation:
+    | "escalate_to_human"
+    | "recommend_budget_adjustment"
+    | "rebalance_team_capacity"
+    | "pause_one_worker_keep_one_active";
+  evidence: {
+    windowEntryCount: number;
+    resultCounts?: Partial<Record<TimeoutRecoveryResult, number>>;
+    perEmployee?: Array<{
+      employeeId: string;
+      workLogEntries: number;
+      repeatedVerificationFailures: number;
+      operatorActionFailures: number;
+      budgetExhaustionSignals: number;
+    }>;
+  };
+}
+
+export interface EmployeeControlHistoryRecord {
+  historyId: string;
+  timestamp: string;
+  employeeId: string;
+  departmentId: DepartmentId;
+  updatedByEmployeeId: string;
+  updatedByRoleId: AgentRoleId;
+  policyVersion: string;
+  transition: EmployeeControlTransition;
+  previousState?: EmployeeControlState;
+  nextState: EmployeeControlState;
+  reason: EmployeeControlReason;
+  message: string;
+  reviewAfter?: string;
+  expiresAt?: string;
+  budgetOverride?: Partial<AgentBudget>;
+  authorityOverride?: Partial<AgentAuthority>;
+  evidence?: {
+    windowEntryCount: number;
+    resultCounts?: Partial<Record<TimeoutRecoveryResult, number>>;
+  };
+}
+
+export interface CompanyRunMetadata {
+  companyId?: string;
+  heartbeatId?: string;
+  taskId?: string;
+  source: "paperclip" | "cron";
 }
 
 export interface EmployeeControlRecord {

@@ -44,6 +44,12 @@ export async function handleEmployees(
           state: control.state,
           blocked: control.blocked,
         },
+        governance: {
+          companyPrimaryEntryPoint: "/agent/run",
+          cronFallbackEnabled: true,
+          escalationRoute: "/agent/escalations",
+          controlHistoryRoute: `/agent/control-history?employeeId=${employee.identity.employeeId}`,
+        },
       };
     })
   );
