@@ -1,10 +1,12 @@
 import { getConfig } from "@aep/operator-agent/config";
+import { ApprovalStore } from "@aep/operator-agent/lib/approval-store";
 import { EmployeeControlStore } from "@aep/operator-agent/lib/employee-control-store";
 import { EscalationLog } from "@aep/operator-agent/lib/escalation-log";
 import { ManagerDecisionLog } from "@aep/operator-agent/lib/manager-decision-log";
 import { listAgentWorkLogEntries } from "@aep/operator-agent/lib/work-log-reader";
 import type {
   AgentEmployeeDefinition,
+  ApprovalRecord,
   EmployeeControlRecord,
   EscalationReason,
   ManagedEmployeeObservationSummary,
@@ -120,6 +122,48 @@ function escalationId(
   return `${timestamp}:${reason}:${employeeId}`;
 }
 
+function approvalId(
+  timestamp: string,
+  actionType: string,
+  employeeId: string
+): string {
+  return `approval:${timestamp}:${actionType}:${employeeId}`;
+}
+
+function buildApprovalRecord(args: {
+  manager: AgentEmployeeDefinition["identity"];
+  nowIso: string;
+  actionType: string;
+  employeeId: string;
+  policyVersion: string;
+  reason: string;
+  message: string;
+  executionContext?: ResolvedEmployeeRunContext["executionContext"];
+  companyId?: string;
+  taskId?: string;
+  heartbeatId?: string;
+  payload: Record<string, unknown>;
+}): ApprovalRecord {
+  return {
+    approvalId: approvalId(args.nowIso, args.actionType, args.employeeId),
+    timestamp: args.nowIso,
+    companyId: args.companyId,
+    taskId: args.taskId,
+    heartbeatId: args.heartbeatId,
+    departmentId: args.manager.departmentId,
+    requestedByEmployeeId: args.manager.employeeId,
+    requestedByEmployeeName: args.manager.employeeName,
+    requestedByRoleId: args.manager.roleId,
+    source: "manager",
+    actionType: args.actionType,
+    payload: args.payload,
+    status: "pending",
+    reason: args.reason,
+    message: args.message,
+    executionContext: args.executionContext,
+  };
+}
+
 function resolveObservedEmployeeIds(
   context: ResolvedEmployeeRunContext,
   config: ReturnType<typeof getConfig>
@@ -147,6 +191,22 @@ function companyIdFromExecutionContext(
     : undefined;
 }
 
+function taskIdFromExecutionContext(
+  executionContext: ResolvedEmployeeRunContext["executionContext"]
+): string | undefined {
+  return executionContext?.executionSource === "paperclip"
+    ? executionContext.taskId
+    : undefined;
+}
+
+function heartbeatIdFromExecutionContext(
+  executionContext: ResolvedEmployeeRunContext["executionContext"]
+): string | undefined {
+  return executionContext?.executionSource === "paperclip"
+    ? executionContext.heartbeatId
+    : undefined;
+}
+
 export async function runInfraOpsManager(
   context: ResolvedEmployeeRunContext,
   env?: OperatorAgentEnv
@@ -158,6 +218,7 @@ export async function runInfraOpsManager(
   const observedEmployeeIds = resolveObservedEmployeeIds(context, config);
 
   const decisions: ManagerDecision[] = [];
+  const approvalStore = new ApprovalStore(env ?? {});
   const controlStore = new EmployeeControlStore(env ?? {});
 
   let totalWorkLogEntries = 0;
@@ -166,6 +227,7 @@ export async function runInfraOpsManager(
   let totalBudgetExhausted = 0;
   let crossWorkerAlerts = 0;
   let escalationsCreated = 0;
+  let approvalsRequested = 0;
   let totalReEnableDecisions = 0;
   let totalRestrictionDecisions = 0;
   let totalClearedRestrictionDecisions = 0;
@@ -198,31 +260,38 @@ export async function runInfraOpsManager(
 
     if (verificationFailed >= 2) {
       const message =
-        "Infra Ops Manager moved the employee into disabled_pending_review after repeated verification failures in the recent timeout recovery work log window.";
+        "Infra Ops Manager requested approval to move the employee into disabled_pending_review after repeated verification failures in the recent timeout recovery work log window.";
 
-      await controlStore.put(
-        buildControlRecord({
-          managerEmployeeId: manager.identity.employeeId,
-          managerRoleId: manager.identity.roleId,
-          employeeId: observedEmployeeId,
-          policyVersion: context.policyVersion,
-          nowIso,
-          state: "disabled_pending_review",
+      const approval = buildApprovalRecord({
+        manager: manager.identity,
+        nowIso,
+        actionType: "disable_employee",
+        employeeId: observedEmployeeId,
+        policyVersion: context.policyVersion,
+        reason: "repeated_verification_failures",
+        message,
+        executionContext: context.executionContext,
+        companyId: companyIdFromExecutionContext(context.executionContext),
+        taskId: taskIdFromExecutionContext(context.executionContext),
+        heartbeatId: heartbeatIdFromExecutionContext(context.executionContext),
+        payload: {
+          targetEmployeeId: observedEmployeeId,
+          requestedState: "disabled_pending_review",
           transition: "disabled",
-          reason: "manager_disabled_after_repeated_verification_failures",
-          message,
-          previousState: currentControl?.state,
-          reviewAfter: addMillisecondsToIso(
-            nowIso,
-            config.managerReviewWindowMs
-          ),
-          windowEntryCount: entries.length,
-          resultCounts: counts,
-        })
-      );
+          controlReason: "manager_disabled_after_repeated_verification_failures",
+          reviewAfter: addMillisecondsToIso(nowIso, config.managerReviewWindowMs),
+          evidence: {
+            windowEntryCount: entries.length,
+            resultCounts: counts,
+          },
+        },
+      });
 
-      decisions.push(
-        buildDecision({
+      await approvalStore.write(approval);
+      approvalsRequested += 1;
+
+      decisions.push({
+        ...buildDecision({
           manager: manager.identity,
           employeeId: observedEmployeeId,
           policyVersion: context.policyVersion,
@@ -234,33 +303,46 @@ export async function runInfraOpsManager(
           message,
           windowEntryCount: entries.length,
           resultCounts: counts,
-        })
-      );
+        }),
+        approvalRequired: true,
+        approvalId: approval.approvalId,
+        approvalStatus: approval.status,
+      });
     }
 
     if (operatorActionFailed >= 1) {
       const message =
-        "Infra Ops Manager moved the employee into disabled_by_manager after operator action failures were observed in the recent timeout recovery work log window.";
+        "Infra Ops Manager requested approval to move the employee into disabled_by_manager after operator action failures were observed in the recent timeout recovery work log window.";
 
-      await controlStore.put(
-        buildControlRecord({
-          managerEmployeeId: manager.identity.employeeId,
-          managerRoleId: manager.identity.roleId,
-          employeeId: observedEmployeeId,
-          policyVersion: context.policyVersion,
-          nowIso,
-          state: "disabled_by_manager",
+      const approval = buildApprovalRecord({
+        manager: manager.identity,
+        nowIso,
+        actionType: "disable_employee",
+        employeeId: observedEmployeeId,
+        policyVersion: context.policyVersion,
+        reason: "operator_action_failures_detected",
+        message,
+        executionContext: context.executionContext,
+        companyId: companyIdFromExecutionContext(context.executionContext),
+        taskId: taskIdFromExecutionContext(context.executionContext),
+        heartbeatId: heartbeatIdFromExecutionContext(context.executionContext),
+        payload: {
+          targetEmployeeId: observedEmployeeId,
+          requestedState: "disabled_by_manager",
           transition: "disabled",
-          reason: "manager_disabled_after_operator_action_failures",
-          message,
-          previousState: currentControl?.state,
-          windowEntryCount: entries.length,
-          resultCounts: counts,
-        })
-      );
+          controlReason: "manager_disabled_after_operator_action_failures",
+          evidence: {
+            windowEntryCount: entries.length,
+            resultCounts: counts,
+          },
+        },
+      });
 
-      decisions.push(
-        buildDecision({
+      await approvalStore.write(approval);
+      approvalsRequested += 1;
+
+      decisions.push({
+        ...buildDecision({
           manager: manager.identity,
           employeeId: observedEmployeeId,
           policyVersion: context.policyVersion,
@@ -272,8 +354,11 @@ export async function runInfraOpsManager(
           message,
           windowEntryCount: entries.length,
           resultCounts: counts,
-        })
-      );
+        }),
+        approvalRequired: true,
+        approvalId: approval.approvalId,
+        approvalStatus: approval.status,
+      });
     }
 
     if (budgetExhausted >= 3) {
@@ -294,20 +379,25 @@ export async function runInfraOpsManager(
       );
 
       const message =
-        "Infra Ops Manager restricted the employee after repeated budget exhaustion signals in the recent work log window.";
+        "Infra Ops Manager requested approval to restrict the employee after repeated budget exhaustion signals in the recent work log window.";
 
-      await controlStore.put(
-        buildControlRecord({
-          managerEmployeeId: manager.identity.employeeId,
-          managerRoleId: manager.identity.roleId,
-          employeeId: observedEmployeeId,
-          policyVersion: context.policyVersion,
-          nowIso,
-          state: "restricted",
+      const approval = buildApprovalRecord({
+        manager: manager.identity,
+        nowIso,
+        actionType: "restrict_employee",
+        employeeId: observedEmployeeId,
+        policyVersion: context.policyVersion,
+        reason: "employee_restricted_after_budget_exhaustion",
+        message,
+        executionContext: context.executionContext,
+        companyId: companyIdFromExecutionContext(context.executionContext),
+        taskId: taskIdFromExecutionContext(context.executionContext),
+        heartbeatId: heartbeatIdFromExecutionContext(context.executionContext),
+        payload: {
+          targetEmployeeId: observedEmployeeId,
+          requestedState: "restricted",
           transition: "restricted",
-          reason: "manager_restricted_after_budget_exhaustion",
-          message,
-          previousState: currentControl?.state,
+          controlReason: "manager_restricted_after_budget_exhaustion",
           budgetOverride: {
             maxActionsPerScan: 0,
           },
@@ -316,17 +406,19 @@ export async function runInfraOpsManager(
             allowedServices: ["control-plane"],
             requireTraceVerification: true,
           },
-          reviewAfter: addMillisecondsToIso(
-            nowIso,
-            config.managerReviewWindowMs
-          ),
-          windowEntryCount: entries.length,
-          resultCounts: counts,
-        })
-      );
+          reviewAfter: addMillisecondsToIso(nowIso, config.managerReviewWindowMs),
+          evidence: {
+            windowEntryCount: entries.length,
+            resultCounts: counts,
+          },
+        },
+      });
 
-      decisions.push(
-        buildDecision({
+      await approvalStore.write(approval);
+      approvalsRequested += 1;
+
+      decisions.push({
+        ...buildDecision({
           manager: manager.identity,
           employeeId: observedEmployeeId,
           policyVersion: context.policyVersion,
@@ -338,8 +430,11 @@ export async function runInfraOpsManager(
           message,
           windowEntryCount: entries.length,
           resultCounts: counts,
-        })
-      );
+        }),
+        approvalRequired: true,
+        approvalId: approval.approvalId,
+        approvalStatus: approval.status,
+      });
 
       totalRestrictionDecisions += 1;
     }
@@ -350,20 +445,25 @@ export async function runInfraOpsManager(
       budgetExhausted < 3
     ) {
       const message =
-        "Infra Ops Manager restricted the employee after repeated failure signals, tightening runtime scope without fully disabling the employee.";
+        "Infra Ops Manager requested approval to restrict the employee after repeated failure signals, tightening runtime scope without fully disabling the employee.";
 
-      await controlStore.put(
-        buildControlRecord({
-          managerEmployeeId: manager.identity.employeeId,
-          managerRoleId: manager.identity.roleId,
-          employeeId: observedEmployeeId,
-          policyVersion: context.policyVersion,
-          nowIso,
-          state: "restricted",
+      const approval = buildApprovalRecord({
+        manager: manager.identity,
+        nowIso,
+        actionType: "restrict_employee",
+        employeeId: observedEmployeeId,
+        policyVersion: context.policyVersion,
+        reason: "employee_restricted_after_repeated_failures",
+        message,
+        executionContext: context.executionContext,
+        companyId: companyIdFromExecutionContext(context.executionContext),
+        taskId: taskIdFromExecutionContext(context.executionContext),
+        heartbeatId: heartbeatIdFromExecutionContext(context.executionContext),
+        payload: {
+          targetEmployeeId: observedEmployeeId,
+          requestedState: "restricted",
           transition: "restricted",
-          reason: "manager_restricted_after_repeated_failures",
-          message,
-          previousState: currentControl?.state,
+          controlReason: "manager_restricted_after_repeated_failures",
           budgetOverride: {
             maxActionsPerScan: 1,
             maxActionsPerHour: 5,
@@ -372,17 +472,19 @@ export async function runInfraOpsManager(
           authorityOverride: {
             requireTraceVerification: true,
           },
-          reviewAfter: addMillisecondsToIso(
-            nowIso,
-            config.managerReviewWindowMs
-          ),
-          windowEntryCount: entries.length,
-          resultCounts: counts,
-        })
-      );
+          reviewAfter: addMillisecondsToIso(nowIso, config.managerReviewWindowMs),
+          evidence: {
+            windowEntryCount: entries.length,
+            resultCounts: counts,
+          },
+        },
+      });
 
-      decisions.push(
-        buildDecision({
+      await approvalStore.write(approval);
+      approvalsRequested += 1;
+
+      decisions.push({
+        ...buildDecision({
           manager: manager.identity,
           employeeId: observedEmployeeId,
           policyVersion: context.policyVersion,
@@ -394,8 +496,11 @@ export async function runInfraOpsManager(
           message,
           windowEntryCount: entries.length,
           resultCounts: counts,
-        })
-      );
+        }),
+        approvalRequired: true,
+        approvalId: approval.approvalId,
+        approvalStatus: approval.status,
+      });
 
       totalRestrictionDecisions += 1;
     }
@@ -583,13 +688,14 @@ export async function runInfraOpsManager(
       clearedRestrictionDecisions: totalClearedRestrictionDecisions,
       crossWorkerAlerts,
       escalationsCreated,
+      approvalsRequested,
       decisionsEmitted: decisions.length,
     },
     perEmployee,
     decisions,
     message:
       decisions.length > 0
-        ? "Infra Ops Manager completed a supervisory review and applied local controls where required."
+        ? "Infra Ops Manager completed a supervisory review and requested approvals or applied local controls where required."
         : "Infra Ops Manager completed a supervisory review and found no escalation-worthy patterns.",
     controlPlaneBaseUrl: config.controlPlaneTarget,
     controlPlaneTarget: config.controlPlaneTarget,

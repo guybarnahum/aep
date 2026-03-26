@@ -198,6 +198,9 @@ export interface ManagerDecision {
     | "pause_one_worker_keep_one_active";
   severity: "warning" | "critical";
   message: string;
+  approvalRequired?: boolean;
+  approvalId?: string;
+  approvalStatus?: ApprovalStatus;
   evidence: {
     windowEntryCount: number;
     resultCounts: Partial<Record<TimeoutRecoveryResult, number>>;
@@ -234,6 +237,7 @@ export interface ManagerDecisionResponse {
     clearedRestrictionDecisions: number;
     crossWorkerAlerts: number;
     escalationsCreated: number;
+    approvalsRequested: number;
     decisionsEmitted: number;
   };
   perEmployee: ManagedEmployeeObservationSummary[];
