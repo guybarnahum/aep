@@ -7,7 +7,7 @@ import type {
   OperatorAgentEnv,
 } from "@aep/operator-agent/types";
 
-export async function handleCron(
+export async function handleWorkerCron(
   env: OperatorAgentEnv
 ): Promise<void> {
   const config = getConfig(env);
@@ -29,7 +29,7 @@ export async function handleCron(
 
   const workerResult: EmployeeRunResponse = result;
 
-  console.log("[operator-agent] cron run completed", {
+  console.log("[operator-agent] worker cron run completed", {
     employeeId: workerResult.employee.employeeId,
     dryRun: workerResult.dryRun,
     scanned: workerResult.scanned,

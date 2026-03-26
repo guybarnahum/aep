@@ -2,7 +2,7 @@
 
 export {};
 
-const STAGE4_POLICY_VERSION = "commit9-stage4";
+const STAGE6_POLICY_VERSION = "commit9-stage6";
 
 type RunSummary = {
   id: string;
@@ -292,7 +292,7 @@ async function runAgent(
       employeeId: "emp_timeout_recovery_01",
       roleId: "timeout-recovery-operator",
       trigger: "manual",
-      policyVersion: STAGE4_POLICY_VERSION,
+      policyVersion: STAGE6_POLICY_VERSION,
       ...(overrides ?? {}),
     }),
   });
@@ -313,7 +313,7 @@ async function runAgentViaPaperclip(
       departmentId: "aep-infra-ops",
       employeeId: "emp_timeout_recovery_01",
       roleId: "timeout-recovery-operator",
-      policyVersion: STAGE4_POLICY_VERSION,
+      policyVersion: STAGE6_POLICY_VERSION,
       trigger: "paperclip",
       taskId: "task_timeout_recovery_smoke",
       heartbeatId: "hb_stage2_smoke",
@@ -344,7 +344,7 @@ async function runManager(agentBaseUrl: string): Promise<ManagerRunResponse> {
       employeeId: "emp_infra_ops_manager_01",
       roleId: "infra-ops-manager",
       trigger: "manual",
-      policyVersion: STAGE4_POLICY_VERSION,
+      policyVersion: STAGE6_POLICY_VERSION,
       targetEmployeeIdOverride: "emp_timeout_recovery_01",
     }),
   });
@@ -403,7 +403,7 @@ async function runWorkerAfterManagerDisable(
       employeeId: "emp_timeout_recovery_01",
       roleId: "timeout-recovery-operator",
       trigger: "manual",
-      policyVersion: STAGE4_POLICY_VERSION,
+      policyVersion: STAGE6_POLICY_VERSION,
     }),
   });
 
@@ -420,7 +420,7 @@ async function main(): Promise<void> {
     },
   });
 
-  if (overrideProbe.policyVersion !== STAGE4_POLICY_VERSION) {
+  if (overrideProbe.policyVersion !== STAGE6_POLICY_VERSION) {
     throw new Error(
       `Unexpected policyVersion from /agent/run: ${overrideProbe.policyVersion}`
     );
@@ -457,7 +457,7 @@ async function main(): Promise<void> {
     );
   }
 
-  if (paperclipProbe.request.policyVersion !== STAGE4_POLICY_VERSION) {
+  if (paperclipProbe.request.policyVersion !== STAGE6_POLICY_VERSION) {
     throw new Error(
       `Unexpected policyVersion from paperclip path: ${paperclipProbe.request.policyVersion}`
     );
@@ -571,7 +571,7 @@ async function main(): Promise<void> {
       throw new Error("Second agent run did not include the eligible job decision");
     }
 
-  const acceptableSecondRunNonActionResults = new Set([
+  const acceptableSecondRunResults = new Set([
     "skipped_cooldown_active",
     "skipped_not_eligible",
     "skipped_tenant_not_allowed",
@@ -581,7 +581,7 @@ async function main(): Promise<void> {
     "skipped_budget_tenant_hourly_exhausted"
   ]);
 
-    if (!acceptableSecondRunNonActionResults.has(secondDecision.result)) {
+    if (!acceptableSecondRunResults.has(secondDecision.result)) {
       throw new Error(
         `Unexpected second-run result for job ${eligibleJob.id}: ${secondDecision.result}`
       );
@@ -622,7 +622,7 @@ async function main(): Promise<void> {
     );
   }
 
-  if (managerRun.policyVersion !== STAGE4_POLICY_VERSION) {
+  if (managerRun.policyVersion !== STAGE6_POLICY_VERSION) {
     throw new Error(
       `Unexpected manager policyVersion: ${managerRun.policyVersion}`
     );
@@ -634,7 +634,7 @@ async function main(): Promise<void> {
     throw new Error("Manager log route did not return ok=true");
   }
 
-  console.log("Verified manager advisory run and manager log route", {
+  console.log("Verified manager run and manager log route", {
     decisionsEmitted: managerRun.summary.decisionsEmitted,
     managerLogCount: managerLog.count,
   });

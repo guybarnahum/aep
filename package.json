@@ -28,7 +28,10 @@
     "wait:url": "tsx scripts/ci/wait-for-url.ts",
     "check:health": "tsx scripts/ci/check-health.ts",
     "smoke:test": "tsx scripts/ci/smoke-test.ts",
-    "ci:agent-timeout-recovery-check": "tsx scripts/ci/agent-timeout-recovery-check.ts"
+    "ci:agent-timeout-recovery-check": "tsx scripts/ci/agent-timeout-recovery-check.ts",
+    "ci:scheduled-routing-check": "tsx scripts/ci/scheduled-routing-check.ts",
+    "ci:manager-advisory-check": "tsx scripts/ci/manager-advisory-check.ts",
+    "ci:operator-surface-check": "tsx scripts/ci/operator-surface-check.ts"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20250320.0",

@@ -1,10 +1,11 @@
 import { handleHealthz } from "./routes/healthz";
 import { handleEmployeeControls } from "./routes/employee-controls";
+import { handleEmployees } from "./routes/employees";
 import { handleManagerLog } from "./routes/manager-log";
 import { handleRun } from "./routes/run";
 import { handleRunOnce } from "./routes/run-once";
 import { handleWorkLog } from "./routes/work-log";
-import { handleCron } from "./triggers/cron";
+import { handleScheduledCron } from "./triggers/scheduled";
 import type { OperatorAgentEnv } from "./types";
 
 export default {
@@ -38,13 +39,17 @@ export default {
       return handleEmployeeControls(request, env);
     }
 
+    if (url.pathname === "/agent/employees") {
+      return handleEmployees(request, env);
+    }
+
     return new Response("Not Found", { status: 404 });
   },
 
   async scheduled(
-    _controller: ScheduledController,
+    controller: ScheduledController,
     env: OperatorAgentEnv
   ): Promise<void> {
-    await handleCron(env);
+    await handleScheduledCron(controller.cron, env);
   }
 };

@@ -4,6 +4,7 @@ export interface OperatorAgentConfig {
   controlPlaneBaseUrl: string;
   dryRun: boolean;
   cooldownMs: number;
+  managerObservedEmployeeId: string;
 }
 
 function readEnvString(
@@ -58,7 +59,7 @@ function readEnvNumber(
 export function getConfig(env?: Record<string, unknown>): OperatorAgentConfig {
   return {
     serviceName: "aep-operator-agent",
-    policyVersion: "commit9-stage4",
+    policyVersion: "commit9-stage6",
     controlPlaneBaseUrl: readEnvString(
       env,
       "CONTROL_PLANE_BASE_URL",
@@ -66,5 +67,10 @@ export function getConfig(env?: Record<string, unknown>): OperatorAgentConfig {
     ),
     dryRun: readEnvBoolean(env, "OPERATOR_AGENT_DRY_RUN", false),
     cooldownMs: readEnvNumber(env, "OPERATOR_AGENT_COOLDOWN_MS", 5 * 60 * 1000),
+    managerObservedEmployeeId: readEnvString(
+      env,
+      "OPERATOR_AGENT_MANAGER_OBSERVED_EMPLOYEE_ID",
+      "emp_timeout_recovery_01"
+    ),
   };
 }
