@@ -1,4 +1,4 @@
-import type { AgentWorkLogEntry, OperatorAgentEnv } from "../types";
+import type { AgentWorkLogEntry, OperatorAgentEnv } from "@aep/operator-agent/types";
 
 function workLogKey(employeeId: string, timestamp: string, jobId: string): string {
   return `worklog:${employeeId}:${timestamp}:${jobId}`;

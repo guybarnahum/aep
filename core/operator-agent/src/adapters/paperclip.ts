@@ -1,11 +1,11 @@
-import { getConfig } from "../config";
+import { getConfig } from "@aep/operator-agent/config";
 import type {
   EmployeeRunRequest,
   EmployeeRunResponse,
   OperatorAgentEnv,
   PaperclipRunRequest,
   PaperclipRunResponse,
-} from "../types";
+} from "@aep/operator-agent/types";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;

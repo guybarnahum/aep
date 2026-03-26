@@ -1,4 +1,4 @@
-import type { AgentBudget, BudgetSnapshot, OperatorAgentEnv } from "../types";
+import type { AgentBudget, BudgetSnapshot, OperatorAgentEnv } from "@aep/operator-agent/types";
 
 function hourBucket(nowMs: number): string {
   return new Date(nowMs).toISOString().slice(0, 13);

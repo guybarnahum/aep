@@ -1,7 +1,7 @@
-import { getConfig } from "../config";
-import { executeEmployeeRun } from "../lib/execute-employee-run";
-import { timeoutRecoveryEmployee } from "../org/employees";
-import type { EmployeeRunRequest, OperatorAgentEnv } from "../types";
+import { getConfig } from "@aep/operator-agent/config";
+import { executeEmployeeRun } from "@aep/operator-agent/lib/execute-employee-run";
+import { timeoutRecoveryEmployee } from "@aep/operator-agent/org/employees";
+import type { EmployeeRunRequest, OperatorAgentEnv } from "@aep/operator-agent/types";
 
 export async function handleCron(
   env: OperatorAgentEnv

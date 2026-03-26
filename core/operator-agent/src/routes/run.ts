@@ -1,10 +1,10 @@
-import { adaptPaperclipRequest, adaptPaperclipResponse, isPaperclipRunRequest } from "../adapters/paperclip";
-import { executeEmployeeRun, toErrorResponse } from "../lib/execute-employee-run";
+import { adaptPaperclipRequest, adaptPaperclipResponse, isPaperclipRunRequest } from "@aep/operator-agent/adapters/paperclip";
+import { executeEmployeeRun, toErrorResponse } from "@aep/operator-agent/lib/execute-employee-run";
 import type {
   EmployeeRunRequest,
   OperatorAgentEnv,
   PaperclipRunRequest,
-} from "../types";
+} from "@aep/operator-agent/types";
 
 export async function handleRun(
   request: Request,

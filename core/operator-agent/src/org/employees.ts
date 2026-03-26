@@ -1,4 +1,4 @@
-import type { AgentEmployeeDefinition, AgentRoleId } from "../types";
+import type { AgentEmployeeDefinition, AgentRoleId } from "@aep/operator-agent/types";
 
 export const timeoutRecoveryEmployee: AgentEmployeeDefinition = {
   identity: {

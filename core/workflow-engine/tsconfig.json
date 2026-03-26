@@ -9,21 +9,19 @@
     "skipLibCheck": true,
     "baseUrl": ".",
     "paths": {
-      "@aep/control-plane/*": ["src/*"],
-      "@aep/workflow-engine/*": ["../workflow-engine/src/*"],
+      "@aep/workflow-engine/*": ["src/*"],
       "@aep/types/*": ["../types/src/*"],
       "@aep/observability/*": ["../observability/src/*"],
       "@aep/shared/*": ["../../packages/shared/src/*"],
       "@aep/event-schema/*": ["../../packages/event-schema/src/*"],
-      "@aep/deployment-engine/*": ["../../services/deployment-engine/src/*"],
       "@aep/proving-ground/*": ["../../services/proving-ground/src/*"]
     }
   },
   "include": [
     "src/**/*.ts",
-    "../workflow-engine/src/**/*.ts",
     "../types/src/**/*.ts",
+    "../observability/src/**/*.ts",
     "../../packages/**/*.ts",
-    "../../services/**/*.ts"
+    "../../services/proving-ground/src/**/*.ts"
   ]
 }

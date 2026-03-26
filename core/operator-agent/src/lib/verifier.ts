@@ -1,4 +1,4 @@
-import type { TraceEvent } from "../types";
+import type { TraceEvent } from "@aep/operator-agent/types";
 
 function matchesJob(event: TraceEvent, jobId: string): boolean {
   if (event.job_id === jobId) {

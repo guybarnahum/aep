@@ -1,4 +1,4 @@
-import type { StartWorkflowRequest } from "../../../packages/event-schema/src/index";
+import type { StartWorkflowRequest } from "@aep/event-schema/index";
 
 export interface Env {
   DB: D1Database;

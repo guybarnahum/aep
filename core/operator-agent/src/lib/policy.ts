@@ -4,7 +4,7 @@ import type {
   RunSummary,
   TimeoutRecoveryDecision,
   TimeoutRecoveryMode,
-} from "../types";
+} from "@aep/operator-agent/types";
 
 function tenantAllowed(authority: AgentAuthority, run: RunSummary): boolean {
   if (!authority.allowedTenants || authority.allowedTenants.length === 0) {

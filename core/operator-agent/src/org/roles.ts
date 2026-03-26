@@ -1,4 +1,4 @@
-import type { AgentRoleId } from "../types";
+import type { AgentRoleId } from "@aep/operator-agent/types";
 
 export const roles: Record<AgentRoleId, { id: AgentRoleId; name: string }> = {
   "timeout-recovery-operator": {

@@ -1,4 +1,4 @@
-import { getConfig } from "../config";
+import { getConfig } from "@aep/operator-agent/config";
 
 export function handleHealthz(): Response {
   const config = getConfig();

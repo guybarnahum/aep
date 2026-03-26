@@ -1,23 +1,23 @@
-import { emitEvent } from "../../observability/src/index";
-import type { Env } from "../../types/src/index";
+import { emitEvent } from "@aep/observability/index";
+import type { Env } from "@aep/types/index";
 import type {
   StartWorkflowRequest,
   StepName,
   DeployMode,
   TeardownMode,
-} from "../../../packages/event-schema/src/index";
-import type { Provider } from "../../../packages/shared/src/index";
+} from "@aep/event-schema/index";
+import type { Provider } from "@aep/shared/index";
 import {
   DEFAULT_PROVIDER,
   newId,
   nowIso,
   sha256Hex,
-} from "../../../packages/shared/src/index";
+} from "@aep/shared/index";
 import {
   auditCleanup,
   runHealthCheck,
   runSmokeTest,
-} from "../../../services/proving-ground/src/index";
+} from "@aep/proving-ground/index";
 
 interface State {
   workflowRunId: string;

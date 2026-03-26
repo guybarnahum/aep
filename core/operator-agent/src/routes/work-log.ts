@@ -1,5 +1,5 @@
-import { timeoutRecoveryEmployee } from "../org/employees";
-import type { AgentWorkLogEntry, OperatorAgentEnv } from "../types";
+import { timeoutRecoveryEmployee } from "@aep/operator-agent/org/employees";
+import type { AgentWorkLogEntry, OperatorAgentEnv } from "@aep/operator-agent/types";
 
 function workLogPrefix(employeeId: string): string {
   return `worklog:${employeeId}:`;

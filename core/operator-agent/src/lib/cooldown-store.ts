@@ -1,4 +1,4 @@
-import type { OperatorAgentEnv } from "../types";
+import type { OperatorAgentEnv } from "@aep/operator-agent/types";
 
 function cooldownKey(jobId: string): string {
   return `cooldown:job:${jobId}`;

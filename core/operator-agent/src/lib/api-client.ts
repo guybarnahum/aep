@@ -1,4 +1,4 @@
-import type { JobSummary, RunSummary, TraceEvent } from "../types";
+import type { JobSummary, RunSummary, TraceEvent } from "@aep/operator-agent/types";
 
 async function readJson<T>(response: Response): Promise<T> {
   if (!response.ok) {

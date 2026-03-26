@@ -1,4 +1,4 @@
-import type { EscalationPolicy } from "../types";
+import type { EscalationPolicy } from "@aep/operator-agent/types";
 
 export function cloneEscalation(policy: EscalationPolicy): EscalationPolicy {
   return {

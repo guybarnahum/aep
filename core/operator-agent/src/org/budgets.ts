@@ -1,4 +1,4 @@
-import type { AgentBudget } from "../types";
+import type { AgentBudget } from "@aep/operator-agent/types";
 
 export function cloneBudget(budget: AgentBudget): AgentBudget {
   return {

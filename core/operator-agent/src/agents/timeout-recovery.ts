@@ -1,11 +1,11 @@
-import { getConfig } from "../config";
-import { ControlPlaneClient } from "../lib/api-client";
-import { BudgetEnforcer } from "../lib/budget-enforcer";
-import { CooldownStore } from "../lib/cooldown-store";
-import { DecisionLog } from "../lib/decision-log";
-import { logInfo } from "../lib/logger";
-import { evaluateTimeoutRecoveryPolicy } from "../lib/policy";
-import { verifyAdvanceTimeoutApplied } from "../lib/verifier";
+import { getConfig } from "@aep/operator-agent/config";
+import { ControlPlaneClient } from "@aep/operator-agent/lib/api-client";
+import { BudgetEnforcer } from "@aep/operator-agent/lib/budget-enforcer";
+import { CooldownStore } from "@aep/operator-agent/lib/cooldown-store";
+import { DecisionLog } from "@aep/operator-agent/lib/decision-log";
+import { logInfo } from "@aep/operator-agent/lib/logger";
+import { evaluateTimeoutRecoveryPolicy } from "@aep/operator-agent/lib/policy";
+import { verifyAdvanceTimeoutApplied } from "@aep/operator-agent/lib/verifier";
 import type {
   AgentIdentity,
   AgentWorkLogEntry,
@@ -14,7 +14,7 @@ import type {
   ResolvedEmployeeRunContext,
   TimeoutRecoveryDecision,
   TimeoutRecoveryResult,
-} from "../types";
+} from "@aep/operator-agent/types";
 
 function nowIso(nowMs: number): string {
   return new Date(nowMs).toISOString();

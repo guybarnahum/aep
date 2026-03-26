@@ -9,8 +9,12 @@
     "skipLibCheck": true,
     "baseUrl": ".",
     "paths": {
-      "@aep/operator-agent/*": ["src/*"]
+      "@aep/types/*": ["src/*"],
+      "@aep/event-schema/*": ["../../packages/event-schema/src/*"]
     }
   },
-  "include": ["src/**/*.ts"]
+  "include": [
+    "src/**/*.ts",
+    "../../packages/event-schema/src/**/*.ts"
+  ]
 }

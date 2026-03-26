@@ -1,4 +1,4 @@
-import type { AgentAuthority } from "../types";
+import type { AgentAuthority } from "@aep/operator-agent/types";
 
 export function cloneAuthority(authority: AgentAuthority): AgentAuthority {
   return {

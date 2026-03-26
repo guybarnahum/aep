@@ -1,15 +1,15 @@
-import { getConfig } from "../config";
-import { runTimeoutRecoveryOperator } from "../agents/timeout-recovery";
-import { cloneAuthority } from "../org/authority";
-import { cloneBudget } from "../org/budgets";
-import { getEmployeeById } from "../org/employees";
+import { getConfig } from "@aep/operator-agent/config";
+import { runTimeoutRecoveryOperator } from "@aep/operator-agent/agents/timeout-recovery";
+import { cloneAuthority } from "@aep/operator-agent/org/authority";
+import { cloneBudget } from "@aep/operator-agent/org/budgets";
+import { getEmployeeById } from "@aep/operator-agent/org/employees";
 import type {
   EmployeeRunRequest,
   EmployeeRunResponse,
   EmployeeRunErrorResponse,
   OperatorAgentEnv,
   ResolvedEmployeeRunContext,
-} from "../types";
+} from "@aep/operator-agent/types";
 
 function validateRunRequest(
   request: EmployeeRunRequest
