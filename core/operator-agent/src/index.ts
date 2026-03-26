@@ -1,4 +1,6 @@
 import { handleControlHistory } from "./routes/control-history";
+import { handleApprovalDetail } from "./routes/approval-detail";
+import { handleApprovals } from "./routes/approvals";
 import { handleEscalations } from "./routes/escalations";
 import { handleAcknowledgeEscalation } from "./routes/escalations-acknowledge";
 import { handleResolveEscalation } from "./routes/escalations-resolve";
@@ -9,6 +11,7 @@ import { handleManagerLog } from "./routes/manager-log";
 import { handleRun } from "./routes/run";
 import { handleRunOnce } from "./routes/run-once";
 import { handleSchedulerStatus } from "./routes/scheduler-status";
+import { handleSeedApproval } from "./routes/te-seed-approval";
 import { handleSeedWorkLog } from "./routes/te-seed-work-log";
 import { handleWorkLog } from "./routes/work-log";
 import { handleScheduledCron } from "./triggers/scheduled";
@@ -61,6 +64,15 @@ async function dispatch(request: Request, env: OperatorAgentEnv): Promise<Respon
     return handleEscalations(request, env);
   }
 
+  if (url.pathname === "/agent/approvals") {
+    return handleApprovals(request, env);
+  }
+
+  const approvalMatch = url.pathname.match(/^\/agent\/approvals\/([^/]+)$/);
+  if (approvalMatch) {
+    return handleApprovalDetail(request, env, decodeURIComponent(approvalMatch[1]));
+  }
+
   if (url.pathname === "/agent/escalations/acknowledge") {
     return handleAcknowledgeEscalation(request, env);
   }
@@ -75,6 +87,13 @@ async function dispatch(request: Request, env: OperatorAgentEnv): Promise<Respon
 
   if (request.method === "GET" && url.pathname === "/agent/scheduler-status") {
     return handleSchedulerStatus(request, env);
+  }
+
+  if (
+    env.ENABLE_TEST_ENDPOINTS === "true" &&
+    url.pathname === "/agent/te/seed-approval"
+  ) {
+    return handleSeedApproval(request, env);
   }
 
   if (

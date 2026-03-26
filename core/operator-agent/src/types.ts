@@ -282,6 +282,43 @@ export interface EscalationRecord {
   executionContext?: ExecutionContext;
 }
 
+export type ApprovalStatus =
+  | "pending"
+  | "approved"
+  | "rejected"
+  | "expired";
+
+export type ApprovalSource = "manager" | "policy" | "system";
+
+export interface ApprovalRecord {
+  approvalId: string;
+  timestamp: string;
+  companyId?: string;
+  taskId?: string;
+  heartbeatId?: string;
+
+  departmentId: DepartmentId;
+
+  requestedByEmployeeId: string;
+  requestedByEmployeeName?: string;
+  requestedByRoleId: AgentRoleId;
+  source: ApprovalSource;
+
+  actionType: string;
+  payload: Record<string, unknown>;
+
+  status: ApprovalStatus;
+
+  reason: string;
+  message: string;
+
+  decidedAt?: string;
+  decidedBy?: string;
+  decisionNote?: string;
+
+  executionContext?: ExecutionContext;
+}
+
 export interface EmployeeControlHistoryRecord {
   historyId: string;
   timestamp: string;
