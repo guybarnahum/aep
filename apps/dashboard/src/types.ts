@@ -218,3 +218,40 @@ export type DepartmentOverview = {
   managerLog: ManagerDecisionRecord[];
   schedulerStatus: SchedulerStatus;
 };
+
+export type EscalationStateFilter = "all" | "open" | "acknowledged" | "resolved";
+
+export type DecisionSeverityFilter = "all" | "warning" | "critical";
+
+export type EmployeeStateFilter =
+  | "all"
+  | "enabled"
+  | "disabled_pending_review"
+  | "disabled_by_manager"
+  | "restricted";
+
+export type DepartmentFilters = {
+  selectedEmployeeId: string | null;
+  escalationState: EscalationStateFilter;
+  decisionSeverity: DecisionSeverityFilter;
+  employeeState: EmployeeStateFilter;
+};
+
+export type EscalationMutationResponse = {
+  ok: boolean;
+  escalation?: EscalationRecord;
+};
+
+export type PageSize = 10 | 20 | 50;
+
+export type SectionPaginationState = {
+  page: number;
+  pageSize: PageSize;
+};
+
+export type DepartmentPaginationState = {
+  employees: SectionPaginationState;
+  escalations: SectionPaginationState;
+  managerLog: SectionPaginationState;
+  controlHistory: SectionPaginationState;
+};

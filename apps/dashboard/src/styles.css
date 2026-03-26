@@ -38,16 +38,47 @@ button {
   border: 1px solid rgba(148, 163, 184, 0.25);
   border-radius: 10px;
   padding: 8px 12px;
+  transition: all 0.15s ease;
+}
+
+button:not(:disabled):hover {
+  background: #1e2a47;
+  border-color: rgba(148, 163, 184, 0.4);
+}
+
+button:not(:disabled):active {
+  background: #2a3a57;
+  border-color: rgba(148, 163, 184, 0.55);
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .button {
   cursor: pointer;
 }
 
+.button-secondary {
+  background: rgba(148, 163, 184, 0.1);
+  border-color: rgba(148, 163, 184, 0.25);
+}
+
+.button-secondary:not(:disabled):hover {
+  background: rgba(148, 163, 184, 0.15);
+  border-color: rgba(148, 163, 184, 0.4);
+}
+
+.button-secondary:not(:disabled):active {
+  background: rgba(148, 163, 184, 0.2);
+  border-color: rgba(148, 163, 184, 0.5);
+}
+
 .app-shell {
-  max-width: 1360px;
+  max-width: 1480px;
   margin: 0 auto;
-  padding: 24px;
+  padding: 18px;
 }
 
 .app-header {
@@ -60,7 +91,7 @@ button {
 
 .app-header h1 {
   margin: 0;
-  font-size: 28px;
+  font-size: 24px;
 }
 
 .app-header p {
@@ -71,7 +102,7 @@ button {
   background: rgba(15, 23, 42, 0.9);
   border: 1px solid rgba(148, 163, 184, 0.16);
   border-radius: 18px;
-  padding: 18px;
+  padding: 16px;
   margin-bottom: 18px;
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.22);
 }
@@ -175,6 +206,15 @@ button {
   border-radius: 12px;
   background: rgba(2, 8, 23, 0.5);
   border: 1px solid rgba(148, 163, 184, 0.08);
+}
+
+.timestamp {
+  white-space: nowrap;
+}
+
+.timestamp .muted.small {
+  display: block;
+  margin-top: 1px;
 }
 
 .run-badge {
@@ -392,7 +432,124 @@ button {
   border-color: rgba(14, 116, 144, 0.35);
 }
 
+.pager {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.pager-center {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pager-right {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.pager-label {
+  min-width: 88px;
+  text-align: center;
+}
+
+.pager-size-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pager-size-select {
+  color: inherit;
+  background: #0f172a;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  border-radius: 8px;
+  padding: 5px 8px;
+  font-size: 12px;
+}
+
+.data-table {
+  font-size: 12px;
+}
+
+.data-table th,
+.data-table td {
+  padding: 8px 10px;
+  vertical-align: top;
+}
+
+.service-card {
+  padding: 14px;
+}
+
+.tenant-card {
+  padding: 14px;
+}
+
+.panel-header h2 {
+  font-size: 18px;
+}
+
+.panel-header p,
+.muted,
+.small,
+.summary-card-label,
+.secondary-link,
+.checkbox-label,
+.filter-field span,
+.pager-label,
+.pager-size-label {
+  font-size: 12px;
+}
+
+.summary-card-value {
+  font-size: 22px;
+}
+
+.service-card h3,
+.tenant-card h3 {
+  font-size: 16px;
+}
+
+.json-block {
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.scroll-block {
+  max-height: 180px;
+}
+
+.expandable-block summary {
+  font-size: 11px;
+}
+
+.button-small {
+  font-size: 11px;
+  padding: 4px 8px;
+}
+
+.run-badge {
+  min-width: 220px;
+}
+
+.environment-row {
+  padding: 10px;
+}
+
 @media (max-width: 920px) {
+  .pager {
+    grid-template-columns: 1fr;
+    align-items: start;
+  }
+
+  .pager-right {
+    justify-content: flex-start;
+  }
+
   .summary-grid,
   .governance-grid {
     grid-template-columns: 1fr;

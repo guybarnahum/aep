@@ -1,6 +1,7 @@
 import type {
   ControlHistoryRecord,
   DepartmentOverview,
+  EscalationMutationResponse,
   EscalationRecord,
   ManagerDecisionRecord,
   OperatorEmployeeRecord,
@@ -34,6 +35,31 @@ async function getJson<T>(baseUrl: string, path: string): Promise<T> {
 
   if (!response.ok) {
     throw new Error(`Request failed: ${response.status} ${response.statusText}`);
+  }
+
+  return (await response.json()) as T;
+}
+
+async function postJson<T>(
+  baseUrl: string,
+  path: string,
+  body: Record<string, unknown>,
+  headers?: Record<string, string>,
+): Promise<T> {
+  const response = await fetch(`${baseUrl}${path}`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      ...(headers ?? {}),
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(
+      `Request failed: ${response.status} ${response.statusText}${text ? ` — ${text}` : ""}`,
+    );
   }
 
   return (await response.json()) as T;
@@ -100,4 +126,29 @@ export async function getDepartmentOverview(): Promise<DepartmentOverview> {
     managerLog: managerLogPayload.entries ?? [],
     schedulerStatus,
   };
+}
+
+export async function acknowledgeEscalation(
+  escalationId: string,
+  actor = "dashboard-operator",
+): Promise<EscalationMutationResponse> {
+  return postJson<EscalationMutationResponse>(
+    getOperatorAgentBaseUrl(),
+    "/agent/escalations/acknowledge",
+    { id: escalationId },
+    { "x-actor": actor },
+  );
+}
+
+export async function resolveEscalation(
+  escalationId: string,
+  note: string,
+  actor = "dashboard-operator",
+): Promise<EscalationMutationResponse> {
+  return postJson<EscalationMutationResponse>(
+    getOperatorAgentBaseUrl(),
+    "/agent/escalations/resolve",
+    { id: escalationId, note },
+    { "x-actor": actor },
+  );
 }
