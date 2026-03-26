@@ -206,6 +206,8 @@ export interface ManagerDecision {
     | "requested_pending"
     | "blocked_pending_approval"
     | "blocked_rejected"
+    | "blocked_expired"
+    | "blocked_already_executed"
     | "approved_ready"
     | "approved_applied";
   approvalExecutionId?: string;
@@ -249,6 +251,8 @@ export interface ManagerDecisionResponse {
     approvalsRequested: number;
     approvalBlockedDecisions: number;
     approvalAppliedDecisions: number;
+    approvalExpiredBlocks: number;
+    approvalAlreadyExecutedBlocks: number;
     decisionsEmitted: number;
   };
   perEmployee: ManagedEmployeeObservationSummary[];
@@ -305,6 +309,19 @@ export type ApprovalStatus =
 
 export type ApprovalSource = "manager" | "policy" | "system";
 
+export interface ApprovalPolicy {
+  required: boolean;
+  ttlMs: number;
+  singleUse: boolean;
+}
+
+export interface ApprovalPolicyResolved {
+  actionType: string;
+  required: boolean;
+  ttlMs: number;
+  singleUse: boolean;
+}
+
 export interface ApprovalRecord {
   approvalId: string;
   timestamp: string;
@@ -323,6 +340,7 @@ export interface ApprovalRecord {
   payload: Record<string, unknown>;
 
   status: ApprovalStatus;
+  expiresAt?: string;
 
   reason: string;
   message: string;

@@ -1,5 +1,6 @@
 import { getConfig } from "@aep/operator-agent/config";
 import { ApprovalStore } from "@aep/operator-agent/lib/approval-store";
+import { getApprovalPolicy } from "@aep/operator-agent/lib/approval-policy";
 import { EmployeeControlStore } from "@aep/operator-agent/lib/employee-control-store";
 import { EscalationLog } from "@aep/operator-agent/lib/escalation-log";
 import { ManagerDecisionLog } from "@aep/operator-agent/lib/manager-decision-log";
@@ -152,6 +153,8 @@ function buildApprovalRecord(args: {
   heartbeatId?: string;
   payload: Record<string, unknown>;
 }): ApprovalRecord {
+  const policy = getApprovalPolicy(args.actionType);
+
   return {
     approvalId: approvalId(args.nowIso, args.actionType, args.employeeId),
     timestamp: args.nowIso,
@@ -166,6 +169,10 @@ function buildApprovalRecord(args: {
     actionType: args.actionType,
     payload: args.payload,
     status: "pending",
+    expiresAt:
+      policy.required && policy.ttlMs > 0
+        ? addMillisecondsToIso(args.nowIso, policy.ttlMs)
+        : undefined,
     reason: args.reason,
     message: args.message,
     executionContext: args.executionContext,
@@ -229,6 +236,8 @@ async function applyApprovalBackedControl(args: {
   approvalGateStatus:
     | "blocked_pending_approval"
     | "blocked_rejected"
+    | "blocked_expired"
+    | "blocked_already_executed"
     | "approved_applied";
   approval?: ApprovalRecord | null;
   executionId?: string;
@@ -247,10 +256,27 @@ async function applyApprovalBackedControl(args: {
     };
   }
 
-  if (latest.status === "rejected" || latest.status === "expired") {
+  if (latest.status === "rejected") {
     return {
       applied: false,
       approvalGateStatus: "blocked_rejected",
+      approval: latest,
+    };
+  }
+
+  if (latest.status === "expired") {
+    return {
+      applied: false,
+      approvalGateStatus: "blocked_expired",
+      approval: latest,
+    };
+  }
+
+  const policy = getApprovalPolicy(args.actionType);
+  if (policy.singleUse && (latest.executionId || latest.executedAt)) {
+    return {
+      applied: false,
+      approvalGateStatus: "blocked_already_executed",
       approval: latest,
     };
   }
@@ -279,10 +305,34 @@ async function applyApprovalBackedControl(args: {
     executedByRoleId: args.manager.roleId,
   });
 
+  if (!marked.ok) {
+    if (marked.reason === "already_executed") {
+      return {
+        applied: false,
+        approvalGateStatus: "blocked_already_executed",
+        approval: marked.approval ?? latest,
+      };
+    }
+
+    if (marked.reason === "expired") {
+      return {
+        applied: false,
+        approvalGateStatus: "blocked_expired",
+        approval: marked.approval ?? latest,
+      };
+    }
+
+    return {
+      applied: false,
+      approvalGateStatus: "blocked_rejected",
+      approval: marked.approval ?? latest,
+    };
+  }
+
   return {
     applied: true,
     approvalGateStatus: "approved_applied",
-    approval: marked.ok ? marked.approval : latest,
+    approval: marked.approval,
     executionId,
     approvalExecutedAt,
   };
@@ -311,6 +361,8 @@ export async function runInfraOpsManager(
   let approvalsRequested = 0;
   let approvalBlockedDecisions = 0;
   let approvalAppliedDecisions = 0;
+  let approvalExpiredBlocks = 0;
+  let approvalAlreadyExecutedBlocks = 0;
   let totalReEnableDecisions = 0;
   let totalRestrictionDecisions = 0;
   let totalClearedRestrictionDecisions = 0;
@@ -347,6 +399,7 @@ export async function runInfraOpsManager(
           actionType: "disable_employee",
           targetEmployeeId: observedEmployeeId,
         });
+      const disablePolicy = getApprovalPolicy("disable_employee");
 
       let linkedApproval = latestDisableApproval;
       let approvalGateStatus: ManagerDecision["approvalGateStatus"];
@@ -370,7 +423,17 @@ export async function runInfraOpsManager(
         resultCounts: counts,
       });
 
-      if (!latestDisableApproval) {
+      const shouldRequestFreshApproval =
+        !latestDisableApproval ||
+        latestDisableApproval.status === "expired" ||
+        (latestDisableApproval.status === "approved" &&
+          disablePolicy.singleUse &&
+          Boolean(
+            latestDisableApproval.executionId ||
+              latestDisableApproval.executedAt
+          ));
+
+      if (shouldRequestFreshApproval) {
         linkedApproval = buildApprovalRecord({
           manager: manager.identity,
           nowIso,
@@ -419,12 +482,22 @@ export async function runInfraOpsManager(
           appliedExecutedAt = applyResult.approvalExecutedAt;
         } else {
           approvalBlockedDecisions += 1;
+          if (approvalGateStatus === "blocked_expired") {
+            approvalExpiredBlocks += 1;
+          }
+          if (approvalGateStatus === "blocked_already_executed") {
+            approvalAlreadyExecutedBlocks += 1;
+          }
         }
       }
 
       const message =
         approvalGateStatus === "approved_applied"
           ? "Infra Ops Manager applied the approved disable control after repeated verification failures."
+          : approvalGateStatus === "blocked_expired"
+            ? "Infra Ops Manager found that the prior approval for disabling the employee had expired; control was not applied and fresh approval is required."
+            : approvalGateStatus === "blocked_already_executed"
+              ? "Infra Ops Manager found that the approved authorization for disabling the employee was already consumed; control was not applied and fresh approval is required."
           : approvalGateStatus === "blocked_rejected"
             ? "Infra Ops Manager found a rejected approval for disabling the employee after repeated verification failures; control was not applied."
             : "Infra Ops Manager requested approval to move the employee into disabled_pending_review after repeated verification failures; action remains blocked pending approval.";
@@ -458,6 +531,7 @@ export async function runInfraOpsManager(
           actionType: "disable_employee",
           targetEmployeeId: observedEmployeeId,
         });
+      const disablePolicy = getApprovalPolicy("disable_employee");
 
       let linkedApproval = latestDisableApproval;
       let approvalGateStatus: ManagerDecision["approvalGateStatus"];
@@ -480,7 +554,17 @@ export async function runInfraOpsManager(
         resultCounts: counts,
       });
 
-      if (!latestDisableApproval) {
+      const shouldRequestFreshApproval =
+        !latestDisableApproval ||
+        latestDisableApproval.status === "expired" ||
+        (latestDisableApproval.status === "approved" &&
+          disablePolicy.singleUse &&
+          Boolean(
+            latestDisableApproval.executionId ||
+              latestDisableApproval.executedAt
+          ));
+
+      if (shouldRequestFreshApproval) {
         linkedApproval = buildApprovalRecord({
           manager: manager.identity,
           nowIso,
@@ -528,12 +612,22 @@ export async function runInfraOpsManager(
           appliedExecutedAt = applyResult.approvalExecutedAt;
         } else {
           approvalBlockedDecisions += 1;
+          if (approvalGateStatus === "blocked_expired") {
+            approvalExpiredBlocks += 1;
+          }
+          if (approvalGateStatus === "blocked_already_executed") {
+            approvalAlreadyExecutedBlocks += 1;
+          }
         }
       }
 
       const message =
         approvalGateStatus === "approved_applied"
           ? "Infra Ops Manager applied the approved disable control after operator action failures were observed."
+          : approvalGateStatus === "blocked_expired"
+            ? "Infra Ops Manager found that the prior approval for disabling the employee had expired; control was not applied and fresh approval is required."
+            : approvalGateStatus === "blocked_already_executed"
+              ? "Infra Ops Manager found that the approved authorization for disabling the employee was already consumed; control was not applied and fresh approval is required."
           : approvalGateStatus === "blocked_rejected"
             ? "Infra Ops Manager found a rejected approval for disabling the employee after operator action failures; control was not applied."
             : "Infra Ops Manager requested approval to move the employee into disabled_by_manager after operator action failures; action remains blocked pending approval.";
@@ -586,6 +680,7 @@ export async function runInfraOpsManager(
           actionType: "restrict_employee",
           targetEmployeeId: observedEmployeeId,
         });
+      const restrictPolicy = getApprovalPolicy("restrict_employee");
 
       let linkedApproval = latestRestrictApproval;
       let approvalGateStatus: ManagerDecision["approvalGateStatus"];
@@ -617,7 +712,17 @@ export async function runInfraOpsManager(
         resultCounts: counts,
       });
 
-      if (!latestRestrictApproval) {
+      const shouldRequestFreshApproval =
+        !latestRestrictApproval ||
+        latestRestrictApproval.status === "expired" ||
+        (latestRestrictApproval.status === "approved" &&
+          restrictPolicy.singleUse &&
+          Boolean(
+            latestRestrictApproval.executionId ||
+              latestRestrictApproval.executedAt
+          ));
+
+      if (shouldRequestFreshApproval) {
         linkedApproval = buildApprovalRecord({
           manager: manager.identity,
           nowIso,
@@ -673,12 +778,22 @@ export async function runInfraOpsManager(
           appliedExecutedAt = applyResult.approvalExecutedAt;
         } else {
           approvalBlockedDecisions += 1;
+          if (approvalGateStatus === "blocked_expired") {
+            approvalExpiredBlocks += 1;
+          }
+          if (approvalGateStatus === "blocked_already_executed") {
+            approvalAlreadyExecutedBlocks += 1;
+          }
         }
       }
 
       const restrictedMessage =
         approvalGateStatus === "approved_applied"
           ? "Infra Ops Manager applied the approved restriction control after repeated budget exhaustion signals."
+          : approvalGateStatus === "blocked_expired"
+            ? "Infra Ops Manager found that the prior approval for restricting the employee had expired; control was not applied and fresh approval is required."
+            : approvalGateStatus === "blocked_already_executed"
+              ? "Infra Ops Manager found that the approved authorization for restricting the employee was already consumed; control was not applied and fresh approval is required."
           : approvalGateStatus === "blocked_rejected"
             ? "Infra Ops Manager found a rejected approval for restricting the employee after repeated budget exhaustion signals; control was not applied."
             : "Infra Ops Manager requested approval to restrict the employee after repeated budget exhaustion signals; action remains blocked pending approval.";
@@ -718,6 +833,7 @@ export async function runInfraOpsManager(
           actionType: "restrict_employee",
           targetEmployeeId: observedEmployeeId,
         });
+      const restrictPolicy = getApprovalPolicy("restrict_employee");
 
       let linkedApproval = latestRestrictApproval;
       let approvalGateStatus: ManagerDecision["approvalGateStatus"];
@@ -749,7 +865,17 @@ export async function runInfraOpsManager(
         resultCounts: counts,
       });
 
-      if (!latestRestrictApproval) {
+      const shouldRequestFreshApproval =
+        !latestRestrictApproval ||
+        latestRestrictApproval.status === "expired" ||
+        (latestRestrictApproval.status === "approved" &&
+          restrictPolicy.singleUse &&
+          Boolean(
+            latestRestrictApproval.executionId ||
+              latestRestrictApproval.executedAt
+          ));
+
+      if (shouldRequestFreshApproval) {
         linkedApproval = buildApprovalRecord({
           manager: manager.identity,
           nowIso,
@@ -806,12 +932,22 @@ export async function runInfraOpsManager(
           appliedExecutedAt = applyResult.approvalExecutedAt;
         } else {
           approvalBlockedDecisions += 1;
+          if (approvalGateStatus === "blocked_expired") {
+            approvalExpiredBlocks += 1;
+          }
+          if (approvalGateStatus === "blocked_already_executed") {
+            approvalAlreadyExecutedBlocks += 1;
+          }
         }
       }
 
       const message =
         approvalGateStatus === "approved_applied"
           ? "Infra Ops Manager applied the approved restriction control after repeated failure signals."
+          : approvalGateStatus === "blocked_expired"
+            ? "Infra Ops Manager found that the prior approval for restricting the employee had expired; control was not applied and fresh approval is required."
+            : approvalGateStatus === "blocked_already_executed"
+              ? "Infra Ops Manager found that the approved authorization for restricting the employee was already consumed; control was not applied and fresh approval is required."
           : approvalGateStatus === "blocked_rejected"
             ? "Infra Ops Manager found a rejected approval for restricting the employee after repeated failure signals; control was not applied."
             : "Infra Ops Manager requested approval to restrict the employee after repeated failure signals; action remains blocked pending approval.";
@@ -1027,6 +1163,8 @@ export async function runInfraOpsManager(
       approvalsRequested,
       approvalBlockedDecisions,
       approvalAppliedDecisions,
+      approvalExpiredBlocks,
+      approvalAlreadyExecutedBlocks,
       decisionsEmitted: decisions.length,
     },
     perEmployee,

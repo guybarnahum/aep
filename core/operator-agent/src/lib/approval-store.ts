@@ -1,3 +1,4 @@
+import { getApprovalPolicy } from "@aep/operator-agent/lib/approval-policy";
 import type {
   AgentRoleId,
   ApprovalRecord,
@@ -31,6 +32,14 @@ function isTerminalApprovalStatus(status: ApprovalStatus): boolean {
   return status === "approved" || status === "rejected" || status === "expired";
 }
 
+function isExpiredApproval(record: ApprovalRecord, nowIso: string): boolean {
+  return Boolean(record.expiresAt && record.expiresAt <= nowIso);
+}
+
+function isApprovalConsumed(record: ApprovalRecord): boolean {
+  return Boolean(record.executionId || record.executedAt);
+}
+
 export class ApprovalStore {
   constructor(private readonly env: OperatorAgentEnv) {}
 
@@ -48,7 +57,11 @@ export class ApprovalStore {
     const raw = await this.env.OPERATOR_AGENT_KV?.get(approvalKey(approvalId));
     if (!raw) return null;
     try {
-      return normalizeApproval(JSON.parse(raw) as Partial<ApprovalRecord>);
+      const normalized = normalizeApproval(JSON.parse(raw) as Partial<ApprovalRecord>);
+      return this.expireIfNeeded({
+        approval: normalized,
+        nowIso: new Date().toISOString(),
+      });
     } catch {
       return null;
     }
@@ -78,12 +91,17 @@ export class ApprovalStore {
       return { ok: false, reason: "not_found" };
     }
 
-    if (isTerminalApprovalStatus(existing.status)) {
-      return { ok: false, reason: "already_decided", approval: existing };
+    const normalized = await this.expireIfNeeded({
+      approval: existing,
+      nowIso: new Date().toISOString(),
+    });
+
+    if (isTerminalApprovalStatus(normalized.status)) {
+      return { ok: false, reason: "already_decided", approval: normalized };
     }
 
     const updated: ApprovalRecord = {
-      ...existing,
+      ...normalized,
       status: args.nextStatus,
       decidedAt: args.decidedAt ?? new Date().toISOString(),
       decidedBy: args.decidedBy,
@@ -103,7 +121,15 @@ export class ApprovalStore {
     executedByRoleId?: AgentRoleId;
   }): Promise<
     | { ok: true; approval: ApprovalRecord }
-    | { ok: false; reason: "not_found" | "not_approved"; approval?: ApprovalRecord }
+    | {
+        ok: false;
+        reason:
+          | "not_found"
+          | "not_approved"
+          | "already_executed"
+          | "expired";
+        approval?: ApprovalRecord;
+      }
   > {
     const existing = await this.get(args.approvalId);
 
@@ -111,12 +137,26 @@ export class ApprovalStore {
       return { ok: false, reason: "not_found" };
     }
 
-    if (existing.status !== "approved") {
-      return { ok: false, reason: "not_approved", approval: existing };
+    const normalized = await this.expireIfNeeded({
+      approval: existing,
+      nowIso: args.executedAt,
+    });
+
+    if (normalized.status === "expired") {
+      return { ok: false, reason: "expired", approval: normalized };
+    }
+
+    if (normalized.status !== "approved") {
+      return { ok: false, reason: "not_approved", approval: normalized };
+    }
+
+    const policy = getApprovalPolicy(normalized.actionType);
+    if (policy.singleUse && isApprovalConsumed(normalized)) {
+      return { ok: false, reason: "already_executed", approval: normalized };
     }
 
     const updated: ApprovalRecord = {
-      ...existing,
+      ...normalized,
       executedAt: args.executedAt,
       executionId: args.executionId,
       executedByEmployeeId: args.executedByEmployeeId,
@@ -142,15 +182,19 @@ export class ApprovalStore {
     });
 
     const entries: ApprovalRecord[] = [];
+    const nowIso = new Date().toISOString();
 
     for (const key of list?.keys ?? []) {
       const raw = await this.env.OPERATOR_AGENT_KV?.get(key.name);
       if (!raw) continue;
 
       try {
-        entries.push(
-          normalizeApproval(JSON.parse(raw) as Partial<ApprovalRecord>)
-        );
+        const normalized = normalizeApproval(JSON.parse(raw) as Partial<ApprovalRecord>);
+        const expiredAware = await this.expireIfNeeded({
+          approval: normalized,
+          nowIso,
+        });
+        entries.push(expiredAware);
       } catch {
         // ignore malformed entries
       }
@@ -206,5 +250,29 @@ export class ApprovalStore {
     });
 
     return entries[0] ?? null;
+  }
+
+  async expireIfNeeded(args: {
+    approval: ApprovalRecord;
+    nowIso: string;
+  }): Promise<ApprovalRecord> {
+    if (
+      args.approval.status !== "pending" &&
+      args.approval.status !== "approved"
+    ) {
+      return args.approval;
+    }
+
+    if (!isExpiredApproval(args.approval, args.nowIso)) {
+      return args.approval;
+    }
+
+    const updated: ApprovalRecord = {
+      ...args.approval,
+      status: "expired",
+    };
+
+    await this.put(updated);
+    return updated;
   }
 }

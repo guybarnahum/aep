@@ -139,6 +139,8 @@ export type ManagerDecisionRecord = {
     | "requested_pending"
     | "blocked_pending_approval"
     | "blocked_rejected"
+    | "blocked_expired"
+    | "blocked_already_executed"
     | "approved_ready"
     | "approved_applied";
   approvalExecutionId?: string;
@@ -237,6 +239,7 @@ export type ApprovalRecord = {
   actionType: string;
   payload: Record<string, unknown>;
   status: ApprovalStatus;
+  expiresAt?: string;
   reason: string;
   message: string;
   decidedAt?: string;

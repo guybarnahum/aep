@@ -40,6 +40,7 @@ function statusClass(status: string | null | undefined): string {
     case "waiting":
     case "acknowledged":
     case "disabled_pending_review":
+    case "expired":
       return "status status-waiting";
     case "running":
       return "status status-running";
@@ -307,6 +308,7 @@ function renderApprovalLinkage(entry: ApprovalRecord): string {
     <div class="approval-meta">
       <div class="muted small">id=${escapeHtml(entry.approvalId)}</div>
       <div class="muted small">source=${escapeHtml(entry.source)}</div>
+      ${entry.expiresAt ? `<div class="muted small">expires=${formatTimestamp(entry.expiresAt)}</div>` : ""}
       <div class="muted small">decision=${escapeHtml(entry.decidedBy ?? "-")} @ ${formatTimestamp(entry.decidedAt)}</div>
       ${entry.decisionNote ? `<div class="muted small">note=${escapeHtml(entry.decisionNote)}</div>` : ""}
       ${entry.executionId ? `<div class="muted small">exec=${escapeHtml(entry.executionId)}</div>` : ""}
