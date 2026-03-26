@@ -65,6 +65,29 @@ export interface ResolvedEmployeeRunContext {
   policyVersion: string;
 }
 
+export interface PaperclipRunRequest {
+  companyId?: string;
+  departmentId: DepartmentId;
+  employeeId: string;
+  roleId: AgentRoleId;
+  policyVersion?: string;
+  budgetOverride?: Partial<AgentBudget>;
+  authorityOverride?: Partial<AgentAuthority>;
+  trigger?: "paperclip";
+  taskId?: string;
+  heartbeatId?: string;
+}
+
+export interface PaperclipRunResponse {
+  ok: true;
+  status: "completed";
+  companyId?: string;
+  taskId?: string;
+  heartbeatId?: string;
+  request: EmployeeRunRequest;
+  result: EmployeeRunResponse;
+}
+
 export interface RunSummary {
   id: string;
   tenant?: string;

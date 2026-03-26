@@ -1,5 +1,10 @@
+import { adaptPaperclipRequest, adaptPaperclipResponse, isPaperclipRunRequest } from "../adapters/paperclip";
 import { executeEmployeeRun, toErrorResponse } from "../lib/execute-employee-run";
-import type { EmployeeRunRequest, OperatorAgentEnv } from "../types";
+import type {
+  EmployeeRunRequest,
+  OperatorAgentEnv,
+  PaperclipRunRequest,
+} from "../types";
 
 export async function handleRun(
   request: Request,
@@ -25,6 +30,20 @@ export async function handleRun(
   }
 
   try {
+    if (isPaperclipRunRequest(body)) {
+      const paperclipPayload = body as PaperclipRunRequest;
+      const adaptedRequest = adaptPaperclipRequest(paperclipPayload, env);
+      const result = await executeEmployeeRun(adaptedRequest, env);
+
+      return Response.json(
+        adaptPaperclipResponse({
+          payload: paperclipPayload,
+          request: adaptedRequest,
+          result,
+        })
+      );
+    }
+
     const result = await executeEmployeeRun(body as EmployeeRunRequest, env);
     return Response.json(result);
   } catch (error) {

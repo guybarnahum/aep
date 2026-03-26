@@ -2,7 +2,7 @@
 
 export {};
 
-const STAGE1_POLICY_VERSION = "commit9-stage1";
+const STAGE2_POLICY_VERSION = "commit9-stage2";
 
 type RunSummary = {
   id: string;
@@ -63,6 +63,24 @@ type AgentRunResponse = {
     verificationFailed: number;
     skippedCooldownActive: number;
   };
+};
+
+type PaperclipAgentRunResponse = {
+  ok: true;
+  status: "completed";
+  companyId?: string;
+  taskId?: string;
+  heartbeatId?: string;
+  request: {
+    departmentId: string;
+    employeeId: string;
+    roleId: string;
+    trigger: string;
+    policyVersion: string;
+    budgetOverride?: Record<string, unknown>;
+    authorityOverride?: Record<string, unknown>;
+  };
+  result: AgentRunResponse;
 };
 
 function requireEnv(name: string): string {
@@ -206,12 +224,38 @@ async function runAgent(
       employeeId: "emp_timeout_recovery_01",
       roleId: "timeout-recovery-operator",
       trigger: "manual",
-      policyVersion: STAGE1_POLICY_VERSION,
+      policyVersion: STAGE2_POLICY_VERSION,
       ...(overrides ?? {}),
     }),
   });
 
   return readJson<AgentRunResponse>(response);
+}
+
+async function runAgentViaPaperclip(
+  agentBaseUrl: string
+): Promise<PaperclipAgentRunResponse> {
+  const response = await fetch(`${agentBaseUrl}/agent/run`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({
+      companyId: "paperclip-dev",
+      departmentId: "aep-infra-ops",
+      employeeId: "emp_timeout_recovery_01",
+      roleId: "timeout-recovery-operator",
+      policyVersion: STAGE2_POLICY_VERSION,
+      trigger: "paperclip",
+      taskId: "task_timeout_recovery_smoke",
+      heartbeatId: "hb_stage2_smoke",
+      budgetOverride: {
+        maxActionsPerScan: 1,
+      },
+    }),
+  });
+
+  return readJson<PaperclipAgentRunResponse>(response);
 }
 
 async function runAgentCompatibility(agentBaseUrl: string): Promise<AgentRunResponse> {
@@ -231,7 +275,7 @@ async function main(): Promise<void> {
     },
   });
 
-  if (overrideProbe.policyVersion !== STAGE1_POLICY_VERSION) {
+  if (overrideProbe.policyVersion !== STAGE2_POLICY_VERSION) {
     throw new Error(
       `Unexpected policyVersion from /agent/run: ${overrideProbe.policyVersion}`
     );
@@ -244,6 +288,40 @@ async function main(): Promise<void> {
   }
 
   console.log("Verified /agent/run canonical path and budget override merge");
+
+  const paperclipProbe = await runAgentViaPaperclip(agentBaseUrl);
+
+  if (paperclipProbe.request.trigger !== "paperclip") {
+    throw new Error(
+      `Expected paperclip-adapted request trigger=paperclip, got ${paperclipProbe.request.trigger}`
+    );
+  }
+
+  if (paperclipProbe.request.policyVersion !== STAGE2_POLICY_VERSION) {
+    throw new Error(
+      `Unexpected policyVersion from paperclip path: ${paperclipProbe.request.policyVersion}`
+    );
+  }
+
+  if (paperclipProbe.result.budget.maxActionsPerScan !== 1) {
+    throw new Error(
+      `Expected paperclip budget override maxActionsPerScan=1, got ${paperclipProbe.result.budget.maxActionsPerScan}`
+    );
+  }
+
+  if (paperclipProbe.taskId !== "task_timeout_recovery_smoke") {
+    throw new Error(
+      `Unexpected paperclip taskId in response: ${paperclipProbe.taskId}`
+    );
+  }
+
+  if (paperclipProbe.heartbeatId !== "hb_stage2_smoke") {
+    throw new Error(
+      `Unexpected paperclip heartbeatId in response: ${paperclipProbe.heartbeatId}`
+    );
+  }
+
+  console.log("Verified paperclip adapter request/response path");
 
   const runs = await listRuns(controlPlaneBaseUrl);
 
@@ -320,6 +398,8 @@ async function main(): Promise<void> {
   const acceptableSecondRunResults = new Set([
     "skipped_cooldown_active",
     "skipped_not_eligible",
+    "skipped_tenant_not_allowed",
+    "skipped_service_not_allowed",
     "skipped_budget_scan_exhausted",
     "skipped_budget_hourly_exhausted",
     "skipped_budget_tenant_hourly_exhausted"
