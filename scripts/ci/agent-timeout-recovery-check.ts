@@ -2,7 +2,7 @@
 
 export {};
 
-const STAGE3_POLICY_VERSION = "commit9-stage3";
+const STAGE4_POLICY_VERSION = "commit9-stage4";
 
 type RunSummary = {
   id: string;
@@ -80,7 +80,7 @@ type PaperclipAgentRunResponse = {
     budgetOverride?: Record<string, unknown>;
     authorityOverride?: Record<string, unknown>;
   };
-  result: AgentRunResponse;
+  result: AgentRunResponse | EmployeeControlBlockedResponse;
 };
 
 type ManagerDecision = {
@@ -123,6 +123,32 @@ type ManagerRunResponse = {
   decisions: ManagerDecision[];
   message: string;
   controlPlaneBaseUrl: string;
+};
+
+type EmployeeControlBlockedResponse = {
+  ok: true;
+  status: "skipped_disabled_by_manager";
+  policyVersion: string;
+  trigger: string;
+  employee: {
+    employeeId: string;
+    roleId: string;
+  };
+  message: string;
+  control: {
+    employeeId: string;
+    enabled: boolean;
+    updatedAt: string;
+    updatedByEmployeeId: string;
+    updatedByRoleId: string;
+    policyVersion: string;
+    reason: string;
+    message: string;
+    evidence?: {
+      windowEntryCount: number;
+      resultCounts?: Record<string, number>;
+    };
+  };
 };
 
 function requireEnv(name: string): string {
@@ -255,7 +281,7 @@ async function runAgent(
     budgetOverride?: Record<string, unknown>;
     authorityOverride?: Record<string, unknown>;
   }
-): Promise<AgentRunResponse> {
+): Promise<AgentRunResponse | EmployeeControlBlockedResponse> {
   const response = await fetch(`${agentBaseUrl}/agent/run`, {
     method: "POST",
     headers: {
@@ -266,7 +292,7 @@ async function runAgent(
       employeeId: "emp_timeout_recovery_01",
       roleId: "timeout-recovery-operator",
       trigger: "manual",
-      policyVersion: STAGE3_POLICY_VERSION,
+      policyVersion: STAGE4_POLICY_VERSION,
       ...(overrides ?? {}),
     }),
   });
@@ -287,7 +313,7 @@ async function runAgentViaPaperclip(
       departmentId: "aep-infra-ops",
       employeeId: "emp_timeout_recovery_01",
       roleId: "timeout-recovery-operator",
-      policyVersion: STAGE3_POLICY_VERSION,
+      policyVersion: STAGE4_POLICY_VERSION,
       trigger: "paperclip",
       taskId: "task_timeout_recovery_smoke",
       heartbeatId: "hb_stage2_smoke",
@@ -298,6 +324,13 @@ async function runAgentViaPaperclip(
   });
 
   return readJson<PaperclipAgentRunResponse>(response);
+}
+
+async function runAgentCompatibility(agentBaseUrl: string): Promise<AgentRunResponse> {
+  const response = await fetch(`${agentBaseUrl}/agent/run-once`, {
+    method: "POST",
+  });
+  return readJson<AgentRunResponse>(response);
 }
 
 async function runManager(agentBaseUrl: string): Promise<ManagerRunResponse> {
@@ -311,7 +344,7 @@ async function runManager(agentBaseUrl: string): Promise<ManagerRunResponse> {
       employeeId: "emp_infra_ops_manager_01",
       roleId: "infra-ops-manager",
       trigger: "manual",
-      policyVersion: STAGE3_POLICY_VERSION,
+      policyVersion: STAGE4_POLICY_VERSION,
       targetEmployeeIdOverride: "emp_timeout_recovery_01",
     }),
   });
@@ -331,11 +364,50 @@ async function getManagerLog(agentBaseUrl: string): Promise<{
   return readJson(response);
 }
 
-async function runAgentCompatibility(agentBaseUrl: string): Promise<AgentRunResponse> {
-  const response = await fetch(`${agentBaseUrl}/agent/run-once`, {
+async function getEmployeeControls(agentBaseUrl: string): Promise<{
+  ok: true;
+  count?: number;
+  entries?: Array<{
+    employeeId: string;
+    control: {
+      employeeId: string;
+      enabled: boolean;
+      updatedByEmployeeId: string;
+      reason: string;
+    } | null;
+  }>;
+  employeeId?: string;
+  control?: {
+    employeeId: string;
+    enabled: boolean;
+    updatedByEmployeeId: string;
+    reason: string;
+  } | null;
+}> {
+  const response = await fetch(
+    `${agentBaseUrl}/agent/employee-controls?employeeId=emp_timeout_recovery_01`
+  );
+  return readJson(response);
+}
+
+async function runWorkerAfterManagerDisable(
+  agentBaseUrl: string
+): Promise<EmployeeControlBlockedResponse | AgentRunResponse> {
+  const response = await fetch(`${agentBaseUrl}/agent/run`, {
     method: "POST",
+    headers: {
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({
+      departmentId: "aep-infra-ops",
+      employeeId: "emp_timeout_recovery_01",
+      roleId: "timeout-recovery-operator",
+      trigger: "manual",
+      policyVersion: STAGE4_POLICY_VERSION,
+    }),
   });
-  return readJson<AgentRunResponse>(response);
+
+  return readJson(response);
 }
 
 async function main(): Promise<void> {
@@ -348,13 +420,28 @@ async function main(): Promise<void> {
     },
   });
 
-  if (overrideProbe.policyVersion !== STAGE3_POLICY_VERSION) {
+  if (overrideProbe.policyVersion !== STAGE4_POLICY_VERSION) {
     throw new Error(
       `Unexpected policyVersion from /agent/run: ${overrideProbe.policyVersion}`
     );
   }
 
-  if (overrideProbe.budget.maxActionsPerScan !== 1) {
+  const workerDisabledAtStart =
+    "status" in overrideProbe &&
+    overrideProbe.status === "skipped_disabled_by_manager";
+
+  if (workerDisabledAtStart) {
+    console.log("Worker is already disabled at script start; skipping active worker action checks", {
+      employeeId: overrideProbe.employee.employeeId,
+      reason: overrideProbe.control.reason,
+    });
+  }
+
+  if (
+    !workerDisabledAtStart &&
+    !("status" in overrideProbe) &&
+    overrideProbe.budget.maxActionsPerScan !== 1
+  ) {
     throw new Error(
       `Expected budget override maxActionsPerScan=1, got ${overrideProbe.budget.maxActionsPerScan}`
     );
@@ -370,13 +457,16 @@ async function main(): Promise<void> {
     );
   }
 
-  if (paperclipProbe.request.policyVersion !== STAGE3_POLICY_VERSION) {
+  if (paperclipProbe.request.policyVersion !== STAGE4_POLICY_VERSION) {
     throw new Error(
       `Unexpected policyVersion from paperclip path: ${paperclipProbe.request.policyVersion}`
     );
   }
 
-  if (paperclipProbe.result.budget.maxActionsPerScan !== 1) {
+  if (
+    !("status" in paperclipProbe.result) &&
+    paperclipProbe.result.budget.maxActionsPerScan !== 1
+  ) {
     throw new Error(
       `Expected paperclip budget override maxActionsPerScan=1, got ${paperclipProbe.result.budget.maxActionsPerScan}`
     );
@@ -396,79 +486,92 @@ async function main(): Promise<void> {
 
   console.log("Verified paperclip adapter request/response path");
 
-  const runs = await listRuns(controlPlaneBaseUrl);
+  if (!workerDisabledAtStart) {
+    const runs = await listRuns(controlPlaneBaseUrl);
 
-  let eligibleRun: RunSummary | undefined;
-  let eligibleJob: JobSummary | undefined;
+    let eligibleRun: RunSummary | undefined;
+    let eligibleJob: JobSummary | undefined;
 
-  for (const run of runs) {
-    const jobs = await getRunJobs(controlPlaneBaseUrl, run.id);
-    const found = jobs.find((job) => job.operator_actions?.can_advance_timeout);
+    for (const run of runs) {
+      const jobs = await getRunJobs(controlPlaneBaseUrl, run.id);
+      const found = jobs.find((job) => job.operator_actions?.can_advance_timeout);
 
-    if (found) {
-      eligibleRun = run;
-      eligibleJob = found;
-      break;
+      if (found) {
+        eligibleRun = run;
+        eligibleJob = found;
+        break;
+      }
     }
-  }
 
-  if (!eligibleRun || !eligibleJob) {
-    throw new Error("No timeout-eligible job found for agent validation");
-  }
+    if (!eligibleRun || !eligibleJob) {
+      throw new Error("No timeout-eligible job found for agent validation");
+    }
 
-  console.log("Found eligible job", {
-    runId: eligibleRun.id,
-    jobId: eligibleJob.id
-  });
+    console.log("Found eligible job", {
+      runId: eligibleRun.id,
+      jobId: eligibleJob.id
+    });
 
-  const firstRun = await runAgent(agentBaseUrl);
+    const firstRun = await runAgent(agentBaseUrl);
 
-  if (firstRun.dryRun) {
-    throw new Error("Agent is in dry-run mode; expected apply mode for validation");
-  }
+    if ("status" in firstRun) {
+      throw new Error(
+        `Worker unexpectedly disabled during active worker checks: ${firstRun.control.reason}`
+      );
+    }
 
-  const firstDecision = firstRun.decisions.find(
-    (decision) => decision.runId === eligibleRun!.id && decision.jobId === eligibleJob!.id
-  );
+    if (firstRun.dryRun) {
+      throw new Error("Agent is in dry-run mode; expected apply mode for validation");
+    }
 
-  if (!firstDecision) {
-    throw new Error("Agent response did not include the eligible job decision");
-  }
-
-  const trace = await getTrace(controlPlaneBaseUrl, eligibleRun.id);
-
-  const requestedPresent = hasTraceEvent(
-    trace,
-    "operator.action_requested",
-    eligibleJob.id
-  );
-  const appliedPresent = hasTraceEvent(
-    trace,
-    "operator.action_applied",
-    eligibleJob.id
-  );
-
-  if (!requestedPresent || !appliedPresent) {
-    throw new Error(
-      `Expected trace to contain operator.action_requested and operator.action_applied for job ${eligibleJob.id}`
+    const firstDecision = firstRun.decisions.find(
+      (decision) => decision.runId === eligibleRun!.id && decision.jobId === eligibleJob!.id
     );
-  }
 
-  console.log("Verified operator trace events", {
-    runId: eligibleRun.id,
-    jobId: eligibleJob.id
-  });
+    if (!firstDecision) {
+      throw new Error("Agent response did not include the eligible job decision");
+    }
 
-  const secondRun = await runAgent(agentBaseUrl);
-  const secondDecision = secondRun.decisions.find(
-    (decision) => decision.runId === eligibleRun!.id && decision.jobId === eligibleJob!.id
-  );
+    const trace = await getTrace(controlPlaneBaseUrl, eligibleRun.id);
 
-  if (!secondDecision) {
-    throw new Error("Second agent run did not include the eligible job decision");
-  }
+    const requestedPresent = hasTraceEvent(
+      trace,
+      "operator.action_requested",
+      eligibleJob.id
+    );
+    const appliedPresent = hasTraceEvent(
+      trace,
+      "operator.action_applied",
+      eligibleJob.id
+    );
 
-  const acceptableSecondRunResults = new Set([
+    if (!requestedPresent || !appliedPresent) {
+      throw new Error(
+        `Expected trace to contain operator.action_requested and operator.action_applied for job ${eligibleJob.id}`
+      );
+    }
+
+    console.log("Verified operator trace events", {
+      runId: eligibleRun.id,
+      jobId: eligibleJob.id
+    });
+
+    const secondRun = await runAgent(agentBaseUrl);
+    if ("status" in secondRun) {
+      throw new Error(
+        `Worker unexpectedly disabled before second-run non-action check: ${secondRun.control.reason}`
+      );
+    }
+
+    const secondDecision = secondRun.decisions.find(
+      (decision) => decision.runId === eligibleRun!.id && decision.jobId === eligibleJob!.id
+    );
+
+    if (!secondDecision) {
+      throw new Error("Second agent run did not include the eligible job decision");
+    }
+
+  const acceptableSecondRunNonActionResults = new Set([
     "skipped_cooldown_active",
     "skipped_not_eligible",
     "skipped_tenant_not_allowed",
@@ -478,25 +581,32 @@ async function main(): Promise<void> {
     "skipped_budget_tenant_hourly_exhausted"
   ]);
 
-  if (!acceptableSecondRunResults.has(secondDecision.result)) {
-    throw new Error(
-      `Unexpected second-run result for job ${eligibleJob.id}: ${secondDecision.result}`
-    );
+    if (!acceptableSecondRunNonActionResults.has(secondDecision.result)) {
+      throw new Error(
+        `Unexpected second-run result for job ${eligibleJob.id}: ${secondDecision.result}`
+      );
+    }
+
+    console.log("Verified second run did not re-apply the operator action", {
+      runId: eligibleRun.id,
+      jobId: eligibleJob.id,
+      secondRunResult: secondDecision.result
+    });
+
+    const compatibilityRun = await runAgentCompatibility(agentBaseUrl);
+
+    if (!compatibilityRun.ok) {
+      throw new Error("Compatibility /agent/run-once did not succeed");
+    }
+
+    console.log("Verified /agent/run-once compatibility path");
+  } else {
+    const compatibilityRun = await runAgentCompatibility(agentBaseUrl);
+    if (!compatibilityRun.ok) {
+      throw new Error("Compatibility /agent/run-once did not succeed");
+    }
+    console.log("Verified /agent/run-once compatibility path (worker disabled baseline)");
   }
-
-  console.log("Verified duplicate suppression on second run", {
-    runId: eligibleRun.id,
-    jobId: eligibleJob.id,
-    secondRunResult: secondDecision.result
-  });
-
-  const compatibilityRun = await runAgentCompatibility(agentBaseUrl);
-
-  if (!compatibilityRun.ok) {
-    throw new Error("Compatibility /agent/run-once did not succeed");
-  }
-
-  console.log("Verified /agent/run-once compatibility path");
 
   const managerRun = await runManager(agentBaseUrl);
 
@@ -512,7 +622,7 @@ async function main(): Promise<void> {
     );
   }
 
-  if (managerRun.policyVersion !== STAGE3_POLICY_VERSION) {
+  if (managerRun.policyVersion !== STAGE4_POLICY_VERSION) {
     throw new Error(
       `Unexpected manager policyVersion: ${managerRun.policyVersion}`
     );
@@ -528,6 +638,35 @@ async function main(): Promise<void> {
     decisionsEmitted: managerRun.summary.decisionsEmitted,
     managerLogCount: managerLog.count,
   });
+
+  const employeeControls = await getEmployeeControls(agentBaseUrl);
+
+  if (!employeeControls.ok) {
+    throw new Error("Employee controls route did not return ok=true");
+  }
+
+  const workerControl = employeeControls.control;
+  if (workerControl && workerControl.enabled === false) {
+    const blockedRun = await runWorkerAfterManagerDisable(agentBaseUrl);
+
+    if (
+      !("status" in blockedRun) ||
+      blockedRun.status !== "skipped_disabled_by_manager"
+    ) {
+      throw new Error(
+        `Expected worker run to be skipped_disabled_by_manager, got ${
+          "status" in blockedRun ? blockedRun.status : "unknown"
+        }`
+      );
+    }
+
+    console.log("Verified worker run is blocked by manager-applied local control", {
+      employeeId: blockedRun.employee.employeeId,
+      reason: blockedRun.control.reason,
+    });
+  } else {
+    console.log("No disabling control present for worker; manager remained advisory in this run");
+  }
 
   console.log("agent-timeout-recovery-check passed");
 }

@@ -94,6 +94,27 @@ export type ManagerDecisionReason =
   | "operator_action_failures_detected"
   | "frequent_budget_exhaustion";
 
+export type CandidateReason =
+  | "eligible_timeout_recovery"
+  | "not_timeout_eligible"
+  | "tenant_not_allowed"
+  | "service_not_allowed";
+
+export type TimeoutRecoveryMode = "dry-run" | "apply";
+
+export type TimeoutRecoveryResult =
+  | "skipped_not_eligible"
+  | "skipped_tenant_not_allowed"
+  | "skipped_service_not_allowed"
+  | "skipped_budget_scan_exhausted"
+  | "skipped_budget_hourly_exhausted"
+  | "skipped_budget_tenant_hourly_exhausted"
+  | "skipped_cooldown_active"
+  | "action_requested"
+  | "verified_applied"
+  | "verification_failed"
+  | "operator_action_failed";
+
 export interface ManagerDecision {
   timestamp: string;
   managerEmployeeId: string;
@@ -106,8 +127,9 @@ export interface ManagerDecision {
   recommendation:
     | "escalate_to_human"
     | "recommend_budget_adjustment"
-    | "recommend_pause_employee";
-  severity: "warning";
+    | "recommend_pause_employee"
+    | "disable_employee";
+  severity: "warning" | "critical";
   message: string;
   evidence: {
     windowEntryCount: number;
@@ -136,6 +158,33 @@ export interface ManagerDecisionResponse {
   controlPlaneBaseUrl: string;
 }
 
+export interface EmployeeControlRecord {
+  employeeId: string;
+  enabled: boolean;
+  updatedAt: string;
+  updatedByEmployeeId: string;
+  updatedByRoleId: AgentRoleId;
+  policyVersion: string;
+  reason:
+    | "manager_disabled_after_repeated_verification_failures"
+    | "manager_disabled_after_operator_action_failures";
+  message: string;
+  evidence?: {
+    windowEntryCount: number;
+    resultCounts?: Partial<Record<TimeoutRecoveryResult, number>>;
+  };
+}
+
+export interface EmployeeControlBlockedResponse {
+  ok: true;
+  status: "skipped_disabled_by_manager";
+  policyVersion: string;
+  trigger: EmployeeTrigger;
+  employee: AgentIdentity;
+  message: string;
+  control: EmployeeControlRecord;
+}
+
 export interface RunSummary {
   id: string;
   tenant?: string;
@@ -153,27 +202,6 @@ export interface JobSummary {
     can_advance_timeout?: boolean;
   };
 }
-
-export type CandidateReason =
-  | "eligible_timeout_recovery"
-  | "not_timeout_eligible"
-  | "tenant_not_allowed"
-  | "service_not_allowed";
-
-export type TimeoutRecoveryMode = "dry-run" | "apply";
-
-export type TimeoutRecoveryResult =
-  | "skipped_not_eligible"
-  | "skipped_tenant_not_allowed"
-  | "skipped_service_not_allowed"
-  | "skipped_budget_scan_exhausted"
-  | "skipped_budget_hourly_exhausted"
-  | "skipped_budget_tenant_hourly_exhausted"
-  | "skipped_cooldown_active"
-  | "action_requested"
-  | "verified_applied"
-  | "verification_failed"
-  | "operator_action_failed";
 
 export interface BudgetSnapshot {
   actionsUsedThisScan: number;
@@ -261,7 +289,8 @@ export interface EmployeeRunResponse {
 
 export type AgentExecutionResponse =
   | EmployeeRunResponse
-  | ManagerDecisionResponse;
+  | ManagerDecisionResponse
+  | EmployeeControlBlockedResponse;
 
 export interface EmployeeRunErrorResponse {
   ok: false;

@@ -1,11 +1,13 @@
 import { getConfig } from "@aep/operator-agent/config";
 import { runInfraOpsManager } from "@aep/operator-agent/agents/infra-ops-manager";
 import { runTimeoutRecoveryOperator } from "@aep/operator-agent/agents/timeout-recovery";
+import { EmployeeControlStore } from "@aep/operator-agent/lib/employee-control-store";
 import { cloneAuthority } from "@aep/operator-agent/org/authority";
 import { cloneBudget } from "@aep/operator-agent/org/budgets";
 import { getEmployeeById } from "@aep/operator-agent/org/employees";
 import type {
   AgentExecutionResponse,
+  EmployeeControlBlockedResponse,
   EmployeeRunRequest,
   EmployeeRunErrorResponse,
   OperatorAgentEnv,
@@ -106,6 +108,33 @@ function resolveRunContext(
   };
 }
 
+async function maybeReturnBlockedByControl(
+  resolved: ResolvedEmployeeRunContext,
+  env?: OperatorAgentEnv
+): Promise<EmployeeControlBlockedResponse | null> {
+  if (resolved.employee.identity.roleId === "infra-ops-manager") {
+    return null;
+  }
+
+  const store = new EmployeeControlStore(env ?? {});
+  const control = await store.get(resolved.employee.identity.employeeId);
+
+  if (!control || control.enabled) {
+    return null;
+  }
+
+  return {
+    ok: true,
+    status: "skipped_disabled_by_manager",
+    policyVersion: resolved.policyVersion,
+    trigger: resolved.request.trigger,
+    employee: resolved.employee.identity,
+    message:
+      "Employee run was skipped because the employee is currently disabled by a local manager control.",
+    control,
+  };
+}
+
 export async function executeEmployeeRun(
   request: EmployeeRunRequest,
   env?: OperatorAgentEnv
@@ -125,6 +154,11 @@ export async function executeEmployeeRun(
       httpStatus:
         resolved.status === "employee_not_found" ? 404 : 400,
     });
+  }
+
+  const blocked = await maybeReturnBlockedByControl(resolved, env);
+  if (blocked) {
+    return blocked;
   }
 
   switch (resolved.employee.identity.roleId) {

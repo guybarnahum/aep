@@ -1,8 +1,10 @@
 import { getConfig } from "@aep/operator-agent/config";
+import { EmployeeControlStore } from "@aep/operator-agent/lib/employee-control-store";
 import { ManagerDecisionLog } from "@aep/operator-agent/lib/manager-decision-log";
 import { listAgentWorkLogEntries } from "@aep/operator-agent/lib/work-log-reader";
 import type {
   AgentEmployeeDefinition,
+  EmployeeControlRecord,
   ManagerDecision,
   ManagerDecisionReason,
   ManagerDecisionResponse,
@@ -33,6 +35,7 @@ function buildDecision(args: {
   windowEntryCount: number;
   resultCounts: Partial<Record<TimeoutRecoveryResult, number>>;
   recommendation?: ManagerDecision["recommendation"];
+  severity?: ManagerDecision["severity"];
 }): ManagerDecision {
   return {
     timestamp: args.nowIso,
@@ -44,7 +47,34 @@ function buildDecision(args: {
     employeeId: args.employeeId,
     reason: args.reason,
     recommendation: args.recommendation ?? "escalate_to_human",
-    severity: "warning",
+    severity: args.severity ?? "warning",
+    message: args.message,
+    evidence: {
+      windowEntryCount: args.windowEntryCount,
+      resultCounts: args.resultCounts,
+    },
+  };
+}
+
+function buildDisableControlRecord(args: {
+  managerEmployeeId: string;
+  managerRoleId: ManagerDecision["roleId"];
+  employeeId: string;
+  policyVersion: string;
+  nowIso: string;
+  reason: EmployeeControlRecord["reason"];
+  message: string;
+  windowEntryCount: number;
+  resultCounts: Partial<Record<TimeoutRecoveryResult, number>>;
+}): EmployeeControlRecord {
+  return {
+    employeeId: args.employeeId,
+    enabled: false,
+    updatedAt: args.nowIso,
+    updatedByEmployeeId: args.managerEmployeeId,
+    updatedByRoleId: args.managerRoleId,
+    policyVersion: args.policyVersion,
+    reason: args.reason,
     message: args.message,
     evidence: {
       windowEntryCount: args.windowEntryCount,
@@ -79,8 +109,26 @@ export async function runInfraOpsManager(
     (counts.skipped_budget_tenant_hourly_exhausted ?? 0);
 
   const decisions: ManagerDecision[] = [];
+  const controlStore = new EmployeeControlStore(env ?? {});
 
   if (verificationFailed >= 2) {
+    const message =
+      "Infra Ops Manager disabled the employee locally after repeated verification failures in the recent timeout recovery work log window.";
+
+    await controlStore.put(
+      buildDisableControlRecord({
+        managerEmployeeId: manager.identity.employeeId,
+        managerRoleId: manager.identity.roleId,
+        employeeId: observedEmployeeId,
+        policyVersion: context.policyVersion,
+        nowIso,
+        reason: "manager_disabled_after_repeated_verification_failures",
+        message,
+        windowEntryCount: entries.length,
+        resultCounts: counts,
+      })
+    );
+
     decisions.push(
       buildDecision({
         manager: manager.identity,
@@ -88,9 +136,9 @@ export async function runInfraOpsManager(
         policyVersion: context.policyVersion,
         nowIso,
         reason: "repeated_verification_failures",
-        recommendation: "escalate_to_human",
-        message:
-          "Infra Ops Manager observed repeated verification failures in the recent timeout recovery work log window.",
+        recommendation: "disable_employee",
+        severity: "critical",
+        message,
         windowEntryCount: entries.length,
         resultCounts: counts,
       })
@@ -98,6 +146,23 @@ export async function runInfraOpsManager(
   }
 
   if (operatorActionFailed >= 1) {
+    const message =
+      "Infra Ops Manager disabled the employee locally after operator action failures were observed in the recent timeout recovery work log window.";
+
+    await controlStore.put(
+      buildDisableControlRecord({
+        managerEmployeeId: manager.identity.employeeId,
+        managerRoleId: manager.identity.roleId,
+        employeeId: observedEmployeeId,
+        policyVersion: context.policyVersion,
+        nowIso,
+        reason: "manager_disabled_after_operator_action_failures",
+        message,
+        windowEntryCount: entries.length,
+        resultCounts: counts,
+      })
+    );
+
     decisions.push(
       buildDecision({
         manager: manager.identity,
@@ -105,9 +170,9 @@ export async function runInfraOpsManager(
         policyVersion: context.policyVersion,
         nowIso,
         reason: "operator_action_failures_detected",
-        recommendation: "escalate_to_human",
-        message:
-          "Infra Ops Manager observed operator action failures in the recent timeout recovery work log window.",
+        recommendation: "disable_employee",
+        severity: "critical",
+        message,
         windowEntryCount: entries.length,
         resultCounts: counts,
       })
@@ -155,8 +220,8 @@ export async function runInfraOpsManager(
     decisions,
     message:
       decisions.length > 0
-        ? "Infra Ops Manager completed an advisory review and emitted supervisory decisions."
-        : "Infra Ops Manager completed an advisory review and found no escalation-worthy patterns.",
+        ? "Infra Ops Manager completed a supervisory review and applied local controls where required."
+        : "Infra Ops Manager completed a supervisory review and found no escalation-worthy patterns.",
     controlPlaneBaseUrl: config.controlPlaneBaseUrl,
   };
 }

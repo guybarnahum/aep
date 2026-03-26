@@ -1,4 +1,5 @@
 import { handleHealthz } from "./routes/healthz";
+import { handleEmployeeControls } from "./routes/employee-controls";
 import { handleManagerLog } from "./routes/manager-log";
 import { handleRun } from "./routes/run";
 import { handleRunOnce } from "./routes/run-once";
@@ -31,6 +32,10 @@ export default {
 
     if (url.pathname === "/agent/manager-log") {
       return handleManagerLog(request, env);
+    }
+
+    if (url.pathname === "/agent/employee-controls") {
+      return handleEmployeeControls(request, env);
     }
 
     return new Response("Not Found", { status: 404 });
