@@ -487,4 +487,5 @@ export interface OperatorAgentEnv extends Record<string, unknown> {
   AEP_CRON_FALLBACK_ENABLED?: string;
   PAPERCLIP_SHARED_SECRET?: string;
   PAPERCLIP_AUTH_REQUIRED?: string;
+  ENABLE_TEST_ENDPOINTS?: string;
 }

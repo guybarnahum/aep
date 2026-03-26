@@ -39,6 +39,14 @@ type WorkLogEnvelope = {
   }>;
 };
 
+type SeedEnvelope = {
+  ok?: boolean;
+  seeded?: number;
+  error?: string;
+};
+
+const MANAGER_CRON = "*/5 * * * *";
+
 function requireEnv(name: string): string {
   const value = process.env[name];
   if (!value) {
@@ -170,8 +178,48 @@ function managerSignalsFromRun(run: RunEnvelope): {
   };
 }
 
+async function seedWorkLog(
+  agentBaseUrl: string,
+  body: Record<string, unknown>
+): Promise<SeedEnvelope> {
+  const response = await fetch(`${agentBaseUrl}/agent/te/seed-work-log`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
+
+  if (response.status === 404) {
+    throw new Error(
+      "Seed endpoint returned 404 — start the operator-agent with --var ENABLE_TEST_ENDPOINTS:true"
+    );
+  }
+
+  return (await readJson(response)) as SeedEnvelope;
+}
+
+async function triggerScheduled(
+  agentBaseUrl: string,
+  cron: string
+): Promise<{ status: number }> {
+  const url = `${agentBaseUrl}/__scheduled?cron=${encodeURIComponent(cron)}`;
+  const response = await fetch(url, { method: "POST" });
+  return { status: response.status };
+}
+
 async function main(): Promise<void> {
   const agentBaseUrl = requireEnv("OPERATOR_AGENT_BASE_URL");
+
+  // Seed a deterministic operator_action_failed entry so the manager is
+  // guaranteed to emit at least one decision, enabling all provenance checks.
+  const seeded = await seedWorkLog(agentBaseUrl, {
+    employeeId: "emp_timeout_recovery_01",
+    result: "operator_action_failed",
+    count: 1,
+  });
+
+  if (!seeded.ok || (seeded.seeded ?? 0) < 1) {
+    throw new Error(`Work-log seed step failed: ${String(seeded.error ?? "unknown")}`);
+  }
 
   const validBody = {
     departmentId: "aep-infra-ops",
@@ -188,15 +236,13 @@ async function main(): Promise<void> {
     ],
   };
 
-  const validPaperclip = await postRun(agentBaseUrl, validBody, {
-    "x-aep-execution-source": "paperclip",
+  const validPaperclip = await postRunUntilStatus({
+    agentBaseUrl,
+    body: validBody,
+    headers: { "x-aep-execution-source": "paperclip" },
+    expectedStatus: 200,
+    label: "paperclip manager run",
   });
-
-  if (validPaperclip.status !== 200) {
-    throw new Error(
-      `Expected valid paperclip request to return 200, got ${validPaperclip.status}`
-    );
-  }
 
   const validPayload = validPaperclip.json as RunEnvelope;
   if (validPayload.executionContext?.executionSource !== "paperclip") {
@@ -207,75 +253,72 @@ async function main(): Promise<void> {
   }
 
   const managerSignals = managerSignalsFromRun(validPayload);
-  const shouldAssertManagerArtifacts = managerSignals.decisionsEmitted > 0;
 
-  let paperclipManagerLogProvenanceVerified = false;
-  let paperclipEscalationProvenanceVerified = false;
-  let cronFallbackManagerLogProvenanceVerified = false;
-
-  if (shouldAssertManagerArtifacts) {
-    const managerLog = await waitForJsonMatch<ManagerLogEnvelope>({
-      label: "paperclip manager-log provenance",
-      url: `${agentBaseUrl}/agent/manager-log?managerEmployeeId=emp_infra_ops_manager_01&limit=100`,
-      matches: (json): json is ManagerLogEnvelope => {
-        const envelope = json as ManagerLogEnvelope;
-        return (envelope.entries ?? []).some(
-          (decision) =>
-            decision.executionContext?.executionSource === "paperclip" &&
-            decision.executionContext?.companyId === "company-1"
-        );
-      },
-    });
-
-    const paperclipDecision = (managerLog.entries ?? []).find(
-      (decision) =>
-        decision.executionContext?.executionSource === "paperclip" &&
-        decision.executionContext?.companyId === "company-1"
+  if (managerSignals.decisionsEmitted < 1) {
+    throw new Error(
+      `Expected decisionsEmitted >= 1 from seeded manager run, got ${managerSignals.decisionsEmitted}`
     );
-
-    if (!paperclipDecision) {
-      throw new Error(
-        "Expected at least one manager-log entry with paperclip execution provenance"
-      );
-    }
-
-    paperclipManagerLogProvenanceVerified = true;
   }
 
-  if (managerSignals.escalationsCreated > 0) {
-    const escalations = await waitForJsonMatch<EscalationsEnvelope>({
-      label: "paperclip escalation provenance",
-      url: `${agentBaseUrl}/agent/escalations?limit=100`,
-      matches: (json): json is EscalationsEnvelope => {
-        const envelope = json as EscalationsEnvelope;
-        return (envelope.entries ?? []).some(
-          (entry) =>
-            entry.executionContext?.executionSource === "paperclip" &&
-            entry.executionContext?.companyId === "company-1"
-        );
-      },
-    });
+  const managerLog = await waitForJsonMatch<ManagerLogEnvelope>({
+    label: "paperclip manager-log provenance",
+    url: `${agentBaseUrl}/agent/manager-log?managerEmployeeId=emp_infra_ops_manager_01&limit=100`,
+    matches: (json): json is ManagerLogEnvelope => {
+      const envelope = json as ManagerLogEnvelope;
+      return (envelope.entries ?? []).some(
+        (decision) =>
+          decision.executionContext?.executionSource === "paperclip" &&
+          decision.executionContext?.companyId === "company-1"
+      );
+    },
+  });
 
-    const paperclipEscalation = (escalations.entries ?? []).find(
-      (entry) =>
-        entry.executionContext?.executionSource === "paperclip" &&
-        entry.executionContext?.companyId === "company-1"
+  const paperclipDecision = (managerLog.entries ?? []).find(
+    (decision) =>
+      decision.executionContext?.executionSource === "paperclip" &&
+      decision.executionContext?.companyId === "company-1"
+  );
+
+  if (!paperclipDecision) {
+    throw new Error(
+      "Expected at least one manager-log entry with paperclip execution provenance"
     );
-
-    if (!paperclipEscalation) {
-      throw new Error(
-        "Expected at least one escalation entry with paperclip execution provenance"
-      );
-    }
-
-    if (paperclipEscalation.companyId !== "company-1") {
-      throw new Error(
-        `Expected escalation.companyId=company-1, got ${String(paperclipEscalation.companyId)}`
-      );
-    }
-
-    paperclipEscalationProvenanceVerified = true;
   }
+
+  const paperclipManagerLogProvenanceVerified = true;
+
+  const escalations = await waitForJsonMatch<EscalationsEnvelope>({
+    label: "paperclip escalation provenance",
+    url: `${agentBaseUrl}/agent/escalations?limit=100`,
+    matches: (json): json is EscalationsEnvelope => {
+      const envelope = json as EscalationsEnvelope;
+      return (envelope.entries ?? []).some(
+        (entry) =>
+          entry.executionContext?.executionSource === "paperclip" &&
+          entry.executionContext?.companyId === "company-1"
+      );
+    },
+  });
+
+  const paperclipEscalation = (escalations.entries ?? []).find(
+    (entry) =>
+      entry.executionContext?.executionSource === "paperclip" &&
+      entry.executionContext?.companyId === "company-1"
+  );
+
+  if (!paperclipEscalation) {
+    throw new Error(
+      "Expected at least one escalation entry with paperclip execution provenance"
+    );
+  }
+
+  if (paperclipEscalation.companyId !== "company-1") {
+    throw new Error(
+      `Expected escalation.companyId=company-1, got ${String(paperclipEscalation.companyId)}`
+    );
+  }
+
+  const paperclipEscalationProvenanceVerified = true;
 
   const workerPaperclip = await postRunUntilStatus({
     agentBaseUrl,
@@ -414,30 +457,38 @@ async function main(): Promise<void> {
     );
   }
 
-  if (shouldAssertManagerArtifacts) {
-    const refreshedManagerLog = await waitForJsonMatch<ManagerLogEnvelope>({
-      label: "cron fallback manager-log provenance",
-      url: `${agentBaseUrl}/agent/manager-log?managerEmployeeId=emp_infra_ops_manager_01&limit=100`,
-      matches: (json): json is ManagerLogEnvelope => {
-        const envelope = json as ManagerLogEnvelope;
-        return (envelope.entries ?? []).some(
-          (decision) => decision.executionContext?.executionSource === "cron_fallback"
-        );
-      },
-    });
+  // Trigger the manager cron to generate a cron_fallback provenance entry.
+  // The seeded work-log entry ensures the cron run also emits a decision.
+  const scheduledResult = await triggerScheduled(agentBaseUrl, MANAGER_CRON);
 
-    const cronFallbackDecision = (refreshedManagerLog.entries ?? []).find(
-      (decision) => decision.executionContext?.executionSource === "cron_fallback"
+  if (scheduledResult.status !== 200) {
+    throw new Error(
+      `Expected /__scheduled to return 200, got ${scheduledResult.status} — start the agent with --test-scheduled`
     );
-
-    if (!cronFallbackDecision) {
-      throw new Error(
-        "Expected at least one manager-log entry with cron_fallback execution provenance"
-      );
-    }
-
-    cronFallbackManagerLogProvenanceVerified = true;
   }
+
+  const refreshedManagerLog = await waitForJsonMatch<ManagerLogEnvelope>({
+    label: "cron fallback manager-log provenance",
+    url: `${agentBaseUrl}/agent/manager-log?managerEmployeeId=emp_infra_ops_manager_01&limit=100`,
+    matches: (json): json is ManagerLogEnvelope => {
+      const envelope = json as ManagerLogEnvelope;
+      return (envelope.entries ?? []).some(
+        (decision) => decision.executionContext?.executionSource === "cron_fallback"
+      );
+    },
+  });
+
+  const cronFallbackDecision = (refreshedManagerLog.entries ?? []).find(
+    (decision) => decision.executionContext?.executionSource === "cron_fallback"
+  );
+
+  if (!cronFallbackDecision) {
+    throw new Error(
+      "Expected at least one manager-log entry with cron_fallback execution provenance"
+    );
+  }
+
+  const cronFallbackManagerLogProvenanceVerified = true;
 
   const expectAuthRequired = process.env.EXPECT_PAPERCLIP_AUTH_REQUIRED === "true";
   const configuredSecret = process.env.PAPERCLIP_SHARED_SECRET;
@@ -474,6 +525,7 @@ async function main(): Promise<void> {
   console.log("paperclip-first-execution-check passed", {
     primaryScheduler: schedulerStatus.primaryScheduler,
     cronFallbackEnabled: schedulerStatus.cronFallbackEnabled,
+    seededWorkLogEntries: seeded.seeded,
     paperclipAccepted: validPaperclip.status,
     managerDecisionsEmitted: managerSignals.decisionsEmitted,
     managerEscalationsCreated: managerSignals.escalationsCreated,

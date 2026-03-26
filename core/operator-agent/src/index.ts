@@ -9,6 +9,7 @@ import { handleManagerLog } from "./routes/manager-log";
 import { handleRun } from "./routes/run";
 import { handleRunOnce } from "./routes/run-once";
 import { handleSchedulerStatus } from "./routes/scheduler-status";
+import { handleSeedWorkLog } from "./routes/te-seed-work-log";
 import { handleWorkLog } from "./routes/work-log";
 import { handleScheduledCron } from "./triggers/scheduled";
 import type { OperatorAgentEnv } from "./types";
@@ -66,6 +67,13 @@ export default {
 
     if (request.method === "GET" && url.pathname === "/agent/scheduler-status") {
       return handleSchedulerStatus(request, env);
+    }
+
+    if (
+      env.ENABLE_TEST_ENDPOINTS === "true" &&
+      url.pathname === "/agent/te/seed-work-log"
+    ) {
+      return handleSeedWorkLog(request, env);
     }
 
     return new Response("Not Found", { status: 404 });
