@@ -333,6 +333,7 @@ export async function runTimeoutRecoveryOperator(
     policyVersion: context.policyVersion,
     trigger: req.trigger,
     employee: employee.identity,
+    workerRole: "timeout-recovery-operator",
     baseAuthority: context.employee.authority,
     baseBudget: context.employee.budget,
     authority,

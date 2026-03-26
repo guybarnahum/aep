@@ -78,3 +78,4 @@ export class EmployeeControlStore {
   isBlocked(control: EmployeeControlRecord | null): boolean {
     return control ? isBlockedState(control.state) : false;
   }
+}

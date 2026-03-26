@@ -1,5 +1,6 @@
 import { getConfig } from "@aep/operator-agent/config";
 import { runInfraOpsManager } from "@aep/operator-agent/agents/infra-ops-manager";
+import { runRetrySupervisor } from "@aep/operator-agent/agents/retry-supervisor";
 import { runTimeoutRecoveryOperator } from "@aep/operator-agent/agents/timeout-recovery";
 import { EmployeeControlStore } from "@aep/operator-agent/lib/employee-control-store";
 import { mergeAuthority, mergeBudget } from "@aep/operator-agent/lib/policy-merge";
@@ -210,6 +211,8 @@ export async function executeEmployeeRun(
   switch (resolved.employee.identity.roleId) {
     case "timeout-recovery-operator":
       return runTimeoutRecoveryOperator(executionContext, env);
+    case "retry-supervisor":
+      return runRetrySupervisor(executionContext, env);
     case "infra-ops-manager":
       return runInfraOpsManager(executionContext, env);
     default:

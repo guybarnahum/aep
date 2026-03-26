@@ -382,6 +382,52 @@ This keeps behavior explicit, observable, and reversible without introducing any
 
 ---
 
+## Multi-Worker Department (Commit 10C)
+
+AEP now runs a **real three-employee small department**:
+
+| Employee | Role | Scope |
+|---|---|---|
+| `emp_timeout_recovery_01` | `timeout-recovery-operator` | all tenants |
+| `emp_retry_supervisor_01` | `retry-supervisor` | `qa`, `internal-aep` |
+| `emp_infra_ops_manager_01` | `infra-ops-manager` | supervises both workers |
+
+### Worker cron
+
+Both `timeout-recovery-operator` and `retry-supervisor` run on every cron tick via a team loop. Each result includes a `workerRole` field identifying the responsible worker.
+
+### Manager supervision
+
+The manager now observes **both workers** in a single cron evaluation:
+
+- fetches work logs per employee
+- applies the same per-employee control logic (disable / restrict / clear)
+- detects cross-worker patterns:
+  - `cross_worker_budget_pressure`: combined budget exhaustion ≥ 4 signals → recommend `rebalance_team_capacity`
+  - `cross_worker_failure_pattern_detected`: combined verification + action failures ≥ 2 → recommend `pause_one_worker_keep_one_active`
+- returns `observedEmployeeIds[]`, `scanned.employeesObserved`, `summary.crossWorkerAlerts`, `perEmployee[]`
+
+### Run-once with employee selection
+
+`POST /agent/run-once?employeeId=emp_retry_supervisor_01` selects a specific worker; defaults to `timeout-recovery-operator` if omitted.
+
+### CI validation
+
+Script:
+
+```text
+scripts/ci/multi-worker-department-check.ts
+```
+
+Validates:
+
+1. all three employees present (`count >= 3`)
+2. retry-supervisor run returns correct `workerRole`
+3. manager observes both workers with matching `perEmployee` summaries
+4. `crossWorkerAlerts` field present in manager summary
+
+---
+
 ## What we have now (conceptually)
 
 We have built:

@@ -56,6 +56,7 @@ export interface EmployeeRunRequest {
   budgetOverride?: Partial<AgentBudget>;
   authorityOverride?: Partial<AgentAuthority>;
   targetEmployeeIdOverride?: string;
+  targetEmployeeIdsOverride?: string[];
 }
 
 export interface ResolvedEmployeeRunContext {
@@ -117,7 +118,9 @@ export type ManagerDecisionReason =
   | "employee_reenabled_after_quiet_period"
   | "employee_restricted_after_budget_exhaustion"
   | "employee_restricted_after_repeated_failures"
-  | "employee_restrictions_cleared_after_quiet_period";
+  | "employee_restrictions_cleared_after_quiet_period"
+  | "cross_worker_budget_pressure"
+  | "cross_worker_failure_pattern_detected";
 
 export type CandidateReason =
   | "eligible_timeout_recovery"
@@ -156,7 +159,9 @@ export interface ManagerDecision {
     | "disable_employee"
     | "re_enable_employee"
     | "restrict_employee"
-    | "clear_employee_restrictions";
+    | "clear_employee_restrictions"
+    | "rebalance_team_capacity"
+    | "pause_one_worker_keep_one_active";
   severity: "warning" | "critical";
   message: string;
   evidence: {
@@ -165,15 +170,25 @@ export interface ManagerDecision {
   };
 }
 
+export interface ManagedEmployeeObservationSummary {
+  employeeId: string;
+  workLogEntries: number;
+  repeatedVerificationFailures: number;
+  operatorActionFailures: number;
+  budgetExhaustionSignals: number;
+  decisionsEmitted: number;
+}
+
 export interface ManagerDecisionResponse {
   ok: true;
   status: "completed";
   policyVersion: string;
   trigger: EmployeeTrigger;
   employee: AgentIdentity;
-  observedEmployeeId: string;
+  observedEmployeeIds: string[];
   scanned: {
     workLogEntries: number;
+    employeesObserved: number;
   };
   summary: {
     repeatedVerificationFailures: number;
@@ -182,8 +197,10 @@ export interface ManagerDecisionResponse {
     reEnableDecisions: number;
     restrictionDecisions: number;
     clearedRestrictionDecisions: number;
+    crossWorkerAlerts: number;
     decisionsEmitted: number;
   };
+  perEmployee: ManagedEmployeeObservationSummary[];
   decisions: ManagerDecision[];
   message: string;
   controlPlaneBaseUrl: string;
@@ -315,6 +332,7 @@ export interface EmployeeRunResponse {
   policyVersion: string;
   trigger: EmployeeTrigger;
   employee: AgentIdentity;
+  workerRole: "timeout-recovery-operator" | "retry-supervisor";
   baseAuthority: AgentAuthority;
   baseBudget: AgentBudget;
   authority: AgentAuthority;

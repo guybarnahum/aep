@@ -1,6 +1,6 @@
 import { getConfig } from "@aep/operator-agent/config";
 import { executeEmployeeRun, toErrorResponse } from "@aep/operator-agent/lib/execute-employee-run";
-import { timeoutRecoveryEmployee } from "@aep/operator-agent/org/employees";
+import { getEmployeeById, timeoutRecoveryEmployee } from "@aep/operator-agent/org/employees";
 import type { EmployeeRunRequest, OperatorAgentEnv } from "@aep/operator-agent/types";
 
 export async function handleRunOnce(
@@ -13,7 +13,11 @@ export async function handleRunOnce(
     return new Response("Method Not Allowed", { status: 405 });
   }
 
-  const employee = timeoutRecoveryEmployee;
+  const url = new URL(request.url);
+  const requestedEmployeeId = url.searchParams.get("employeeId");
+  const employee =
+    (requestedEmployeeId ? getEmployeeById(requestedEmployeeId) : undefined) ??
+    timeoutRecoveryEmployee;
 
   const runRequest: EmployeeRunRequest = {
     departmentId: employee.identity.departmentId,

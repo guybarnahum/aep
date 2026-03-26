@@ -96,8 +96,18 @@ async function main(): Promise<void> {
     throw new Error("Expected /agent/employees to include timeout recovery employee");
   }
 
+  if (!employeeIds.has("emp_retry_supervisor_01")) {
+    throw new Error("Expected /agent/employees to include retry supervisor employee");
+  }
+
   if (!employeeIds.has("emp_infra_ops_manager_01")) {
     throw new Error("Expected /agent/employees to include infra ops manager employee");
+  }
+
+  if (employees.count < 3) {
+    throw new Error(
+      `Expected at least 3 employees, got ${employees.count}`
+    );
   }
 
   const managerLog = await readJson<ManagerLogResponse>(

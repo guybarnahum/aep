@@ -2,7 +2,7 @@
 
 export {};
 
-const POLICY_VERSION = "commit10-stageB";
+const POLICY_VERSION = "commit10-stageC";
 
 type ManagerDecision = {
   timestamp: string;
@@ -31,9 +31,10 @@ type ManagerRunResponse = {
     employeeId: string;
     roleId: string;
   };
-  observedEmployeeId: string;
+  observedEmployeeIds: string[];
   scanned: {
     workLogEntries: number;
+    employeesObserved: number;
   };
   summary: {
     repeatedVerificationFailures: number;
@@ -42,8 +43,19 @@ type ManagerRunResponse = {
     reEnableDecisions: number;
     restrictionDecisions: number;
     clearedRestrictionDecisions: number;
+    crossWorkerAlerts: number;
     decisionsEmitted: number;
   };
+  perEmployee: Array<{
+    employeeId: string;
+    workLogEntries: number;
+    verificationFailed: number;
+    operatorActionFailed: number;
+    budgetExhausted: number;
+    reEnableDecisions: number;
+    restrictionDecisions: number;
+    clearedRestrictionDecisions: number;
+  }>;
   decisions: ManagerDecision[];
   message: string;
   controlPlaneBaseUrl: string;
@@ -95,7 +107,7 @@ async function readJson<T>(response: Response): Promise<T> {
 
 async function runManager(
   agentBaseUrl: string,
-  observedEmployeeId: string
+  observedEmployeeIds: string[]
 ): Promise<ManagerRunResponse> {
   const response = await fetch(`${agentBaseUrl}/agent/run`, {
     method: "POST",
@@ -108,7 +120,7 @@ async function runManager(
       roleId: "infra-ops-manager",
       trigger: "manual",
       policyVersion: POLICY_VERSION,
-      targetEmployeeIdOverride: observedEmployeeId,
+      targetEmployeeIdsOverride: observedEmployeeIds,
     }),
   });
 
@@ -134,11 +146,12 @@ async function getEmployeeControls(
 
 async function main(): Promise<void> {
   const agentBaseUrl = requireEnv("OPERATOR_AGENT_BASE_URL");
-  const observedEmployeeId =
-    process.env.OPERATOR_AGENT_MANAGER_OBSERVED_EMPLOYEE_ID ??
-    "emp_timeout_recovery_01";
+  const observedEmployeeIds = (
+    process.env.OPERATOR_AGENT_MANAGER_OBSERVED_EMPLOYEE_IDS ??
+    "emp_timeout_recovery_01,emp_retry_supervisor_01"
+  ).split(",").map((s) => s.trim()).filter((s) => s.length > 0);
 
-  const managerRun = await runManager(agentBaseUrl, observedEmployeeId);
+  const managerRun = await runManager(agentBaseUrl, observedEmployeeIds);
 
   if (managerRun.policyVersion !== POLICY_VERSION) {
     throw new Error(
@@ -152,9 +165,22 @@ async function main(): Promise<void> {
     );
   }
 
-  if (managerRun.observedEmployeeId !== observedEmployeeId) {
+  if (
+    !Array.isArray(managerRun.observedEmployeeIds) ||
+    managerRun.observedEmployeeIds.length === 0
+  ) {
+    throw new Error("Expected observedEmployeeIds to be a non-empty array");
+  }
+
+  if (managerRun.scanned.employeesObserved !== observedEmployeeIds.length) {
     throw new Error(
-      `Unexpected observedEmployeeId: ${managerRun.observedEmployeeId}`
+      `Expected employeesObserved=${observedEmployeeIds.length}, got ${managerRun.scanned.employeesObserved}`
+    );
+  }
+
+  if (managerRun.perEmployee.length !== observedEmployeeIds.length) {
+    throw new Error(
+      `Expected perEmployee length=${observedEmployeeIds.length}, got ${managerRun.perEmployee.length}`
     );
   }
 
@@ -183,8 +209,9 @@ async function main(): Promise<void> {
   }
 
   console.log("manager-advisory-check passed", {
-    observedEmployeeId,
-    state: employeeControls.control?.state ?? "enabled",
+    observedEmployeeIds,
+    employeesObserved: managerRun.scanned.employeesObserved,
+    crossWorkerAlerts: managerRun.summary.crossWorkerAlerts,
     decisionsEmitted: managerRun.summary.decisionsEmitted,
     restrictionDecisions: managerRun.summary.restrictionDecisions,
     managerLogCount: managerLog.count,

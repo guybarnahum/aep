@@ -5,6 +5,7 @@ export interface OperatorAgentConfig {
   dryRun: boolean;
   cooldownMs: number;
   managerObservedEmployeeId: string;
+  managerObservedEmployeeIds: string[];
   managerReviewWindowMs: number;
   managerQuietPeriodMs: number;
 }
@@ -16,6 +17,18 @@ function readEnvString(
 ): string {
   const value = env?.[key];
   return typeof value === "string" && value.length > 0 ? value : fallback;
+}
+
+function readEnvStringArray(
+  env: Record<string, unknown> | undefined,
+  key: string,
+  fallback: string[]
+): string[] {
+  const value = env?.[key];
+  if (typeof value === "string" && value.length > 0) {
+    return value.split(",").map((s) => s.trim()).filter((s) => s.length > 0);
+  }
+  return fallback;
 }
 
 function readEnvBoolean(
@@ -61,7 +74,7 @@ function readEnvNumber(
 export function getConfig(env?: Record<string, unknown>): OperatorAgentConfig {
   return {
     serviceName: "aep-operator-agent",
-    policyVersion: "commit10-stageB",
+    policyVersion: "commit10-stageC",
     controlPlaneBaseUrl: readEnvString(
       env,
       "CONTROL_PLANE_BASE_URL",
@@ -73,6 +86,11 @@ export function getConfig(env?: Record<string, unknown>): OperatorAgentConfig {
       env,
       "OPERATOR_AGENT_MANAGER_OBSERVED_EMPLOYEE_ID",
       "emp_timeout_recovery_01"
+    ),
+    managerObservedEmployeeIds: readEnvStringArray(
+      env,
+      "OPERATOR_AGENT_MANAGER_OBSERVED_EMPLOYEE_IDS",
+      ["emp_timeout_recovery_01", "emp_retry_supervisor_01"]
     ),
     managerReviewWindowMs: readEnvNumber(
       env,

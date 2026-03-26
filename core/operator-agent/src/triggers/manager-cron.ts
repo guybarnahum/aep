@@ -11,7 +11,7 @@ function isManagerDecisionResponse(value: unknown): value is ManagerDecisionResp
   return (
     typeof value === "object" &&
     value !== null &&
-    "observedEmployeeId" in value &&
+    "observedEmployeeIds" in value &&
     "decisions" in value &&
     "summary" in value
   );
@@ -29,7 +29,7 @@ export async function handleManagerCron(
     roleId: employee.identity.roleId,
     trigger: "cron",
     policyVersion: config.policyVersion,
-    targetEmployeeIdOverride: config.managerObservedEmployeeId,
+    targetEmployeeIdsOverride: config.managerObservedEmployeeIds,
   };
 
   const result = await executeEmployeeRun(runRequest, env);
@@ -40,7 +40,7 @@ export async function handleManagerCron(
 
   console.log("[operator-agent] manager cron run completed", {
     employeeId: result.employee.employeeId,
-    observedEmployeeId: result.observedEmployeeId,
+    observedEmployeeIds: result.observedEmployeeIds,
     scanned: result.scanned,
     summary: result.summary,
     decisionsEmitted: result.decisions.length,
