@@ -26,6 +26,10 @@ function compareDescendingByTimestamp(
   return b.timestamp.localeCompare(a.timestamp);
 }
 
+function isTerminalApprovalStatus(status: ApprovalStatus): boolean {
+  return status === "approved" || status === "rejected" || status === "expired";
+}
+
 export class ApprovalStore {
   constructor(private readonly env: OperatorAgentEnv) {}
 
@@ -51,6 +55,43 @@ export class ApprovalStore {
 
   async put(record: ApprovalRecord): Promise<void> {
     await this.write(record);
+  }
+
+  async update(record: ApprovalRecord): Promise<void> {
+    await this.put(record);
+  }
+
+  async decide(args: {
+    approvalId: string;
+    nextStatus: "approved" | "rejected";
+    decidedBy: string;
+    decisionNote?: string;
+    decidedAt?: string;
+  }): Promise<
+    | { ok: true; approval: ApprovalRecord }
+    | { ok: false; reason: "not_found" | "already_decided"; approval?: ApprovalRecord }
+  > {
+    const existing = await this.get(args.approvalId);
+
+    if (!existing) {
+      return { ok: false, reason: "not_found" };
+    }
+
+    if (isTerminalApprovalStatus(existing.status)) {
+      return { ok: false, reason: "already_decided", approval: existing };
+    }
+
+    const updated: ApprovalRecord = {
+      ...existing,
+      status: args.nextStatus,
+      decidedAt: args.decidedAt ?? new Date().toISOString(),
+      decidedBy: args.decidedBy,
+      decisionNote: args.decisionNote,
+    };
+
+    await this.put(updated);
+
+    return { ok: true, approval: updated };
   }
 
   async list(args: {

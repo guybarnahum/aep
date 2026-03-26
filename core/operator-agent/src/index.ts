@@ -1,5 +1,7 @@
 import { handleControlHistory } from "./routes/control-history";
 import { handleApprovalDetail } from "./routes/approval-detail";
+import { handleApproveApproval } from "./routes/approvals-approve";
+import { handleRejectApproval } from "./routes/approvals-reject";
 import { handleApprovals } from "./routes/approvals";
 import { handleEscalations } from "./routes/escalations";
 import { handleAcknowledgeEscalation } from "./routes/escalations-acknowledge";
@@ -66,6 +68,14 @@ async function dispatch(request: Request, env: OperatorAgentEnv): Promise<Respon
 
   if (url.pathname === "/agent/approvals") {
     return handleApprovals(request, env);
+  }
+
+  if (url.pathname === "/agent/approvals/approve") {
+    return handleApproveApproval(request, env);
+  }
+
+  if (url.pathname === "/agent/approvals/reject") {
+    return handleRejectApproval(request, env);
   }
 
   const approvalMatch = url.pathname.match(/^\/agent\/approvals\/([^/]+)$/);
