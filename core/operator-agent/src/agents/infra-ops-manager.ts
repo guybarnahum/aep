@@ -130,6 +130,14 @@ function approvalId(
   return `approval:${timestamp}:${actionType}:${employeeId}`;
 }
 
+function approvalExecutionId(
+  timestamp: string,
+  actionType: string,
+  employeeId: string
+): string {
+  return `approval-exec:${timestamp}:${actionType}:${employeeId}`;
+}
+
 function buildApprovalRecord(args: {
   manager: AgentEmployeeDefinition["identity"];
   nowIso: string;
@@ -223,6 +231,8 @@ async function applyApprovalBackedControl(args: {
     | "blocked_rejected"
     | "approved_applied";
   approval?: ApprovalRecord | null;
+  executionId?: string;
+  approvalExecutedAt?: string;
 }> {
   const latest = await args.approvalStore.findLatestDecisionForAction({
     actionType: args.actionType,
@@ -245,12 +255,36 @@ async function applyApprovalBackedControl(args: {
     };
   }
 
-  await args.controlStore.put(args.controlRecord);
+  const executionId = approvalExecutionId(
+    args.nowIso,
+    args.actionType,
+    args.employeeId
+  );
+  const approvalExecutedAt = args.nowIso;
+
+  const linkedControlRecord: EmployeeControlRecord = {
+    ...args.controlRecord,
+    approvalId: latest.approvalId,
+    approvalExecutedAt,
+    approvalExecutionId: executionId,
+  };
+
+  await args.controlStore.put(linkedControlRecord);
+
+  const marked = await args.approvalStore.markExecuted({
+    approvalId: latest.approvalId,
+    executedAt: approvalExecutedAt,
+    executionId,
+    executedByEmployeeId: args.manager.employeeId,
+    executedByRoleId: args.manager.roleId,
+  });
 
   return {
     applied: true,
     approvalGateStatus: "approved_applied",
-    approval: latest,
+    approval: marked.ok ? marked.approval : latest,
+    executionId,
+    approvalExecutedAt,
   };
 }
 
@@ -316,6 +350,8 @@ export async function runInfraOpsManager(
 
       let linkedApproval = latestDisableApproval;
       let approvalGateStatus: ManagerDecision["approvalGateStatus"];
+      let appliedExecutionId: string | undefined;
+      let appliedExecutedAt: string | undefined;
 
       const controlRecord = buildControlRecord({
         managerEmployeeId: manager.identity.employeeId,
@@ -379,6 +415,8 @@ export async function runInfraOpsManager(
         approvalGateStatus = applyResult.approvalGateStatus;
         if (approvalGateStatus === "approved_applied") {
           approvalAppliedDecisions += 1;
+          appliedExecutionId = applyResult.executionId;
+          appliedExecutedAt = applyResult.approvalExecutedAt;
         } else {
           approvalBlockedDecisions += 1;
         }
@@ -409,6 +447,8 @@ export async function runInfraOpsManager(
         approvalId: linkedApproval?.approvalId,
         approvalStatus: linkedApproval?.status,
         approvalGateStatus,
+        approvalExecutionId: appliedExecutionId,
+        approvalExecutedAt: appliedExecutedAt,
       });
     }
 
@@ -421,6 +461,8 @@ export async function runInfraOpsManager(
 
       let linkedApproval = latestDisableApproval;
       let approvalGateStatus: ManagerDecision["approvalGateStatus"];
+      let appliedExecutionId: string | undefined;
+      let appliedExecutedAt: string | undefined;
 
       const controlRecord = buildControlRecord({
         managerEmployeeId: manager.identity.employeeId,
@@ -482,6 +524,8 @@ export async function runInfraOpsManager(
         approvalGateStatus = applyResult.approvalGateStatus;
         if (approvalGateStatus === "approved_applied") {
           approvalAppliedDecisions += 1;
+          appliedExecutionId = applyResult.executionId;
+          appliedExecutedAt = applyResult.approvalExecutedAt;
         } else {
           approvalBlockedDecisions += 1;
         }
@@ -512,6 +556,8 @@ export async function runInfraOpsManager(
         approvalId: linkedApproval?.approvalId,
         approvalStatus: linkedApproval?.status,
         approvalGateStatus,
+        approvalExecutionId: appliedExecutionId,
+        approvalExecutedAt: appliedExecutedAt,
       });
     }
 
@@ -543,6 +589,8 @@ export async function runInfraOpsManager(
 
       let linkedApproval = latestRestrictApproval;
       let approvalGateStatus: ManagerDecision["approvalGateStatus"];
+      let appliedExecutionId: string | undefined;
+      let appliedExecutedAt: string | undefined;
 
       const controlRecord = buildControlRecord({
         managerEmployeeId: manager.identity.employeeId,
@@ -621,6 +669,8 @@ export async function runInfraOpsManager(
         approvalGateStatus = applyResult.approvalGateStatus;
         if (approvalGateStatus === "approved_applied") {
           approvalAppliedDecisions += 1;
+          appliedExecutionId = applyResult.executionId;
+          appliedExecutedAt = applyResult.approvalExecutedAt;
         } else {
           approvalBlockedDecisions += 1;
         }
@@ -651,6 +701,8 @@ export async function runInfraOpsManager(
         approvalId: linkedApproval?.approvalId,
         approvalStatus: linkedApproval?.status,
         approvalGateStatus,
+        approvalExecutionId: appliedExecutionId,
+        approvalExecutedAt: appliedExecutedAt,
       });
 
       totalRestrictionDecisions += 1;
@@ -669,6 +721,8 @@ export async function runInfraOpsManager(
 
       let linkedApproval = latestRestrictApproval;
       let approvalGateStatus: ManagerDecision["approvalGateStatus"];
+      let appliedExecutionId: string | undefined;
+      let appliedExecutedAt: string | undefined;
 
       const controlRecord = buildControlRecord({
         managerEmployeeId: manager.identity.employeeId,
@@ -748,6 +802,8 @@ export async function runInfraOpsManager(
         approvalGateStatus = applyResult.approvalGateStatus;
         if (approvalGateStatus === "approved_applied") {
           approvalAppliedDecisions += 1;
+          appliedExecutionId = applyResult.executionId;
+          appliedExecutedAt = applyResult.approvalExecutedAt;
         } else {
           approvalBlockedDecisions += 1;
         }
@@ -778,6 +834,8 @@ export async function runInfraOpsManager(
         approvalId: linkedApproval?.approvalId,
         approvalStatus: linkedApproval?.status,
         approvalGateStatus,
+        approvalExecutionId: appliedExecutionId,
+        approvalExecutedAt: appliedExecutedAt,
       });
 
       totalRestrictionDecisions += 1;

@@ -1,4 +1,7 @@
 import type {
+  ApprovalActionFilter,
+  ApprovalRecord,
+  ApprovalStatusFilter,
   ControlHistoryRecord,
   DecisionSeverityFilter,
   DepartmentFilters,
@@ -196,7 +199,12 @@ function paginate<T>(
 }
 
 function renderPager(args: {
-  section: "employees" | "escalations" | "managerLog" | "controlHistory";
+  section:
+    | "employees"
+    | "escalations"
+    | "managerLog"
+    | "controlHistory"
+    | "approvals";
   page: number;
   totalPages: number;
   totalItems: number;
@@ -264,6 +272,104 @@ function renderExpandableText(id: string, label: string, content: string): strin
       <summary>${escapeHtml(label)}</summary>
       <pre class="json-block scroll-block">${content}</pre>
     </details>
+  `;
+}
+
+function renderApprovalActions(entry: ApprovalRecord): string {
+  if (entry.status !== "pending") {
+    return `<span class="muted small">${escapeHtml(entry.status)}</span>`;
+  }
+
+  return `
+    <div class="table-actions">
+      <button
+        type="button"
+        class="button button-small"
+        data-action="approve-approval"
+        data-approval-id="${escapeHtml(entry.approvalId)}"
+      >
+        Approve
+      </button>
+      <button
+        type="button"
+        class="button button-small button-secondary"
+        data-action="reject-approval"
+        data-approval-id="${escapeHtml(entry.approvalId)}"
+      >
+        Reject
+      </button>
+    </div>
+  `;
+}
+
+function renderApprovalLinkage(entry: ApprovalRecord): string {
+  return `
+    <div class="approval-meta">
+      <div class="muted small">id=${escapeHtml(entry.approvalId)}</div>
+      <div class="muted small">source=${escapeHtml(entry.source)}</div>
+      <div class="muted small">decision=${escapeHtml(entry.decidedBy ?? "-")} @ ${formatTimestamp(entry.decidedAt)}</div>
+      ${entry.decisionNote ? `<div class="muted small">note=${escapeHtml(entry.decisionNote)}</div>` : ""}
+      ${entry.executionId ? `<div class="muted small">exec=${escapeHtml(entry.executionId)}</div>` : ""}
+      ${entry.executedAt ? `<div class="muted small">executed=${formatTimestamp(entry.executedAt)}</div>` : ""}
+    </div>
+  `;
+}
+
+function renderApprovalsTable(entries: ApprovalRecord[]): string {
+  if (entries.length === 0) {
+    return `<div class="empty-state small-empty">No approvals recorded.</div>`;
+  }
+
+  return `
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Time</th>
+          <th>Status</th>
+          <th>Action</th>
+          <th>Target employee</th>
+          <th>Requested by</th>
+          <th>Reason</th>
+          <th>Provenance / execution</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${entries
+          .map((entry) => {
+            const payload = entry.payload ?? {};
+            const targetEmployeeId =
+              typeof payload.targetEmployeeId === "string"
+                ? payload.targetEmployeeId
+                : null;
+
+            return `
+              <tr>
+                <td>${formatTimestamp(entry.timestamp)}</td>
+                <td><span class="${statusClass(entry.status)}">${escapeHtml(entry.status)}</span></td>
+                <td>${escapeHtml(entry.actionType)}</td>
+                <td>${targetEmployeeId ? `<div class="inline-chip-row"><span>${escapeHtml(targetEmployeeId)}</span>${renderEmployeeJumpButton(targetEmployeeId)}</div>` : "-"}</td>
+                <td>
+                  <div>${escapeHtml(entry.requestedByEmployeeName ?? entry.requestedByEmployeeId)}</div>
+                  <div class="muted small">${escapeHtml(entry.requestedByRoleId)}</div>
+                </td>
+                <td>
+                  <div>${escapeHtml(entry.reason)}</div>
+                  <div class="muted small">${escapeHtml(entry.message)}</div>
+                  ${renderExpandableText(
+                    `approval-payload-${entry.approvalId}`,
+                    "Payload",
+                    formatJsonBlock(entry.payload),
+                  )}
+                </td>
+                <td>${renderApprovalLinkage(entry)}</td>
+                <td>${renderApprovalActions(entry)}</td>
+              </tr>
+            `;
+          })
+          .join("")}
+      </tbody>
+    </table>
   `;
 }
 
@@ -447,6 +553,13 @@ function renderManagerLogTable(entries: ManagerDecisionRecord[]): string {
                 <td>
                   <div>${escapeHtml(entry.reason)}</div>
                   <div class="muted small">${escapeHtml(entry.message)}</div>
+                  ${entry.approvalRequired ? `
+                    <div class="muted small">
+                      approval=${escapeHtml(entry.approvalStatus ?? "-")} · gate=${escapeHtml(entry.approvalGateStatus ?? "-")}
+                    </div>
+                    <div class="muted small">id=${escapeHtml(entry.approvalId ?? "-")}</div>
+                    ${entry.approvalExecutionId ? `<div class="muted small">exec=${escapeHtml(entry.approvalExecutionId)}</div>` : ""}
+                  ` : ""}
                   ${renderExpandableText(
                     `decision-evidence-${entry.timestamp}-${entry.employeeId}`,
                     "Evidence",
@@ -507,6 +620,11 @@ function renderControlHistoryTable(entries: ControlHistoryRecord[]): string {
                     "Evidence",
                     formatJsonBlock(entry.evidence),
                   )}
+                  ${entry.approvalId ? `
+                    <div class="muted small">approval=${escapeHtml(entry.approvalId)}</div>
+                    <div class="muted small">approved execution=${escapeHtml(entry.approvalExecutionId ?? "-")}</div>
+                    <div class="muted small">executed=${formatTimestamp(entry.approvalExecutedAt)}</div>
+                  ` : ""}
                 </td>
               </tr>
             `,
@@ -651,6 +769,36 @@ export function renderDepartmentFilters(args: {
               .map(
                 (value) => `
                   <option value="${value}" ${args.filters.employeeState === value ? "selected" : ""}>
+                    ${escapeHtml(value)}
+                  </option>
+                `,
+              )
+              .join("")}
+          </select>
+        </label>
+
+        <label class="filter-field">
+          <span>Approval status</span>
+          <select id="approval-status-filter">
+            ${(["all", "pending", "approved", "rejected", "expired"] as ApprovalStatusFilter[])
+              .map(
+                (value) => `
+                  <option value="${value}" ${args.filters.approvalStatus === value ? "selected" : ""}>
+                    ${escapeHtml(value)}
+                  </option>
+                `,
+              )
+              .join("")}
+          </select>
+        </label>
+
+        <label class="filter-field">
+          <span>Approval action</span>
+          <select id="approval-action-filter">
+            ${(["all", "disable_employee", "restrict_employee"] as ApprovalActionFilter[])
+              .map(
+                (value) => `
+                  <option value="${value}" ${args.filters.approvalAction === value ? "selected" : ""}>
                     ${escapeHtml(value)}
                   </option>
                 `,
@@ -829,6 +977,7 @@ export function renderDepartmentOverview(args: {
     escalations: { page: number; pageSize: 10 | 20 | 50 };
     managerLog: { page: number; pageSize: 10 | 20 | 50 };
     controlHistory: { page: number; pageSize: 10 | 20 | 50 };
+    approvals: { page: number; pageSize: 10 | 20 | 50 };
   };
 }): string {
   const { overview, filters, pagination } = args;
@@ -871,6 +1020,25 @@ export function renderDepartmentOverview(args: {
     return !filters.selectedEmployeeId || entry.employeeId === filters.selectedEmployeeId;
   });
 
+  const filteredApprovals = overview.approvals.filter((entry) => {
+    const payload = entry.payload ?? {};
+    const targetEmployeeId =
+      typeof payload.targetEmployeeId === "string" ? payload.targetEmployeeId : null;
+
+    const matchesSelectedEmployee =
+      !filters.selectedEmployeeId ||
+      entry.requestedByEmployeeId === filters.selectedEmployeeId ||
+      targetEmployeeId === filters.selectedEmployeeId;
+
+    const matchesApprovalStatus =
+      filters.approvalStatus === "all" || entry.status === filters.approvalStatus;
+
+    const matchesApprovalAction =
+      filters.approvalAction === "all" || entry.actionType === filters.approvalAction;
+
+    return matchesSelectedEmployee && matchesApprovalStatus && matchesApprovalAction;
+  });
+
   const pagedEmployees = paginate(
     filteredEmployees,
     pagination.employees.page,
@@ -893,6 +1061,12 @@ export function renderDepartmentOverview(args: {
     filteredControlHistory,
     pagination.controlHistory.page,
     pagination.controlHistory.pageSize,
+  );
+
+  const pagedApprovals = paginate(
+    filteredApprovals,
+    pagination.approvals.page,
+    pagination.approvals.pageSize,
   );
 
   const blockedEmployees = overview.employees.filter(
@@ -935,6 +1109,11 @@ export function renderDepartmentOverview(args: {
             "Manager decisions",
             overview.managerLog.length,
             `${overview.controlHistory.length} control-history entries`,
+          )}
+          ${renderSummaryCard(
+            "Pending approvals",
+            overview.approvals.filter((entry) => entry.status === "pending").length,
+            `${overview.approvals.length} total approvals`,
           )}
         </div>
       </section>
@@ -986,6 +1165,21 @@ export function renderDepartmentOverview(args: {
           pageSize: pagination.managerLog.pageSize,
         })}
         ${renderManagerLogTable(pagedManagerLog.items)}
+      </section>
+
+      <section class="panel">
+        <div class="panel-header">
+          <h2>Approvals</h2>
+          <p class="muted">${pagedApprovals.totalItems} shown</p>
+        </div>
+        ${renderPager({
+          section: "approvals",
+          page: pagedApprovals.page,
+          totalPages: pagedApprovals.totalPages,
+          totalItems: pagedApprovals.totalItems,
+          pageSize: pagination.approvals.pageSize,
+        })}
+        ${renderApprovalsTable(pagedApprovals.items)}
       </section>
 
       <section class="panel">

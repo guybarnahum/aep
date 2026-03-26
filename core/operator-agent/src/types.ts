@@ -208,6 +208,8 @@ export interface ManagerDecision {
     | "blocked_rejected"
     | "approved_ready"
     | "approved_applied";
+  approvalExecutionId?: string;
+  approvalExecutedAt?: string;
   evidence: {
     windowEntryCount: number;
     resultCounts: Partial<Record<TimeoutRecoveryResult, number>>;
@@ -330,6 +332,8 @@ export interface ApprovalRecord {
   decisionNote?: string;
   executedAt?: string;
   executionId?: string;
+  executedByEmployeeId?: string;
+  executedByRoleId?: AgentRoleId;
 
   executionContext?: ExecutionContext;
 }
@@ -351,6 +355,9 @@ export interface EmployeeControlHistoryRecord {
   expiresAt?: string;
   budgetOverride?: Partial<AgentBudget>;
   authorityOverride?: Partial<AgentAuthority>;
+  approvalId?: string;
+  approvalExecutedAt?: string;
+  approvalExecutionId?: string;
   evidence?: {
     windowEntryCount: number;
     resultCounts?: Partial<Record<TimeoutRecoveryResult, number>>;
@@ -379,6 +386,9 @@ export interface EmployeeControlRecord {
   expiresAt?: string;
   budgetOverride?: Partial<AgentBudget>;
   authorityOverride?: Partial<AgentAuthority>;
+  approvalId?: string;
+  approvalExecutedAt?: string;
+  approvalExecutionId?: string;
   evidence?: {
     windowEntryCount: number;
     resultCounts?: Partial<Record<TimeoutRecoveryResult, number>>;

@@ -1,4 +1,5 @@
 import type {
+  AgentRoleId,
   ApprovalRecord,
   ApprovalStatus,
   OperatorAgentEnv,
@@ -87,6 +88,39 @@ export class ApprovalStore {
       decidedAt: args.decidedAt ?? new Date().toISOString(),
       decidedBy: args.decidedBy,
       decisionNote: args.decisionNote,
+    };
+
+    await this.put(updated);
+
+    return { ok: true, approval: updated };
+  }
+
+  async markExecuted(args: {
+    approvalId: string;
+    executedAt: string;
+    executionId: string;
+    executedByEmployeeId?: string;
+    executedByRoleId?: AgentRoleId;
+  }): Promise<
+    | { ok: true; approval: ApprovalRecord }
+    | { ok: false; reason: "not_found" | "not_approved"; approval?: ApprovalRecord }
+  > {
+    const existing = await this.get(args.approvalId);
+
+    if (!existing) {
+      return { ok: false, reason: "not_found" };
+    }
+
+    if (existing.status !== "approved") {
+      return { ok: false, reason: "not_approved", approval: existing };
+    }
+
+    const updated: ApprovalRecord = {
+      ...existing,
+      executedAt: args.executedAt,
+      executionId: args.executionId,
+      executedByEmployeeId: args.executedByEmployeeId,
+      executedByRoleId: args.executedByRoleId,
     };
 
     await this.put(updated);

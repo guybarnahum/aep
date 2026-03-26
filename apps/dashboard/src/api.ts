@@ -1,4 +1,5 @@
 import type {
+  ApprovalRecord,
   ControlHistoryRecord,
   DepartmentOverview,
   EscalationMutationResponse,
@@ -98,6 +99,7 @@ export async function getDepartmentOverview(): Promise<DepartmentOverview> {
     escalationsPayload,
     controlHistoryPayload,
     managerLogPayload,
+    approvalsPayload,
     schedulerStatus,
   ] = await Promise.all([
     getJson<{ employees: OperatorEmployeeRecord[] }>(
@@ -116,6 +118,10 @@ export async function getDepartmentOverview(): Promise<DepartmentOverview> {
       agentBaseUrl,
       "/agent/manager-log?limit=50",
     ),
+    getJson<{ entries: ApprovalRecord[] }>(
+      agentBaseUrl,
+      "/agent/approvals?limit=50",
+    ),
     getJson<SchedulerStatus>(agentBaseUrl, "/agent/scheduler-status"),
   ]);
 
@@ -124,8 +130,33 @@ export async function getDepartmentOverview(): Promise<DepartmentOverview> {
     escalations: escalationsPayload.entries ?? [],
     controlHistory: controlHistoryPayload.entries ?? [],
     managerLog: managerLogPayload.entries ?? [],
+    approvals: approvalsPayload.entries ?? [],
     schedulerStatus,
   };
+}
+
+export async function approveApproval(
+  approvalId: string,
+  decidedBy = "dashboard-operator",
+  decisionNote = "Approved from dashboard operator review.",
+): Promise<{ ok: boolean; approval?: ApprovalRecord }> {
+  return postJson<{ ok: boolean; approval?: ApprovalRecord }>(
+    getOperatorAgentBaseUrl(),
+    "/agent/approvals/approve",
+    { approvalId, decidedBy, decisionNote },
+  );
+}
+
+export async function rejectApproval(
+  approvalId: string,
+  decidedBy = "dashboard-operator",
+  decisionNote = "Rejected from dashboard operator review.",
+): Promise<{ ok: boolean; approval?: ApprovalRecord }> {
+  return postJson<{ ok: boolean; approval?: ApprovalRecord }>(
+    getOperatorAgentBaseUrl(),
+    "/agent/approvals/reject",
+    { approvalId, decidedBy, decisionNote },
+  );
 }
 
 export async function acknowledgeEscalation(

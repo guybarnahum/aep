@@ -131,6 +131,18 @@ export type ManagerDecisionRecord = {
   recommendation: string;
   severity: "warning" | "critical";
   message: string;
+  approvalRequired?: boolean;
+  approvalId?: string;
+  approvalStatus?: ApprovalStatus;
+  approvalGateStatus?:
+    | "not_required"
+    | "requested_pending"
+    | "blocked_pending_approval"
+    | "blocked_rejected"
+    | "approved_ready"
+    | "approved_applied";
+  approvalExecutionId?: string;
+  approvalExecutedAt?: string;
   evidence: {
     windowEntryCount: number;
     resultCounts: Record<string, number>;
@@ -200,9 +212,46 @@ export type ControlHistoryRecord = {
   expiresAt?: string;
   budgetOverride?: Record<string, unknown>;
   authorityOverride?: Record<string, unknown>;
+  approvalId?: string;
+  approvalExecutedAt?: string;
+  approvalExecutionId?: string;
   evidence?: {
     windowEntryCount: number;
     resultCounts?: Record<string, number>;
+  };
+};
+
+export type ApprovalStatus = "pending" | "approved" | "rejected" | "expired";
+
+export type ApprovalRecord = {
+  approvalId: string;
+  timestamp: string;
+  companyId?: string;
+  taskId?: string;
+  heartbeatId?: string;
+  departmentId: string;
+  requestedByEmployeeId: string;
+  requestedByEmployeeName?: string;
+  requestedByRoleId: string;
+  source: "manager" | "policy" | "system";
+  actionType: string;
+  payload: Record<string, unknown>;
+  status: ApprovalStatus;
+  reason: string;
+  message: string;
+  decidedAt?: string;
+  decidedBy?: string;
+  decisionNote?: string;
+  executedAt?: string;
+  executionId?: string;
+  executedByEmployeeId?: string;
+  executedByRoleId?: string;
+  executionContext?: {
+    executionSource?: string;
+    companyId?: string;
+    taskId?: string;
+    heartbeatId?: string;
+    executorId?: string;
   };
 };
 
@@ -216,6 +265,7 @@ export type DepartmentOverview = {
   escalations: EscalationRecord[];
   controlHistory: ControlHistoryRecord[];
   managerLog: ManagerDecisionRecord[];
+  approvals: ApprovalRecord[];
   schedulerStatus: SchedulerStatus;
 };
 
@@ -230,11 +280,25 @@ export type EmployeeStateFilter =
   | "disabled_by_manager"
   | "restricted";
 
+export type ApprovalStatusFilter =
+  | "all"
+  | "pending"
+  | "approved"
+  | "rejected"
+  | "expired";
+
+export type ApprovalActionFilter =
+  | "all"
+  | "disable_employee"
+  | "restrict_employee";
+
 export type DepartmentFilters = {
   selectedEmployeeId: string | null;
   escalationState: EscalationStateFilter;
   decisionSeverity: DecisionSeverityFilter;
   employeeState: EmployeeStateFilter;
+  approvalStatus: ApprovalStatusFilter;
+  approvalAction: ApprovalActionFilter;
 };
 
 export type EscalationMutationResponse = {
@@ -254,4 +318,5 @@ export type DepartmentPaginationState = {
   escalations: SectionPaginationState;
   managerLog: SectionPaginationState;
   controlHistory: SectionPaginationState;
+  approvals: SectionPaginationState;
 };

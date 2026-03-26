@@ -88,6 +88,9 @@ export class EmployeeControlStore {
       expiresAt: record.expiresAt,
       budgetOverride: record.budgetOverride,
       authorityOverride: record.authorityOverride,
+      approvalId: record.approvalId,
+      approvalExecutedAt: record.approvalExecutedAt,
+      approvalExecutionId: record.approvalExecutionId,
       evidence: record.evidence,
     });
   }

@@ -1,11 +1,13 @@
 import {
   acknowledgeEscalation,
+  approveApproval,
   getApiBaseUrl,
   getDepartmentOverview,
   getOperatorAgentBaseUrl,
   getServiceOverview,
   getTenantOverview,
   getTenants,
+  rejectApproval,
   resolveEscalation,
 } from "./api";
 import type { DepartmentFilters, DepartmentPaginationState, PageSize } from "./types";
@@ -42,6 +44,8 @@ const DEFAULT_DEPARTMENT_FILTERS: DepartmentFilters = {
   escalationState: "all",
   decisionSeverity: "all",
   employeeState: "all",
+  approvalStatus: "all",
+  approvalAction: "all",
 };
 
 const DEFAULT_DEPARTMENT_PAGINATION: DepartmentPaginationState = {
@@ -49,6 +53,7 @@ const DEFAULT_DEPARTMENT_PAGINATION: DepartmentPaginationState = {
   escalations: { page: 1, pageSize: 10 },
   managerLog: { page: 1, pageSize: 10 },
   controlHistory: { page: 1, pageSize: 10 },
+  approvals: { page: 1, pageSize: 10 },
 };
 
 function getAutoRefreshEnabled(): boolean {
@@ -120,6 +125,10 @@ function getDepartmentPagination(): DepartmentPaginationState {
         ...DEFAULT_DEPARTMENT_PAGINATION.controlHistory,
         ...(parsed.controlHistory ?? {}),
       },
+      approvals: {
+        ...DEFAULT_DEPARTMENT_PAGINATION.approvals,
+        ...(parsed.approvals ?? {}),
+      },
     };
   } catch {
     return structuredClone(DEFAULT_DEPARTMENT_PAGINATION);
@@ -153,6 +162,7 @@ function resetDepartmentPaginationPages(): DepartmentPaginationState {
     escalations: { ...current.escalations, page: 1 },
     managerLog: { ...current.managerLog, page: 1 },
     controlHistory: { ...current.controlHistory, page: 1 },
+    approvals: { ...current.approvals, page: 1 },
   };
   setDepartmentPagination(next);
   return next;
@@ -238,6 +248,10 @@ function attachDepartmentFilterHandlers(): void {
     document.querySelector<HTMLSelectElement>("#decision-severity-filter");
   const employeeStateFilter =
     document.querySelector<HTMLSelectElement>("#employee-state-filter");
+  const approvalStatusFilter =
+    document.querySelector<HTMLSelectElement>("#approval-status-filter");
+  const approvalActionFilter =
+    document.querySelector<HTMLSelectElement>("#approval-action-filter");
   const clearFiltersButton =
     document.querySelector<HTMLButtonElement>("#clear-filters-button");
 
@@ -268,6 +282,22 @@ function attachDepartmentFilterHandlers(): void {
   employeeStateFilter?.addEventListener("change", () => {
     updateDepartmentFilters({
       employeeState: employeeStateFilter.value as DepartmentFilters["employeeState"],
+    });
+    resetDepartmentPaginationPages();
+    void renderRoute();
+  });
+
+  approvalStatusFilter?.addEventListener("change", () => {
+    updateDepartmentFilters({
+      approvalStatus: approvalStatusFilter.value as DepartmentFilters["approvalStatus"],
+    });
+    resetDepartmentPaginationPages();
+    void renderRoute();
+  });
+
+  approvalActionFilter?.addEventListener("change", () => {
+    updateDepartmentFilters({
+      approvalAction: approvalActionFilter.value as DepartmentFilters["approvalAction"],
     });
     resetDepartmentPaginationPages();
     void renderRoute();
@@ -331,6 +361,53 @@ function attachDepartmentActionHandlers(): void {
       } catch (error) {
         setMutationStatus(
           error instanceof Error ? error.message : "Failed to resolve escalation",
+        );
+      }
+      void renderRoute();
+    });
+  });
+
+  document.querySelectorAll<HTMLButtonElement>("[data-action='approve-approval']").forEach((button) => {
+    button.addEventListener("click", async () => {
+      const approvalId = button.dataset.approvalId;
+      if (!approvalId) return;
+
+      try {
+        setMutationStatus(`Approving ${approvalId}...`);
+        void renderRoute();
+        await approveApproval(approvalId);
+        setMutationStatus(`Approved ${approvalId}`);
+      } catch (error) {
+        setMutationStatus(
+          error instanceof Error ? error.message : "Failed to approve approval",
+        );
+      }
+      void renderRoute();
+    });
+  });
+
+  document.querySelectorAll<HTMLButtonElement>("[data-action='reject-approval']").forEach((button) => {
+    button.addEventListener("click", async () => {
+      const approvalId = button.dataset.approvalId;
+      if (!approvalId) return;
+
+      const note = window.prompt(
+        `Rejection note for ${approvalId}:`,
+        "Rejected from dashboard operator review.",
+      );
+
+      if (note === null) {
+        return;
+      }
+
+      try {
+        setMutationStatus(`Rejecting ${approvalId}...`);
+        void renderRoute();
+        await rejectApproval(approvalId, "dashboard-operator", note);
+        setMutationStatus(`Rejected ${approvalId}`);
+      } catch (error) {
+        setMutationStatus(
+          error instanceof Error ? error.message : "Failed to reject approval",
         );
       }
       void renderRoute();
