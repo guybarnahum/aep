@@ -97,7 +97,11 @@ async function runEmployee(
 ): Promise<EmployeeRunResponse> {
   const response = await fetch(`${agentBaseUrl}/agent/run`, {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: {
+      "content-type": "application/json",
+      "x-aep-execution-source": "operator",
+      "x-actor": "ci-multi-worker-department-check",
+    },
     body: JSON.stringify({
       departmentId,
       employeeId,
@@ -115,7 +119,11 @@ async function runManager(
 ): Promise<ManagerRunResponse> {
   const response = await fetch(`${agentBaseUrl}/agent/run`, {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: {
+      "content-type": "application/json",
+      "x-aep-execution-source": "operator",
+      "x-actor": "ci-multi-worker-department-check",
+    },
     body: JSON.stringify({
       departmentId: "aep-infra-ops",
       employeeId: "emp_infra_ops_manager_01",

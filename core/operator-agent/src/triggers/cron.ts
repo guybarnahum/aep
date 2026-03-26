@@ -1,4 +1,5 @@
 import { getConfig } from "@aep/operator-agent/config";
+import { makeCronFallbackContext } from "@aep/operator-agent/lib/execution-context";
 import { executeEmployeeRun } from "@aep/operator-agent/lib/execute-employee-run";
 import { retrySupervisorEmployee, timeoutRecoveryEmployee } from "@aep/operator-agent/org/employees";
 import type {
@@ -19,6 +20,8 @@ export async function handleWorkerCron(
   ];
 
   for (const employee of workers) {
+    const executionContext = makeCronFallbackContext(employee.identity.employeeId);
+
     const runRequest: EmployeeRunRequest = {
       departmentId: employee.identity.departmentId,
       employeeId: employee.identity.employeeId,
@@ -27,7 +30,7 @@ export async function handleWorkerCron(
       policyVersion: config.policyVersion,
     };
 
-    const result = await executeEmployeeRun(runRequest, env);
+    const result = await executeEmployeeRun(runRequest, env, executionContext);
 
     if (!("dryRun" in result)) {
       throw new Error(

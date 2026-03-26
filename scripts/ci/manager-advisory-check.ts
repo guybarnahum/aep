@@ -118,6 +118,8 @@ async function runManager(
     method: "POST",
     headers: {
       "content-type": "application/json",
+      "x-aep-execution-source": "operator",
+      "x-actor": "ci-manager-advisory-check",
     },
     body: JSON.stringify({
       departmentId: "aep-infra-ops",

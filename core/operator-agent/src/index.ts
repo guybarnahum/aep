@@ -8,6 +8,7 @@ import { handleEmployees } from "./routes/employees";
 import { handleManagerLog } from "./routes/manager-log";
 import { handleRun } from "./routes/run";
 import { handleRunOnce } from "./routes/run-once";
+import { handleSchedulerStatus } from "./routes/scheduler-status";
 import { handleWorkLog } from "./routes/work-log";
 import { handleScheduledCron } from "./triggers/scheduled";
 import type { OperatorAgentEnv } from "./types";
@@ -61,6 +62,10 @@ export default {
 
     if (url.pathname === "/agent/control-history") {
       return handleControlHistory(request, env);
+    }
+
+    if (request.method === "GET" && url.pathname === "/agent/scheduler-status") {
+      return handleSchedulerStatus(request, env);
     }
 
     return new Response("Not Found", { status: 404 });

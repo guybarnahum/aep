@@ -3,6 +3,9 @@ export interface OperatorAgentConfig {
   policyVersion: string;
   controlPlaneBaseUrl: string;
   dryRun: boolean;
+  cronFallbackEnabled: boolean;
+  paperclipAuthRequired: boolean;
+  paperclipSharedSecret: string;
   cooldownMs: number;
   managerObservedEmployeeId: string;
   managerObservedEmployeeIds: string[];
@@ -81,6 +84,17 @@ export function getConfig(env?: Record<string, unknown>): OperatorAgentConfig {
       "http://127.0.0.1:8787"
     ),
     dryRun: readEnvBoolean(env, "OPERATOR_AGENT_DRY_RUN", false),
+    cronFallbackEnabled: readEnvBoolean(
+      env,
+      "AEP_CRON_FALLBACK_ENABLED",
+      true
+    ),
+    paperclipAuthRequired: readEnvBoolean(
+      env,
+      "PAPERCLIP_AUTH_REQUIRED",
+      false
+    ),
+    paperclipSharedSecret: readEnvString(env, "PAPERCLIP_SHARED_SECRET", ""),
     cooldownMs: readEnvNumber(env, "OPERATOR_AGENT_COOLDOWN_MS", 5 * 60 * 1000),
     managerObservedEmployeeId: readEnvString(
       env,

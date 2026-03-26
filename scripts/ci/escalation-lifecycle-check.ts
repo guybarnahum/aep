@@ -69,7 +69,11 @@ async function main(): Promise<void> {
 
     const managerResponse = await fetch(`${agentBaseUrl}/agent/run`, {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: {
+        "content-type": "application/json",
+        "x-aep-execution-source": "operator",
+        "x-actor": "ci-lifecycle-check",
+      },
       body: JSON.stringify({
         departmentId: "aep-infra-ops",
         employeeId: "emp_infra_ops_manager_01",

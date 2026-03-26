@@ -1,4 +1,5 @@
 import { getConfig } from "@aep/operator-agent/config";
+import type { TestExecutionContext } from "@aep/operator-agent/types/execution-provenance";
 import { executeEmployeeRun, toErrorResponse } from "@aep/operator-agent/lib/execute-employee-run";
 import { getEmployeeById, timeoutRecoveryEmployee } from "@aep/operator-agent/org/employees";
 import type { EmployeeRunRequest, OperatorAgentEnv } from "@aep/operator-agent/types";
@@ -28,7 +29,11 @@ export async function handleRunOnce(
   };
 
   try {
-    const result = await executeEmployeeRun(runRequest, env);
+    const executionContext: TestExecutionContext = {
+      executionSource: "test",
+      receivedAt: Date.now(),
+    };
+    const result = await executeEmployeeRun(runRequest, env, executionContext);
     return Response.json(result);
   } catch (error) {
     return toErrorResponse(error, env);

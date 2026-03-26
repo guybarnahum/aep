@@ -1,4 +1,5 @@
 import { getConfig } from "@aep/operator-agent/config";
+import { makeCronFallbackContext } from "@aep/operator-agent/lib/execution-context";
 import { executeEmployeeRun } from "@aep/operator-agent/lib/execute-employee-run";
 import { infraOpsManagerEmployee } from "@aep/operator-agent/org/employees";
 import type {
@@ -22,6 +23,7 @@ export async function handleManagerCron(
 ): Promise<void> {
   const config = getConfig(env);
   const employee = infraOpsManagerEmployee;
+  const executionContext = makeCronFallbackContext(employee.identity.employeeId);
 
   const runRequest: EmployeeRunRequest = {
     departmentId: employee.identity.departmentId,
@@ -32,7 +34,7 @@ export async function handleManagerCron(
     targetEmployeeIdsOverride: config.managerObservedEmployeeIds,
   };
 
-  const result = await executeEmployeeRun(runRequest, env);
+  const result = await executeEmployeeRun(runRequest, env, executionContext);
 
   if (!isManagerDecisionResponse(result)) {
     throw new Error("Unexpected non-manager response for manager cron run");

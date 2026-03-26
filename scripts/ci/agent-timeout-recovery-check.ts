@@ -286,6 +286,8 @@ async function runAgent(
     method: "POST",
     headers: {
       "content-type": "application/json",
+      "x-aep-execution-source": "operator",
+      "x-actor": "ci-agent-timeout-recovery-check",
     },
     body: JSON.stringify({
       departmentId: "aep-infra-ops",
@@ -307,6 +309,7 @@ async function runAgentViaPaperclip(
     method: "POST",
     headers: {
       "content-type": "application/json",
+      "x-aep-execution-source": "paperclip",
     },
     body: JSON.stringify({
       companyId: "paperclip-dev",
@@ -338,6 +341,8 @@ async function runManager(agentBaseUrl: string): Promise<ManagerRunResponse> {
     method: "POST",
     headers: {
       "content-type": "application/json",
+      "x-aep-execution-source": "operator",
+      "x-actor": "ci-agent-timeout-recovery-check",
     },
     body: JSON.stringify({
       departmentId: "aep-infra-ops",
@@ -397,6 +402,8 @@ async function runWorkerAfterManagerDisable(
     method: "POST",
     headers: {
       "content-type": "application/json",
+      "x-aep-execution-source": "operator",
+      "x-actor": "ci-agent-timeout-recovery-check",
     },
     body: JSON.stringify({
       departmentId: "aep-infra-ops",

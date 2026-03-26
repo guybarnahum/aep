@@ -1,3 +1,5 @@
+import type { ExecutionContext } from "@aep/operator-agent/types/execution-provenance";
+
 export type EmployeeTrigger = "manual" | "cron" | "paperclip";
 
 export type EscalationSeverity = "warning" | "critical";
@@ -76,6 +78,9 @@ export interface EmployeeRunRequest {
   authorityOverride?: Partial<AgentAuthority>;
   targetEmployeeIdOverride?: string;
   targetEmployeeIdsOverride?: string[];
+  workflowKind?: string;
+  requestedBy?: string;
+  workerId?: string;
 }
 
 export interface ResolvedEmployeeRunContext {
@@ -84,10 +89,11 @@ export interface ResolvedEmployeeRunContext {
   authority: AgentAuthority;
   budget: AgentBudget;
   policyVersion: string;
+  executionContext?: ExecutionContext;
 }
 
 export interface PaperclipRunRequest {
-  companyId?: string;
+  companyId: string;
   departmentId: DepartmentId;
   employeeId: string;
   roleId: AgentRoleId;
@@ -95,20 +101,27 @@ export interface PaperclipRunRequest {
   budgetOverride?: Partial<AgentBudget>;
   authorityOverride?: Partial<AgentAuthority>;
   trigger?: "paperclip";
-  taskId?: string;
-  heartbeatId?: string;
+  taskId: string;
+  heartbeatId: string;
+  workflowKind?: string;
+  requestedBy?: string;
+  workerId?: string;
+  input?: Record<string, unknown>;
+  targetEmployeeIdOverride?: string;
+  targetEmployeeIdsOverride?: string[];
 }
 
 export interface PaperclipRunResponse {
   ok: true;
   status: "completed";
-  companyId?: string;
-  taskId?: string;
-  heartbeatId?: string;
+  companyId: string;
+  taskId: string;
+  heartbeatId: string;
   request: EmployeeRunRequest;
   result: AgentExecutionResponse;
   executionSource: "paperclip";
   cronFallbackRecommended: boolean;
+  executionContext?: ExecutionContext;
 }
 
 export type EmployeeControlState =
@@ -189,6 +202,7 @@ export interface ManagerDecision {
     windowEntryCount: number;
     resultCounts: Partial<Record<TimeoutRecoveryResult, number>>;
   };
+  executionContext?: ExecutionContext;
 }
 
 export interface ManagedEmployeeObservationSummary {
@@ -264,6 +278,7 @@ export interface EscalationRecord {
       budgetExhaustionSignals: number;
     }>;
   };
+  executionContext?: ExecutionContext;
 }
 
 export interface EmployeeControlHistoryRecord {
@@ -414,6 +429,7 @@ export interface AgentWorkLogEntry {
   budgetSnapshot: BudgetSnapshot;
   traceEvidence?: string[];
   errorMessage?: string;
+  executionContext?: ExecutionContext;
 }
 
 export interface EmployeeRunResponse {
@@ -468,4 +484,7 @@ export interface EmployeeRunErrorResponse {
 
 export interface OperatorAgentEnv extends Record<string, unknown> {
   OPERATOR_AGENT_KV?: KVNamespace;
+  AEP_CRON_FALLBACK_ENABLED?: string;
+  PAPERCLIP_SHARED_SECRET?: string;
+  PAPERCLIP_AUTH_REQUIRED?: string;
 }

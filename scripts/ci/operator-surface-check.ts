@@ -75,6 +75,11 @@ type ControlHistoryResponse = {
   entries: unknown[];
 };
 
+type SchedulerStatusResponse = {
+  primaryScheduler: "paperclip";
+  cronFallbackEnabled: boolean;
+};
+
 function requireEnv(name: string): string {
   const value = process.env[name];
   if (!value) {
@@ -164,6 +169,16 @@ async function main(): Promise<void> {
     throw new Error("/agent/control-history did not return ok=true");
   }
 
+  const schedulerStatus = await readJson<SchedulerStatusResponse>(
+    await fetch(`${agentBaseUrl}/agent/scheduler-status`)
+  );
+
+  if (schedulerStatus.primaryScheduler !== "paperclip") {
+    throw new Error(
+      `Expected primaryScheduler=paperclip, got ${schedulerStatus.primaryScheduler}`
+    );
+  }
+
   for (const employee of employees.employees) {
     if (!employee.effectiveAuthority) {
       throw new Error(
@@ -197,6 +212,8 @@ async function main(): Promise<void> {
     workLogCount: workLog.count,
     escalationsCount: escalations.count,
     controlHistoryCount: controlHistory.count,
+    primaryScheduler: schedulerStatus.primaryScheduler,
+    cronFallbackEnabled: schedulerStatus.cronFallbackEnabled,
   });
 }
 

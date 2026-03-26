@@ -24,6 +24,7 @@ function buildWorkLogEntry(args: {
   request: ResolvedEmployeeRunContext["request"];
   policyVersion: string;
   employee: AgentIdentity;
+  executionContext?: ResolvedEmployeeRunContext["executionContext"];
   decision: TimeoutRecoveryDecision;
   budgetSnapshot: {
     actionsUsedThisScan: number;
@@ -52,6 +53,7 @@ function buildWorkLogEntry(args: {
     budgetSnapshot: args.budgetSnapshot,
     traceEvidence: args.decision.traceEvidence,
     errorMessage: args.decision.errorMessage,
+    executionContext: args.executionContext,
   };
 }
 
@@ -128,6 +130,7 @@ export async function runTimeoutRecoveryOperator(
             request: req,
             policyVersion: context.policyVersion,
             employee: employee.identity,
+            executionContext: context.executionContext,
             decision,
             budgetSnapshot,
             nowMs,
@@ -167,6 +170,7 @@ export async function runTimeoutRecoveryOperator(
             request: req,
             policyVersion: context.policyVersion,
             employee: employee.identity,
+            executionContext: context.executionContext,
             decision,
             budgetSnapshot: budgetCheck.snapshot,
             nowMs,
@@ -192,6 +196,7 @@ export async function runTimeoutRecoveryOperator(
             request: req,
             policyVersion: context.policyVersion,
             employee: employee.identity,
+            executionContext: context.executionContext,
             decision,
             budgetSnapshot: budgetCheck.snapshot,
             nowMs,
@@ -216,6 +221,7 @@ export async function runTimeoutRecoveryOperator(
             request: req,
             policyVersion: context.policyVersion,
             employee: employee.identity,
+            executionContext: context.executionContext,
             decision,
             budgetSnapshot: budgetCheck.snapshot,
             nowMs,
@@ -271,6 +277,7 @@ export async function runTimeoutRecoveryOperator(
             request: req,
             policyVersion: context.policyVersion,
             employee: employee.identity,
+            executionContext: context.executionContext,
             decision,
             budgetSnapshot: postActionSnapshot,
             nowMs,
@@ -301,6 +308,7 @@ export async function runTimeoutRecoveryOperator(
             request: req,
             policyVersion: context.policyVersion,
             employee: employee.identity,
+            executionContext: context.executionContext,
             decision,
             budgetSnapshot: snapshot,
             nowMs,

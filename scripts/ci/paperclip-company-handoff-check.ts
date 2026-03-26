@@ -7,34 +7,28 @@ const POLICY_VERSION = "commit10-stageD";
 type PaperclipRunResponse = {
   ok: true;
   status: "completed";
-  executionSource: "paperclip";
-  cronFallbackRecommended: boolean;
-  policyVersion: string;
-  trigger: string;
-  employee: {
+  companyId: string;
+  taskId: string;
+  heartbeatId: string;
+  request: {
+    policyVersion: string;
+    trigger: string;
     employeeId: string;
     roleId: string;
   };
-  observedEmployeeIds: string[];
-  scanned: {
-    workLogEntries: number;
-    employeesObserved: number;
+  result: unknown;
+  executionSource: "paperclip";
+  cronFallbackRecommended: boolean;
+  executionContext?: {
+    executionSource: "paperclip";
+    companyId: string;
+    taskId: string;
+    heartbeatId: string;
   };
-  summary: {
-    repeatedVerificationFailures: number;
-    operatorActionFailures: number;
-    budgetExhaustionSignals: number;
-    reEnableDecisions: number;
-    restrictionDecisions: number;
-    clearedRestrictionDecisions: number;
-    crossWorkerAlerts: number;
-    escalationsCreated: number;
-    decisionsEmitted: number;
+  routing?: {
+    employeeId: string | null;
+    workerId: string | null;
   };
-  perEmployee: unknown[];
-  decisions: unknown[];
-  message: string;
-  controlPlaneBaseUrl: string;
 };
 
 function requireEnv(name: string): string {
@@ -60,14 +54,18 @@ async function main(): Promise<void> {
     method: "POST",
     headers: {
       "content-type": "application/json",
+      "x-aep-execution-source": "paperclip",
     },
     body: JSON.stringify({
       departmentId: "aep-infra-ops",
-      employeeId: "emp_timeout_recovery_01",
-      roleId: "timeout-recovery-operator",
+      employeeId: "emp_infra_ops_manager_01",
+      roleId: "infra-ops-manager",
       trigger: "paperclip",
       policyVersion: POLICY_VERSION,
-      targetEmployeeIdOverride: "emp_timeout_recovery_01",
+      targetEmployeeIdsOverride: [
+        "emp_timeout_recovery_01",
+        "emp_retry_supervisor_01",
+      ],
       companyId: "company-12345",
       heartbeatId: "hb-" + Date.now(),
       taskId: "task-" + Date.now(),
@@ -86,34 +84,46 @@ async function main(): Promise<void> {
     );
   }
 
+  if (result.executionContext?.executionSource !== "paperclip") {
+    throw new Error("Expected executionContext.executionSource=paperclip");
+  }
+
+  if (result.executionContext?.companyId !== "company-12345") {
+    throw new Error("Expected executionContext.companyId=company-12345");
+  }
+
   if (result.cronFallbackRecommended !== false) {
     throw new Error(
       `Expected cronFallbackRecommended=false, got ${result.cronFallbackRecommended}`
     );
   }
 
-  if (result.policyVersion !== POLICY_VERSION) {
-    throw new Error(`Expected policyVersion="${POLICY_VERSION}", got "${result.policyVersion}"`);
-  }
-
-  if (result.trigger !== "paperclip") {
-    throw new Error(`Expected trigger="paperclip", got "${result.trigger}"`);
-  }
-
-  if (result.employee.employeeId !== "emp_timeout_recovery_01") {
+  if (result.request.policyVersion !== POLICY_VERSION) {
     throw new Error(
-      `Expected executionSource from emp_timeout_recovery_01, got ${result.employee.employeeId}`
+      `Expected request.policyVersion="${POLICY_VERSION}", got "${result.request.policyVersion}"`
+    );
+  }
+
+  if (result.request.trigger !== "paperclip") {
+    throw new Error(
+      `Expected request.trigger="paperclip", got "${result.request.trigger}"`
+    );
+  }
+
+  if (result.request.employeeId !== "emp_infra_ops_manager_01") {
+    throw new Error(
+      `Expected employeeId=emp_infra_ops_manager_01, got ${result.request.employeeId}`
     );
   }
 
   console.log("paperclip-company-handoff-check passed", {
     executionSource: result.executionSource,
     cronFallbackRecommended: result.cronFallbackRecommended,
-    policyVersion: result.policyVersion,
-    trigger: result.trigger,
-    employeeId: result.employee.employeeId,
-    decisionsEmitted: result.summary.decisionsEmitted,
-    escalationsCreated: result.summary.escalationsCreated,
+    policyVersion: result.request.policyVersion,
+    trigger: result.request.trigger,
+    employeeId: result.request.employeeId,
+    routing: result.routing,
+    hasExecutionContext: Boolean(result.executionContext),
   });
 }
 

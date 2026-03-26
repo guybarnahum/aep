@@ -33,6 +33,7 @@ function buildDecision(args: {
   employeeId: string;
   policyVersion: string;
   nowIso: string;
+  executionContext?: ResolvedEmployeeRunContext["executionContext"];
   reason: ManagerDecisionReason;
   message: string;
   windowEntryCount: number;
@@ -56,6 +57,7 @@ function buildDecision(args: {
       windowEntryCount: args.windowEntryCount,
       resultCounts: args.resultCounts,
     },
+    executionContext: args.executionContext,
   };
 }
 
@@ -214,6 +216,7 @@ export async function runInfraOpsManager(
           employeeId: observedEmployeeId,
           policyVersion: context.policyVersion,
           nowIso,
+          executionContext: context.executionContext,
           reason: "repeated_verification_failures",
           recommendation: "disable_employee",
           severity: "critical",
@@ -251,6 +254,7 @@ export async function runInfraOpsManager(
           employeeId: observedEmployeeId,
           policyVersion: context.policyVersion,
           nowIso,
+          executionContext: context.executionContext,
           reason: "operator_action_failures_detected",
           recommendation: "disable_employee",
           severity: "critical",
@@ -268,6 +272,7 @@ export async function runInfraOpsManager(
           employeeId: observedEmployeeId,
           policyVersion: context.policyVersion,
           nowIso,
+          executionContext: context.executionContext,
           reason: "frequent_budget_exhaustion",
           recommendation: "recommend_budget_adjustment",
           message:
@@ -315,6 +320,7 @@ export async function runInfraOpsManager(
           employeeId: observedEmployeeId,
           policyVersion: context.policyVersion,
           nowIso,
+          executionContext: context.executionContext,
           reason: "employee_restricted_after_budget_exhaustion",
           recommendation: "restrict_employee",
           severity: "warning",
@@ -370,6 +376,7 @@ export async function runInfraOpsManager(
           employeeId: observedEmployeeId,
           policyVersion: context.policyVersion,
           nowIso,
+          executionContext: context.executionContext,
           reason: "employee_restricted_after_repeated_failures",
           recommendation: "restrict_employee",
           severity: "warning",
@@ -421,6 +428,7 @@ export async function runInfraOpsManager(
           employeeId: observedEmployeeId,
           policyVersion: context.policyVersion,
           nowIso,
+          executionContext: context.executionContext,
           reason: "employee_restrictions_cleared_after_quiet_period",
           recommendation: "clear_employee_restrictions",
           severity: "warning",
@@ -452,6 +460,7 @@ export async function runInfraOpsManager(
         employeeId: observedEmployeeIds[0] ?? "unknown",
         policyVersion: context.policyVersion,
         nowIso,
+        executionContext: context.executionContext,
         reason: "cross_worker_budget_pressure",
         recommendation: "rebalance_team_capacity",
         severity: "warning",
@@ -471,6 +480,7 @@ export async function runInfraOpsManager(
         employeeId: observedEmployeeIds[0] ?? "unknown",
         policyVersion: context.policyVersion,
         nowIso,
+        executionContext: context.executionContext,
         reason: "cross_worker_failure_pattern_detected",
         recommendation: "pause_one_worker_keep_one_active",
         severity: "critical",
@@ -537,6 +547,7 @@ export async function runInfraOpsManager(
         resultCounts: decision.evidence.resultCounts,
         perEmployee,
       },
+      executionContext: context.executionContext,
     });
     escalationsCreated += 1;
   }

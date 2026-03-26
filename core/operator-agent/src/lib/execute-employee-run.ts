@@ -7,6 +7,7 @@ import { mergeAuthority, mergeBudget } from "@aep/operator-agent/lib/policy-merg
 import { cloneAuthority } from "@aep/operator-agent/org/authority";
 import { cloneBudget } from "@aep/operator-agent/org/budgets";
 import { getEmployeeById } from "@aep/operator-agent/org/employees";
+import type { ExecutionContext } from "@aep/operator-agent/types/execution-provenance";
 import type {
   AgentExecutionResponse,
   EffectiveEmployeePolicy,
@@ -173,7 +174,8 @@ async function maybeReturnBlockedByControl(
 
 export async function executeEmployeeRun(
   request: EmployeeRunRequest,
-  env?: OperatorAgentEnv
+  env?: OperatorAgentEnv,
+  executionContext?: ExecutionContext
 ): Promise<AgentExecutionResponse> {
   const validationError = validateRunRequest(request);
   if (validationError) {
@@ -202,19 +204,20 @@ export async function executeEmployeeRun(
     return blocked;
   }
 
-  const executionContext: ResolvedEmployeeRunContext = {
+  const runContext: ResolvedEmployeeRunContext = {
     ...resolved,
     authority: effectivePolicy.authority,
     budget: effectivePolicy.budget,
+    executionContext,
   };
 
   switch (resolved.employee.identity.roleId) {
     case "timeout-recovery-operator":
-      return runTimeoutRecoveryOperator(executionContext, env);
+      return runTimeoutRecoveryOperator(runContext, env);
     case "retry-supervisor":
-      return runRetrySupervisor(executionContext, env);
+      return runRetrySupervisor(runContext, env);
     case "infra-ops-manager":
-      return runInfraOpsManager(executionContext, env);
+      return runInfraOpsManager(runContext, env);
     default:
       throw Object.assign(
         new Error(

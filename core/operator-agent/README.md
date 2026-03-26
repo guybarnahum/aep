@@ -41,10 +41,26 @@ Current operators:
 The operator-agent is designed for **company-driven execution**:
 
 - Primary entry point: `/agent/run` (Paperclip company calls this)
+- Execution provenance is mandatory via `x-aep-execution-source`
 - Trigger: `"paperclip"` — indicates external company/agent coordination
-- Fallback: `"cron"` — scheduled bootstrap (not primary)
+- Fallback mode: `"cron_fallback"` — scheduled bootstrap/degraded mode only
+
+Valid `x-aep-execution-source` values:
+
+- `paperclip`
+- `operator`
+- `test`
+
+If the header is missing, `/agent/run` returns `400`.
 
 #### Request Structure (Paperclip → Operator)
+
+Headers:
+
+```text
+x-aep-execution-source: paperclip
+x-paperclip-shared-secret: <optional, required only when PAPERCLIP_AUTH_REQUIRED=true>
+```
 
 ```json
 {
@@ -60,28 +76,56 @@ The operator-agent is designed for **company-driven execution**:
 }
 ```
 
+Required Paperclip fields:
+
+- `companyId`
+- `taskId`
+- `heartbeatId`
+
+Optional hardening env vars:
+
+- `PAPERCLIP_AUTH_REQUIRED` (`true|false`)
+- `PAPERCLIP_SHARED_SECRET`
+
+Fallback env var:
+
+- `AEP_CRON_FALLBACK_ENABLED` (`true|false`)
+
 #### Response Structure (Operator → Paperclip)
 
 ```json
 {
   "ok": true,
+  "executionContext": {
+    "executionSource": "paperclip",
+    "companyId": "company-12345",
+    "taskId": "task-...",
+    "heartbeatId": "hb-...",
+    "receivedAt": 1743000000000
+  },
+  "routing": {
+    "employeeId": "emp_infra_ops_manager_01",
+    "workerId": null
+  },
   "executionSource": "paperclip",
   "cronFallbackRecommended": false,
-  "summary": {
-    "decisionsEmitted": 5,
-    "escalationsCreated": 2,
-    "crossWorkerAlerts": 1
-  },
-  "perEmployee": [ /* per-employee decisions */ ],
-  "decisions": [ /* full decision records */ ]
+  "request": { /* adapted employee run request */ },
+  "result": { /* employee/manager execution result */ }
 }
 ```
 
 **Key fields:**
 
 - `executionSource: "paperclip"` — this was company-driven execution, not cron fallback
+- `executionContext.executionSource: "paperclip"` — explicit provenance for audit/logging
 - `cronFallbackRecommended: false` — no need to re-invoke via cron
-- `escalationsCreated: N` — number of issues escalated to company for review
+- `routing` — resolved employee/worker targeting used for this run
+
+Scheduler mode visibility:
+
+- `GET /agent/scheduler-status` returns:
+  - `primaryScheduler: "paperclip"`
+  - `cronFallbackEnabled: boolean`
 
 ### Company Responsibility
 

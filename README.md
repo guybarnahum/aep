@@ -479,9 +479,6 @@ AEP is designed to plug into a company layer:
 - heartbeat scheduling
 
 ### AEP owns
-- infra state
-- safe actions
-- trace verification
 
 Future integration:
 
@@ -491,6 +488,35 @@ Paperclip heartbeat
       → AEP APIs
           → trace verification
               → structured result back to company layer
+
+### Paperclip-First Execution (Commit 11D)
+
+AEP now treats Paperclip as the primary scheduler and authority source.
+
+Execution provenance is explicit and required on `/agent/run`:
+
+- `x-aep-execution-source: paperclip|operator|test`
+
+Paperclip requests must include:
+
+- `companyId`
+- `taskId`
+- `heartbeatId`
+
+Optional hardening can be enabled with:
+
+- `PAPERCLIP_AUTH_REQUIRED`
+- `PAPERCLIP_SHARED_SECRET`
+
+Cron remains available only as fallback and is marked as `cron_fallback` in
+execution context and logs. Fallback mode can be toggled with:
+
+- `AEP_CRON_FALLBACK_ENABLED`
+
+Operator-facing scheduler mode is available via:
+
+- `GET /agent/scheduler-status`
+
 ```
 
 ---
