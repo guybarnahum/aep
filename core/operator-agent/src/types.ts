@@ -53,6 +53,16 @@ export interface EmployeeRunRequest {
   roleId: AgentRoleId;
   trigger: EmployeeTrigger;
   policyVersion: string;
+  budgetOverride?: Partial<AgentBudget>;
+  authorityOverride?: Partial<AgentAuthority>;
+}
+
+export interface ResolvedEmployeeRunContext {
+  request: EmployeeRunRequest;
+  employee: AgentEmployeeDefinition;
+  authority: AgentAuthority;
+  budget: AgentBudget;
+  policyVersion: string;
 }
 
 export interface RunSummary {
@@ -176,6 +186,18 @@ export interface EmployeeRunResponse {
     skippedCooldownActive: number;
   };
   message: string;
+}
+
+export interface EmployeeRunErrorResponse {
+  ok: false;
+  status:
+    | "invalid_request"
+    | "employee_not_found"
+    | "role_mismatch"
+    | "control_plane_unavailable";
+  error: string;
+  policyVersion?: string;
+  controlPlaneBaseUrl?: string;
 }
 
 export interface OperatorAgentEnv extends Record<string, unknown> {

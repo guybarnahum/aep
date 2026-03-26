@@ -1,0 +1,181 @@
+import { getConfig } from "../config";
+import { runTimeoutRecoveryOperator } from "../agents/timeout-recovery";
+import { cloneAuthority } from "../org/authority";
+import { cloneBudget } from "../org/budgets";
+import { getEmployeeById } from "../org/employees";
+import type {
+  EmployeeRunRequest,
+  EmployeeRunResponse,
+  EmployeeRunErrorResponse,
+  OperatorAgentEnv,
+  ResolvedEmployeeRunContext,
+} from "../types";
+
+function validateRunRequest(
+  request: EmployeeRunRequest
+): EmployeeRunErrorResponse | undefined {
+  if (!request.departmentId) {
+    return {
+      ok: false,
+      status: "invalid_request",
+      error: "Missing required field: departmentId",
+    };
+  }
+
+  if (!request.employeeId) {
+    return {
+      ok: false,
+      status: "invalid_request",
+      error: "Missing required field: employeeId",
+    };
+  }
+
+  if (!request.roleId) {
+    return {
+      ok: false,
+      status: "invalid_request",
+      error: "Missing required field: roleId",
+    };
+  }
+
+  if (!request.trigger) {
+    return {
+      ok: false,
+      status: "invalid_request",
+      error: "Missing required field: trigger",
+    };
+  }
+
+  if (!request.policyVersion) {
+    return {
+      ok: false,
+      status: "invalid_request",
+      error: "Missing required field: policyVersion",
+    };
+  }
+
+  return undefined;
+}
+
+function resolveRunContext(
+  request: EmployeeRunRequest
+): ResolvedEmployeeRunContext | EmployeeRunErrorResponse {
+  const employee = getEmployeeById(request.employeeId);
+
+  if (!employee) {
+    return {
+      ok: false,
+      status: "employee_not_found",
+      error: `Unknown employeeId: ${request.employeeId}`,
+    };
+  }
+
+  if (request.departmentId !== employee.identity.departmentId) {
+    return {
+      ok: false,
+      status: "role_mismatch",
+      error: `departmentId mismatch for employee ${request.employeeId}`,
+    };
+  }
+
+  if (request.roleId !== employee.identity.roleId) {
+    return {
+      ok: false,
+      status: "role_mismatch",
+      error: `roleId mismatch for employee ${request.employeeId}`,
+    };
+  }
+
+  const authority = {
+    ...cloneAuthority(employee.authority),
+    ...(request.authorityOverride ?? {}),
+  };
+
+  const budget = {
+    ...cloneBudget(employee.budget),
+    ...(request.budgetOverride ?? {}),
+  };
+
+  return {
+    request,
+    employee,
+    authority,
+    budget,
+    policyVersion: request.policyVersion,
+  };
+}
+
+export async function executeEmployeeRun(
+  request: EmployeeRunRequest,
+  env?: OperatorAgentEnv
+): Promise<EmployeeRunResponse> {
+  const validationError = validateRunRequest(request);
+  if (validationError) {
+    throw Object.assign(new Error(validationError.error), {
+      response: validationError,
+      httpStatus: 400,
+    });
+  }
+
+  const resolved = resolveRunContext(request);
+  if ("ok" in resolved) {
+    throw Object.assign(new Error(resolved.error), {
+      response: resolved,
+      httpStatus:
+        resolved.status === "employee_not_found" ? 404 : 400,
+    });
+  }
+
+  switch (resolved.employee.identity.roleId) {
+    case "timeout-recovery-operator":
+      return runTimeoutRecoveryOperator(resolved, env);
+    default:
+      throw Object.assign(
+        new Error(
+          `No execution handler implemented for roleId ${resolved.employee.identity.roleId}`
+        ),
+        {
+          response: {
+            ok: false,
+            status: "employee_not_found",
+            error: `No execution handler implemented for roleId ${resolved.employee.identity.roleId}`,
+          } satisfies EmployeeRunErrorResponse,
+          httpStatus: 404,
+        }
+      );
+  }
+}
+
+export function toErrorResponse(
+  error: unknown,
+  env?: OperatorAgentEnv
+): Response {
+  const config = getConfig(env);
+
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "response" in error &&
+    "httpStatus" in error
+  ) {
+    const typed = error as {
+      response: EmployeeRunErrorResponse;
+      httpStatus: number;
+    };
+
+    return Response.json(typed.response, { status: typed.httpStatus });
+  }
+
+  const message = error instanceof Error ? error.message : String(error);
+
+  return Response.json(
+    {
+      ok: false,
+      status: "control_plane_unavailable",
+      policyVersion: config.policyVersion,
+      controlPlaneBaseUrl: config.controlPlaneBaseUrl,
+      error: message,
+    } satisfies EmployeeRunErrorResponse,
+    { status: 503 }
+  );
+}

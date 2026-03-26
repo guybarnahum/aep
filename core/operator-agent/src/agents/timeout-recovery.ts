@@ -6,14 +6,12 @@ import { DecisionLog } from "../lib/decision-log";
 import { logInfo } from "../lib/logger";
 import { evaluateTimeoutRecoveryPolicy } from "../lib/policy";
 import { verifyAdvanceTimeoutApplied } from "../lib/verifier";
-import { cloneAuthority } from "../org/authority";
-import { cloneBudget } from "../org/budgets";
-import { timeoutRecoveryEmployee } from "../org/employees";
 import type {
+  AgentIdentity,
   AgentWorkLogEntry,
-  EmployeeRunRequest,
   EmployeeRunResponse,
   OperatorAgentEnv,
+  ResolvedEmployeeRunContext,
   TimeoutRecoveryDecision,
   TimeoutRecoveryResult,
 } from "../types";
@@ -23,9 +21,9 @@ function nowIso(nowMs: number): string {
 }
 
 function buildWorkLogEntry(args: {
-  request: EmployeeRunRequest;
+  request: ResolvedEmployeeRunContext["request"];
   policyVersion: string;
-  employee: typeof timeoutRecoveryEmployee.identity;
+  employee: AgentIdentity;
   decision: TimeoutRecoveryDecision;
   budgetSnapshot: {
     actionsUsedThisScan: number;
@@ -58,13 +56,14 @@ function buildWorkLogEntry(args: {
 }
 
 export async function runTimeoutRecoveryOperator(
-  req: EmployeeRunRequest,
+  context: ResolvedEmployeeRunContext,
   env?: OperatorAgentEnv
 ): Promise<EmployeeRunResponse> {
   const config = getConfig(env);
-  const employee = timeoutRecoveryEmployee;
-  const authority = cloneAuthority(employee.authority);
-  const budget = cloneBudget(employee.budget);
+  const employee = context.employee;
+  const authority = context.authority;
+  const budget = context.budget;
+  const req = context.request;
   const client = new ControlPlaneClient(config.controlPlaneBaseUrl);
   const mode = config.dryRun ? "dry-run" : "apply";
 
@@ -127,7 +126,7 @@ export async function runTimeoutRecoveryOperator(
         await decisionLog.write(
           buildWorkLogEntry({
             request: req,
-            policyVersion: config.policyVersion,
+            policyVersion: context.policyVersion,
             employee: employee.identity,
             decision,
             budgetSnapshot,
@@ -166,7 +165,7 @@ export async function runTimeoutRecoveryOperator(
         await decisionLog.write(
           buildWorkLogEntry({
             request: req,
-            policyVersion: config.policyVersion,
+            policyVersion: context.policyVersion,
             employee: employee.identity,
             decision,
             budgetSnapshot: budgetCheck.snapshot,
@@ -191,7 +190,7 @@ export async function runTimeoutRecoveryOperator(
         await decisionLog.write(
           buildWorkLogEntry({
             request: req,
-            policyVersion: config.policyVersion,
+            policyVersion: context.policyVersion,
             employee: employee.identity,
             decision,
             budgetSnapshot: budgetCheck.snapshot,
@@ -215,7 +214,7 @@ export async function runTimeoutRecoveryOperator(
         await decisionLog.write(
           buildWorkLogEntry({
             request: req,
-            policyVersion: config.policyVersion,
+            policyVersion: context.policyVersion,
             employee: employee.identity,
             decision,
             budgetSnapshot: budgetCheck.snapshot,
@@ -270,7 +269,7 @@ export async function runTimeoutRecoveryOperator(
         await decisionLog.write(
           buildWorkLogEntry({
             request: req,
-            policyVersion: config.policyVersion,
+            policyVersion: context.policyVersion,
             employee: employee.identity,
             decision,
             budgetSnapshot: postActionSnapshot,
@@ -300,7 +299,7 @@ export async function runTimeoutRecoveryOperator(
         await decisionLog.write(
           buildWorkLogEntry({
             request: req,
-            policyVersion: config.policyVersion,
+            policyVersion: context.policyVersion,
             employee: employee.identity,
             decision,
             budgetSnapshot: snapshot,
@@ -331,7 +330,7 @@ export async function runTimeoutRecoveryOperator(
   return {
     ok: true,
     status: "completed",
-    policyVersion: config.policyVersion,
+    policyVersion: context.policyVersion,
     trigger: req.trigger,
     employee: employee.identity,
     authority,

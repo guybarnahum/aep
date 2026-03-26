@@ -1,4 +1,4 @@
-import type { AgentEmployeeDefinition } from "../types";
+import type { AgentEmployeeDefinition, AgentRoleId } from "../types";
 
 export const timeoutRecoveryEmployee: AgentEmployeeDefinition = {
   identity: {
@@ -28,3 +28,23 @@ export const timeoutRecoveryEmployee: AgentEmployeeDefinition = {
     onProdTenantAction: "require-manager-approval",
   },
 };
+
+export const operatorEmployees: AgentEmployeeDefinition[] = [
+  timeoutRecoveryEmployee,
+];
+
+export function getEmployeeById(
+  employeeId: string
+): AgentEmployeeDefinition | undefined {
+  return operatorEmployees.find(
+    (employee) => employee.identity.employeeId === employeeId
+  );
+}
+
+export function getEmployeeByRole(
+  roleId: AgentRoleId
+): AgentEmployeeDefinition | undefined {
+  return operatorEmployees.find(
+    (employee) => employee.identity.roleId === roleId
+  );
+}

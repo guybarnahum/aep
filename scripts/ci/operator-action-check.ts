@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 
+export {};
+
 /**
  * scripts/ci/commit7-operator-action-check.ts
  *
@@ -473,7 +475,7 @@ async function main(): Promise<void> {
   const cli = parseArgs(process.argv.slice(2));
   const headers = buildHeaders(cli.env);
 
-  console.log("🔁 AEP Commit 7 operator action check");
+  console.log("🔁 AEP operator action check");
   console.log(`   Env:           ${cli.env ?? "(not enforced)"}`);
   console.log(`   Base URL:      ${cli.baseUrl}`);
   console.log(`   Provider:      ${cli.provider}`);

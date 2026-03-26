@@ -1,5 +1,9 @@
 /* eslint-disable no-console */
 
+export {};
+
+const STAGE1_POLICY_VERSION = "commit9-stage1";
+
 type RunSummary = {
   id: string;
   run_id?: string;
@@ -42,7 +46,16 @@ type AgentDecision = {
 
 type AgentRunResponse = {
   ok: true;
+  policyVersion: string;
   dryRun: boolean;
+  budget: {
+    maxActionsPerScan: number;
+    maxActionsPerHour: number;
+    maxActionsPerTenantPerHour: number;
+    tokenBudgetDaily: number;
+    runtimeBudgetMsPerScan: number;
+    verificationReadsPerAction: number;
+  };
   decisions: AgentDecision[];
   summary: {
     actionRequested: number;
@@ -176,9 +189,34 @@ function hasTraceEvent(
   return trace.some((event) => event.type === type && event.job_id === jobId);
 }
 
-async function runAgent(agentBaseUrl: string): Promise<AgentRunResponse> {
+async function runAgent(
+  agentBaseUrl: string,
+  overrides?: {
+    budgetOverride?: Record<string, unknown>;
+    authorityOverride?: Record<string, unknown>;
+  }
+): Promise<AgentRunResponse> {
+  const response = await fetch(`${agentBaseUrl}/agent/run`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({
+      departmentId: "aep-infra-ops",
+      employeeId: "emp_timeout_recovery_01",
+      roleId: "timeout-recovery-operator",
+      trigger: "manual",
+      policyVersion: STAGE1_POLICY_VERSION,
+      ...(overrides ?? {}),
+    }),
+  });
+
+  return readJson<AgentRunResponse>(response);
+}
+
+async function runAgentCompatibility(agentBaseUrl: string): Promise<AgentRunResponse> {
   const response = await fetch(`${agentBaseUrl}/agent/run-once`, {
-    method: "POST"
+    method: "POST",
   });
   return readJson<AgentRunResponse>(response);
 }
@@ -186,6 +224,26 @@ async function runAgent(agentBaseUrl: string): Promise<AgentRunResponse> {
 async function main(): Promise<void> {
   const controlPlaneBaseUrl = requireEnv("CONTROL_PLANE_BASE_URL");
   const agentBaseUrl = requireEnv("OPERATOR_AGENT_BASE_URL");
+
+  const overrideProbe = await runAgent(agentBaseUrl, {
+    budgetOverride: {
+      maxActionsPerScan: 1,
+    },
+  });
+
+  if (overrideProbe.policyVersion !== STAGE1_POLICY_VERSION) {
+    throw new Error(
+      `Unexpected policyVersion from /agent/run: ${overrideProbe.policyVersion}`
+    );
+  }
+
+  if (overrideProbe.budget.maxActionsPerScan !== 1) {
+    throw new Error(
+      `Expected budget override maxActionsPerScan=1, got ${overrideProbe.budget.maxActionsPerScan}`
+    );
+  }
+
+  console.log("Verified /agent/run canonical path and budget override merge");
 
   const runs = await listRuns(controlPlaneBaseUrl);
 
@@ -278,6 +336,14 @@ async function main(): Promise<void> {
     jobId: eligibleJob.id,
     secondRunResult: secondDecision.result
   });
+
+  const compatibilityRun = await runAgentCompatibility(agentBaseUrl);
+
+  if (!compatibilityRun.ok) {
+    throw new Error("Compatibility /agent/run-once did not succeed");
+  }
+
+  console.log("Verified /agent/run-once compatibility path");
 
   console.log("agent-timeout-recovery-check passed");
 }

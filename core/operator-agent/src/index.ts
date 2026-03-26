@@ -1,4 +1,5 @@
 import { handleHealthz } from "./routes/healthz";
+import { handleRun } from "./routes/run";
 import { handleRunOnce } from "./routes/run-once";
 import { handleWorkLog } from "./routes/work-log";
 import { handleCron } from "./triggers/cron";
@@ -13,6 +14,10 @@ export default {
 
     if (request.method === "GET" && url.pathname === "/healthz") {
       return handleHealthz();
+    }
+
+    if (url.pathname === "/agent/run") {
+      return handleRun(request, env);
     }
 
     if (url.pathname === "/agent/run-once") {

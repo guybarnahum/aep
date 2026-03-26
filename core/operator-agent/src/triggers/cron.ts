@@ -1,5 +1,5 @@
 import { getConfig } from "../config";
-import { runTimeoutRecoveryOperator } from "../agents/timeout-recovery";
+import { executeEmployeeRun } from "../lib/execute-employee-run";
 import { timeoutRecoveryEmployee } from "../org/employees";
 import type { EmployeeRunRequest, OperatorAgentEnv } from "../types";
 
@@ -14,15 +14,15 @@ export async function handleCron(
     employeeId: employee.identity.employeeId,
     roleId: employee.identity.roleId,
     trigger: "cron",
-    policyVersion: config.policyVersion
+    policyVersion: config.policyVersion,
   };
 
-  const result = await runTimeoutRecoveryOperator(runRequest, env);
+  const result = await executeEmployeeRun(runRequest, env);
 
   console.log("[operator-agent] cron run completed", {
     employeeId: result.employee.employeeId,
     dryRun: result.dryRun,
     scanned: result.scanned,
-    summary: result.summary
+    summary: result.summary,
   });
 }
