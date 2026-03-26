@@ -136,6 +136,17 @@ function resolveObservedEmployeeIds(
   return config.managerObservedEmployeeIds;
 }
 
+// Company-origin provenance should come from executionContext, not the
+// adapted internal request, so scheduler/source metadata stays consistent
+// across logs, escalations, and later approval artifacts.
+function companyIdFromExecutionContext(
+  executionContext: ResolvedEmployeeRunContext["executionContext"]
+): string | undefined {
+  return executionContext?.executionSource === "paperclip"
+    ? executionContext.companyId
+    : undefined;
+}
+
 export async function runInfraOpsManager(
   context: ResolvedEmployeeRunContext,
   env?: OperatorAgentEnv
@@ -526,7 +537,7 @@ export async function runInfraOpsManager(
         decision.employeeId
       ),
       timestamp: decision.timestamp,
-      companyId: context.request.companyId,
+      companyId: companyIdFromExecutionContext(context.executionContext),
       departmentId: decision.departmentId,
       managerEmployeeId: decision.managerEmployeeId,
       managerEmployeeName: decision.managerEmployeeName,

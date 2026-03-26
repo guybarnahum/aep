@@ -74,11 +74,11 @@ export async function parseExecutionContext(
 }
 
 export function makeCronFallbackContext(
-  workerId: string
+  executorId: string
 ): CronFallbackExecutionContext {
   return {
     executionSource: "cron_fallback",
-    workerId,
+    executorId,
     trigger: "scheduled_tick",
     receivedAt: Date.now(),
   };

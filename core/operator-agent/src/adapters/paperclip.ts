@@ -1,4 +1,5 @@
 import { getConfig } from "@aep/operator-agent/config";
+import type { ExecutionContext } from "@aep/operator-agent/types/execution-provenance";
 import type {
   AgentExecutionResponse,
   EmployeeRunRequest,
@@ -47,6 +48,7 @@ export function adaptPaperclipResponse(args: {
   payload: PaperclipRunRequest;
   request: EmployeeRunRequest;
   result: AgentExecutionResponse;
+  executionContext?: ExecutionContext;
 }): PaperclipRunResponse {
   return {
     ok: true,
@@ -58,5 +60,6 @@ export function adaptPaperclipResponse(args: {
     result: args.result,
     executionSource: "paperclip",
     cronFallbackRecommended: false,
+    executionContext: args.executionContext,
   };
 }

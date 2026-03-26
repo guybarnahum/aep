@@ -4,12 +4,39 @@ export {};
 
 type RunEnvelope = {
   ok?: boolean;
-  executionContext?: {
-    executionSource: string;
-    companyId?: string;
-    taskId?: string;
-    heartbeatId?: string;
+  executionContext?: ExecutionContextEnvelope;
+  result?: {
+    summary?: {
+      decisionsEmitted?: number;
+      escalationsCreated?: number;
+    };
   };
+};
+
+type ExecutionContextEnvelope = {
+  executionSource?: string;
+  companyId?: string;
+  taskId?: string;
+  heartbeatId?: string;
+};
+
+type ManagerLogEnvelope = {
+  entries?: Array<{
+    executionContext?: ExecutionContextEnvelope;
+  }>;
+};
+
+type EscalationsEnvelope = {
+  entries?: Array<{
+    companyId?: string;
+    executionContext?: ExecutionContextEnvelope;
+  }>;
+};
+
+type WorkLogEnvelope = {
+  entries?: Array<{
+    executionContext?: ExecutionContextEnvelope;
+  }>;
 };
 
 function requireEnv(name: string): string {
@@ -49,6 +76,100 @@ async function postRun(
   };
 }
 
+async function postRunUntilStatus(args: {
+  agentBaseUrl: string;
+  body: Record<string, unknown>;
+  headers: Record<string, string>;
+  expectedStatus: number;
+  label: string;
+  attempts?: number;
+  intervalMs?: number;
+}): Promise<{ status: number; json: unknown }> {
+  const attempts = args.attempts ?? Number(process.env.AEP_POLL_ATTEMPTS ?? 20);
+  const intervalMs =
+    args.intervalMs ?? Number(process.env.AEP_POLL_INTERVAL_MS ?? 300);
+
+  let last: { status: number; json: unknown } | undefined;
+
+  for (let index = 0; index < attempts; index += 1) {
+    last = await postRun(args.agentBaseUrl, args.body, args.headers);
+    if (last.status === args.expectedStatus) {
+      return last;
+    }
+    if (index < attempts - 1) {
+      await sleep(intervalMs);
+    }
+  }
+
+  throw new Error(
+    `${args.label} did not return ${args.expectedStatus} after ${attempts} attempts (${attempts * intervalMs}ms). Last status=${String(last?.status)}, last body=${summarizeForError(last?.json)}`
+  );
+}
+
+async function getJson(url: string): Promise<{ status: number; json: unknown }> {
+  const response = await fetch(url);
+  return {
+    status: response.status,
+    json: await readJson(response),
+  };
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function summarizeForError(value: unknown): string {
+  try {
+    const raw = JSON.stringify(value);
+    return raw.length > 240 ? `${raw.slice(0, 240)}...` : raw;
+  } catch {
+    return String(value);
+  }
+}
+
+async function waitForJsonMatch<T>(args: {
+  label: string;
+  url: string;
+  attempts?: number;
+  intervalMs?: number;
+  matches: (json: unknown) => json is T;
+}): Promise<T> {
+  const attempts = args.attempts ?? Number(process.env.AEP_POLL_ATTEMPTS ?? 20);
+  const intervalMs =
+    args.intervalMs ?? Number(process.env.AEP_POLL_INTERVAL_MS ?? 300);
+
+  let lastStatus = 0;
+  let lastJson: unknown;
+
+  for (let index = 0; index < attempts; index += 1) {
+    const response = await getJson(args.url);
+    lastStatus = response.status;
+    lastJson = response.json;
+
+    if (response.status === 200 && args.matches(response.json)) {
+      return response.json;
+    }
+
+    if (index < attempts - 1) {
+      await sleep(intervalMs);
+    }
+  }
+
+  throw new Error(
+    `${args.label} not observed after ${attempts} attempts (${attempts * intervalMs}ms). Last status=${lastStatus}, last body=${summarizeForError(lastJson)}`
+  );
+}
+
+function managerSignalsFromRun(run: RunEnvelope): {
+  decisionsEmitted: number;
+  escalationsCreated: number;
+} {
+  return {
+    decisionsEmitted: Number(run.result?.summary?.decisionsEmitted ?? 0),
+    escalationsCreated: Number(run.result?.summary?.escalationsCreated ?? 0),
+  };
+}
+
 async function main(): Promise<void> {
   const agentBaseUrl = requireEnv("OPERATOR_AGENT_BASE_URL");
 
@@ -84,6 +205,129 @@ async function main(): Promise<void> {
   if (validPayload.executionContext?.companyId !== "company-1") {
     throw new Error("Expected executionContext.companyId=company-1");
   }
+
+  const managerSignals = managerSignalsFromRun(validPayload);
+  const shouldAssertManagerArtifacts = managerSignals.decisionsEmitted > 0;
+
+  let paperclipManagerLogProvenanceVerified = false;
+  let paperclipEscalationProvenanceVerified = false;
+  let cronFallbackManagerLogProvenanceVerified = false;
+
+  if (shouldAssertManagerArtifacts) {
+    const managerLog = await waitForJsonMatch<ManagerLogEnvelope>({
+      label: "paperclip manager-log provenance",
+      url: `${agentBaseUrl}/agent/manager-log?managerEmployeeId=emp_infra_ops_manager_01&limit=100`,
+      matches: (json): json is ManagerLogEnvelope => {
+        const envelope = json as ManagerLogEnvelope;
+        return (envelope.entries ?? []).some(
+          (decision) =>
+            decision.executionContext?.executionSource === "paperclip" &&
+            decision.executionContext?.companyId === "company-1"
+        );
+      },
+    });
+
+    const paperclipDecision = (managerLog.entries ?? []).find(
+      (decision) =>
+        decision.executionContext?.executionSource === "paperclip" &&
+        decision.executionContext?.companyId === "company-1"
+    );
+
+    if (!paperclipDecision) {
+      throw new Error(
+        "Expected at least one manager-log entry with paperclip execution provenance"
+      );
+    }
+
+    paperclipManagerLogProvenanceVerified = true;
+  }
+
+  if (managerSignals.escalationsCreated > 0) {
+    const escalations = await waitForJsonMatch<EscalationsEnvelope>({
+      label: "paperclip escalation provenance",
+      url: `${agentBaseUrl}/agent/escalations?limit=100`,
+      matches: (json): json is EscalationsEnvelope => {
+        const envelope = json as EscalationsEnvelope;
+        return (envelope.entries ?? []).some(
+          (entry) =>
+            entry.executionContext?.executionSource === "paperclip" &&
+            entry.executionContext?.companyId === "company-1"
+        );
+      },
+    });
+
+    const paperclipEscalation = (escalations.entries ?? []).find(
+      (entry) =>
+        entry.executionContext?.executionSource === "paperclip" &&
+        entry.executionContext?.companyId === "company-1"
+    );
+
+    if (!paperclipEscalation) {
+      throw new Error(
+        "Expected at least one escalation entry with paperclip execution provenance"
+      );
+    }
+
+    if (paperclipEscalation.companyId !== "company-1") {
+      throw new Error(
+        `Expected escalation.companyId=company-1, got ${String(paperclipEscalation.companyId)}`
+      );
+    }
+
+    paperclipEscalationProvenanceVerified = true;
+  }
+
+  const workerPaperclip = await postRunUntilStatus({
+    agentBaseUrl,
+    body: {
+      departmentId: "aep-infra-ops",
+      employeeId: "emp_timeout_recovery_01",
+      roleId: "timeout-recovery-operator",
+      trigger: "paperclip",
+      policyVersion: "commit10-stageD",
+      companyId: "company-1",
+      taskId: `task-worker-${Date.now()}`,
+      heartbeatId: `hb-worker-${Date.now()}`,
+    },
+    headers: {
+      "x-aep-execution-source": "paperclip",
+    },
+    expectedStatus: 200,
+    label: "worker paperclip run",
+  });
+
+  if (workerPaperclip.status !== 200) {
+    throw new Error(
+      `Expected worker paperclip request to return 200, got ${workerPaperclip.status}`
+    );
+  }
+
+  const workLog = await waitForJsonMatch<WorkLogEnvelope>({
+    label: "paperclip worker work-log provenance",
+    url: `${agentBaseUrl}/agent/work-log?employeeId=emp_timeout_recovery_01&limit=100`,
+    matches: (json): json is WorkLogEnvelope => {
+      const envelope = json as WorkLogEnvelope;
+      return (envelope.entries ?? []).some(
+        (entry) =>
+          entry.executionContext?.executionSource === "paperclip" &&
+          entry.executionContext?.companyId === "company-1"
+      );
+    },
+  });
+
+  const paperclipWorkEntry = (workLog.entries ?? []).find(
+    (entry) =>
+      entry.executionContext?.executionSource === "paperclip" &&
+      entry.executionContext?.companyId === "company-1"
+  );
+
+  if (!paperclipWorkEntry) {
+    throw new Error(
+      "Expected at least one work-log entry with paperclip execution provenance"
+    );
+  }
+
+  const workerWorkLogProvenanceVerified = true;
 
   const missingMetadata = await postRun(
     agentBaseUrl,
@@ -170,6 +414,31 @@ async function main(): Promise<void> {
     );
   }
 
+  if (shouldAssertManagerArtifacts) {
+    const refreshedManagerLog = await waitForJsonMatch<ManagerLogEnvelope>({
+      label: "cron fallback manager-log provenance",
+      url: `${agentBaseUrl}/agent/manager-log?managerEmployeeId=emp_infra_ops_manager_01&limit=100`,
+      matches: (json): json is ManagerLogEnvelope => {
+        const envelope = json as ManagerLogEnvelope;
+        return (envelope.entries ?? []).some(
+          (decision) => decision.executionContext?.executionSource === "cron_fallback"
+        );
+      },
+    });
+
+    const cronFallbackDecision = (refreshedManagerLog.entries ?? []).find(
+      (decision) => decision.executionContext?.executionSource === "cron_fallback"
+    );
+
+    if (!cronFallbackDecision) {
+      throw new Error(
+        "Expected at least one manager-log entry with cron_fallback execution provenance"
+      );
+    }
+
+    cronFallbackManagerLogProvenanceVerified = true;
+  }
+
   const expectAuthRequired = process.env.EXPECT_PAPERCLIP_AUTH_REQUIRED === "true";
   const configuredSecret = process.env.PAPERCLIP_SHARED_SECRET;
 
@@ -206,6 +475,12 @@ async function main(): Promise<void> {
     primaryScheduler: schedulerStatus.primaryScheduler,
     cronFallbackEnabled: schedulerStatus.cronFallbackEnabled,
     paperclipAccepted: validPaperclip.status,
+    managerDecisionsEmitted: managerSignals.decisionsEmitted,
+    managerEscalationsCreated: managerSignals.escalationsCreated,
+    paperclipManagerLogProvenanceVerified,
+    paperclipEscalationProvenanceVerified,
+    workerWorkLogProvenanceVerified,
+    cronFallbackManagerLogProvenanceVerified,
     paperclipMissingMetadataRejected: missingMetadata.status,
     missingSourceRejected: missingSource.status,
     operatorAccepted: operatorRun.status,

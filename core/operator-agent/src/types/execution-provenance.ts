@@ -16,7 +16,7 @@ export interface PaperclipExecutionContext {
 
 export interface CronFallbackExecutionContext {
   executionSource: "cron_fallback";
-  workerId: string;
+  executorId: string;
   trigger: "scheduled_tick";
   receivedAt: number;
 }

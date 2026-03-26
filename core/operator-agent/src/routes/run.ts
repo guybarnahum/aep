@@ -87,15 +87,13 @@ export async function handleRun(
         payload: paperclipPayload,
         request: adaptedRequest,
         result,
+        executionContext,
       });
 
-      return Response.json(
-        {
-          ...paperclipResult,
-          executionContext,
-          routing,
-        }
-      );
+      return Response.json({
+        ...paperclipResult,
+        routing,
+      });
     }
 
     const result = await executeEmployeeRun(
