@@ -89,10 +89,24 @@ export interface PaperclipRunResponse {
   result: AgentExecutionResponse;
 }
 
+export type EmployeeControlState =
+  | "enabled"
+  | "disabled_pending_review"
+  | "disabled_by_manager";
+
+export type EmployeeControlTransition = "disabled" | "re_enabled";
+
+export type EmployeeControlReason =
+  | "manager_disabled_after_repeated_verification_failures"
+  | "manager_disabled_after_operator_action_failures"
+  | "manager_reenabled_after_quiet_period"
+  | "manager_reenabled_after_review_window";
+
 export type ManagerDecisionReason =
   | "repeated_verification_failures"
   | "operator_action_failures_detected"
-  | "frequent_budget_exhaustion";
+  | "frequent_budget_exhaustion"
+  | "employee_reenabled_after_quiet_period";
 
 export type CandidateReason =
   | "eligible_timeout_recovery"
@@ -128,7 +142,8 @@ export interface ManagerDecision {
     | "escalate_to_human"
     | "recommend_budget_adjustment"
     | "recommend_pause_employee"
-    | "disable_employee";
+    | "disable_employee"
+    | "re_enable_employee";
   severity: "warning" | "critical";
   message: string;
   evidence: {
@@ -151,6 +166,7 @@ export interface ManagerDecisionResponse {
     repeatedVerificationFailures: number;
     operatorActionFailures: number;
     budgetExhaustionSignals: number;
+    reEnableDecisions: number;
     decisionsEmitted: number;
   };
   decisions: ManagerDecision[];
@@ -160,24 +176,35 @@ export interface ManagerDecisionResponse {
 
 export interface EmployeeControlRecord {
   employeeId: string;
-  enabled: boolean;
+  state: EmployeeControlState;
+  transition: EmployeeControlTransition;
   updatedAt: string;
   updatedByEmployeeId: string;
   updatedByRoleId: AgentRoleId;
   policyVersion: string;
-  reason:
-    | "manager_disabled_after_repeated_verification_failures"
-    | "manager_disabled_after_operator_action_failures";
+  reason: EmployeeControlReason;
   message: string;
+  previousState?: EmployeeControlState;
+  reviewAfter?: string;
+  expiresAt?: string;
   evidence?: {
     windowEntryCount: number;
     resultCounts?: Partial<Record<TimeoutRecoveryResult, number>>;
   };
 }
 
+export interface ResolvedEmployeeControl {
+  employeeId: string;
+  state: EmployeeControlState;
+  blocked: boolean;
+  reviewAfter?: string;
+  expiresAt?: string;
+  control: EmployeeControlRecord | null;
+}
+
 export interface EmployeeControlBlockedResponse {
   ok: true;
-  status: "skipped_disabled_by_manager";
+  status: "skipped_disabled_by_manager" | "skipped_pending_review";
   policyVersion: string;
   trigger: EmployeeTrigger;
   employee: AgentIdentity;

@@ -1,10 +1,38 @@
 import type {
   EmployeeControlRecord,
   OperatorAgentEnv,
+  ResolvedEmployeeControl,
 } from "@aep/operator-agent/types";
 
 function employeeControlKey(employeeId: string): string {
   return `employee-control:${employeeId}`;
+}
+
+function isBlockedState(state: EmployeeControlRecord["state"]): boolean {
+  return state === "disabled_pending_review" || state === "disabled_by_manager";
+}
+
+function toResolvedControl(
+  employeeId: string,
+  control: EmployeeControlRecord | null
+): ResolvedEmployeeControl {
+  if (!control) {
+    return {
+      employeeId,
+      state: "enabled",
+      blocked: false,
+      control: null,
+    };
+  }
+
+  return {
+    employeeId,
+    state: control.state,
+    blocked: isBlockedState(control.state),
+    reviewAfter: control.reviewAfter,
+    expiresAt: control.expiresAt,
+    control,
+  };
 }
 
 export class EmployeeControlStore {
@@ -36,4 +64,15 @@ export class EmployeeControlStore {
   async clear(employeeId: string): Promise<void> {
     await this.env.OPERATOR_AGENT_KV?.delete(employeeControlKey(employeeId));
   }
-}
+
+  async getEffective(
+    employeeId: string,
+    _nowIso: string
+  ): Promise<ResolvedEmployeeControl> {
+    const control = await this.get(employeeId);
+    return toResolvedControl(employeeId, control);
+  }
+
+  isBlocked(control: EmployeeControlRecord | null): boolean {
+    return control ? isBlockedState(control.state) : false;
+  }

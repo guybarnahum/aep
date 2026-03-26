@@ -56,31 +56,51 @@ function buildDecision(args: {
   };
 }
 
-function buildDisableControlRecord(args: {
+function buildControlRecord(args: {
   managerEmployeeId: string;
   managerRoleId: ManagerDecision["roleId"];
   employeeId: string;
   policyVersion: string;
   nowIso: string;
+  state: EmployeeControlRecord["state"];
+  transition: EmployeeControlRecord["transition"];
   reason: EmployeeControlRecord["reason"];
   message: string;
   windowEntryCount: number;
   resultCounts: Partial<Record<TimeoutRecoveryResult, number>>;
+  previousState?: EmployeeControlRecord["state"];
+  reviewAfter?: string;
+  expiresAt?: string;
 }): EmployeeControlRecord {
   return {
     employeeId: args.employeeId,
-    enabled: false,
+    state: args.state,
+    transition: args.transition,
     updatedAt: args.nowIso,
     updatedByEmployeeId: args.managerEmployeeId,
     updatedByRoleId: args.managerRoleId,
     policyVersion: args.policyVersion,
     reason: args.reason,
     message: args.message,
+    previousState: args.previousState,
+    reviewAfter: args.reviewAfter,
+    expiresAt: args.expiresAt,
     evidence: {
       windowEntryCount: args.windowEntryCount,
       resultCounts: args.resultCounts,
     },
   };
+}
+
+function addMillisecondsToIso(iso: string, ms: number): string {
+  return new Date(new Date(iso).getTime() + ms).toISOString();
+}
+
+function hasReachedTimeBoundary(
+  boundaryIso: string | undefined,
+  nowIso: string
+): boolean {
+  return Boolean(boundaryIso && boundaryIso <= nowIso);
 }
 
 export async function runInfraOpsManager(
@@ -110,20 +130,30 @@ export async function runInfraOpsManager(
 
   const decisions: ManagerDecision[] = [];
   const controlStore = new EmployeeControlStore(env ?? {});
+  const currentControl = await controlStore.get(observedEmployeeId);
+
+  let reEnableDecisions = 0;
 
   if (verificationFailed >= 2) {
     const message =
-      "Infra Ops Manager disabled the employee locally after repeated verification failures in the recent timeout recovery work log window.";
+      "Infra Ops Manager moved the employee into disabled_pending_review after repeated verification failures in the recent timeout recovery work log window.";
 
     await controlStore.put(
-      buildDisableControlRecord({
+      buildControlRecord({
         managerEmployeeId: manager.identity.employeeId,
         managerRoleId: manager.identity.roleId,
         employeeId: observedEmployeeId,
         policyVersion: context.policyVersion,
         nowIso,
+        state: "disabled_pending_review",
+        transition: "disabled",
         reason: "manager_disabled_after_repeated_verification_failures",
         message,
+        previousState: currentControl?.state,
+        reviewAfter: addMillisecondsToIso(
+          nowIso,
+          config.managerReviewWindowMs
+        ),
         windowEntryCount: entries.length,
         resultCounts: counts,
       })
@@ -147,17 +177,20 @@ export async function runInfraOpsManager(
 
   if (operatorActionFailed >= 1) {
     const message =
-      "Infra Ops Manager disabled the employee locally after operator action failures were observed in the recent timeout recovery work log window.";
+      "Infra Ops Manager moved the employee into disabled_by_manager after operator action failures were observed in the recent timeout recovery work log window.";
 
     await controlStore.put(
-      buildDisableControlRecord({
+      buildControlRecord({
         managerEmployeeId: manager.identity.employeeId,
         managerRoleId: manager.identity.roleId,
         employeeId: observedEmployeeId,
         policyVersion: context.policyVersion,
         nowIso,
+        state: "disabled_by_manager",
+        transition: "disabled",
         reason: "manager_disabled_after_operator_action_failures",
         message,
+        previousState: currentControl?.state,
         windowEntryCount: entries.length,
         resultCounts: counts,
       })
@@ -215,6 +248,7 @@ export async function runInfraOpsManager(
       repeatedVerificationFailures: verificationFailed,
       operatorActionFailures: operatorActionFailed,
       budgetExhaustionSignals: budgetExhausted,
+      reEnableDecisions,
       decisionsEmitted: decisions.length,
     },
     decisions,

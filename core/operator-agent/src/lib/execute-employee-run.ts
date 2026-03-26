@@ -12,6 +12,7 @@ import type {
   EmployeeRunErrorResponse,
   OperatorAgentEnv,
   ResolvedEmployeeRunContext,
+  ResolvedEmployeeControl,
 } from "@aep/operator-agent/types";
 
 function validateRunRequest(
@@ -117,10 +118,26 @@ async function maybeReturnBlockedByControl(
   }
 
   const store = new EmployeeControlStore(env ?? {});
-  const control = await store.get(resolved.employee.identity.employeeId);
+  const effectiveControl = await store.getEffective(
+    resolved.employee.identity.employeeId,
+    new Date().toISOString()
+  );
 
-  if (!control || control.enabled) {
+  if (!effectiveControl.blocked || !effectiveControl.control) {
     return null;
+  }
+
+  if (effectiveControl.state === "disabled_pending_review") {
+    return {
+      ok: true,
+      status: "skipped_pending_review",
+      policyVersion: resolved.policyVersion,
+      trigger: resolved.request.trigger,
+      employee: resolved.employee.identity,
+      message:
+        "Employee run was skipped because the employee is currently paused pending manager review.",
+      control: effectiveControl.control,
+    };
   }
 
   return {
@@ -131,7 +148,7 @@ async function maybeReturnBlockedByControl(
     employee: resolved.employee.identity,
     message:
       "Employee run was skipped because the employee is currently disabled by a local manager control.",
-    control,
+    control: effectiveControl.control,
   };
 }
 

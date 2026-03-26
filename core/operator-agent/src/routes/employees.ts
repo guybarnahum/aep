@@ -22,7 +22,7 @@ export async function handleEmployees(
         budget: employee.budget,
         escalation: employee.escalation,
         effectiveState: {
-          enabled: control ? control.enabled : true,
+          enabled: control ? !["disabled_by_manager", "disabled_pending_review"].includes(control.state) : true,
           control,
         },
       };
