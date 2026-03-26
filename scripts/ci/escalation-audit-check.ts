@@ -60,10 +60,15 @@ type EscalationsResponse = {
     escalationId: string;
     timestamp: string;
     severity: string;
-    status: string;
+    state: string;
     reason: string;
     affectedEmployeeIds: string[];
     message: string;
+    acknowledgedAt?: string;
+    acknowledgedBy?: string;
+    resolvedAt?: string;
+    resolvedBy?: string;
+    resolutionNote?: string;
   }>;
 };
 
@@ -191,8 +196,8 @@ async function main(): Promise<void> {
       throw new Error("Escalation missing severity");
     }
 
-    if (!escalation.status) {
-      throw new Error("Escalation missing status");
+    if (!escalation.state) {
+      throw new Error("Escalation missing state");
     }
 
     if (!Array.isArray(escalation.affectedEmployeeIds)) {

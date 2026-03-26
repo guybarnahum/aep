@@ -98,6 +98,88 @@ The company becomes the **accountable decision-maker** for escalated issues, whi
 
 ---
 
+## Escalation Lifecycle
+
+Escalations are **stateful governance objects**, not just write-once signals. Each escalation moves through an explicit lifecycle:
+
+```
+open → acknowledged → resolved
+```
+
+**Invariants:**
+- No backward transitions (resolved cannot go back to acknowledged)
+- No implicit or automatic transitions
+- All transitions require an explicit operator API call
+- Every transition records `actor`, `timestamp`, and optional `note`
+
+### Transitions
+
+#### Acknowledge
+
+```
+POST /agent/escalations/acknowledge?id=<escalationId>
+Headers: x-actor: <actor-id>
+```
+
+Moves an escalation from `open` → `acknowledged`. Records `acknowledgedAt` and `acknowledgedBy`.
+
+```json
+{
+  "ok": true,
+  "escalation": {
+    "escalationId": "...",
+    "state": "acknowledged",
+    "acknowledgedAt": "2025-01-15T10:35:00Z",
+    "acknowledgedBy": "company-operator"
+  }
+}
+```
+
+#### Resolve
+
+```
+POST /agent/escalations/resolve
+Content-Type: application/json
+Headers: x-actor: <actor-id>
+
+{ "id": "<escalationId>", "note": "Root cause fixed: budget limits updated" }
+```
+
+Moves an escalation from `acknowledged` → `resolved`. Records `resolvedAt`, `resolvedBy`, and optional `resolutionNote`.
+
+#### Invalid Transitions
+
+Attempting an invalid transition (e.g. `open → resolved`, or re-acknowledging) returns `HTTP 400`:
+
+```json
+{ "ok": false, "error": "Invalid escalation transition: open → resolved" }
+```
+
+### State Filtering
+
+```
+GET /agent/escalations?state=open&limit=20
+GET /agent/escalations?state=acknowledged&limit=20
+GET /agent/escalations?state=resolved&limit=20
+```
+
+### Schema (with lifecycle fields)
+
+```json
+{
+  "escalationId": "2025-01-15T10:30:00Z:cross_worker_budget_pressure:department",
+  "timestamp": "2025-01-15T10:30:00Z",
+  "state": "open | acknowledged | resolved",
+  "acknowledgedAt": "...",
+  "acknowledgedBy": "...",
+  "resolvedAt": "...",
+  "resolvedBy": "...",
+  "resolutionNote": "..."
+}
+```
+
+---
+
 ## Escalation System
 
 ### What Triggers an Escalation
@@ -122,7 +204,7 @@ An escalation record is created when a manager decision is:
   "departmentId": "aep-infra-ops",
   "managerEmployeeId": "emp_infra_ops_manager_01",
   "severity": "critical|warning",
-  "status": "open|acknowledged|resolved",
+  "state": "open|acknowledged|resolved",
   "reason": "cross_worker_budget_pressure | cross_worker_failure_pattern_detected | ...",
   "affectedEmployeeIds": ["emp_timeout_recovery_01"],
   "message": "Two workers exhausted budget in same time window",
@@ -137,11 +219,9 @@ An escalation record is created when a manager decision is:
 
 ### API Routes
 
-#### GET `/agent/escalations?limit=50`
+#### GET `/agent/escalations?limit=50&state=open`
 
-Fetch recent escalation records.
-
-_Response:_
+Fetch recent escalation records, optionally filtered by state._
 
 ```json
 {

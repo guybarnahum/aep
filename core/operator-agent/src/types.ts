@@ -2,7 +2,15 @@ export type EmployeeTrigger = "manual" | "cron" | "paperclip";
 
 export type EscalationSeverity = "warning" | "critical";
 
-export type EscalationStatus = "open" | "acknowledged" | "resolved";
+export type EscalationState = "open" | "acknowledged" | "resolved";
+
+// lifecycle invariants:
+//
+// open → acknowledged → resolved
+//
+// - no backward transitions
+// - no implicit transitions
+// - all transitions are explicit via operator API
 
 export type EscalationReason =
   | "repeated_verification_failures"
@@ -229,8 +237,15 @@ export interface EscalationRecord {
   managerEmployeeName: string;
   policyVersion: string;
   severity: EscalationSeverity;
-  status: EscalationStatus;
+  state: EscalationState;
   reason: EscalationReason;
+
+  // lifecycle transition fields
+  acknowledgedAt?: string;
+  acknowledgedBy?: string;
+  resolvedAt?: string;
+  resolvedBy?: string;
+  resolutionNote?: string;
   affectedEmployeeIds: string[];
   message: string;
   recommendation:

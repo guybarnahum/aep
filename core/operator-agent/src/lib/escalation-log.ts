@@ -1,4 +1,4 @@
-import type { EscalationRecord, OperatorAgentEnv } from "@aep/operator-agent/types";
+import type { EscalationRecord, EscalationState, OperatorAgentEnv } from "@aep/operator-agent/types";
 
 function escalationKey(escalationId: string): string {
   return `escalation:${escalationId}`;
@@ -6,6 +6,13 @@ function escalationKey(escalationId: string): string {
 
 function escalationListPrefix(): string {
   return "escalation:";
+}
+
+function normalizeEscalation(raw: Partial<EscalationRecord>): EscalationRecord {
+  return {
+    ...(raw as EscalationRecord),
+    state: raw.state ?? "open",
+  };
 }
 
 function compareDescendingByTimestamp(
@@ -28,10 +35,32 @@ export class EscalationLog {
     );
   }
 
-  async list(limit: number): Promise<EscalationRecord[]> {
+  async get(escalationId: string): Promise<EscalationRecord | null> {
+    const raw = await this.env.OPERATOR_AGENT_KV?.get(
+      escalationKey(escalationId)
+    );
+    if (!raw) return null;
+    try {
+      return normalizeEscalation(JSON.parse(raw) as Partial<EscalationRecord>);
+    } catch {
+      return null;
+    }
+  }
+
+  async put(record: EscalationRecord): Promise<void> {
+    await this.env.OPERATOR_AGENT_KV?.put(
+      escalationKey(record.escalationId),
+      JSON.stringify(record),
+      {
+        expirationTtl: 60 * 60 * 24 * 30,
+      }
+    );
+  }
+
+  async list(limit: number, stateFilter?: EscalationState): Promise<EscalationRecord[]> {
     const list = await this.env.OPERATOR_AGENT_KV?.list({
       prefix: escalationListPrefix(),
-      limit,
+      limit: stateFilter ? 100 : limit,
     });
 
     const entries: EscalationRecord[] = [];
@@ -43,13 +72,18 @@ export class EscalationLog {
       }
 
       try {
-        entries.push(JSON.parse(raw) as EscalationRecord);
+        entries.push(normalizeEscalation(JSON.parse(raw) as Partial<EscalationRecord>));
       } catch {
         // ignore malformed entries
       }
     }
 
     entries.sort(compareDescendingByTimestamp);
+
+    if (stateFilter) {
+      return entries.filter((e) => e.state === stateFilter).slice(0, limit);
+    }
+
     return entries;
   }
 }

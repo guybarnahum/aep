@@ -1,5 +1,5 @@
 import { EscalationLog } from "@aep/operator-agent/lib/escalation-log";
-import type { OperatorAgentEnv } from "@aep/operator-agent/types";
+import type { EscalationState, OperatorAgentEnv } from "@aep/operator-agent/types";
 
 export async function handleEscalations(
   request: Request,
@@ -15,9 +15,13 @@ export async function handleEscalations(
     1,
     Math.min(100, limitParam ? Number(limitParam) || 20 : 20)
   );
+  const stateParam = url.searchParams.get("state") as EscalationState | null;
+  const validStates: EscalationState[] = ["open", "acknowledged", "resolved"];
+  const stateFilter =
+    stateParam && validStates.includes(stateParam) ? stateParam : undefined;
 
   const log = new EscalationLog(env ?? {});
-  const entries = await log.list(limit);
+  const entries = await log.list(limit, stateFilter);
 
   return Response.json({
     ok: true,

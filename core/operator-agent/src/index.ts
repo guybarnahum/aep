@@ -1,5 +1,7 @@
 import { handleControlHistory } from "./routes/control-history";
 import { handleEscalations } from "./routes/escalations";
+import { handleAcknowledgeEscalation } from "./routes/escalations-acknowledge";
+import { handleResolveEscalation } from "./routes/escalations-resolve";
 import { handleHealthz } from "./routes/healthz";
 import { handleEmployeeControls } from "./routes/employee-controls";
 import { handleEmployees } from "./routes/employees";
@@ -47,6 +49,14 @@ export default {
 
     if (url.pathname === "/agent/escalations") {
       return handleEscalations(request, env);
+    }
+
+    if (url.pathname === "/agent/escalations/acknowledge") {
+      return handleAcknowledgeEscalation(request, env);
+    }
+
+    if (url.pathname === "/agent/escalations/resolve") {
+      return handleResolveEscalation(request, env);
     }
 
     if (url.pathname === "/agent/control-history") {

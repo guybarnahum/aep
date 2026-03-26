@@ -35,7 +35,8 @@
     "ci:manager-policy-overlay-check": "tsx scripts/ci/manager-policy-overlay-check.ts",
     "ci:multi-worker-department-check": "tsx scripts/ci/multi-worker-department-check.ts",
     "ci:paperclip-company-handoff-check": "tsx scripts/ci/paperclip-company-handoff-check.ts",
-    "ci:escalation-audit-check": "tsx scripts/ci/escalation-audit-check.ts"
+    "ci:escalation-audit-check": "tsx scripts/ci/escalation-audit-check.ts",
+    "ci:escalation-lifecycle-check": "tsx scripts/ci/escalation-lifecycle-check.ts"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20250320.0",

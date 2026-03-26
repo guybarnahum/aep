@@ -522,7 +522,7 @@ export async function runInfraOpsManager(
       managerEmployeeName: decision.managerEmployeeName,
       policyVersion: decision.policyVersion,
       severity: decision.severity,
-      status: "open",
+      state: "open",
       reason: rec,
       affectedEmployeeIds,
       message: decision.message,
