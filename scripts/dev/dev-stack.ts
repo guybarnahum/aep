@@ -28,12 +28,24 @@ type DevStackState = {
   version: 1;
   startedAt: string;
   serviceMapPath: string;
+  dashboardEnvLocalPath: string;
   controlPlane: ProcessState;
   operatorAgent: ProcessState;
 };
 
 const DEFAULT_STATE_PATH = ".aep/dev-stack/state.json";
 const DEFAULT_LOG_DIR = ".aep/dev-stack/logs";
+
+function renderDashboardEnvLocal(args: {
+  controlPlaneBaseUrl: string;
+  operatorAgentBaseUrl: string;
+}): string {
+  return [
+    `VITE_CONTROL_PLANE_BASE_URL=${args.controlPlaneBaseUrl}`,
+    `VITE_OPERATOR_AGENT_BASE_URL=${args.operatorAgentBaseUrl}`,
+    "",
+  ].join("\n");
+}
 
 function parseBoolean(value: string): boolean {
   return ["1", "true", "yes", "y", "on"].includes(value.toLowerCase());
@@ -214,6 +226,7 @@ async function main(): Promise<void> {
   const logDir = resolve(DEFAULT_LOG_DIR);
   const statePath = resolveStatePath(options.statePath);
   const serviceMapPath = resolve(options.serviceMapPath ?? ".aep/service-map.json");
+  const dashboardEnvLocalPath = resolve("apps/dashboard/.env.local");
 
   rmSync(statePath, { force: true });
 
@@ -268,6 +281,7 @@ async function main(): Promise<void> {
     version: 1,
     startedAt: new Date().toISOString(),
     serviceMapPath,
+    dashboardEnvLocalPath,
     controlPlane: {
       pid: controlPlanePid,
       port: controlPlanePort,
@@ -317,8 +331,16 @@ async function main(): Promise<void> {
     },
   });
 
+  mkdirSync(dirname(dashboardEnvLocalPath), { recursive: true });
+  writeFileSync(
+    dashboardEnvLocalPath,
+    renderDashboardEnvLocal({ controlPlaneBaseUrl, operatorAgentBaseUrl }),
+    "utf8"
+  );
+
   console.log("AEP dev stack ready", {
     serviceMapPath,
+    dashboardEnvLocalPath,
     statePath,
     controlPlaneBaseUrl,
     operatorAgentBaseUrl,

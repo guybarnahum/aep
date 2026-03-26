@@ -1,5 +1,14 @@
-import { getApiBaseUrl, getServiceOverview, getTenantOverview, getTenants } from "./api";
 import {
+  getApiBaseUrl,
+  getDepartmentOverview,
+  getOperatorAgentBaseUrl,
+  getServiceOverview,
+  getTenantOverview,
+  getTenants,
+} from "./api";
+import {
+  renderDepartmentOverview,
+  renderPrimaryNav,
   renderServiceOverview,
   renderTenantOverview,
   renderTenantSelector,
@@ -20,7 +29,8 @@ let autoRefreshTimer: number | null = null;
 
 type Route =
   | { kind: "tenant"; tenantId: string }
-  | { kind: "service"; tenantId: string; serviceId: string };
+  | { kind: "service"; tenantId: string; serviceId: string }
+  | { kind: "department" };
 
 function getAutoRefreshEnabled(): boolean {
   return window.localStorage.getItem("dashboard.auto-refresh") === "true";
@@ -35,6 +45,10 @@ function getRoute(defaultTenantId: string): Route {
 
   if (!hash) {
     return { kind: "tenant", tenantId: defaultTenantId };
+  }
+
+  if (hash === "department") {
+    return { kind: "department" };
   }
 
   const parts = hash.split("/");
@@ -63,9 +77,12 @@ function renderShell(content: string, error?: string): void {
       <header class="app-header">
         <div>
           <h1>AEP Dashboard</h1>
-          <p class="muted">Tenant-facing service and environment view.</p>
+          <p class="muted">Tenant view plus operator governance view.</p>
         </div>
-        <div class="muted">API: ${getApiBaseUrl()}</div>
+        <div class="endpoint-stack muted">
+          <div>Control plane: ${getApiBaseUrl()}</div>
+          <div>Operator agent: ${getOperatorAgentBaseUrl()}</div>
+        </div>
       </header>
 
       ${error ? `<div class="error-banner">${error}</div>` : ""}
@@ -109,22 +126,49 @@ async function renderRoute(): Promise<void> {
   renderShell(`<div class="loading">Loading…</div>`);
 
   try {
-    const tenants = await getTenants();
-    const defaultTenantId = tenants[0]?.tenant_id ?? "internal";
+    const defaultTenantId = "internal";
     const route = getRoute(defaultTenantId);
 
     let content = renderToolbar({
       autoRefresh: getAutoRefreshEnabled(),
     });
 
-    content += renderTenantSelector(tenants, route.tenantId);
+    content += renderPrimaryNav({
+      activeView: route.kind === "department" ? "department" : "tenant",
+      tenantHref:
+        route.kind === "department"
+          ? "#tenant/internal"
+          : `#tenant/${encodeURIComponent(route.tenantId)}`,
+    });
 
-    if (route.kind === "service") {
-      const overview = await getServiceOverview(route.tenantId, route.serviceId);
-      content += renderServiceOverview(overview);
+    if (route.kind === "department") {
+      const overview = await getDepartmentOverview();
+      content += renderDepartmentOverview(overview);
     } else {
-      const overview = await getTenantOverview(route.tenantId);
-      content += renderTenantOverview(overview);
+      const tenants = await getTenants();
+      const resolvedDefaultTenantId = tenants[0]?.tenant_id ?? defaultTenantId;
+      const resolvedRoute =
+        window.location.hash === ""
+          ? ({ kind: "tenant", tenantId: resolvedDefaultTenantId } as Route)
+          : route;
+
+      content += renderTenantSelector(
+        tenants,
+        resolvedRoute.kind === "service"
+          ? resolvedRoute.tenantId
+          : resolvedRoute.tenantId,
+      );
+
+      if (resolvedRoute.kind === "service") {
+        const overview = await getServiceOverview(
+          resolvedRoute.tenantId,
+          resolvedRoute.serviceId,
+        );
+        content += renderServiceOverview(overview);
+      } else {
+        const overview = await getTenantOverview(resolvedRoute.tenantId);
+        content += renderTenantOverview(overview);
+      }
     }
 
     renderShell(content);

@@ -4,6 +4,7 @@ import { resolve } from "node:path";
 type DevStackState = {
   version: 1;
   serviceMapPath: string;
+  dashboardEnvLocalPath?: string;
   controlPlane: { pid: number };
   operatorAgent: { pid: number };
 };
@@ -36,12 +37,16 @@ function main(): void {
 
   rmSync(statePath, { force: true });
   rmSync(resolve(state.serviceMapPath), { force: true });
+  if (state.dashboardEnvLocalPath) {
+    rmSync(resolve(state.dashboardEnvLocalPath), { force: true });
+  }
 
   console.log("Stopped AEP dev stack", {
     statePath,
     controlPlane,
     operatorAgent,
     removedServiceMap: state.serviceMapPath,
+    removedDashboardEnvLocal: state.dashboardEnvLocalPath,
   });
 }
 

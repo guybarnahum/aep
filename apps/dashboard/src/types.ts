@@ -59,3 +59,162 @@ export type ServiceOverview = {
     recent_runs: RunSummary[];
   }>;
 };
+
+export type EmployeeStateValue =
+  | "enabled"
+  | "disabled_pending_review"
+  | "disabled_by_manager"
+  | "restricted";
+
+export type OperatorEmployeeRecord = {
+  identity: {
+    employeeId: string;
+    employeeName: string;
+    departmentId: string;
+    roleId: string;
+    managerRoleId?: string;
+  };
+  authority: {
+    allowedOperatorActions: string[];
+    allowedTenants?: string[];
+    allowedServices?: string[];
+    requireTraceVerification: boolean;
+  };
+  budget: {
+    maxActionsPerScan: number;
+    maxActionsPerHour: number;
+    maxActionsPerTenantPerHour: number;
+    tokenBudgetDaily: number;
+    runtimeBudgetMsPerScan: number;
+    verificationReadsPerAction: number;
+  };
+  effectiveAuthority: {
+    allowedOperatorActions: string[];
+    allowedTenants?: string[];
+    allowedServices?: string[];
+    requireTraceVerification: boolean;
+  };
+  effectiveBudget: {
+    maxActionsPerScan: number;
+    maxActionsPerHour: number;
+    maxActionsPerTenantPerHour: number;
+    tokenBudgetDaily: number;
+    runtimeBudgetMsPerScan: number;
+    verificationReadsPerAction: number;
+  };
+  escalation: {
+    onBudgetExhausted: string;
+    onRepeatedVerificationFailure: string;
+    onProdTenantAction: string;
+  };
+  effectiveState: {
+    state: EmployeeStateValue;
+    blocked: boolean;
+  };
+  governance: {
+    companyPrimaryEntryPoint: string;
+    cronFallbackEnabled: boolean;
+    escalationRoute: string;
+    controlHistoryRoute: string;
+  };
+};
+
+export type ManagerDecisionRecord = {
+  timestamp: string;
+  managerEmployeeId: string;
+  managerEmployeeName: string;
+  departmentId: string;
+  roleId: string;
+  policyVersion: string;
+  employeeId: string;
+  reason: string;
+  recommendation: string;
+  severity: "warning" | "critical";
+  message: string;
+  evidence: {
+    windowEntryCount: number;
+    resultCounts: Record<string, number>;
+  };
+  executionContext?: {
+    executionSource?: string;
+    companyId?: string;
+    taskId?: string;
+    heartbeatId?: string;
+    executorId?: string;
+  };
+};
+
+export type EscalationRecord = {
+  escalationId: string;
+  timestamp: string;
+  companyId?: string;
+  departmentId: string;
+  managerEmployeeId: string;
+  managerEmployeeName: string;
+  policyVersion: string;
+  severity: "warning" | "critical";
+  state: "open" | "acknowledged" | "resolved";
+  reason: string;
+  acknowledgedAt?: string;
+  acknowledgedBy?: string;
+  resolvedAt?: string;
+  resolvedBy?: string;
+  resolutionNote?: string;
+  affectedEmployeeIds: string[];
+  message: string;
+  recommendation: string;
+  evidence: {
+    windowEntryCount: number;
+    resultCounts?: Record<string, number>;
+    perEmployee?: Array<{
+      employeeId: string;
+      workLogEntries: number;
+      repeatedVerificationFailures: number;
+      operatorActionFailures: number;
+      budgetExhaustionSignals: number;
+    }>;
+  };
+  executionContext?: {
+    executionSource?: string;
+    companyId?: string;
+    taskId?: string;
+    heartbeatId?: string;
+    executorId?: string;
+  };
+};
+
+export type ControlHistoryRecord = {
+  historyId: string;
+  timestamp: string;
+  employeeId: string;
+  departmentId: string;
+  updatedByEmployeeId: string;
+  updatedByRoleId: string;
+  policyVersion: string;
+  transition: string;
+  previousState?: string;
+  nextState: string;
+  reason: string;
+  message: string;
+  reviewAfter?: string;
+  expiresAt?: string;
+  budgetOverride?: Record<string, unknown>;
+  authorityOverride?: Record<string, unknown>;
+  evidence?: {
+    windowEntryCount: number;
+    resultCounts?: Record<string, number>;
+  };
+};
+
+export type SchedulerStatus = {
+  primaryScheduler: string;
+  cronFallbackEnabled: boolean;
+};
+
+export type DepartmentOverview = {
+  employees: OperatorEmployeeRecord[];
+  escalations: EscalationRecord[];
+  controlHistory: ControlHistoryRecord[];
+  managerLog: ManagerDecisionRecord[];
+  schedulerStatus: SchedulerStatus;
+};

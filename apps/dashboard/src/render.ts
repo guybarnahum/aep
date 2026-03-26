@@ -1,4 +1,10 @@
 import type {
+  ControlHistoryRecord,
+  DepartmentOverview,
+  EmployeeStateValue,
+  EscalationRecord,
+  ManagerDecisionRecord,
+  OperatorEmployeeRecord,
   RunSummary,
   ServiceOverview,
   TenantOverview,
@@ -17,13 +23,24 @@ function escapeHtml(value: unknown): string {
 function statusClass(status: string | null | undefined): string {
   switch (status) {
     case "completed":
+    case "enabled":
+    case "resolved":
       return "status status-completed";
     case "failed":
+    case "critical":
+    case "disabled_by_manager":
       return "status status-failed";
     case "waiting":
+    case "acknowledged":
+    case "disabled_pending_review":
       return "status status-waiting";
     case "running":
       return "status status-running";
+    case "restricted":
+    case "warning":
+      return "status status-restricted";
+    case "open":
+      return "status status-open";
     default:
       return "status";
   }
@@ -31,6 +48,44 @@ function statusClass(status: string | null | undefined): string {
 
 function renderValue(value: unknown): string {
   return escapeHtml(value ?? "—");
+}
+
+function formatJsonBlock(value: unknown): string {
+  if (!value) {
+    return "—";
+  }
+
+  try {
+    return escapeHtml(JSON.stringify(value, null, 2));
+  } catch {
+    return escapeHtml(String(value));
+  }
+}
+
+function formatExecutionContext(
+  value:
+    | {
+        executionSource?: string;
+        companyId?: string;
+        taskId?: string;
+        heartbeatId?: string;
+        executorId?: string;
+      }
+    | undefined,
+): string {
+  if (!value) {
+    return "—";
+  }
+
+  const parts = [
+    value.executionSource,
+    value.companyId ? `company=${value.companyId}` : null,
+    value.taskId ? `task=${value.taskId}` : null,
+    value.heartbeatId ? `heartbeat=${value.heartbeatId}` : null,
+    value.executorId ? `executor=${value.executorId}` : null,
+  ].filter(Boolean);
+
+  return escapeHtml(parts.join(" · "));
 }
 
 function getOpsConsoleBaseUrl(): string {
@@ -50,6 +105,186 @@ function renderOpsConsoleLink(run: RunSummary | null): string {
     >
       Open in ops console
     </a>
+  `;
+}
+
+function employeeStateSummaryClass(state: EmployeeStateValue): string {
+  return statusClass(state);
+}
+
+function renderSummaryCard(title: string, value: string | number, detail: string): string {
+  return `
+    <article class="summary-card">
+      <div class="summary-card-label">${escapeHtml(title)}</div>
+      <div class="summary-card-value">${escapeHtml(value)}</div>
+      <div class="muted small">${escapeHtml(detail)}</div>
+    </article>
+  `;
+}
+
+function renderEmployeeCard(employee: OperatorEmployeeRecord): string {
+  return `
+    <article class="service-card">
+      <div class="service-card-header">
+        <div>
+          <h3>${escapeHtml(employee.identity.employeeName)}</h3>
+          <p class="muted">${escapeHtml(employee.identity.employeeId)} · ${escapeHtml(employee.identity.roleId)}</p>
+        </div>
+        <span class="${employeeStateSummaryClass(employee.effectiveState.state)}">
+          ${escapeHtml(employee.effectiveState.state)}
+        </span>
+      </div>
+
+      <div class="governance-grid">
+        <div>
+          <div class="muted small">Blocked</div>
+          <div>${employee.effectiveState.blocked ? "yes" : "no"}</div>
+        </div>
+        <div>
+          <div class="muted small">Trace verification</div>
+          <div>${employee.effectiveAuthority.requireTraceVerification ? "required" : "not required"}</div>
+        </div>
+        <div>
+          <div class="muted small">Tenants</div>
+          <div>${renderValue(employee.effectiveAuthority.allowedTenants?.join(", "))}</div>
+        </div>
+        <div>
+          <div class="muted small">Services</div>
+          <div>${renderValue(employee.effectiveAuthority.allowedServices?.join(", "))}</div>
+        </div>
+        <div>
+          <div class="muted small">Max actions / scan</div>
+          <div>${renderValue(employee.effectiveBudget.maxActionsPerScan)}</div>
+        </div>
+        <div>
+          <div class="muted small">Max actions / hour</div>
+          <div>${renderValue(employee.effectiveBudget.maxActionsPerHour)}</div>
+        </div>
+      </div>
+    </article>
+  `;
+}
+
+function renderEscalationsTable(entries: EscalationRecord[]): string {
+  if (entries.length === 0) {
+    return `<div class="empty-state small-empty">No escalations recorded.</div>`;
+  }
+
+  return `
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Time</th>
+          <th>State</th>
+          <th>Severity</th>
+          <th>Reason</th>
+          <th>Employees</th>
+          <th>Execution source</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${entries
+          .map(
+            (entry) => `
+              <tr>
+                <td>${renderValue(entry.timestamp)}</td>
+                <td><span class="${statusClass(entry.state)}">${escapeHtml(entry.state)}</span></td>
+                <td><span class="${statusClass(entry.severity)}">${escapeHtml(entry.severity)}</span></td>
+                <td>
+                  <div>${escapeHtml(entry.reason)}</div>
+                  <div class="muted small">${escapeHtml(entry.message)}</div>
+                </td>
+                <td>${escapeHtml(entry.affectedEmployeeIds.join(", "))}</td>
+                <td>${formatExecutionContext(entry.executionContext)}</td>
+              </tr>
+            `,
+          )
+          .join("")}
+      </tbody>
+    </table>
+  `;
+}
+
+function renderManagerLogTable(entries: ManagerDecisionRecord[]): string {
+  if (entries.length === 0) {
+    return `<div class="empty-state small-empty">No manager decisions recorded.</div>`;
+  }
+
+  return `
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Time</th>
+          <th>Severity</th>
+          <th>Employee</th>
+          <th>Recommendation</th>
+          <th>Reason</th>
+          <th>Execution source</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${entries
+          .map(
+            (entry) => `
+              <tr>
+                <td>${renderValue(entry.timestamp)}</td>
+                <td><span class="${statusClass(entry.severity)}">${escapeHtml(entry.severity)}</span></td>
+                <td>${escapeHtml(entry.employeeId)}</td>
+                <td>${escapeHtml(entry.recommendation)}</td>
+                <td>
+                  <div>${escapeHtml(entry.reason)}</div>
+                  <div class="muted small">${escapeHtml(entry.message)}</div>
+                </td>
+                <td>${formatExecutionContext(entry.executionContext)}</td>
+              </tr>
+            `,
+          )
+          .join("")}
+      </tbody>
+    </table>
+  `;
+}
+
+function renderControlHistoryTable(entries: ControlHistoryRecord[]): string {
+  if (entries.length === 0) {
+    return `<div class="empty-state small-empty">No control history recorded.</div>`;
+  }
+
+  return `
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Time</th>
+          <th>Employee</th>
+          <th>Transition</th>
+          <th>State</th>
+          <th>Reason</th>
+          <th>Evidence</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${entries
+          .map(
+            (entry) => `
+              <tr>
+                <td>${renderValue(entry.timestamp)}</td>
+                <td>${escapeHtml(entry.employeeId)}</td>
+                <td>${escapeHtml(entry.transition)}</td>
+                <td>
+                  <div class="muted small">from ${renderValue(entry.previousState)}</div>
+                  <div>${renderValue(entry.nextState)}</div>
+                </td>
+                <td>
+                  <div>${escapeHtml(entry.reason)}</div>
+                  <div class="muted small">${escapeHtml(entry.message)}</div>
+                </td>
+                <td><pre class="json-block">${formatJsonBlock(entry.evidence)}</pre></td>
+              </tr>
+            `,
+          )
+          .join("")}
+      </tbody>
+    </table>
   `;
 }
 
@@ -81,7 +316,7 @@ export function renderToolbar(args: {
     <section class="panel toolbar-panel">
       <div class="toolbar">
         <div class="toolbar-group">
-          <p class="muted">Tenant-facing service and environment view.</p>
+          <p class="muted">Tenant-facing view plus operator governance surface.</p>
         </div>
 
         <div class="toolbar-group toolbar-actions">
@@ -91,6 +326,24 @@ export function renderToolbar(args: {
           </label>
           <button id="refresh-button" class="button" type="button">Refresh</button>
         </div>
+      </div>
+    </section>
+  `;
+}
+
+export function renderPrimaryNav(args: {
+  activeView: "tenant" | "department";
+  tenantHref: string;
+}): string {
+  return `
+    <section class="panel toolbar-panel">
+      <div class="view-nav">
+        <a class="view-nav-link ${args.activeView === "tenant" ? "view-nav-link-active" : ""}" href="${escapeHtml(args.tenantHref)}">
+          Tenant view
+        </a>
+        <a class="view-nav-link ${args.activeView === "department" ? "view-nav-link-active" : ""}" href="#department">
+          Department view
+        </a>
       </div>
     </section>
   `;
@@ -244,6 +497,82 @@ export function renderServiceOverview(overview: ServiceOverview): string {
           )
           .join("")}
       </div>
+    </section>
+  `;
+}
+
+export function renderDepartmentOverview(overview: DepartmentOverview): string {
+  const blockedEmployees = overview.employees.filter(
+    (employee) => employee.effectiveState.blocked,
+  ).length;
+
+  const openEscalations = overview.escalations.filter(
+    (entry) => entry.state === "open",
+  ).length;
+
+  const restrictedEmployees = overview.employees.filter(
+    (employee) => employee.effectiveState.state === "restricted",
+  ).length;
+
+  return `
+    <section class="panel">
+      <div class="panel-header">
+        <h2>Infra department</h2>
+        <p class="muted">Employees, escalations, controls, and manager decisions.</p>
+      </div>
+
+      <div class="summary-grid">
+        ${renderSummaryCard(
+          "Primary scheduler",
+          overview.schedulerStatus.primaryScheduler,
+          overview.schedulerStatus.cronFallbackEnabled ? "cron fallback enabled" : "cron fallback disabled",
+        )}
+        ${renderSummaryCard(
+          "Employees",
+          overview.employees.length,
+          `${blockedEmployees} blocked · ${restrictedEmployees} restricted`,
+        )}
+        ${renderSummaryCard(
+          "Open escalations",
+          openEscalations,
+          `${overview.escalations.length} total escalations`,
+        )}
+        ${renderSummaryCard(
+          "Manager decisions",
+          overview.managerLog.length,
+          `${overview.controlHistory.length} control-history entries`,
+        )}
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-header">
+        <h2>Employees</h2>
+      </div>
+      <div class="service-grid">
+        ${overview.employees.map(renderEmployeeCard).join("")}
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-header">
+        <h2>Escalations</h2>
+      </div>
+      ${renderEscalationsTable(overview.escalations)}
+    </section>
+
+    <section class="panel">
+      <div class="panel-header">
+        <h2>Manager decisions</h2>
+      </div>
+      ${renderManagerLogTable(overview.managerLog)}
+    </section>
+
+    <section class="panel">
+      <div class="panel-header">
+        <h2>Control history</h2>
+      </div>
+      ${renderControlHistoryTable(overview.controlHistory)}
     </section>
   `;
 }
