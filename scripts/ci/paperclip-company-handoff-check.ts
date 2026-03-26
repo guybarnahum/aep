@@ -1,5 +1,7 @@
 /* eslint-disable no-console */
 
+import { resolveServiceBaseUrl } from "../lib/service-map";
+
 export {};
 
 const POLICY_VERSION = "commit10-stageD";
@@ -48,7 +50,10 @@ async function readJson<T>(response: Response): Promise<T> {
 }
 
 async function main(): Promise<void> {
-  const agentBaseUrl = requireEnv("OPERATOR_AGENT_BASE_URL");
+  const agentBaseUrl = resolveServiceBaseUrl({
+    envVar: "OPERATOR_AGENT_BASE_URL",
+    serviceName: "operator-agent",
+  });
 
   const response = await fetch(`${agentBaseUrl}/agent/run`, {
     method: "POST",

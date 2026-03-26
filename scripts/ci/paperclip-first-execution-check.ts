@@ -1,5 +1,7 @@
 /* eslint-disable no-console */
 
+import { resolveServiceBaseUrl } from "../lib/service-map";
+
 export {};
 
 type RunEnvelope = {
@@ -207,7 +209,10 @@ async function triggerScheduled(
 }
 
 async function main(): Promise<void> {
-  const agentBaseUrl = requireEnv("OPERATOR_AGENT_BASE_URL");
+  const agentBaseUrl = resolveServiceBaseUrl({
+    envVar: "OPERATOR_AGENT_BASE_URL",
+    serviceName: "operator-agent",
+  });
 
   // Seed a deterministic operator_action_failed entry so the manager is
   // guaranteed to emit at least one decision, enabling all provenance checks.

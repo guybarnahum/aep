@@ -1,5 +1,7 @@
 /* eslint-disable no-console */
 
+import { resolveServiceBaseUrl } from "../lib/service-map";
+
 export {};
 
 type EmployeesResponse = {
@@ -97,7 +99,10 @@ async function readJson<T>(response: Response): Promise<T> {
 }
 
 async function main(): Promise<void> {
-  const agentBaseUrl = requireEnv("OPERATOR_AGENT_BASE_URL");
+  const agentBaseUrl = resolveServiceBaseUrl({
+    envVar: "OPERATOR_AGENT_BASE_URL",
+    serviceName: "operator-agent",
+  });
 
   const employees = await readJson<EmployeesResponse>(
     await fetch(`${agentBaseUrl}/agent/employees`)

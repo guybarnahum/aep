@@ -8,6 +8,68 @@
       "id": "replace-in-real-env"
     }
   ],
+  "env": {
+    "async_validation": {
+      "kv_namespaces": [
+        {
+          "binding": "OPERATOR_AGENT_KV",
+          "id": "replace-in-real-env"
+        }
+      ],
+      "vars": {
+        "AEP_CRON_FALLBACK_ENABLED": "true",
+        "PAPERCLIP_SHARED_SECRET": "",
+        "PAPERCLIP_AUTH_REQUIRED": "false"
+      },
+      "services": [
+        {
+          "binding": "CONTROL_PLANE",
+          "service": "aep-control-plane-async-validation",
+          "environment": "async_validation"
+        }
+      ]
+    },
+    "staging": {
+      "kv_namespaces": [
+        {
+          "binding": "OPERATOR_AGENT_KV",
+          "id": "replace-in-real-env"
+        }
+      ],
+      "vars": {
+        "AEP_CRON_FALLBACK_ENABLED": "true",
+        "PAPERCLIP_SHARED_SECRET": "",
+        "PAPERCLIP_AUTH_REQUIRED": "false"
+      },
+      "services": [
+        {
+          "binding": "CONTROL_PLANE",
+          "service": "aep-control-plane-staging",
+          "environment": "staging"
+        }
+      ]
+    },
+    "production": {
+      "kv_namespaces": [
+        {
+          "binding": "OPERATOR_AGENT_KV",
+          "id": "replace-in-real-env"
+        }
+      ],
+      "vars": {
+        "AEP_CRON_FALLBACK_ENABLED": "true",
+        "PAPERCLIP_SHARED_SECRET": "",
+        "PAPERCLIP_AUTH_REQUIRED": "false"
+      },
+      "services": [
+        {
+          "binding": "CONTROL_PLANE",
+          "service": "aep-control-plane-production",
+          "environment": "production"
+        }
+      ]
+    }
+  },
   "vars": {
     "AEP_CRON_FALLBACK_ENABLED": "true",
     "PAPERCLIP_SHARED_SECRET": "",

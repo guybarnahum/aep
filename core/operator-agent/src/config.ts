@@ -2,6 +2,7 @@ export interface OperatorAgentConfig {
   serviceName: string;
   policyVersion: string;
   controlPlaneBaseUrl: string;
+  controlPlaneTarget: string;
   dryRun: boolean;
   cronFallbackEnabled: boolean;
   paperclipAuthRequired: boolean;
@@ -74,15 +75,36 @@ function readEnvNumber(
   return fallback;
 }
 
+function resolveControlPlaneTarget(
+  env: Record<string, unknown> | undefined,
+  controlPlaneBaseUrl: string
+): string {
+  const binding = env?.CONTROL_PLANE;
+
+  if (
+    typeof binding === "object" &&
+    binding !== null &&
+    "fetch" in binding &&
+    typeof (binding as { fetch?: unknown }).fetch === "function"
+  ) {
+    return "service-binding:CONTROL_PLANE";
+  }
+
+  return controlPlaneBaseUrl;
+}
+
 export function getConfig(env?: Record<string, unknown>): OperatorAgentConfig {
+  const controlPlaneBaseUrl = readEnvString(
+    env,
+    "CONTROL_PLANE_BASE_URL",
+    "http://127.0.0.1:8787"
+  );
+
   return {
     serviceName: "aep-operator-agent",
     policyVersion: "commit10-stageD",
-    controlPlaneBaseUrl: readEnvString(
-      env,
-      "CONTROL_PLANE_BASE_URL",
-      "http://127.0.0.1:8787"
-    ),
+    controlPlaneBaseUrl,
+    controlPlaneTarget: resolveControlPlaneTarget(env, controlPlaneBaseUrl),
     dryRun: readEnvBoolean(env, "OPERATOR_AGENT_DRY_RUN", false),
     cronFallbackEnabled: readEnvBoolean(
       env,

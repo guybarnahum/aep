@@ -591,6 +591,7 @@ export async function runInfraOpsManager(
       decisions.length > 0
         ? "Infra Ops Manager completed a supervisory review and applied local controls where required."
         : "Infra Ops Manager completed a supervisory review and found no escalation-worthy patterns.",
-    controlPlaneBaseUrl: config.controlPlaneBaseUrl,
+    controlPlaneBaseUrl: config.controlPlaneTarget,
+    controlPlaneTarget: config.controlPlaneTarget,
   };
 }

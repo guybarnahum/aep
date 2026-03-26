@@ -262,7 +262,8 @@ export function toErrorResponse(
       ok: false,
       status: "control_plane_unavailable",
       policyVersion: config.policyVersion,
-      controlPlaneBaseUrl: config.controlPlaneBaseUrl,
+      controlPlaneBaseUrl: config.controlPlaneTarget,
+      controlPlaneTarget: config.controlPlaneTarget,
       error: message,
     } satisfies EmployeeRunErrorResponse,
     { status: 503 }

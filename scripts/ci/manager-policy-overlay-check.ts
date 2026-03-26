@@ -1,5 +1,7 @@
 /* eslint-disable no-console */
 
+import { resolveServiceBaseUrl } from "../lib/service-map";
+
 export {};
 
 const POLICY_VERSION = "commit10-stageB";
@@ -136,7 +138,10 @@ async function getEmployeeControls(
 }
 
 async function main(): Promise<void> {
-  const agentBaseUrl = requireEnv("OPERATOR_AGENT_BASE_URL");
+  const agentBaseUrl = resolveServiceBaseUrl({
+    envVar: "OPERATOR_AGENT_BASE_URL",
+    serviceName: "operator-agent",
+  });
   const observedEmployeeId =
     process.env.OPERATOR_AGENT_MANAGER_OBSERVED_EMPLOYEE_ID ??
     "emp_timeout_recovery_01";

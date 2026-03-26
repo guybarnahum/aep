@@ -240,6 +240,7 @@ export interface ManagerDecisionResponse {
   decisions: ManagerDecision[];
   message: string;
   controlPlaneBaseUrl: string;
+  controlPlaneTarget?: string;
 }
 
 export interface EscalationRecord {
@@ -444,6 +445,7 @@ export interface EmployeeRunResponse {
   authority: AgentAuthority;
   budget: AgentBudget;
   controlPlaneBaseUrl: string;
+  controlPlaneTarget?: string;
   dryRun: boolean;
   scanned: {
     runs: number;
@@ -480,10 +482,13 @@ export interface EmployeeRunErrorResponse {
   error: string;
   policyVersion?: string;
   controlPlaneBaseUrl?: string;
+  controlPlaneTarget?: string;
 }
 
 export interface OperatorAgentEnv extends Record<string, unknown> {
   OPERATOR_AGENT_KV?: KVNamespace;
+  CONTROL_PLANE?: Fetcher;
+  CONTROL_PLANE_BASE_URL?: string;
   AEP_CRON_FALLBACK_ENABLED?: string;
   PAPERCLIP_SHARED_SECRET?: string;
   PAPERCLIP_AUTH_REQUIRED?: string;

@@ -1,5 +1,7 @@
 /* eslint-disable no-console */
 
+import { resolveServiceBaseUrl } from "../lib/service-map";
+
 export {};
 
 const STAGE6_POLICY_VERSION = "commit9-stage6";
@@ -418,8 +420,14 @@ async function runWorkerAfterManagerDisable(
 }
 
 async function main(): Promise<void> {
-  const controlPlaneBaseUrl = requireEnv("CONTROL_PLANE_BASE_URL");
-  const agentBaseUrl = requireEnv("OPERATOR_AGENT_BASE_URL");
+  const controlPlaneBaseUrl = resolveServiceBaseUrl({
+    envVar: "CONTROL_PLANE_BASE_URL",
+    serviceName: "control-plane",
+  });
+  const agentBaseUrl = resolveServiceBaseUrl({
+    envVar: "OPERATOR_AGENT_BASE_URL",
+    serviceName: "operator-agent",
+  });
 
   const overrideProbe = await runAgent(agentBaseUrl, {
     budgetOverride: {

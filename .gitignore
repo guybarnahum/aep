@@ -26,6 +26,7 @@ out/
 # Cache and temp
 .cache/
 .temp/
+.aep/
 
 # OS
 Thumbs.db

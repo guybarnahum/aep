@@ -1,4 +1,15 @@
-import type { JobSummary, RunSummary, TraceEvent } from "@aep/operator-agent/types";
+import { getConfig } from "@aep/operator-agent/config";
+import type {
+  JobSummary,
+  OperatorAgentEnv,
+  RunSummary,
+  TraceEvent,
+} from "@aep/operator-agent/types";
+
+type ControlPlaneTransport = {
+  target: string;
+  fetch: (path: string, init?: RequestInit) => Promise<Response>;
+};
 
 async function readJson<T>(response: Response): Promise<T> {
   if (!response.ok) {
@@ -64,10 +75,14 @@ function normalizeJob(raw: RawJobItem, runId: string): JobSummary {
 }
 
 export class ControlPlaneClient {
-  constructor(private readonly baseUrl: string) {}
+  constructor(private readonly transport: ControlPlaneTransport) {}
+
+  get target(): string {
+    return this.transport.target;
+  }
 
   async listRuns(): Promise<RunSummary[]> {
-    const response = await fetch(`${this.baseUrl}/runs`, {
+    const response = await this.transport.fetch("/runs", {
       method: "GET",
     });
 
@@ -90,7 +105,7 @@ export class ControlPlaneClient {
   }
 
   async getRunJobs(runId: string): Promise<JobSummary[]> {
-    const response = await fetch(`${this.baseUrl}/runs/${runId}/jobs`, {
+    const response = await this.transport.fetch(`/runs/${runId}/jobs`, {
       method: "GET",
     });
 
@@ -115,7 +130,7 @@ export class ControlPlaneClient {
   }
 
   async getTrace(runId: string): Promise<TraceEvent[]> {
-    const response = await fetch(`${this.baseUrl}/trace/${runId}`, {
+    const response = await this.transport.fetch(`/trace/${runId}`, {
       method: "GET",
     });
 
@@ -147,8 +162,8 @@ export class ControlPlaneClient {
   }
 
   async advanceTimeout(jobId: string): Promise<void> {
-    const response = await fetch(
-      `${this.baseUrl}/operator/jobs/${jobId}/advance-timeout`,
+    const response = await this.transport.fetch(
+      `/operator/jobs/${jobId}/advance-timeout`,
       {
         method: "POST",
       }
@@ -161,4 +176,42 @@ export class ControlPlaneClient {
       );
     }
   }
+}
+
+function normalizeBaseUrl(baseUrl: string): string {
+  return baseUrl.endsWith("/") ? baseUrl.slice(0, -1) : baseUrl;
+}
+
+function hasControlPlaneBinding(
+  env?: OperatorAgentEnv
+): env is OperatorAgentEnv & { CONTROL_PLANE: Fetcher } {
+  const binding = env?.CONTROL_PLANE;
+
+  return (
+    typeof binding === "object" &&
+    binding !== null &&
+    "fetch" in binding &&
+    typeof binding.fetch === "function"
+  );
+}
+
+export function createControlPlaneClient(
+  env?: OperatorAgentEnv
+): ControlPlaneClient {
+  const config = getConfig(env);
+
+  if (hasControlPlaneBinding(env)) {
+    return new ControlPlaneClient({
+      target: "service-binding:CONTROL_PLANE",
+      fetch: (path, init) =>
+        env.CONTROL_PLANE.fetch(`https://control-plane.internal${path}`, init),
+    });
+  }
+
+  const baseUrl = normalizeBaseUrl(config.controlPlaneBaseUrl);
+
+  return new ControlPlaneClient({
+    target: baseUrl,
+    fetch: (path, init) => fetch(`${baseUrl}${path}`, init),
+  });
 }
