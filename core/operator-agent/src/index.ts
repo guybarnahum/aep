@@ -1,10 +1,13 @@
 import { handleHealthz } from "./routes/healthz";
 import { handleRunOnce } from "./routes/run-once";
+import { handleWorkLog } from "./routes/work-log";
+import { handleCron } from "./triggers/cron";
+import type { OperatorAgentEnv } from "./types";
 
 export default {
   async fetch(
     request: Request,
-    env: Record<string, unknown>
+    env: OperatorAgentEnv
   ): Promise<Response> {
     const url = new URL(request.url);
 
@@ -16,6 +19,17 @@ export default {
       return handleRunOnce(request, env);
     }
 
+    if (url.pathname === "/agent/work-log") {
+      return handleWorkLog(request, env);
+    }
+
     return new Response("Not Found", { status: 404 });
   },
+
+  async scheduled(
+    _controller: ScheduledController,
+    env: OperatorAgentEnv
+  ): Promise<void> {
+    await handleCron(env);
+  }
 };

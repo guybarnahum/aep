@@ -48,7 +48,7 @@ export function evaluateTimeoutRecoveryPolicy(
       mode,
       eligible: false,
       reason: "tenant_not_allowed",
-      result: "skipped",
+      result: "skipped_tenant_not_allowed",
     };
   }
 
@@ -64,7 +64,7 @@ export function evaluateTimeoutRecoveryPolicy(
       mode,
       eligible: false,
       reason: "service_not_allowed",
-      result: "skipped",
+      result: "skipped_service_not_allowed",
     };
   }
 
@@ -80,7 +80,7 @@ export function evaluateTimeoutRecoveryPolicy(
       mode,
       eligible: false,
       reason: "not_timeout_eligible",
-      result: "skipped",
+      result: "skipped_not_eligible",
     };
   }
 
@@ -95,6 +95,6 @@ export function evaluateTimeoutRecoveryPolicy(
     mode,
     eligible: true,
     reason: "eligible_timeout_recovery",
-    result: mode === "dry-run" ? "skipped" : "action_requested",
+    result: "action_requested",
   };
 }

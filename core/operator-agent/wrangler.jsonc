@@ -1,5 +1,14 @@
 {
   "name": "aep-operator-agent",
   "main": "src/index.ts",
-  "compatibility_date": "2026-03-25"
+  "compatibility_date": "2026-03-25",
+  "kv_namespaces": [
+    {
+      "binding": "OPERATOR_AGENT_KV",
+      "id": "replace-in-real-env"
+    }
+  ],
+  "triggers": {
+    "crons": ["* * * * *"]
+  }
 }

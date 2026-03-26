@@ -37,6 +37,40 @@ This is the first milestone where:
 
 > orchestration, execution, and observability are cleanly separated and fully functional end-to-end.
 
+### Agentic operator layer (Commit 8)
+
+AEP now includes the first autonomous employee in the infra department:
+
+- separate `operator-agent` service
+- explicit employee identity, authority, and budget envelope
+- first employee: `Timeout Recovery Operator`
+- reads AEP run/job state through existing read APIs
+- acts only through existing operator API:
+  - `POST /operator/jobs/:jobId/advance-timeout`
+- verifies outcome through `/trace/:id`
+- enforces per-scan and hourly budgets
+- enforces per-job cooldown / dedupe protection
+- writes structured employee work logs
+- supports manual `run-once` execution and cron-driven autonomous execution
+
+This is the first step from a human-operated control plane to an agentic infra department inside the broader zero-employee company.
+
+### Paperclip alignment
+
+AEP is designed as the infra department operating substrate within a broader agentic company.
+
+- Paperclip / company layer owns:
+  - org structure
+  - employee budgets
+  - governance
+  - heartbeat scheduling
+- AEP owns:
+  - infra workflow state
+  - safe operator actions
+  - trace-first operational truth
+
+The `Timeout Recovery Operator` is the first AEP employee designed to fit that boundary.
+
 ---
 
 ## Operator and tenant surfaces

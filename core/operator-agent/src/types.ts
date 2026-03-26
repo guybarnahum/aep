@@ -82,10 +82,23 @@ export type CandidateReason =
 export type TimeoutRecoveryMode = "dry-run" | "apply";
 
 export type TimeoutRecoveryResult =
-  | "skipped"
+  | "skipped_not_eligible"
+  | "skipped_tenant_not_allowed"
+  | "skipped_service_not_allowed"
+  | "skipped_budget_scan_exhausted"
+  | "skipped_budget_hourly_exhausted"
+  | "skipped_budget_tenant_hourly_exhausted"
+  | "skipped_cooldown_active"
   | "action_requested"
   | "verified_applied"
-  | "verification_failed";
+  | "verification_failed"
+  | "operator_action_failed";
+
+export interface BudgetSnapshot {
+  actionsUsedThisScan: number;
+  actionsUsedThisHour: number;
+  tenantActionsUsedThisHour: number;
+}
 
 export interface TraceEvent {
   type: string;
@@ -108,7 +121,31 @@ export interface TimeoutRecoveryDecision {
   eligible: boolean;
   reason: CandidateReason;
   result: TimeoutRecoveryResult;
+  budgetSnapshot?: BudgetSnapshot;
   traceEvidence?: string[];
+  errorMessage?: string;
+}
+
+export interface AgentWorkLogEntry {
+  timestamp: string;
+  employeeId: string;
+  employeeName: string;
+  departmentId: DepartmentId;
+  roleId: AgentRoleId;
+  policyVersion: string;
+  trigger: EmployeeTrigger;
+  runId: string;
+  jobId: string;
+  tenant?: string;
+  service?: string;
+  action: "advance-timeout";
+  mode: TimeoutRecoveryMode;
+  eligible: boolean;
+  reason: CandidateReason;
+  result: TimeoutRecoveryResult;
+  budgetSnapshot: BudgetSnapshot;
+  traceEvidence?: string[];
+  errorMessage?: string;
 }
 
 export interface EmployeeRunResponse {
@@ -132,6 +169,15 @@ export interface EmployeeRunResponse {
     actionRequested: number;
     verifiedApplied: number;
     verificationFailed: number;
+    operatorActionFailed: number;
+    skippedBudgetScanExhausted: number;
+    skippedBudgetHourlyExhausted: number;
+    skippedBudgetTenantHourlyExhausted: number;
+    skippedCooldownActive: number;
   };
   message: string;
+}
+
+export interface OperatorAgentEnv extends Record<string, unknown> {
+  OPERATOR_AGENT_KV?: KVNamespace;
 }

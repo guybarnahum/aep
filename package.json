@@ -27,7 +27,8 @@
     "teardown:node": "tsx scripts/deploy/run-node-teardown.ts",
     "wait:url": "tsx scripts/ci/wait-for-url.ts",
     "check:health": "tsx scripts/ci/check-health.ts",
-    "smoke:test": "tsx scripts/ci/smoke-test.ts"
+    "smoke:test": "tsx scripts/ci/smoke-test.ts",
+    "ci:agent-timeout-recovery-check": "tsx scripts/ci/agent-timeout-recovery-check.ts"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20250320.0",
