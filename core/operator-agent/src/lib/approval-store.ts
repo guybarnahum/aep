@@ -99,6 +99,8 @@ export class ApprovalStore {
     status?: ApprovalStatus;
     employeeId?: string;
     companyId?: string;
+    actionType?: string;
+    targetEmployeeId?: string;
   }): Promise<ApprovalRecord[]> {
     const list = await this.env.OPERATOR_AGENT_KV?.list({
       prefix: approvalListPrefix(),
@@ -132,6 +134,43 @@ export class ApprovalStore {
       .filter((entry) =>
         args.companyId ? entry.companyId === args.companyId : true
       )
+      .filter((entry) =>
+        args.actionType ? entry.actionType === args.actionType : true
+      )
+      .filter((entry) => {
+        if (!args.targetEmployeeId) {
+          return true;
+        }
+        const target = entry.payload?.targetEmployeeId;
+        return typeof target === "string" && target === args.targetEmployeeId;
+      })
       .slice(0, args.limit);
+  }
+
+  async findLatestDecisionForAction(args: {
+    actionType: string;
+    targetEmployeeId: string;
+  }): Promise<ApprovalRecord | null> {
+    const entries = await this.list({
+      limit: 20,
+      actionType: args.actionType,
+      targetEmployeeId: args.targetEmployeeId,
+    });
+
+    return entries[0] ?? null;
+  }
+
+  async findLatestApprovedDecisionForAction(args: {
+    actionType: string;
+    targetEmployeeId: string;
+  }): Promise<ApprovalRecord | null> {
+    const entries = await this.list({
+      limit: 20,
+      status: "approved",
+      actionType: args.actionType,
+      targetEmployeeId: args.targetEmployeeId,
+    });
+
+    return entries[0] ?? null;
   }
 }

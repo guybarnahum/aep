@@ -207,6 +207,53 @@ function heartbeatIdFromExecutionContext(
     : undefined;
 }
 
+async function applyApprovalBackedControl(args: {
+  approvalStore: ApprovalStore;
+  controlStore: EmployeeControlStore;
+  manager: AgentEmployeeDefinition["identity"];
+  employeeId: string;
+  policyVersion: string;
+  nowIso: string;
+  actionType: "disable_employee" | "restrict_employee";
+  controlRecord: EmployeeControlRecord;
+}): Promise<{
+  applied: boolean;
+  approvalGateStatus:
+    | "blocked_pending_approval"
+    | "blocked_rejected"
+    | "approved_applied";
+  approval?: ApprovalRecord | null;
+}> {
+  const latest = await args.approvalStore.findLatestDecisionForAction({
+    actionType: args.actionType,
+    targetEmployeeId: args.employeeId,
+  });
+
+  if (!latest || latest.status === "pending") {
+    return {
+      applied: false,
+      approvalGateStatus: "blocked_pending_approval",
+      approval: latest,
+    };
+  }
+
+  if (latest.status === "rejected" || latest.status === "expired") {
+    return {
+      applied: false,
+      approvalGateStatus: "blocked_rejected",
+      approval: latest,
+    };
+  }
+
+  await args.controlStore.put(args.controlRecord);
+
+  return {
+    applied: true,
+    approvalGateStatus: "approved_applied",
+    approval: latest,
+  };
+}
+
 export async function runInfraOpsManager(
   context: ResolvedEmployeeRunContext,
   env?: OperatorAgentEnv
@@ -228,6 +275,8 @@ export async function runInfraOpsManager(
   let crossWorkerAlerts = 0;
   let escalationsCreated = 0;
   let approvalsRequested = 0;
+  let approvalBlockedDecisions = 0;
+  let approvalAppliedDecisions = 0;
   let totalReEnableDecisions = 0;
   let totalRestrictionDecisions = 0;
   let totalClearedRestrictionDecisions = 0;
@@ -259,36 +308,88 @@ export async function runInfraOpsManager(
     let perEmployeeDecisionsStart = decisions.length;
 
     if (verificationFailed >= 2) {
-      const message =
-        "Infra Ops Manager requested approval to move the employee into disabled_pending_review after repeated verification failures in the recent timeout recovery work log window.";
+      const latestDisableApproval =
+        await approvalStore.findLatestDecisionForAction({
+          actionType: "disable_employee",
+          targetEmployeeId: observedEmployeeId,
+        });
 
-      const approval = buildApprovalRecord({
-        manager: manager.identity,
-        nowIso,
-        actionType: "disable_employee",
+      let linkedApproval = latestDisableApproval;
+      let approvalGateStatus: ManagerDecision["approvalGateStatus"];
+
+      const controlRecord = buildControlRecord({
+        managerEmployeeId: manager.identity.employeeId,
+        managerRoleId: manager.identity.roleId,
         employeeId: observedEmployeeId,
         policyVersion: context.policyVersion,
-        reason: "repeated_verification_failures",
-        message,
-        executionContext: context.executionContext,
-        companyId: companyIdFromExecutionContext(context.executionContext),
-        taskId: taskIdFromExecutionContext(context.executionContext),
-        heartbeatId: heartbeatIdFromExecutionContext(context.executionContext),
-        payload: {
-          targetEmployeeId: observedEmployeeId,
-          requestedState: "disabled_pending_review",
-          transition: "disabled",
-          controlReason: "manager_disabled_after_repeated_verification_failures",
-          reviewAfter: addMillisecondsToIso(nowIso, config.managerReviewWindowMs),
-          evidence: {
-            windowEntryCount: entries.length,
-            resultCounts: counts,
-          },
-        },
+        nowIso,
+        state: "disabled_pending_review",
+        transition: "disabled",
+        reason: "manager_disabled_after_repeated_verification_failures",
+        message:
+          "Infra Ops Manager moved the employee into disabled_pending_review after repeated verification failures in the recent timeout recovery work log window.",
+        previousState: currentControl?.state,
+        reviewAfter: addMillisecondsToIso(nowIso, config.managerReviewWindowMs),
+        windowEntryCount: entries.length,
+        resultCounts: counts,
       });
 
-      await approvalStore.write(approval);
-      approvalsRequested += 1;
+      if (!latestDisableApproval) {
+        linkedApproval = buildApprovalRecord({
+          manager: manager.identity,
+          nowIso,
+          actionType: "disable_employee",
+          employeeId: observedEmployeeId,
+          policyVersion: context.policyVersion,
+          reason: "repeated_verification_failures",
+          message:
+            "Infra Ops Manager requested approval to move the employee into disabled_pending_review after repeated verification failures in the recent timeout recovery work log window.",
+          executionContext: context.executionContext,
+          companyId: companyIdFromExecutionContext(context.executionContext),
+          taskId: taskIdFromExecutionContext(context.executionContext),
+          heartbeatId: heartbeatIdFromExecutionContext(context.executionContext),
+          payload: {
+            targetEmployeeId: observedEmployeeId,
+            requestedState: "disabled_pending_review",
+            transition: "disabled",
+            controlReason: "manager_disabled_after_repeated_verification_failures",
+            reviewAfter: addMillisecondsToIso(nowIso, config.managerReviewWindowMs),
+            evidence: {
+              windowEntryCount: entries.length,
+              resultCounts: counts,
+            },
+          },
+        });
+        await approvalStore.write(linkedApproval);
+        approvalsRequested += 1;
+        approvalGateStatus = "requested_pending";
+        approvalBlockedDecisions += 1;
+      } else {
+        const applyResult = await applyApprovalBackedControl({
+          approvalStore,
+          controlStore,
+          manager: manager.identity,
+          employeeId: observedEmployeeId,
+          policyVersion: context.policyVersion,
+          nowIso,
+          actionType: "disable_employee",
+          controlRecord,
+        });
+        linkedApproval = applyResult.approval ?? latestDisableApproval;
+        approvalGateStatus = applyResult.approvalGateStatus;
+        if (approvalGateStatus === "approved_applied") {
+          approvalAppliedDecisions += 1;
+        } else {
+          approvalBlockedDecisions += 1;
+        }
+      }
+
+      const message =
+        approvalGateStatus === "approved_applied"
+          ? "Infra Ops Manager applied the approved disable control after repeated verification failures."
+          : approvalGateStatus === "blocked_rejected"
+            ? "Infra Ops Manager found a rejected approval for disabling the employee after repeated verification failures; control was not applied."
+            : "Infra Ops Manager requested approval to move the employee into disabled_pending_review after repeated verification failures; action remains blocked pending approval.";
 
       decisions.push({
         ...buildDecision({
@@ -305,41 +406,93 @@ export async function runInfraOpsManager(
           resultCounts: counts,
         }),
         approvalRequired: true,
-        approvalId: approval.approvalId,
-        approvalStatus: approval.status,
+        approvalId: linkedApproval?.approvalId,
+        approvalStatus: linkedApproval?.status,
+        approvalGateStatus,
       });
     }
 
     if (operatorActionFailed >= 1) {
-      const message =
-        "Infra Ops Manager requested approval to move the employee into disabled_by_manager after operator action failures were observed in the recent timeout recovery work log window.";
+      const latestDisableApproval =
+        await approvalStore.findLatestDecisionForAction({
+          actionType: "disable_employee",
+          targetEmployeeId: observedEmployeeId,
+        });
 
-      const approval = buildApprovalRecord({
-        manager: manager.identity,
-        nowIso,
-        actionType: "disable_employee",
+      let linkedApproval = latestDisableApproval;
+      let approvalGateStatus: ManagerDecision["approvalGateStatus"];
+
+      const controlRecord = buildControlRecord({
+        managerEmployeeId: manager.identity.employeeId,
+        managerRoleId: manager.identity.roleId,
         employeeId: observedEmployeeId,
         policyVersion: context.policyVersion,
-        reason: "operator_action_failures_detected",
-        message,
-        executionContext: context.executionContext,
-        companyId: companyIdFromExecutionContext(context.executionContext),
-        taskId: taskIdFromExecutionContext(context.executionContext),
-        heartbeatId: heartbeatIdFromExecutionContext(context.executionContext),
-        payload: {
-          targetEmployeeId: observedEmployeeId,
-          requestedState: "disabled_by_manager",
-          transition: "disabled",
-          controlReason: "manager_disabled_after_operator_action_failures",
-          evidence: {
-            windowEntryCount: entries.length,
-            resultCounts: counts,
-          },
-        },
+        nowIso,
+        state: "disabled_by_manager",
+        transition: "disabled",
+        reason: "manager_disabled_after_operator_action_failures",
+        message:
+          "Infra Ops Manager moved the employee into disabled_by_manager after operator action failures were observed in the recent timeout recovery work log window.",
+        previousState: currentControl?.state,
+        windowEntryCount: entries.length,
+        resultCounts: counts,
       });
 
-      await approvalStore.write(approval);
-      approvalsRequested += 1;
+      if (!latestDisableApproval) {
+        linkedApproval = buildApprovalRecord({
+          manager: manager.identity,
+          nowIso,
+          actionType: "disable_employee",
+          employeeId: observedEmployeeId,
+          policyVersion: context.policyVersion,
+          reason: "operator_action_failures_detected",
+          message:
+            "Infra Ops Manager requested approval to move the employee into disabled_by_manager after operator action failures were observed in the recent timeout recovery work log window.",
+          executionContext: context.executionContext,
+          companyId: companyIdFromExecutionContext(context.executionContext),
+          taskId: taskIdFromExecutionContext(context.executionContext),
+          heartbeatId: heartbeatIdFromExecutionContext(context.executionContext),
+          payload: {
+            targetEmployeeId: observedEmployeeId,
+            requestedState: "disabled_by_manager",
+            transition: "disabled",
+            controlReason: "manager_disabled_after_operator_action_failures",
+            evidence: {
+              windowEntryCount: entries.length,
+              resultCounts: counts,
+            },
+          },
+        });
+        await approvalStore.write(linkedApproval);
+        approvalsRequested += 1;
+        approvalGateStatus = "requested_pending";
+        approvalBlockedDecisions += 1;
+      } else {
+        const applyResult = await applyApprovalBackedControl({
+          approvalStore,
+          controlStore,
+          manager: manager.identity,
+          employeeId: observedEmployeeId,
+          policyVersion: context.policyVersion,
+          nowIso,
+          actionType: "disable_employee",
+          controlRecord,
+        });
+        linkedApproval = applyResult.approval ?? latestDisableApproval;
+        approvalGateStatus = applyResult.approvalGateStatus;
+        if (approvalGateStatus === "approved_applied") {
+          approvalAppliedDecisions += 1;
+        } else {
+          approvalBlockedDecisions += 1;
+        }
+      }
+
+      const message =
+        approvalGateStatus === "approved_applied"
+          ? "Infra Ops Manager applied the approved disable control after operator action failures were observed."
+          : approvalGateStatus === "blocked_rejected"
+            ? "Infra Ops Manager found a rejected approval for disabling the employee after operator action failures; control was not applied."
+            : "Infra Ops Manager requested approval to move the employee into disabled_by_manager after operator action failures; action remains blocked pending approval.";
 
       decisions.push({
         ...buildDecision({
@@ -356,8 +509,9 @@ export async function runInfraOpsManager(
           resultCounts: counts,
         }),
         approvalRequired: true,
-        approvalId: approval.approvalId,
-        approvalStatus: approval.status,
+        approvalId: linkedApproval?.approvalId,
+        approvalStatus: linkedApproval?.status,
+        approvalGateStatus,
       });
     }
 
@@ -381,41 +535,103 @@ export async function runInfraOpsManager(
       const message =
         "Infra Ops Manager requested approval to restrict the employee after repeated budget exhaustion signals in the recent work log window.";
 
-      const approval = buildApprovalRecord({
-        manager: manager.identity,
-        nowIso,
-        actionType: "restrict_employee",
+      const latestRestrictApproval =
+        await approvalStore.findLatestDecisionForAction({
+          actionType: "restrict_employee",
+          targetEmployeeId: observedEmployeeId,
+        });
+
+      let linkedApproval = latestRestrictApproval;
+      let approvalGateStatus: ManagerDecision["approvalGateStatus"];
+
+      const controlRecord = buildControlRecord({
+        managerEmployeeId: manager.identity.employeeId,
+        managerRoleId: manager.identity.roleId,
         employeeId: observedEmployeeId,
         policyVersion: context.policyVersion,
-        reason: "employee_restricted_after_budget_exhaustion",
-        message,
-        executionContext: context.executionContext,
-        companyId: companyIdFromExecutionContext(context.executionContext),
-        taskId: taskIdFromExecutionContext(context.executionContext),
-        heartbeatId: heartbeatIdFromExecutionContext(context.executionContext),
-        payload: {
-          targetEmployeeId: observedEmployeeId,
-          requestedState: "restricted",
-          transition: "restricted",
-          controlReason: "manager_restricted_after_budget_exhaustion",
-          budgetOverride: {
-            maxActionsPerScan: 0,
-          },
-          authorityOverride: {
-            allowedTenants: ["dev", "qa", "internal-aep"],
-            allowedServices: ["control-plane"],
-            requireTraceVerification: true,
-          },
-          reviewAfter: addMillisecondsToIso(nowIso, config.managerReviewWindowMs),
-          evidence: {
-            windowEntryCount: entries.length,
-            resultCounts: counts,
-          },
+        nowIso,
+        state: "restricted",
+        transition: "restricted",
+        reason: "manager_restricted_after_budget_exhaustion",
+        message:
+          "Infra Ops Manager restricted the employee after repeated budget exhaustion signals in the recent work log window.",
+        previousState: currentControl?.state,
+        budgetOverride: {
+          maxActionsPerScan: 0,
         },
+        authorityOverride: {
+          allowedTenants: ["dev", "qa", "internal-aep"],
+          allowedServices: ["control-plane"],
+          requireTraceVerification: true,
+        },
+        reviewAfter: addMillisecondsToIso(nowIso, config.managerReviewWindowMs),
+        windowEntryCount: entries.length,
+        resultCounts: counts,
       });
 
-      await approvalStore.write(approval);
-      approvalsRequested += 1;
+      if (!latestRestrictApproval) {
+        linkedApproval = buildApprovalRecord({
+          manager: manager.identity,
+          nowIso,
+          actionType: "restrict_employee",
+          employeeId: observedEmployeeId,
+          policyVersion: context.policyVersion,
+          reason: "employee_restricted_after_budget_exhaustion",
+          message,
+          executionContext: context.executionContext,
+          companyId: companyIdFromExecutionContext(context.executionContext),
+          taskId: taskIdFromExecutionContext(context.executionContext),
+          heartbeatId: heartbeatIdFromExecutionContext(context.executionContext),
+          payload: {
+            targetEmployeeId: observedEmployeeId,
+            requestedState: "restricted",
+            transition: "restricted",
+            controlReason: "manager_restricted_after_budget_exhaustion",
+            budgetOverride: {
+              maxActionsPerScan: 0,
+            },
+            authorityOverride: {
+              allowedTenants: ["dev", "qa", "internal-aep"],
+              allowedServices: ["control-plane"],
+              requireTraceVerification: true,
+            },
+            reviewAfter: addMillisecondsToIso(nowIso, config.managerReviewWindowMs),
+            evidence: {
+              windowEntryCount: entries.length,
+              resultCounts: counts,
+            },
+          },
+        });
+        await approvalStore.write(linkedApproval);
+        approvalsRequested += 1;
+        approvalGateStatus = "requested_pending";
+        approvalBlockedDecisions += 1;
+      } else {
+        const applyResult = await applyApprovalBackedControl({
+          approvalStore,
+          controlStore,
+          manager: manager.identity,
+          employeeId: observedEmployeeId,
+          policyVersion: context.policyVersion,
+          nowIso,
+          actionType: "restrict_employee",
+          controlRecord,
+        });
+        linkedApproval = applyResult.approval ?? latestRestrictApproval;
+        approvalGateStatus = applyResult.approvalGateStatus;
+        if (approvalGateStatus === "approved_applied") {
+          approvalAppliedDecisions += 1;
+        } else {
+          approvalBlockedDecisions += 1;
+        }
+      }
+
+      const restrictedMessage =
+        approvalGateStatus === "approved_applied"
+          ? "Infra Ops Manager applied the approved restriction control after repeated budget exhaustion signals."
+          : approvalGateStatus === "blocked_rejected"
+            ? "Infra Ops Manager found a rejected approval for restricting the employee after repeated budget exhaustion signals; control was not applied."
+            : "Infra Ops Manager requested approval to restrict the employee after repeated budget exhaustion signals; action remains blocked pending approval.";
 
       decisions.push({
         ...buildDecision({
@@ -427,13 +643,14 @@ export async function runInfraOpsManager(
           reason: "employee_restricted_after_budget_exhaustion",
           recommendation: "restrict_employee",
           severity: "warning",
-          message,
+          message: restrictedMessage,
           windowEntryCount: entries.length,
           resultCounts: counts,
         }),
         approvalRequired: true,
-        approvalId: approval.approvalId,
-        approvalStatus: approval.status,
+        approvalId: linkedApproval?.approvalId,
+        approvalStatus: linkedApproval?.status,
+        approvalGateStatus,
       });
 
       totalRestrictionDecisions += 1;
@@ -444,44 +661,104 @@ export async function runInfraOpsManager(
       operatorActionFailed === 0 &&
       budgetExhausted < 3
     ) {
-      const message =
-        "Infra Ops Manager requested approval to restrict the employee after repeated failure signals, tightening runtime scope without fully disabling the employee.";
+      const latestRestrictApproval =
+        await approvalStore.findLatestDecisionForAction({
+          actionType: "restrict_employee",
+          targetEmployeeId: observedEmployeeId,
+        });
 
-      const approval = buildApprovalRecord({
-        manager: manager.identity,
-        nowIso,
-        actionType: "restrict_employee",
+      let linkedApproval = latestRestrictApproval;
+      let approvalGateStatus: ManagerDecision["approvalGateStatus"];
+
+      const controlRecord = buildControlRecord({
+        managerEmployeeId: manager.identity.employeeId,
+        managerRoleId: manager.identity.roleId,
         employeeId: observedEmployeeId,
         policyVersion: context.policyVersion,
-        reason: "employee_restricted_after_repeated_failures",
-        message,
-        executionContext: context.executionContext,
-        companyId: companyIdFromExecutionContext(context.executionContext),
-        taskId: taskIdFromExecutionContext(context.executionContext),
-        heartbeatId: heartbeatIdFromExecutionContext(context.executionContext),
-        payload: {
-          targetEmployeeId: observedEmployeeId,
-          requestedState: "restricted",
-          transition: "restricted",
-          controlReason: "manager_restricted_after_repeated_failures",
-          budgetOverride: {
-            maxActionsPerScan: 1,
-            maxActionsPerHour: 5,
-            maxActionsPerTenantPerHour: 2,
-          },
-          authorityOverride: {
-            requireTraceVerification: true,
-          },
-          reviewAfter: addMillisecondsToIso(nowIso, config.managerReviewWindowMs),
-          evidence: {
-            windowEntryCount: entries.length,
-            resultCounts: counts,
-          },
+        nowIso,
+        state: "restricted",
+        transition: "restricted",
+        reason: "manager_restricted_after_repeated_failures",
+        message:
+          "Infra Ops Manager restricted the employee after repeated failure signals, tightening runtime scope without fully disabling the employee.",
+        previousState: currentControl?.state,
+        budgetOverride: {
+          maxActionsPerScan: 1,
+          maxActionsPerHour: 5,
+          maxActionsPerTenantPerHour: 2,
         },
+        authorityOverride: {
+          requireTraceVerification: true,
+        },
+        reviewAfter: addMillisecondsToIso(nowIso, config.managerReviewWindowMs),
+        windowEntryCount: entries.length,
+        resultCounts: counts,
       });
 
-      await approvalStore.write(approval);
-      approvalsRequested += 1;
+      if (!latestRestrictApproval) {
+        linkedApproval = buildApprovalRecord({
+          manager: manager.identity,
+          nowIso,
+          actionType: "restrict_employee",
+          employeeId: observedEmployeeId,
+          policyVersion: context.policyVersion,
+          reason: "employee_restricted_after_repeated_failures",
+          message:
+            "Infra Ops Manager requested approval to restrict the employee after repeated failure signals, tightening runtime scope without fully disabling the employee.",
+          executionContext: context.executionContext,
+          companyId: companyIdFromExecutionContext(context.executionContext),
+          taskId: taskIdFromExecutionContext(context.executionContext),
+          heartbeatId: heartbeatIdFromExecutionContext(context.executionContext),
+          payload: {
+            targetEmployeeId: observedEmployeeId,
+            requestedState: "restricted",
+            transition: "restricted",
+            controlReason: "manager_restricted_after_repeated_failures",
+            budgetOverride: {
+              maxActionsPerScan: 1,
+              maxActionsPerHour: 5,
+              maxActionsPerTenantPerHour: 2,
+            },
+            authorityOverride: {
+              requireTraceVerification: true,
+            },
+            reviewAfter: addMillisecondsToIso(nowIso, config.managerReviewWindowMs),
+            evidence: {
+              windowEntryCount: entries.length,
+              resultCounts: counts,
+            },
+          },
+        });
+        await approvalStore.write(linkedApproval);
+        approvalsRequested += 1;
+        approvalGateStatus = "requested_pending";
+        approvalBlockedDecisions += 1;
+      } else {
+        const applyResult = await applyApprovalBackedControl({
+          approvalStore,
+          controlStore,
+          manager: manager.identity,
+          employeeId: observedEmployeeId,
+          policyVersion: context.policyVersion,
+          nowIso,
+          actionType: "restrict_employee",
+          controlRecord,
+        });
+        linkedApproval = applyResult.approval ?? latestRestrictApproval;
+        approvalGateStatus = applyResult.approvalGateStatus;
+        if (approvalGateStatus === "approved_applied") {
+          approvalAppliedDecisions += 1;
+        } else {
+          approvalBlockedDecisions += 1;
+        }
+      }
+
+      const message =
+        approvalGateStatus === "approved_applied"
+          ? "Infra Ops Manager applied the approved restriction control after repeated failure signals."
+          : approvalGateStatus === "blocked_rejected"
+            ? "Infra Ops Manager found a rejected approval for restricting the employee after repeated failure signals; control was not applied."
+            : "Infra Ops Manager requested approval to restrict the employee after repeated failure signals; action remains blocked pending approval.";
 
       decisions.push({
         ...buildDecision({
@@ -498,8 +775,9 @@ export async function runInfraOpsManager(
           resultCounts: counts,
         }),
         approvalRequired: true,
-        approvalId: approval.approvalId,
-        approvalStatus: approval.status,
+        approvalId: linkedApproval?.approvalId,
+        approvalStatus: linkedApproval?.status,
+        approvalGateStatus,
       });
 
       totalRestrictionDecisions += 1;
@@ -689,6 +967,8 @@ export async function runInfraOpsManager(
       crossWorkerAlerts,
       escalationsCreated,
       approvalsRequested,
+      approvalBlockedDecisions,
+      approvalAppliedDecisions,
       decisionsEmitted: decisions.length,
     },
     perEmployee,

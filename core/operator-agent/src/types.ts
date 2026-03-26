@@ -201,6 +201,13 @@ export interface ManagerDecision {
   approvalRequired?: boolean;
   approvalId?: string;
   approvalStatus?: ApprovalStatus;
+  approvalGateStatus?:
+    | "not_required"
+    | "requested_pending"
+    | "blocked_pending_approval"
+    | "blocked_rejected"
+    | "approved_ready"
+    | "approved_applied";
   evidence: {
     windowEntryCount: number;
     resultCounts: Partial<Record<TimeoutRecoveryResult, number>>;
@@ -238,6 +245,8 @@ export interface ManagerDecisionResponse {
     crossWorkerAlerts: number;
     escalationsCreated: number;
     approvalsRequested: number;
+    approvalBlockedDecisions: number;
+    approvalAppliedDecisions: number;
     decisionsEmitted: number;
   };
   perEmployee: ManagedEmployeeObservationSummary[];
@@ -319,6 +328,8 @@ export interface ApprovalRecord {
   decidedAt?: string;
   decidedBy?: string;
   decisionNote?: string;
+  executedAt?: string;
+  executionId?: string;
 
   executionContext?: ExecutionContext;
 }
