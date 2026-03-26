@@ -92,21 +92,32 @@ export interface PaperclipRunResponse {
 export type EmployeeControlState =
   | "enabled"
   | "disabled_pending_review"
-  | "disabled_by_manager";
+  | "disabled_by_manager"
+  | "restricted";
 
-export type EmployeeControlTransition = "disabled" | "re_enabled";
+export type EmployeeControlTransition =
+  | "disabled"
+  | "re_enabled"
+  | "restricted"
+  | "restrictions_cleared";
 
 export type EmployeeControlReason =
   | "manager_disabled_after_repeated_verification_failures"
   | "manager_disabled_after_operator_action_failures"
   | "manager_reenabled_after_quiet_period"
-  | "manager_reenabled_after_review_window";
+  | "manager_reenabled_after_review_window"
+  | "manager_restricted_after_budget_exhaustion"
+  | "manager_restricted_after_repeated_failures"
+  | "manager_restrictions_cleared_after_quiet_period";
 
 export type ManagerDecisionReason =
   | "repeated_verification_failures"
   | "operator_action_failures_detected"
   | "frequent_budget_exhaustion"
-  | "employee_reenabled_after_quiet_period";
+  | "employee_reenabled_after_quiet_period"
+  | "employee_restricted_after_budget_exhaustion"
+  | "employee_restricted_after_repeated_failures"
+  | "employee_restrictions_cleared_after_quiet_period";
 
 export type CandidateReason =
   | "eligible_timeout_recovery"
@@ -143,7 +154,9 @@ export interface ManagerDecision {
     | "recommend_budget_adjustment"
     | "recommend_pause_employee"
     | "disable_employee"
-    | "re_enable_employee";
+    | "re_enable_employee"
+    | "restrict_employee"
+    | "clear_employee_restrictions";
   severity: "warning" | "critical";
   message: string;
   evidence: {
@@ -167,6 +180,8 @@ export interface ManagerDecisionResponse {
     operatorActionFailures: number;
     budgetExhaustionSignals: number;
     reEnableDecisions: number;
+    restrictionDecisions: number;
+    clearedRestrictionDecisions: number;
     decisionsEmitted: number;
   };
   decisions: ManagerDecision[];
@@ -187,6 +202,8 @@ export interface EmployeeControlRecord {
   previousState?: EmployeeControlState;
   reviewAfter?: string;
   expiresAt?: string;
+  budgetOverride?: Partial<AgentBudget>;
+  authorityOverride?: Partial<AgentAuthority>;
   evidence?: {
     windowEntryCount: number;
     resultCounts?: Partial<Record<TimeoutRecoveryResult, number>>;
@@ -199,7 +216,15 @@ export interface ResolvedEmployeeControl {
   blocked: boolean;
   reviewAfter?: string;
   expiresAt?: string;
+  budgetOverride?: Partial<AgentBudget>;
+  authorityOverride?: Partial<AgentAuthority>;
   control: EmployeeControlRecord | null;
+}
+
+export interface EffectiveEmployeePolicy {
+  authority: AgentAuthority;
+  budget: AgentBudget;
+  control: ResolvedEmployeeControl;
 }
 
 export interface EmployeeControlBlockedResponse {
@@ -290,6 +315,8 @@ export interface EmployeeRunResponse {
   policyVersion: string;
   trigger: EmployeeTrigger;
   employee: AgentIdentity;
+  baseAuthority: AgentAuthority;
+  baseBudget: AgentBudget;
   authority: AgentAuthority;
   budget: AgentBudget;
   controlPlaneBaseUrl: string;

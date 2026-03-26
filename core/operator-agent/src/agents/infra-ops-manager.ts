@@ -71,6 +71,8 @@ function buildControlRecord(args: {
   previousState?: EmployeeControlRecord["state"];
   reviewAfter?: string;
   expiresAt?: string;
+  budgetOverride?: EmployeeControlRecord["budgetOverride"];
+  authorityOverride?: EmployeeControlRecord["authorityOverride"];
 }): EmployeeControlRecord {
   return {
     employeeId: args.employeeId,
@@ -85,6 +87,8 @@ function buildControlRecord(args: {
     previousState: args.previousState,
     reviewAfter: args.reviewAfter,
     expiresAt: args.expiresAt,
+    budgetOverride: args.budgetOverride,
+    authorityOverride: args.authorityOverride,
     evidence: {
       windowEntryCount: args.windowEntryCount,
       resultCounts: args.resultCounts,
@@ -133,6 +137,8 @@ export async function runInfraOpsManager(
   const currentControl = await controlStore.get(observedEmployeeId);
 
   let reEnableDecisions = 0;
+  let restrictionDecisions = 0;
+  let clearedRestrictionDecisions = 0;
 
   if (verificationFailed >= 2) {
     const message =
@@ -229,6 +235,165 @@ export async function runInfraOpsManager(
     );
   }
 
+  if (budgetExhausted >= 3) {
+    const message =
+      "Infra Ops Manager restricted the employee after repeated budget exhaustion signals in the recent work log window.";
+
+    await controlStore.put(
+      buildControlRecord({
+        managerEmployeeId: manager.identity.employeeId,
+        managerRoleId: manager.identity.roleId,
+        employeeId: observedEmployeeId,
+        policyVersion: context.policyVersion,
+        nowIso,
+        state: "restricted",
+        transition: "restricted",
+        reason: "manager_restricted_after_budget_exhaustion",
+        message,
+        previousState: currentControl?.state,
+        budgetOverride: {
+          maxActionsPerScan: 0,
+        },
+        authorityOverride: {
+          allowedTenants: ["dev", "qa", "internal-aep"],
+          allowedServices: ["control-plane"],
+          requireTraceVerification: true,
+        },
+        reviewAfter: addMillisecondsToIso(
+          nowIso,
+          config.managerReviewWindowMs
+        ),
+        windowEntryCount: entries.length,
+        resultCounts: counts,
+      })
+    );
+
+    decisions.push(
+      buildDecision({
+        manager: manager.identity,
+        employeeId: observedEmployeeId,
+        policyVersion: context.policyVersion,
+        nowIso,
+        reason: "employee_restricted_after_budget_exhaustion",
+        recommendation: "restrict_employee",
+        severity: "warning",
+        message,
+        windowEntryCount: entries.length,
+        resultCounts: counts,
+      })
+    );
+
+    restrictionDecisions += 1;
+  }
+
+  if (
+    verificationFailed === 1 &&
+    operatorActionFailed === 0 &&
+    budgetExhausted < 3
+  ) {
+    const message =
+      "Infra Ops Manager restricted the employee after repeated failure signals, tightening runtime scope without fully disabling the employee.";
+
+    await controlStore.put(
+      buildControlRecord({
+        managerEmployeeId: manager.identity.employeeId,
+        managerRoleId: manager.identity.roleId,
+        employeeId: observedEmployeeId,
+        policyVersion: context.policyVersion,
+        nowIso,
+        state: "restricted",
+        transition: "restricted",
+        reason: "manager_restricted_after_repeated_failures",
+        message,
+        previousState: currentControl?.state,
+        budgetOverride: {
+          maxActionsPerScan: 1,
+          maxActionsPerHour: 5,
+          maxActionsPerTenantPerHour: 2,
+        },
+        authorityOverride: {
+          requireTraceVerification: true,
+        },
+        reviewAfter: addMillisecondsToIso(
+          nowIso,
+          config.managerReviewWindowMs
+        ),
+        windowEntryCount: entries.length,
+        resultCounts: counts,
+      })
+    );
+
+    decisions.push(
+      buildDecision({
+        manager: manager.identity,
+        employeeId: observedEmployeeId,
+        policyVersion: context.policyVersion,
+        nowIso,
+        reason: "employee_restricted_after_repeated_failures",
+        recommendation: "restrict_employee",
+        severity: "warning",
+        message,
+        windowEntryCount: entries.length,
+        resultCounts: counts,
+      })
+    );
+
+    restrictionDecisions += 1;
+  }
+
+  const recentTerminalProblems =
+    verificationFailed + operatorActionFailed;
+
+  const isRestricted = currentControl?.state === "restricted";
+  const restrictionReviewReached =
+    isRestricted &&
+    hasReachedTimeBoundary(currentControl?.reviewAfter, nowIso);
+
+  if (
+    currentControl &&
+    currentControl.state === "restricted" &&
+    recentTerminalProblems === 0 &&
+    budgetExhausted === 0 &&
+    restrictionReviewReached
+  ) {
+    const message =
+      "Infra Ops Manager cleared employee restrictions after a quiet review window with no recent failures or budget exhaustion.";
+
+    await controlStore.put(
+      buildControlRecord({
+        managerEmployeeId: manager.identity.employeeId,
+        managerRoleId: manager.identity.roleId,
+        employeeId: observedEmployeeId,
+        policyVersion: context.policyVersion,
+        nowIso,
+        state: "enabled",
+        transition: "restrictions_cleared",
+        reason: "manager_restrictions_cleared_after_quiet_period",
+        message,
+        previousState: currentControl.state,
+        windowEntryCount: entries.length,
+        resultCounts: counts,
+      })
+    );
+
+    decisions.push(
+      buildDecision({
+        manager: manager.identity,
+        employeeId: observedEmployeeId,
+        policyVersion: context.policyVersion,
+        nowIso,
+        reason: "employee_restrictions_cleared_after_quiet_period",
+        recommendation: "clear_employee_restrictions",
+        severity: "warning",
+        message,
+        windowEntryCount: entries.length,
+        resultCounts: counts,
+      })
+    );
+
+    clearedRestrictionDecisions += 1;
+  }
+
   const log = new ManagerDecisionLog(env ?? {});
   for (const decision of decisions) {
     await log.write(decision);
@@ -249,6 +414,8 @@ export async function runInfraOpsManager(
       operatorActionFailures: operatorActionFailed,
       budgetExhaustionSignals: budgetExhausted,
       reEnableDecisions,
+      restrictionDecisions,
+      clearedRestrictionDecisions,
       decisionsEmitted: decisions.length,
     },
     decisions,

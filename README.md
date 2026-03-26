@@ -340,6 +340,48 @@ Validates:
 
 ---
 
+### Adaptive policy overlays (Commit 10B)
+
+AEP can now persist manager-issued runtime overlays through employee controls.
+
+These overlays can restrict:
+
+- **budget**
+  - `maxActionsPerScan`
+  - `maxActionsPerHour`
+  - `maxActionsPerTenantPerHour`
+
+- **authority**
+  - `allowedTenants`
+  - `allowedServices`
+  - `requireTraceVerification`
+
+Effective execution policy is resolved in one place:
+
+```text
+base employee config
+  → control overlay
+  → request override
+```
+
+This keeps behavior explicit, observable, and reversible without introducing any new mutation path.
+
+#### Key features
+
+- `restricted` state: employee remains runnable but with narrowed scope
+- `/agent/employees`: exposes both base and effective policy
+- Manager can restrict and clear restrictions without full disable
+- All enforcement centralized in executor
+
+#### Control lifecycle states
+
+- `enabled`: fully operational
+- `disabled_pending_review`: blocked, awaiting manager review
+- `disabled_by_manager`: blocked, permanently disabled locally
+- `restricted`: runnable but with persisted overlays
+
+---
+
 ## What we have now (conceptually)
 
 We have built:

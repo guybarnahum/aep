@@ -2,11 +2,13 @@ import { getConfig } from "@aep/operator-agent/config";
 import { runInfraOpsManager } from "@aep/operator-agent/agents/infra-ops-manager";
 import { runTimeoutRecoveryOperator } from "@aep/operator-agent/agents/timeout-recovery";
 import { EmployeeControlStore } from "@aep/operator-agent/lib/employee-control-store";
+import { mergeAuthority, mergeBudget } from "@aep/operator-agent/lib/policy-merge";
 import { cloneAuthority } from "@aep/operator-agent/org/authority";
 import { cloneBudget } from "@aep/operator-agent/org/budgets";
 import { getEmployeeById } from "@aep/operator-agent/org/employees";
 import type {
   AgentExecutionResponse,
+  EffectiveEmployeePolicy,
   EmployeeControlBlockedResponse,
   EmployeeRunRequest,
   EmployeeRunErrorResponse,
@@ -90,15 +92,8 @@ function resolveRunContext(
     };
   }
 
-  const authority = {
-    ...cloneAuthority(employee.authority),
-    ...(request.authorityOverride ?? {}),
-  };
-
-  const budget = {
-    ...cloneBudget(employee.budget),
-    ...(request.budgetOverride ?? {}),
-  };
+  const authority = cloneAuthority(employee.authority);
+  const budget = cloneBudget(employee.budget);
 
   return {
     request,
@@ -109,19 +104,42 @@ function resolveRunContext(
   };
 }
 
-async function maybeReturnBlockedByControl(
+async function resolveEffectivePolicy(
   resolved: ResolvedEmployeeRunContext,
   env?: OperatorAgentEnv
+): Promise<EffectiveEmployeePolicy> {
+  const store = new EmployeeControlStore(env ?? {});
+  const control = await store.getEffective(
+    resolved.employee.identity.employeeId,
+    new Date().toISOString()
+  );
+
+  const authority = mergeAuthority(
+    cloneAuthority(resolved.employee.authority),
+    control.authorityOverride,
+    resolved.request.authorityOverride
+  );
+
+  const budget = mergeBudget(
+    cloneBudget(resolved.employee.budget),
+    control.budgetOverride,
+    resolved.request.budgetOverride
+  );
+
+  return {
+    authority,
+    budget,
+    control,
+  };
+}
+
+async function maybeReturnBlockedByControl(
+  resolved: ResolvedEmployeeRunContext,
+  effectiveControl: ResolvedEmployeeControl
 ): Promise<EmployeeControlBlockedResponse | null> {
   if (resolved.employee.identity.roleId === "infra-ops-manager") {
     return null;
   }
-
-  const store = new EmployeeControlStore(env ?? {});
-  const effectiveControl = await store.getEffective(
-    resolved.employee.identity.employeeId,
-    new Date().toISOString()
-  );
 
   if (!effectiveControl.blocked || !effectiveControl.control) {
     return null;
@@ -173,16 +191,27 @@ export async function executeEmployeeRun(
     });
   }
 
-  const blocked = await maybeReturnBlockedByControl(resolved, env);
+  const effectivePolicy = await resolveEffectivePolicy(resolved, env);
+
+  const blocked = await maybeReturnBlockedByControl(
+    resolved,
+    effectivePolicy.control
+  );
   if (blocked) {
     return blocked;
   }
 
+  const executionContext: ResolvedEmployeeRunContext = {
+    ...resolved,
+    authority: effectivePolicy.authority,
+    budget: effectivePolicy.budget,
+  };
+
   switch (resolved.employee.identity.roleId) {
     case "timeout-recovery-operator":
-      return runTimeoutRecoveryOperator(resolved, env);
+      return runTimeoutRecoveryOperator(executionContext, env);
     case "infra-ops-manager":
-      return runInfraOpsManager(resolved, env);
+      return runInfraOpsManager(executionContext, env);
     default:
       throw Object.assign(
         new Error(

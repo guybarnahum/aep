@@ -61,7 +61,7 @@ function readEnvNumber(
 export function getConfig(env?: Record<string, unknown>): OperatorAgentConfig {
   return {
     serviceName: "aep-operator-agent",
-    policyVersion: "commit10-stageA",
+    policyVersion: "commit10-stageB",
     controlPlaneBaseUrl: readEnvString(
       env,
       "CONTROL_PLANE_BASE_URL",

@@ -11,9 +11,13 @@ type EmployeesResponse = {
       roleId: string;
       employeeName: string;
     };
+    authority: Record<string, unknown>;
+    budget: Record<string, unknown>;
+    effectiveAuthority: Record<string, unknown>;
+    effectiveBudget: Record<string, unknown>;
     effectiveState: {
-      enabled: boolean;
-      control: unknown;
+      state: "enabled" | "disabled_pending_review" | "disabled_by_manager" | "restricted";
+      blocked: boolean;
     };
   }>;
 };
@@ -30,10 +34,26 @@ type EmployeeControlsResponse = {
   count?: number;
   entries?: Array<{
     employeeId: string;
-    control: unknown;
+    control: {
+      state: "enabled" | "disabled_pending_review" | "disabled_by_manager" | "restricted";
+      budgetOverride?: Record<string, unknown>;
+      authorityOverride?: Record<string, unknown>;
+    } | null;
+    effectiveState: {
+      state: "enabled" | "disabled_pending_review" | "disabled_by_manager" | "restricted";
+      blocked: boolean;
+    };
   }>;
   employeeId?: string;
-  control?: unknown;
+  control?: {
+    state: "enabled" | "disabled_pending_review" | "disabled_by_manager" | "restricted";
+    budgetOverride?: Record<string, unknown>;
+    authorityOverride?: Record<string, unknown>;
+  } | null;
+  effectiveState?: {
+    state: "enabled" | "disabled_pending_review" | "disabled_by_manager" | "restricted";
+    blocked: boolean;
+  };
 };
 
 type WorkLogResponse = {
@@ -104,6 +124,32 @@ async function main(): Promise<void> {
 
   if (!workLog.ok) {
     throw new Error("/agent/work-log did not return ok=true");
+  }
+
+  for (const employee of employees.employees) {
+    if (!employee.effectiveAuthority) {
+      throw new Error(
+        `Employee ${employee.identity.employeeId} missing effectiveAuthority`
+      );
+    }
+
+    if (!employee.effectiveBudget) {
+      throw new Error(
+        `Employee ${employee.identity.employeeId} missing effectiveBudget`
+      );
+    }
+
+    if (employee.effectiveState.state === "restricted") {
+      if (!employee.effectiveState.blocked && "maxActionsPerScan" in employee.effectiveBudget) {
+        const maxActions = (employee.effectiveBudget as Record<string, unknown>)
+          .maxActionsPerScan;
+        if (typeof maxActions !== "number" || maxActions > (employee.budget as Record<string, unknown>).maxActionsPerScan) {
+          throw new Error(
+            `Restricted employee ${employee.identity.employeeId} effective budget should be narrower`
+          );
+        }
+      }
+    }
   }
 
   console.log("operator-surface-check passed", {

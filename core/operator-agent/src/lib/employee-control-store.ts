@@ -31,6 +31,8 @@ function toResolvedControl(
     blocked: isBlockedState(control.state),
     reviewAfter: control.reviewAfter,
     expiresAt: control.expiresAt,
+    budgetOverride: control.budgetOverride,
+    authorityOverride: control.authorityOverride,
     control,
   };
 }

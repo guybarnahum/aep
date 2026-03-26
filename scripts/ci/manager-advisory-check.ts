@@ -2,7 +2,7 @@
 
 export {};
 
-const STAGE6_POLICY_VERSION = "commit9-stage6";
+const POLICY_VERSION = "commit10-stageB";
 
 type ManagerDecision = {
   timestamp: string;
@@ -39,6 +39,9 @@ type ManagerRunResponse = {
     repeatedVerificationFailures: number;
     operatorActionFailures: number;
     budgetExhaustionSignals: number;
+    reEnableDecisions: number;
+    restrictionDecisions: number;
+    clearedRestrictionDecisions: number;
     decisionsEmitted: number;
   };
   decisions: ManagerDecision[];
@@ -58,12 +61,15 @@ type EmployeeControlsResponse = {
   employeeId: string;
   control: {
     employeeId: string;
-    enabled: boolean;
+    state: "enabled" | "disabled_pending_review" | "disabled_by_manager" | "restricted";
+    transition: string;
     updatedByEmployeeId: string;
     updatedByRoleId: string;
     policyVersion: string;
     reason: string;
     message: string;
+    budgetOverride?: Record<string, unknown>;
+    authorityOverride?: Record<string, unknown>;
     evidence?: {
       windowEntryCount: number;
       resultCounts?: Record<string, number>;
@@ -101,7 +107,7 @@ async function runManager(
       employeeId: "emp_infra_ops_manager_01",
       roleId: "infra-ops-manager",
       trigger: "manual",
-      policyVersion: STAGE6_POLICY_VERSION,
+      policyVersion: POLICY_VERSION,
       targetEmployeeIdOverride: observedEmployeeId,
     }),
   });
@@ -134,7 +140,7 @@ async function main(): Promise<void> {
 
   const managerRun = await runManager(agentBaseUrl, observedEmployeeId);
 
-  if (managerRun.policyVersion !== STAGE6_POLICY_VERSION) {
+  if (managerRun.policyVersion !== POLICY_VERSION) {
     throw new Error(
       `Unexpected manager policyVersion: ${managerRun.policyVersion}`
     );
@@ -166,12 +172,22 @@ async function main(): Promise<void> {
     throw new Error("Employee controls route did not return ok=true");
   }
 
+  if (
+    employeeControls.control?.state === "restricted" &&
+    !employeeControls.control.budgetOverride &&
+    !employeeControls.control.authorityOverride
+  ) {
+    throw new Error(
+      "Restricted control must include at least one persisted overlay"
+    );
+  }
+
   console.log("manager-advisory-check passed", {
     observedEmployeeId,
+    state: employeeControls.control?.state ?? "enabled",
     decisionsEmitted: managerRun.summary.decisionsEmitted,
+    restrictionDecisions: managerRun.summary.restrictionDecisions,
     managerLogCount: managerLog.count,
-    controlPresent: Boolean(employeeControls.control),
-    controlEnabled: employeeControls.control?.enabled ?? true,
   });
 }
 
