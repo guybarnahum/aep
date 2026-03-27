@@ -159,3 +159,89 @@ jobs:
           if [[ "$SMOKE_OUTCOME" != "success" ]]; then
             echo "> Smoke test failed. Inspect \`smoke-test.log\` in workflow logs." >> "$GITHUB_STEP_SUMMARY"
           fi
+
+  post-deploy-validation:
+    needs: deploy-preview
+    runs-on: ubuntu-latest
+    environment: preview
+    outputs:
+      validation_enabled: ${{ steps.config.outputs.enabled }}
+      validation_outcome: ${{ steps.outcome.outputs.value }}
+    defaults:
+      run:
+        shell: bash -eo pipefail {0}
+    permissions:
+      contents: read
+    env:
+      OPERATOR_AGENT_BASE_URL: ${{ secrets.PREVIEW_OPERATOR_AGENT_BASE_URL }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Check validation configuration
+        id: config
+        run: |
+          if [[ -n "$OPERATOR_AGENT_BASE_URL" ]]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Run post-deploy validation
+        id: post_deploy_validation
+        if: steps.config.outputs.enabled == 'true'
+        run: npm run ci:post-deploy-validation | tee post-deploy-validation.log
+
+      - name: Capture outcome
+        id: outcome
+        if: always()
+        run: |
+          if [[ "${{ steps.config.outputs.enabled }}" != "true" ]]; then
+            echo "value=skipped" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=${{ steps.post_deploy_validation.outcome }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Write summary
+        if: always()
+        run: |
+          if [[ "${{ steps.config.outputs.enabled }}" != "true" ]]; then
+            echo "## Preview post-deploy validation" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "- Warning: PREVIEW_OPERATOR_AGENT_BASE_URL is not configured; post-deploy validation skipped." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          OUTCOME="${{ steps.post_deploy_validation.outcome }}"
+          echo "## Preview post-deploy validation" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Outcome: $OUTCOME" >> "$GITHUB_STEP_SUMMARY"
+
+          if [[ "$OUTCOME" != "success" ]]; then
+            echo "> Post-deploy validation failed. Inspect \`post-deploy-validation.log\` in workflow logs." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  final-summary:
+    needs:
+      - deploy-preview
+      - post-deploy-validation
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Write aggregate summary
+        run: |
+          echo "## Preview aggregate summary" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Deploy job: ${{ needs.deploy-preview.result }}" >> "$GITHUB_STEP_SUMMARY"
+          if [[ "${{ needs.post-deploy-validation.outputs.validation_enabled }}" != "true" ]]; then
+            echo "- Post-deploy validation: skipped (warning: PREVIEW_OPERATOR_AGENT_BASE_URL not configured)" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "- Post-deploy validation: ${{ needs.post-deploy-validation.outputs.validation_outcome }}" >> "$GITHUB_STEP_SUMMARY"
+          fi
