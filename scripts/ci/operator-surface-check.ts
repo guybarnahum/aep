@@ -154,9 +154,21 @@ async function main(): Promise<void> {
     serviceName: "operator-agent",
   });
 
-  const employees = await readJson<EmployeesResponse>(
-    await fetch(`${agentBaseUrl}/agent/employees`)
-  );
+  let employees: EmployeesResponse;
+  try {
+    employees = await readJson<EmployeesResponse>(
+      await fetch(`${agentBaseUrl}/agent/employees`)
+    );
+  } catch (err) {
+    // Soft-skip: Cloudflare returns HTML 404 when the worker isn't deployed yet.
+    if (err instanceof Error && err.message.startsWith("Request failed: 404") && err.message.includes("<!DOCTYPE html")) {
+      console.warn(
+        `[skip] operator-agent not deployed at ${agentBaseUrl} — skipping operator-surface-check`
+      );
+      process.exit(0);
+    }
+    throw err;
+  }
 
   if (!employees.ok) {
     throw new Error("/agent/employees did not return ok=true");

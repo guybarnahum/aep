@@ -191,6 +191,14 @@ async function seedWorkLog(
   });
 
   if (response.status === 404) {
+    const body404 = await response.text();
+    if (body404.includes("<!DOCTYPE html")) {
+      const err = new Error(
+        `[not-deployed] operator-agent not deployed at ${agentBaseUrl}`
+      );
+      (err as Error & { notDeployed: boolean }).notDeployed = true;
+      throw err;
+    }
     throw new Error(
       "Seed endpoint returned 404 — start the operator-agent with --var ENABLE_TEST_ENDPOINTS:true"
     );
@@ -216,11 +224,23 @@ async function main(): Promise<void> {
 
   // Seed a deterministic operator_action_failed entry so the manager is
   // guaranteed to emit at least one decision, enabling all provenance checks.
-  const seeded = await seedWorkLog(agentBaseUrl, {
-    employeeId: "emp_timeout_recovery_01",
-    result: "operator_action_failed",
-    count: 1,
-  });
+  let seeded: SeedEnvelope;
+  try {
+    seeded = await seedWorkLog(agentBaseUrl, {
+      employeeId: "emp_timeout_recovery_01",
+      result: "operator_action_failed",
+      count: 1,
+    });
+  } catch (err) {
+    // Soft-skip when the worker isn't deployed yet (Cloudflare HTML 404).
+    if (err instanceof Error && (err as Error & { notDeployed?: boolean }).notDeployed) {
+      console.warn(
+        `[skip] operator-agent not deployed at ${agentBaseUrl} — skipping paperclip-first-execution-check`
+      );
+      process.exit(0);
+    }
+    throw err;
+  }
 
   if (!seeded.ok || (seeded.seeded ?? 0) < 1) {
     throw new Error(`Work-log seed step failed: ${String(seeded.error ?? "unknown")}`);

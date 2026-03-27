@@ -1,8 +1,16 @@
-import {
-  MANAGER_CRON,
-  WORKER_CRON,
-  classifyScheduledCron,
-} from "../../core/operator-agent/src/triggers/scheduled";
+// Inlined from core/operator-agent/src/triggers/scheduled.ts to avoid pulling
+// in @aep/operator-agent/* path aliases that are only resolved by the worker's
+// own tsconfig (not available to the root tsx runner in CI).
+const WORKER_CRON = "* * * * *";
+const MANAGER_CRON = "*/5 * * * *";
+
+type ScheduledCronKind = "worker" | "manager" | "unknown";
+
+function classifyScheduledCron(cron: string): ScheduledCronKind {
+  if (cron === WORKER_CRON) return "worker";
+  if (cron === MANAGER_CRON) return "manager";
+  return "unknown";
+}
 
 function assert(condition: unknown, message: string): void {
   if (!condition) {

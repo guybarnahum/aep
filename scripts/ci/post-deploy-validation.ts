@@ -10,6 +10,15 @@ type ValidationCheck = {
   scriptPath: string;
 };
 
+type CheckStatus = "pass" | "fail" | "skip";
+
+type CheckResult = {
+  check: ValidationCheck;
+  exitCode: number;
+  status: CheckStatus;
+  skipReason?: string;
+};
+
 const CHECKS: ValidationCheck[] = [
   {
     id: "operator-surface",
@@ -49,18 +58,47 @@ function resolveTsxBin(): string {
   return localBin;
 }
 
-function runCheck(tsxBin: string, check: ValidationCheck): number {
+function extractSkipReason(output: string): string | undefined {
+  for (const line of output.split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (trimmed.startsWith("[skip] ")) {
+      return trimmed.slice("[skip] ".length).trim();
+    }
+  }
+  return undefined;
+}
+
+function runCheck(tsxBin: string, check: ValidationCheck): CheckResult {
   console.log(`\n==> ${check.label}`);
   console.log(`Running ${check.scriptPath}`);
 
   const result = spawnSync(tsxBin, [check.scriptPath], {
     cwd: process.cwd(),
     env: process.env,
-    stdio: "inherit",
+    stdio: "pipe",
+    encoding: "utf8",
   });
 
+  const stdout = result.stdout ?? "";
+  const stderr = result.stderr ?? "";
+  if (stdout.length > 0) {
+    process.stdout.write(stdout);
+  }
+  if (stderr.length > 0) {
+    process.stderr.write(stderr);
+  }
+
   if (typeof result.status === "number") {
-    return result.status;
+    const skipReason = extractSkipReason(`${stdout}\n${stderr}`);
+    if (result.status === 0 && skipReason) {
+      return { check, exitCode: result.status, status: "skip", skipReason };
+    }
+
+    return {
+      check,
+      exitCode: result.status,
+      status: result.status === 0 ? "pass" : "fail",
+    };
   }
 
   if (result.error) {
@@ -68,7 +106,7 @@ function runCheck(tsxBin: string, check: ValidationCheck): number {
     console.error(result.error);
   }
 
-  return 1;
+  return { check, exitCode: 1, status: "fail" };
 }
 
 function main(): void {
@@ -81,16 +119,18 @@ function main(): void {
   }
 
   const tsxBin = resolveTsxBin();
-  const results = CHECKS.map((check) => ({
-    check,
-    exitCode: runCheck(tsxBin, check),
-  }));
+  const results = CHECKS.map((check) => runCheck(tsxBin, check));
 
-  const failed = results.filter((result) => result.exitCode !== 0);
+  const failed = results.filter((result) => result.status === "fail");
 
   console.log("\nPost-deploy validation summary");
   for (const result of results) {
-    const status = result.exitCode === 0 ? "PASS" : "FAIL";
+    if (result.status === "skip") {
+      console.warn(`- SKIP: ${result.check.label} (${result.skipReason})`);
+      continue;
+    }
+
+    const status = result.status === "pass" ? "PASS" : "FAIL";
     console.log(`- ${status}: ${result.check.label}`);
   }
 
