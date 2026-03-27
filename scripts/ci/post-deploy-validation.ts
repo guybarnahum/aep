@@ -10,13 +10,14 @@ type ValidationCheck = {
   scriptPath: string;
 };
 
-type CheckStatus = "pass" | "fail" | "skip";
+type CheckStatus = "pass" | "fail" | "skip" | "warn";
 
 type CheckResult = {
   check: ValidationCheck;
   exitCode: number;
   status: CheckStatus;
   skipReason?: string;
+  warnReason?: string;
 };
 
 const CHECKS: ValidationCheck[] = [
@@ -68,6 +69,16 @@ function extractSkipReason(output: string): string | undefined {
   return undefined;
 }
 
+function extractWarnReason(output: string): string | undefined {
+  for (const line of output.split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (trimmed.startsWith("[warn] ")) {
+      return trimmed.slice("[warn] ".length).trim();
+    }
+  }
+  return undefined;
+}
+
 function runCheck(tsxBin: string, check: ValidationCheck): CheckResult {
   console.log(`\n==> ${check.label}`);
   console.log(`Running ${check.scriptPath}`);
@@ -89,9 +100,16 @@ function runCheck(tsxBin: string, check: ValidationCheck): CheckResult {
   }
 
   if (typeof result.status === "number") {
-    const skipReason = extractSkipReason(`${stdout}\n${stderr}`);
+    const combinedOutput = `${stdout}\n${stderr}`;
+    const skipReason = extractSkipReason(combinedOutput);
+    const warnReason = extractWarnReason(combinedOutput);
+
     if (result.status === 0 && skipReason) {
       return { check, exitCode: result.status, status: "skip", skipReason };
+    }
+
+    if (result.status === 0 && warnReason) {
+      return { check, exitCode: result.status, status: "warn", warnReason };
     }
 
     return {
@@ -127,6 +145,11 @@ function main(): void {
   for (const result of results) {
     if (result.status === "skip") {
       console.warn(`- SKIP: ${result.check.label} (${result.skipReason})`);
+      continue;
+    }
+
+    if (result.status === "warn") {
+      console.warn(`- WARN: ${result.check.label} (${result.warnReason})`);
       continue;
     }
 

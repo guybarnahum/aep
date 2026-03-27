@@ -37,6 +37,8 @@
 
 type HealthStatus = "ok" | "fail" | "unknown";
 
+export {};
+
 type HealthResponse = {
   ok?: boolean;
   service?: string;
@@ -138,6 +140,11 @@ function fail(message: string): never {
   process.exit(1);
 }
 
+function warn(message: string): void {
+  // Stable marker for workflow summary parsers.
+  console.warn(`WARN - ${message}`);
+}
+
 async function fetchWithTimeout(url: string, timeoutMs: number): Promise<Response> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -188,7 +195,7 @@ function validateVersion(
     `Version mismatch. Expected SHA '${expectedFull}' (or prefix '${expectedShort}'), got '${actualVersion}'.`;
 
   if (allowMismatch) {
-    console.warn(`⚠️  ${message}`);
+    warn(message);
     return;
   }
 
@@ -197,7 +204,7 @@ function validateVersion(
 
 function validateChecks(checks: HealthResponse["checks"]): void {
   if (!checks) {
-    console.warn("⚠️  Health response has no 'checks' object.");
+    warn("Health response has no 'checks' object.");
     return;
   }
 
@@ -251,7 +258,7 @@ async function main(): Promise<void> {
 
   const contentType = response.headers.get("content-type") ?? "";
   if (!contentType.toLowerCase().includes("application/json")) {
-    console.warn(`⚠️  Unexpected content-type: ${contentType || "(missing)"}`);
+    warn(`Unexpected content-type: ${contentType || "(missing)"}`);
   }
 
   let body: unknown;

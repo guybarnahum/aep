@@ -155,6 +155,17 @@ jobs:
             echo "> Health check failed. Inspect \`health-check.log\` in workflow logs." >> "$GITHUB_STEP_SUMMARY"
           fi
 
+          if [[ -f health-check.log ]]; then
+            HEALTH_WARN_LINES="$(grep -E '^WARN - ' health-check.log || true)"
+            if [[ -n "$HEALTH_WARN_LINES" ]]; then
+              echo "### Health warnings" >> "$GITHUB_STEP_SUMMARY"
+              while IFS= read -r line; do
+                echo "- ${line}" >> "$GITHUB_STEP_SUMMARY"
+              done <<< "$HEALTH_WARN_LINES"
+              echo "" >> "$GITHUB_STEP_SUMMARY"
+            fi
+          fi
+
           if [[ "$SMOKE_OUTCOME" != "success" ]]; then
             echo "> Smoke test failed. Inspect \`smoke-test.log\` in workflow logs." >> "$GITHUB_STEP_SUMMARY"
           fi
@@ -222,6 +233,17 @@ jobs:
           echo "## Staging post-deploy validation" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "- Outcome: $OUTCOME" >> "$GITHUB_STEP_SUMMARY"
+
+          if [[ -f post-deploy-validation.log ]]; then
+            DETAIL_LINES="$(grep -E '^- (WARN|SKIP|PASS|FAIL): ' post-deploy-validation.log || true)"
+            if [[ -n "$DETAIL_LINES" ]]; then
+              echo "" >> "$GITHUB_STEP_SUMMARY"
+              echo "### Validation details" >> "$GITHUB_STEP_SUMMARY"
+              while IFS= read -r line; do
+                echo "$line" >> "$GITHUB_STEP_SUMMARY"
+              done <<< "$DETAIL_LINES"
+            fi
+          fi
 
           if [[ "$OUTCOME" != "success" ]]; then
             echo "> Post-deploy validation failed. Inspect \`post-deploy-validation.log\` in workflow logs." >> "$GITHUB_STEP_SUMMARY"
