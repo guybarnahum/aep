@@ -32,6 +32,7 @@
     "check:health": "tsx scripts/ci/check-health.ts",
     "smoke:test": "tsx scripts/ci/smoke-test.ts",
     "ci:agent-timeout-recovery-check": "tsx scripts/ci/agent-timeout-recovery-check.ts",
+    "ci:approval-state-machine-check": "tsx scripts/ci/approval-state-machine-check.ts",
     "ci:scheduled-routing-check": "tsx scripts/ci/scheduled-routing-check.ts",
     "ci:manager-advisory-check": "tsx scripts/ci/manager-advisory-check.ts",
     "ci:operator-surface-check": "tsx scripts/ci/operator-surface-check.ts",

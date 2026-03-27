@@ -33,6 +33,51 @@ type PaperclipRunResponse = {
   };
 };
 
+type ApprovalsListResponse = {
+  ok: true;
+  count: number;
+  approvals: Array<{
+    id: string;
+    employeeId: string;
+    reason: string;
+    state: "pending_review" | "approved" | "rejected" | "expired" | "already_executed";
+    requestedAt: string;
+    metadata?: {
+      companyId?: string;
+      taskId?: string;
+      heartbeatId?: string;
+      executionSource?: string;
+      [key: string]: unknown;
+    };
+  }>;
+};
+
+type ControlHistoryResponse = {
+  ok: true;
+  count: number;
+  entries: Array<{
+    historyId: string;
+    timestamp: string;
+    employeeId: string;
+    previousState?: {
+      state: string;
+      blocked: boolean;
+    };
+    nextState?: {
+      state: string;
+      blocked: boolean;
+    };
+    transition: string;
+    reason: string;
+    metadata?: {
+      companyId?: string;
+      taskId?: string;
+      approvalId?: string;
+      [key: string]: unknown;
+    };
+  }>;
+};
+
 function requireEnv(name: string): string {
   const value = process.env[name];
   if (!value) {
@@ -121,6 +166,78 @@ async function main(): Promise<void> {
     );
   }
 
+  // Additional validation: approval-linked governance artifact provenance preservation
+  // When executed under paperclip origin, any approvals created should preserve company provenance
+
+  const approvalsResponse = await fetch(`${agentBaseUrl}/agent/approvals?limit=100`);
+  const approvals = await readJson<ApprovalsListResponse>(approvalsResponse);
+
+  if (!approvals.ok) {
+    throw new Error("/agent/approvals did not return ok=true for provenance validation");
+  }
+
+  // Check that any approvals related to this execution have company metadata
+  const executionCompanyId = result.executionContext?.companyId || "company-12345";
+  const executionTaskId = result.executionContext?.taskId || result.taskId;
+  const executionSource = result.executionContext?.executionSource || "paperclip";
+
+  let approvalsWithCompanyProvenance = 0;
+
+  for (const approval of approvals.approvals) {
+    if (approval.metadata) {
+      // Approvals that came from this execution should have company metadata
+      if (
+        approval.metadata.companyId === executionCompanyId &&
+        approval.metadata.taskId === executionTaskId
+      ) {
+        // Validate execution source is preserved
+        if (approval.metadata.executionSource !== executionSource) {
+          console.warn(
+            `Warning: Approval ${approval.id} has company provenance but ` +
+              `executionSource mismatch. Expected "${executionSource}", ` +
+              `got "${approval.metadata.executionSource}"`
+          );
+        }
+
+        approvalsWithCompanyProvenance++;
+      }
+    }
+  }
+
+  // Check control history for approval-related state transitions with company provenance
+  const controlHistoryResponse = await fetch(
+    `${agentBaseUrl}/agent/control-history?limit=100`
+  );
+  const controlHistory = await readJson<ControlHistoryResponse>(controlHistoryResponse);
+
+  if (!controlHistory.ok) {
+    throw new Error("/agent/control-history did not return ok=true for provenance validation");
+  }
+
+  let controlEntriesWithApprovalProvenance = 0;
+
+  for (const entry of controlHistory.entries) {
+    if (entry.metadata?.approvalId) {
+      // Control history entries linked to approvals should have company context
+      if (entry.metadata.companyId === executionCompanyId) {
+        controlEntriesWithApprovalProvenance++;
+
+        // Additional check: approval-based control changes should link to the approval
+        const relatedApproval = approvals.approvals.find(
+          (a) => a.id === entry.metadata?.approvalId
+        );
+
+        if (!relatedApproval) {
+          console.warn(
+            `Warning: Control history entry ${entry.historyId} references ` +
+              `approval ${entry.metadata.approvalId} that does not exist. ` +
+              `This may indicate orphaned approval linkage.`
+          );
+        }
+      }
+    }
+  }
+
   console.log("paperclip-company-handoff-check passed", {
     executionSource: result.executionSource,
     cronFallbackRecommended: result.cronFallbackRecommended,
@@ -129,6 +246,14 @@ async function main(): Promise<void> {
     employeeId: result.request.employeeId,
     routing: result.routing,
     hasExecutionContext: Boolean(result.executionContext),
+    companyId: result.companyId,
+    taskId: result.taskId,
+    heartbeatId: result.heartbeatId,
+    approvalsWithCompanyProvenance,
+    totalApprovalsInSystem: approvals.count,
+    controlEntriesWithApprovalProvenance,
+    totalControlHistoryEntries: controlHistory.count,
+    approvalProvenancePreserved: approvalsWithCompanyProvenance > 0 || approvals.count === 0,
   });
 }
 

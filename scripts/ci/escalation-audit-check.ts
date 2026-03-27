@@ -91,6 +91,26 @@ type ControlHistoryResponse = {
     };
     transition: string;
     reason: string;
+    approvalId?: string;
+    approvalState?: string;
+  }>;
+};
+
+type ApprovalsListResponse = {
+  ok: true;
+  count: number;
+  approvals: Array<{
+    id: string;
+    employeeId: string;
+    reason: string;
+    state: "pending_review" | "approved" | "rejected" | "expired" | "already_executed";
+    requestedAt: string;
+    expiresAt?: string;
+    approvedAt?: string;
+    rejectedAt?: string;
+    expiredAt?: string;
+    consumedAt?: string;
+    metadata?: Record<string, unknown>;
   }>;
 };
 
@@ -230,12 +250,76 @@ async function main(): Promise<void> {
     }
   }
 
+  // Validation: Escalation audit independence from approvals
+  // If controlHistory has approval references, ensure they don't corrupt escalation records
+  const entriesWithApprovals = controlHistory.entries.filter((e) => e.approvalId);
+
+  if (entriesWithApprovals.length > 0) {
+    // Fetch approvals to validate they exist and are in correct state
+    const approvalsResponse = await fetch(`${agentBaseUrl}/agent/approvals?limit=100`);
+    if (!approvalsResponse.ok) {
+      throw new Error("Could not fetch approvals for audit trail validation");
+    }
+
+    const approvals = await readJson<ApprovalsListResponse>(approvalsResponse);
+
+    if (!approvals.ok) {
+      throw new Error("/agent/approvals did not return ok=true");
+    }
+
+    const approvalIdSet = new Set(approvals.approvals.map((a) => a.id));
+
+    // Validate all referenced approvals exist
+    for (const entry of entriesWithApprovals) {
+      if (entry.approvalId && !approvalIdSet.has(entry.approvalId)) {
+        throw new Error(
+          `Control history entry ${entry.historyId} references non-existent approval ${entry.approvalId}`
+        );
+      }
+
+      // Ensure approval state in control history matches actual approval state
+      if (entry.approvalState) {
+        const approval = approvals.approvals.find((a) => a.id === entry.approvalId);
+        if (approval && approval.state !== entry.approvalState) {
+          console.warn(
+            `Warning: Control history entry ${entry.historyId} recorded approval state ` +
+              `${entry.approvalState}, but actual state is ${approval.state}. ` +
+              `This may indicate time-of-check/time-of-use race condition.`
+          );
+        }
+      }
+    }
+  }
+
+  // Validation: Escalations should be immutable regardless of approval state
+  for (const escalation of escalations.entries) {
+    // Once an escalation is created, its core attributes shouldn't change
+    if (!escalation.escalationId || !escalation.timestamp) {
+      throw new Error("Escalation missing required immutable fields");
+    }
+
+    // Acknowledge/resolve may happen, but core escalation record should be preserved
+    if (escalation.acknowledgedAt && escalation.acknowledgedBy) {
+      // Acknowledgement is expected and fine
+    } else if (escalation.resolvedAt && escalation.resolvedBy) {
+      // Resolution is expected and fine
+    }
+
+    // Ensure escalation severity hasn't been altered
+    if (!["critical", "high", "medium", "low"].includes(escalation.severity || "")) {
+      throw new Error(
+        `Escalation ${escalation.escalationId} has unexpected severity: ${escalation.severity}`
+      );
+    }
+  }
+
   console.log("escalation-audit-check passed", {
     observedEmployeeIds,
     decisionsEmitted: managerRun.summary.decisionsEmitted,
     escalationsCreated: managerRun.summary.escalationsCreated,
     escalationsInAuditLog: escalations.count,
     controlStateTransitions: controlHistory.count,
+    controlHistoryEntriesLinkedToApprovals: entriesWithApprovals.length,
     restrictionDecisions: managerRun.summary.restrictionDecisions,
   });
 }

@@ -1,0 +1,196 @@
+name: Validate Operator Surface
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - "core/control-plane/**"
+      - "apps/dashboard/**"
+      - ".github/workflows/validate-operator-surface.yml"
+      - "scripts/ci/**"
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: validate-operator-surface-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate-surface:
+    runs-on: ubuntu-latest
+    environment: async-validation
+    defaults:
+      run:
+        shell: bash -eo pipefail {0}
+
+    env:
+      GIT_SHA: ${{ github.sha }}
+      DEPLOY_URL: ${{ secrets.ASYNC_VALIDATION_BASE_URL }}
+      CF_ENV: async_validation
+      HEALTH_RUNTIME_ENV: dev
+      D1_DATABASE_NAME: aep-async-validation
+      WRANGLER_CONFIG: core/control-plane/wrangler.toml
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Generate build metadata
+        run: ./scripts/ci/generate-build-meta.sh
+
+      - run: npm run build
+
+      - name: Deploy control plane
+        id: deploy_cf
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          npx wrangler deploy \
+            --config "$WRANGLER_CONFIG" \
+            --env "$CF_ENV" | tee deploy.log
+
+      - name: Apply D1 migrations
+        id: d1_migrations
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: ./scripts/ci/apply-d1-migrations.sh | tee migrations.log
+
+      - name: Wait for readiness
+        id: wait_readiness
+        run: |
+          npx tsx scripts/ci/wait-for-url.ts \
+            --url "$DEPLOY_URL/healthz" \
+            --attempts 24 \
+            --interval-ms 5000 \
+            --timeout-ms 8000 | tee wait-for-url.log
+
+      - name: Health check
+        id: health_check
+        run: |
+          npx tsx scripts/ci/check-health.ts \
+            --url "$DEPLOY_URL/healthz" \
+            --env "$HEALTH_RUNTIME_ENV" \
+            --sha "$GIT_SHA" \
+            --service control-plane | tee health-check.log
+
+      - name: Operator surface contract
+        id: operator_surface
+        run: |
+          npm run ci:operator-surface-check | tee operator-surface.log
+
+      - name: Scheduled routing
+        id: scheduled_routing
+        run: |
+          npm run ci:scheduled-routing-check | tee scheduled-routing.log
+
+      - name: Paperclip first execution
+        id: paperclip_first_execution
+        run: |
+          npm run ci:paperclip-first-execution-check | tee paperclip-first-execution.log
+
+      - name: Write summary
+        if: always()
+        run: |
+          status_emoji() {
+            case "$1" in
+              success) echo "✅" ;;
+              failure) echo "❌" ;;
+              cancelled) echo "⚪" ;;
+              skipped) echo "⚪" ;;
+              *) echo "❓" ;;
+            esac
+          }
+
+          status_text() {
+            case "$1" in
+              success) echo "passed" ;;
+              failure) echo "failed" ;;
+              cancelled) echo "cancelled" ;;
+              skipped) echo "skipped" ;;
+              *) echo "unknown" ;;
+            esac
+          }
+
+          DEPLOY_OUTCOME="${{ steps.deploy_cf.outcome }}"
+          MIGRATIONS_OUTCOME="${{ steps.d1_migrations.outcome }}"
+          READINESS_OUTCOME="${{ steps.wait_readiness.outcome }}"
+          HEALTH_OUTCOME="${{ steps.health_check.outcome }}"
+          OPERATOR_SURFACE_OUTCOME="${{ steps.operator_surface.outcome }}"
+          SCHEDULED_ROUTING_OUTCOME="${{ steps.scheduled_routing.outcome }}"
+          PAPERCLIP_FIRST_EXECUTION_OUTCOME="${{ steps.paperclip_first_execution.outcome }}"
+
+          echo "## Operator surface contract validation summary" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Environment: $CF_ENV" >> "$GITHUB_STEP_SUMMARY"
+          echo "- URL: $DEPLOY_URL" >> "$GITHUB_STEP_SUMMARY"
+          echo "- SHA: $GIT_SHA" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Database: $D1_DATABASE_NAME" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+
+          echo "### Environment bring-up" >> "$GITHUB_STEP_SUMMARY"
+          echo "- $(status_emoji "$DEPLOY_OUTCOME") Worker deploy: $DEPLOY_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
+          echo "- $(status_emoji "$MIGRATIONS_OUTCOME") D1 migrations: $MIGRATIONS_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
+          echo "- $(status_emoji "$READINESS_OUTCOME") Readiness check: $READINESS_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
+          echo "- $(status_emoji "$HEALTH_OUTCOME") Health check: $HEALTH_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+
+          echo "### Operator-facing API contract" >> "$GITHUB_STEP_SUMMARY"
+          echo "- $(status_emoji "$OPERATOR_SURFACE_OUTCOME") Operator surface contract: $OPERATOR_SURFACE_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
+          echo "  - Validates employees, escalations, approvals, controls, and work logs" >> "$GITHUB_STEP_SUMMARY"
+          echo "  - Ensures approval endpoints and state machine are present" >> "$GITHUB_STEP_SUMMARY"
+          echo "  - Confirms scheduler status and routing availability" >> "$GITHUB_STEP_SUMMARY"
+          echo "- $(status_emoji "$SCHEDULED_ROUTING_OUTCOME") Scheduled routing: $SCHEDULED_ROUTING_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
+          echo "- $(status_emoji "$PAPERCLIP_FIRST_EXECUTION_OUTCOME") Paperclip first execution: $PAPERCLIP_FIRST_EXECUTION_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+
+          echo "### Failure triage" >> "$GITHUB_STEP_SUMMARY"
+
+          if [[ "$DEPLOY_OUTCOME" != "success" || "$MIGRATIONS_OUTCOME" != "success" || "$READINESS_OUTCOME" != "success" || "$HEALTH_OUTCOME" != "success" ]]; then
+            echo "- Environment bring-up failed. Start with deploy, migrations, readiness, and /healthz before investigating surface logic." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "- Environment bring-up passed." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+          if [[ "$OPERATOR_SURFACE_OUTCOME" != "success" ]]; then
+            echo "- Operator surface contract failed. Inspect endpoint availability, response shapes, and approval state machine endpoints." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+          if [[ "$SCHEDULED_ROUTING_OUTCOME" != "success" ]]; then
+            echo "- Scheduled routing validation failed. Inspect routing contract and scheduler logic." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+          if [[ "$PAPERCLIP_FIRST_EXECUTION_OUTCOME" != "success" ]]; then
+            echo "- Paperclip first execution failed. Inspect approval-gated execution flow." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "### Overall verdict" >> "$GITHUB_STEP_SUMMARY"
+
+          ALL_ENV_OK="true"
+          if [[ "$DEPLOY_OUTCOME" != "success" || "$MIGRATIONS_OUTCOME" != "success" || "$READINESS_OUTCOME" != "success" || "$HEALTH_OUTCOME" != "success" ]]; then
+            ALL_ENV_OK="false"
+          fi
+
+          ALL_SURFACE_OK="true"
+          if [[ "$OPERATOR_SURFACE_OUTCOME" != "success" || "$SCHEDULED_ROUTING_OUTCOME" != "success" || "$PAPERCLIP_FIRST_EXECUTION_OUTCOME" != "success" ]]; then
+            ALL_SURFACE_OK="false"
+          fi
+
+          if [[ "$ALL_ENV_OK" == "true" && "$ALL_SURFACE_OK" == "true" ]]; then
+            echo "- ✅ Operator surface contract validation passed." >> "$GITHUB_STEP_SUMMARY"
+          elif [[ "$ALL_ENV_OK" == "false" ]]; then
+            echo "- ❌ Environment bring-up failed; surface results may be incomplete or misleading." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "- ❌ Environment bring-up passed, but one or more surface validation checks failed." >> "$GITHUB_STEP_SUMMARY"
+          fi

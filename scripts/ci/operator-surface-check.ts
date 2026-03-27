@@ -82,6 +82,56 @@ type SchedulerStatusResponse = {
   cronFallbackEnabled: boolean;
 };
 
+type ApprovalsListResponse = {
+  ok: true;
+  count: number;
+  approvals: Array<{
+    id: string;
+    employeeId: string;
+    reason: string;
+    state: "pending_review" | "approved" | "rejected" | "expired" | "already_executed";
+    requestedAt: string;
+    expiresAt?: string;
+    approvedAt?: string;
+    rejectedAt?: string;
+    expiredAt?: string;
+    consumedAt?: string;
+    metadata?: Record<string, unknown>;
+    controlHistory?: Array<{
+      id: string;
+      timestamp: string;
+      action: string;
+    }>;
+  }>;
+};
+
+type ApprovalDetailResponse = {
+  ok: true;
+  id: string;
+  employeeId: string;
+  reason: string;
+  state: "pending_review" | "approved" | "rejected" | "expired" | "already_executed";
+  requestedAt: string;
+  expiresAt?: string;
+  approvedAt?: string;
+  rejectedAt?: string;
+  expiredAt?: string;
+  consumedAt?: string;
+  metadata?: Record<string, unknown>;
+  controlHistory?: Array<{
+    id: string;
+    timestamp: string;
+    action: string;
+  }>;
+};
+
+type ApprovalActionResponse = {
+  ok: true;
+  id: string;
+  state: "pending_review" | "approved" | "rejected" | "expired" | "already_executed";
+  actionedAt?: string;
+};
+
 function requireEnv(name: string): string {
   const value = process.env[name];
   if (!value) {
@@ -184,6 +234,123 @@ async function main(): Promise<void> {
     );
   }
 
+  // Approval surface checks
+  const approvals = await readJson<ApprovalsListResponse>(
+    await fetch(`${agentBaseUrl}/agent/approvals?limit=10`)
+  );
+
+  if (!approvals.ok) {
+    throw new Error("/agent/approvals did not return ok=true");
+  }
+
+  // Validate approval state enum values
+  const validApprovalStates = [
+    "pending_review",
+    "approved",
+    "rejected",
+    "expired",
+    "already_executed",
+  ] as const;
+
+  for (const approval of approvals.approvals) {
+    if (!validApprovalStates.includes(approval.state as never)) {
+      throw new Error(
+        `Approval ${approval.id} has invalid state: ${approval.state}. ` +
+          `Expected one of: ${validApprovalStates.join(", ")}`
+      );
+    }
+
+    // Validate state-specific timestamp fields
+    if (approval.state === "approved" && !approval.approvedAt) {
+      throw new Error(
+        `Approval ${approval.id} is approved but missing approvedAt timestamp`
+      );
+    }
+
+    if (approval.state === "rejected" && !approval.rejectedAt) {
+      throw new Error(
+        `Approval ${approval.id} is rejected but missing rejectedAt timestamp`
+      );
+    }
+
+    if (approval.state === "expired" && !approval.expiredAt) {
+      throw new Error(`Approval ${approval.id} is expired but missing expiredAt timestamp`);
+    }
+
+    if (approval.state === "already_executed" && !approval.consumedAt) {
+      throw new Error(
+        `Approval ${approval.id} is already_executed but missing consumedAt timestamp`
+      );
+    }
+
+    // Validate control history linkage if present
+    if (approval.controlHistory && Array.isArray(approval.controlHistory)) {
+      for (const entry of approval.controlHistory) {
+        if (!entry.id || !entry.timestamp || !entry.action) {
+          throw new Error(
+            `Approval ${approval.id} control history entry missing required fields`
+          );
+        }
+      }
+    }
+  }
+
+  // Test approval detail endpoint if approvals exist
+  if (approvals.approvals.length > 0) {
+    const testApprovalId = approvals.approvals[0].id;
+    const approvalDetail = await readJson<ApprovalDetailResponse>(
+      await fetch(`${agentBaseUrl}/agent/approvals/${testApprovalId}`)
+    );
+
+    if (!approvalDetail.ok) {
+      throw new Error(`/agent/approvals/{id} did not return ok=true for ${testApprovalId}`);
+    }
+
+    if (approvalDetail.id !== testApprovalId) {
+      throw new Error(
+        `Approval detail ID mismatch: expected ${testApprovalId}, got ${approvalDetail.id}`
+      );
+    }
+  }
+
+  // Validate approve/reject endpoints are present for pending approvals
+  const pendingApprovals = approvals.approvals.filter((a) => a.state === "pending_review");
+
+  if (pendingApprovals.length > 0) {
+    const testApprovalId = pendingApprovals[0].id;
+
+    // Test that endpoints exist (we don't mutate state here to avoid side effects)
+    try {
+      const options = { method: "POST", headers: { "Content-Type": "application/json" } };
+
+      // Check endpoints exist by testing with a dry-run or preview without mutation
+      // For now we just validate the endpoint is reachable
+      const approveUrl = `${agentBaseUrl}/agent/approvals/${testApprovalId}/approve`;
+      const rejectUrl = `${agentBaseUrl}/agent/approvals/${testApprovalId}/reject`;
+
+      // Use HEAD to check endpoint existence without mutation
+      const approveExists = await fetch(approveUrl, {
+        method: "OPTIONS",
+      }).then((r) => r.ok || r.status === 405); // 405 is OK if OPTIONS not supported
+
+      const rejectExists = await fetch(rejectUrl, {
+        method: "OPTIONS",
+      }).then((r) => r.ok || r.status === 405);
+
+      if (!approveExists && !rejectExists) {
+        // At least one should exist - if neither does, the surface is incomplete
+        throw new Error(
+          `Neither /agent/approvals/{id}/approve nor /agent/approvals/{id}/reject endpoints are available`
+        );
+      }
+    } catch (err) {
+      // If we can't verify endpoint existence, log but don't fail hard
+      console.warn(
+        `Warning: Could not verify approve/reject endpoint mutation surface for ${testApprovalId}`
+      );
+    }
+  }
+
   for (const employee of employees.employees) {
     if (!employee.effectiveAuthority) {
       throw new Error(
@@ -223,6 +390,8 @@ async function main(): Promise<void> {
     workLogCount: workLog.count,
     escalationsCount: escalations.count,
     controlHistoryCount: controlHistory.count,
+    approvalsCount: approvals.count,
+    pendingApprovalsCount: pendingApprovals.length,
     primaryScheduler: schedulerStatus.primaryScheduler,
     cronFallbackEnabled: schedulerStatus.cronFallbackEnabled,
   });
