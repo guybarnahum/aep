@@ -201,7 +201,13 @@ async function main(): Promise<void> {
       if (!employee.effectiveState.blocked && "maxActionsPerScan" in employee.effectiveBudget) {
         const maxActions = (employee.effectiveBudget as Record<string, unknown>)
           .maxActionsPerScan;
-        if (typeof maxActions !== "number" || maxActions > (employee.budget as Record<string, unknown>).maxActionsPerScan) {
+        const baseMaxActions = (employee.budget as Record<string, unknown>)
+          .maxActionsPerScan;
+        if (
+          typeof maxActions !== "number" ||
+          typeof baseMaxActions !== "number" ||
+          maxActions > baseMaxActions
+        ) {
           throw new Error(
             `Restricted employee ${employee.identity.employeeId} effective budget should be narrower`
           );
