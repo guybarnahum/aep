@@ -177,6 +177,7 @@ jobs:
     outputs:
       validation_enabled: ${{ steps.config.outputs.enabled }}
       validation_outcome: ${{ steps.outcome.outputs.value }}
+      validation_attention: ${{ steps.outcome.outputs.attention }}
     defaults:
       run:
         shell: bash -eo pipefail {0}
@@ -207,7 +208,7 @@ jobs:
       - name: Run post-deploy validation
         id: post_deploy_validation
         if: steps.config.outputs.enabled == 'true'
-        run: npm run ci:post-deploy-validation | tee post-deploy-validation.log
+        run: npm run ci:post-deploy-validation 2>&1 | tee post-deploy-validation.log
 
       - name: Capture outcome
         id: outcome
@@ -215,8 +216,14 @@ jobs:
         run: |
           if [[ "${{ steps.config.outputs.enabled }}" != "true" ]]; then
             echo "value=skipped" >> "$GITHUB_OUTPUT"
+            echo "attention=false" >> "$GITHUB_OUTPUT"
           else
             echo "value=${{ steps.post_deploy_validation.outcome }}" >> "$GITHUB_OUTPUT"
+            if [[ -f post-deploy-validation.log ]] && grep -Eq '^- (WARN|SKIP): ' post-deploy-validation.log; then
+              echo "attention=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "attention=false" >> "$GITHUB_OUTPUT"
+            fi
           fi
 
       - name: Write summary
@@ -235,7 +242,15 @@ jobs:
           echo "- Outcome: $OUTCOME" >> "$GITHUB_STEP_SUMMARY"
 
           if [[ -f post-deploy-validation.log ]]; then
+            ATTENTION_LINES="$(grep -E '^- (WARN|SKIP): ' post-deploy-validation.log || true)"
             DETAIL_LINES="$(grep -E '^- (WARN|SKIP|PASS|FAIL): ' post-deploy-validation.log || true)"
+            if [[ -n "$ATTENTION_LINES" ]]; then
+              echo "" >> "$GITHUB_STEP_SUMMARY"
+              echo "### Validation attention" >> "$GITHUB_STEP_SUMMARY"
+              while IFS= read -r line; do
+                echo "- **${line}**" >> "$GITHUB_STEP_SUMMARY"
+              done <<< "$ATTENTION_LINES"
+            fi
             if [[ -n "$DETAIL_LINES" ]]; then
               echo "" >> "$GITHUB_STEP_SUMMARY"
               echo "### Validation details" >> "$GITHUB_STEP_SUMMARY"
@@ -263,6 +278,8 @@ jobs:
           echo "- Deploy job: ${{ needs.deploy-staging.result }}" >> "$GITHUB_STEP_SUMMARY"
           if [[ "${{ needs.post-deploy-validation.outputs.validation_enabled }}" != "true" ]]; then
             echo "- Post-deploy validation: skipped (warning: STAGING_OPERATOR_AGENT_BASE_URL not configured)" >> "$GITHUB_STEP_SUMMARY"
+          elif [[ "${{ needs.post-deploy-validation.outputs.validation_attention }}" == "true" ]]; then
+            echo "- Post-deploy validation: ${{ needs.post-deploy-validation.outputs.validation_outcome }} (attention: WARN/SKIP entries present)" >> "$GITHUB_STEP_SUMMARY"
           else
             echo "- Post-deploy validation: ${{ needs.post-deploy-validation.outputs.validation_outcome }}" >> "$GITHUB_STEP_SUMMARY"
           fi
