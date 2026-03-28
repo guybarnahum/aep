@@ -40,6 +40,24 @@ jobs:
 
       - run: npm ci
 
+      - name: Check public base URL configuration
+        id: base_url_config
+        run: |
+          if [[ -n "$DEPLOY_URL" && "$DEPLOY_URL" =~ ^https?://[^[:space:]]+$ ]]; then
+            echo "valid=true" >> "$GITHUB_OUTPUT"
+            echo "reason=configured" >> "$GITHUB_OUTPUT"
+          else
+            echo "valid=false" >> "$GITHUB_OUTPUT"
+            if [[ -z "$DEPLOY_URL" ]]; then
+              echo "reason=missing" >> "$GITHUB_OUTPUT"
+              echo "Missing ASYNC_VALIDATION_BASE_URL. Configure an absolute https://... base URL." >&2
+            else
+              echo "reason=invalid_url" >> "$GITHUB_OUTPUT"
+              echo "Invalid ASYNC_VALIDATION_BASE_URL: '$DEPLOY_URL'. Must be absolute, e.g. https://aep-control-plane-async-validation.guybubba.workers.dev" >&2
+            fi
+            exit 1
+          fi
+
       - name: Generate build metadata
         run: ./scripts/ci/generate-build-meta.sh
 
@@ -131,6 +149,7 @@ jobs:
           }
 
           DEPLOY_OUTCOME="${{ steps.deploy_cf.outcome }}"
+          BASE_URL_CONFIG_OUTCOME="${{ steps.base_url_config.outcome }}"
           MIGRATIONS_OUTCOME="${{ steps.d1_migrations.outcome }}"
           READINESS_OUTCOME="${{ steps.wait_readiness.outcome }}"
           HEALTH_OUTCOME="${{ steps.health_check.outcome }}"
@@ -146,6 +165,7 @@ jobs:
           echo "" >> "$GITHUB_STEP_SUMMARY"
 
           echo "### Environment bring-up" >> "$GITHUB_STEP_SUMMARY"
+          echo "- $(status_emoji "$BASE_URL_CONFIG_OUTCOME") Public base URL config: $BASE_URL_CONFIG_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
           echo "- $(status_emoji "$DEPLOY_OUTCOME") Worker deploy: $DEPLOY_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
           echo "- $(status_emoji "$MIGRATIONS_OUTCOME") D1 migrations: $MIGRATIONS_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
           echo "- $(status_emoji "$READINESS_OUTCOME") Readiness check: $READINESS_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
@@ -171,7 +191,13 @@ jobs:
 
           echo "### Failure triage" >> "$GITHUB_STEP_SUMMARY"
 
-          if [[ "$DEPLOY_OUTCOME" != "success" || "$MIGRATIONS_OUTCOME" != "success" || "$READINESS_OUTCOME" != "success" || "$HEALTH_OUTCOME" != "success" ]]; then
+          if [[ "$BASE_URL_CONFIG_OUTCOME" != "success" ]]; then
+            if [[ "${{ steps.base_url_config.outputs.reason }}" == "missing" ]]; then
+              echo "- Public base URL configuration failed. ASYNC_VALIDATION_BASE_URL is missing." >> "$GITHUB_STEP_SUMMARY"
+            else
+              echo "- Public base URL configuration failed. ASYNC_VALIDATION_BASE_URL must be an absolute URL (for example, https://aep-control-plane-async-validation.guybubba.workers.dev)." >> "$GITHUB_STEP_SUMMARY"
+            fi
+          elif [[ "$DEPLOY_OUTCOME" != "success" || "$MIGRATIONS_OUTCOME" != "success" || "$READINESS_OUTCOME" != "success" || "$HEALTH_OUTCOME" != "success" ]]; then
             echo "- Environment bring-up failed. Start with deploy, migrations, readiness, and /healthz before investigating safety logic." >> "$GITHUB_STEP_SUMMARY"
           else
             echo "- Environment bring-up passed." >> "$GITHUB_STEP_SUMMARY"
@@ -189,7 +215,7 @@ jobs:
           echo "### Overall verdict" >> "$GITHUB_STEP_SUMMARY"
 
           ALL_ENV_OK="true"
-          if [[ "$DEPLOY_OUTCOME" != "success" || "$MIGRATIONS_OUTCOME" != "success" || "$READINESS_OUTCOME" != "success" || "$HEALTH_OUTCOME" != "success" ]]; then
+          if [[ "$BASE_URL_CONFIG_OUTCOME" != "success" || "$DEPLOY_OUTCOME" != "success" || "$MIGRATIONS_OUTCOME" != "success" || "$READINESS_OUTCOME" != "success" || "$HEALTH_OUTCOME" != "success" ]]; then
             ALL_ENV_OK="false"
           fi
 
