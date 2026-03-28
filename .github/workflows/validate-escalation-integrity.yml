@@ -83,10 +83,16 @@ jobs:
       - name: Check operator-agent configuration
         id: operator_agent_config
         run: |
-          if [[ -n "$OPERATOR_AGENT_BASE_URL" ]]; then
+          if [[ -n "$OPERATOR_AGENT_BASE_URL" && "$OPERATOR_AGENT_BASE_URL" =~ ^https?://[^[:space:]]+$ ]]; then
             echo "enabled=true" >> "$GITHUB_OUTPUT"
+            echo "reason=configured" >> "$GITHUB_OUTPUT"
           else
             echo "enabled=false" >> "$GITHUB_OUTPUT"
+            if [[ -z "$OPERATOR_AGENT_BASE_URL" ]]; then
+              echo "reason=missing" >> "$GITHUB_OUTPUT"
+            else
+              echo "reason=invalid_url" >> "$GITHUB_OUTPUT"
+            fi
           fi
 
       - name: Escalation lifecycle
@@ -163,7 +169,11 @@ jobs:
           echo "- $(status_emoji "$MANAGER_ADVISORY_OUTCOME") Manager advisory: $MANAGER_ADVISORY_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
           echo "  - Confirms escalations originate from manager reasoning" >> "$GITHUB_STEP_SUMMARY"
           if [[ "${{ steps.operator_agent_config.outputs.enabled }}" != "true" ]]; then
-            echo "- ⚪ Operator-agent checks skipped: ASYNC_VALIDATION_OPERATOR_AGENT_BASE_URL is not configured." >> "$GITHUB_STEP_SUMMARY"
+            if [[ "${{ steps.operator_agent_config.outputs.reason }}" == "missing" ]]; then
+              echo "- ⚪ Operator-agent checks skipped: ASYNC_VALIDATION_OPERATOR_AGENT_BASE_URL is not configured." >> "$GITHUB_STEP_SUMMARY"
+            else
+              echo "- ⚪ Operator-agent checks skipped: ASYNC_VALIDATION_OPERATOR_AGENT_BASE_URL is invalid (must be absolute, e.g. https://... )." >> "$GITHUB_STEP_SUMMARY"
+            fi
           fi
           echo "" >> "$GITHUB_STEP_SUMMARY"
 
@@ -204,7 +214,11 @@ jobs:
             if [[ "${{ steps.operator_agent_config.outputs.enabled }}" == "true" ]]; then
               echo "- ✅ Escalation integrity validation passed." >> "$GITHUB_STEP_SUMMARY"
             else
-              echo "- ⚪ Escalation integrity checks skipped because ASYNC_VALIDATION_OPERATOR_AGENT_BASE_URL is not configured." >> "$GITHUB_STEP_SUMMARY"
+              if [[ "${{ steps.operator_agent_config.outputs.reason }}" == "missing" ]]; then
+                echo "- ⚪ Escalation integrity checks skipped because ASYNC_VALIDATION_OPERATOR_AGENT_BASE_URL is not configured." >> "$GITHUB_STEP_SUMMARY"
+              else
+                echo "- ⚪ Escalation integrity checks skipped because ASYNC_VALIDATION_OPERATOR_AGENT_BASE_URL is invalid (must be absolute, e.g. https://... )." >> "$GITHUB_STEP_SUMMARY"
+              fi
             fi
           elif [[ "$ALL_ENV_OK" == "false" ]]; then
             echo "- ❌ Environment bring-up failed; escalation results may be incomplete or misleading." >> "$GITHUB_STEP_SUMMARY"

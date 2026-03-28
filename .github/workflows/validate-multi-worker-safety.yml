@@ -83,10 +83,16 @@ jobs:
       - name: Check operator-agent configuration
         id: operator_agent_config
         run: |
-          if [[ -n "$OPERATOR_AGENT_BASE_URL" ]]; then
+          if [[ -n "$OPERATOR_AGENT_BASE_URL" && "$OPERATOR_AGENT_BASE_URL" =~ ^https?://[^[:space:]]+$ ]]; then
             echo "enabled=true" >> "$GITHUB_OUTPUT"
+            echo "reason=configured" >> "$GITHUB_OUTPUT"
           else
             echo "enabled=false" >> "$GITHUB_OUTPUT"
+            if [[ -z "$OPERATOR_AGENT_BASE_URL" ]]; then
+              echo "reason=missing" >> "$GITHUB_OUTPUT"
+            else
+              echo "reason=invalid_url" >> "$GITHUB_OUTPUT"
+            fi
           fi
 
       - name: Multi-worker department safety
@@ -155,7 +161,11 @@ jobs:
           echo "  - Validates safe recovery from agent timeouts" >> "$GITHUB_STEP_SUMMARY"
           echo "  - Ensures no budget corruption on timeout" >> "$GITHUB_STEP_SUMMARY"
           if [[ "${{ steps.operator_agent_config.outputs.enabled }}" != "true" ]]; then
-            echo "- ⚪ Operator-agent checks skipped: ASYNC_VALIDATION_OPERATOR_AGENT_BASE_URL is not configured." >> "$GITHUB_STEP_SUMMARY"
+            if [[ "${{ steps.operator_agent_config.outputs.reason }}" == "missing" ]]; then
+              echo "- ⚪ Operator-agent checks skipped: ASYNC_VALIDATION_OPERATOR_AGENT_BASE_URL is not configured." >> "$GITHUB_STEP_SUMMARY"
+            else
+              echo "- ⚪ Operator-agent checks skipped: ASYNC_VALIDATION_OPERATOR_AGENT_BASE_URL is invalid (must be absolute, e.g. https://... )." >> "$GITHUB_STEP_SUMMARY"
+            fi
           fi
           echo "" >> "$GITHUB_STEP_SUMMARY"
 
@@ -192,7 +202,11 @@ jobs:
             if [[ "${{ steps.operator_agent_config.outputs.enabled }}" == "true" ]]; then
               echo "- ✅ Multi-worker safety validation passed." >> "$GITHUB_STEP_SUMMARY"
             else
-              echo "- ⚪ Multi-worker safety checks skipped because ASYNC_VALIDATION_OPERATOR_AGENT_BASE_URL is not configured." >> "$GITHUB_STEP_SUMMARY"
+              if [[ "${{ steps.operator_agent_config.outputs.reason }}" == "missing" ]]; then
+                echo "- ⚪ Multi-worker safety checks skipped because ASYNC_VALIDATION_OPERATOR_AGENT_BASE_URL is not configured." >> "$GITHUB_STEP_SUMMARY"
+              else
+                echo "- ⚪ Multi-worker safety checks skipped because ASYNC_VALIDATION_OPERATOR_AGENT_BASE_URL is invalid (must be absolute, e.g. https://... )." >> "$GITHUB_STEP_SUMMARY"
+              fi
             fi
           elif [[ "$ALL_ENV_OK" == "false" ]]; then
             echo "- ❌ Environment bring-up failed; safety results may be incomplete or misleading." >> "$GITHUB_STEP_SUMMARY"
