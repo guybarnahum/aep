@@ -24,6 +24,7 @@ jobs:
     env:
       GIT_SHA: ${{ github.sha }}
       DEPLOY_URL: ${{ secrets.ASYNC_VALIDATION_BASE_URL }}
+      OPERATOR_AGENT_BASE_URL: ${{ secrets.ASYNC_VALIDATION_OPERATOR_AGENT_BASE_URL }}
       CF_ENV: async_validation
       HEALTH_RUNTIME_ENV: dev
       D1_DATABASE_NAME: aep-async-validation
@@ -79,13 +80,24 @@ jobs:
             --sha "$GIT_SHA" \
             --service control-plane | tee health-check.log
 
+      - name: Check operator-agent configuration
+        id: operator_agent_config
+        run: |
+          if [[ -n "$OPERATOR_AGENT_BASE_URL" ]]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Paperclip company handoff
         id: paperclip_company_handoff
+        if: steps.operator_agent_config.outputs.enabled == 'true'
         run: |
           npm run ci:paperclip-company-handoff-check | tee paperclip-company-handoff.log
 
       - name: Paperclip first execution
         id: paperclip_first_execution
+        if: steps.operator_agent_config.outputs.enabled == 'true'
         run: |
           npm run ci:paperclip-first-execution-check | tee paperclip-first-execution.log
 
@@ -151,6 +163,9 @@ jobs:
           echo "- $(status_emoji "$SCHEDULED_ROUTING_OUTCOME") Scheduled routing: $SCHEDULED_ROUTING_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
           echo "  - Validates cron fallback semantics" >> "$GITHUB_STEP_SUMMARY"
           echo "  - Confirms scheduler-owned execution model" >> "$GITHUB_STEP_SUMMARY"
+          if [[ "${{ steps.operator_agent_config.outputs.enabled }}" != "true" ]]; then
+            echo "- ⚪ Operator-agent checks skipped: ASYNC_VALIDATION_OPERATOR_AGENT_BASE_URL is not configured." >> "$GITHUB_STEP_SUMMARY"
+          fi
           echo "" >> "$GITHUB_STEP_SUMMARY"
 
           echo "### Failure triage" >> "$GITHUB_STEP_SUMMARY"
@@ -161,11 +176,11 @@ jobs:
             echo "- Environment bring-up passed." >> "$GITHUB_STEP_SUMMARY"
           fi
 
-          if [[ "$PAPERCLIP_COMPANY_HANDOFF_OUTCOME" != "success" ]]; then
+          if [[ "${{ steps.operator_agent_config.outputs.enabled }}" == "true" && "$PAPERCLIP_COMPANY_HANDOFF_OUTCOME" != "success" ]]; then
             echo "- Paperclip company handoff validation failed. Inspect provenance chain, companyId/taskId propagation, and ownership semantics." >> "$GITHUB_STEP_SUMMARY"
           fi
 
-          if [[ "$PAPERCLIP_FIRST_EXECUTION_OUTCOME" != "success" ]]; then
+          if [[ "${{ steps.operator_agent_config.outputs.enabled }}" == "true" && "$PAPERCLIP_FIRST_EXECUTION_OUTCOME" != "success" ]]; then
             echo "- Paperclip first execution failed. Inspect approval-gated handoff and provenance preservation through approval flow." >> "$GITHUB_STEP_SUMMARY"
           fi
 
@@ -182,12 +197,19 @@ jobs:
           fi
 
           ALL_HANDOFF_OK="true"
-          if [[ "$PAPERCLIP_COMPANY_HANDOFF_OUTCOME" != "success" || "$PAPERCLIP_FIRST_EXECUTION_OUTCOME" != "success" || "$SCHEDULED_ROUTING_OUTCOME" != "success" ]]; then
+          if [[ "$SCHEDULED_ROUTING_OUTCOME" != "success" ]]; then
+            ALL_HANDOFF_OK="false"
+          fi
+          if [[ "${{ steps.operator_agent_config.outputs.enabled }}" == "true" && ( "$PAPERCLIP_COMPANY_HANDOFF_OUTCOME" != "success" || "$PAPERCLIP_FIRST_EXECUTION_OUTCOME" != "success" ) ]]; then
             ALL_HANDOFF_OK="false"
           fi
 
           if [[ "$ALL_ENV_OK" == "true" && "$ALL_HANDOFF_OK" == "true" ]]; then
-            echo "- ✅ Paperclip handoff contract validation passed." >> "$GITHUB_STEP_SUMMARY"
+            if [[ "${{ steps.operator_agent_config.outputs.enabled }}" == "true" ]]; then
+              echo "- ✅ Paperclip handoff contract validation passed." >> "$GITHUB_STEP_SUMMARY"
+            else
+              echo "- ⚪ Paperclip handoff checks skipped where operator-agent is required because ASYNC_VALIDATION_OPERATOR_AGENT_BASE_URL is not configured." >> "$GITHUB_STEP_SUMMARY"
+            fi
           elif [[ "$ALL_ENV_OK" == "false" ]]; then
             echo "- ❌ Environment bring-up failed; handoff results may be incomplete or misleading." >> "$GITHUB_STEP_SUMMARY"
           else

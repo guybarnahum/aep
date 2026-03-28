@@ -24,6 +24,7 @@ jobs:
     env:
       GIT_SHA: ${{ github.sha }}
       DEPLOY_URL: ${{ secrets.ASYNC_VALIDATION_BASE_URL }}
+      OPERATOR_AGENT_BASE_URL: ${{ secrets.ASYNC_VALIDATION_OPERATOR_AGENT_BASE_URL }}
       CF_ENV: async_validation
       HEALTH_RUNTIME_ENV: dev
       D1_DATABASE_NAME: aep-async-validation
@@ -79,33 +80,48 @@ jobs:
             --sha "$GIT_SHA" \
             --service control-plane | tee health-check.log
 
+      - name: Check operator-agent configuration
+        id: operator_agent_config
+        run: |
+          if [[ -n "$OPERATOR_AGENT_BASE_URL" ]]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Manager advisory
         id: manager_advisory
+        if: steps.operator_agent_config.outputs.enabled == 'true'
         run: |
           npm run ci:manager-advisory-check | tee manager-advisory.log
 
       - name: Manager policy overlay
         id: manager_policy_overlay
+        if: steps.operator_agent_config.outputs.enabled == 'true'
         run: |
           npm run ci:manager-policy-overlay-check | tee manager-policy-overlay.log
 
       - name: Escalation audit
         id: escalation_audit
+        if: steps.operator_agent_config.outputs.enabled == 'true'
         run: |
           npm run ci:escalation-audit-check | tee escalation-audit.log
 
       - name: Escalation lifecycle
         id: escalation_lifecycle
+        if: steps.operator_agent_config.outputs.enabled == 'true'
         run: |
           npm run ci:escalation-lifecycle-check | tee escalation-lifecycle.log
 
       - name: Approval state machine
         id: approval_state_machine
+        if: steps.operator_agent_config.outputs.enabled == 'true'
         run: |
           npm run ci:approval-state-machine-check | tee approval-state-machine.log
 
       - name: Paperclip first execution
         id: paperclip_first_execution
+        if: steps.operator_agent_config.outputs.enabled == 'true'
         run: |
           npm run ci:paperclip-first-execution-check | tee paperclip-first-execution.log
 
@@ -171,6 +187,9 @@ jobs:
           echo "### Approval state machine and execution" >> "$GITHUB_STEP_SUMMARY"
           echo "- $(status_emoji "$APPROVAL_STATE_MACHINE_OUTCOME") Approval state machine: $APPROVAL_STATE_MACHINE_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
           echo "- $(status_emoji "$PAPERCLIP_FIRST_EXECUTION_OUTCOME") Paperclip first execution: $PAPERCLIP_FIRST_EXECUTION_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
+          if [[ "${{ steps.operator_agent_config.outputs.enabled }}" != "true" ]]; then
+            echo "- ⚪ Operator-agent checks skipped: ASYNC_VALIDATION_OPERATOR_AGENT_BASE_URL is not configured." >> "$GITHUB_STEP_SUMMARY"
+          fi
           echo "" >> "$GITHUB_STEP_SUMMARY"
 
           echo "### Failure triage" >> "$GITHUB_STEP_SUMMARY"
@@ -181,19 +200,19 @@ jobs:
             echo "- Environment bring-up passed." >> "$GITHUB_STEP_SUMMARY"
           fi
 
-          if [[ "$MANAGER_ADVISORY_OUTCOME" != "success" || "$MANAGER_POLICY_OVERLAY_OUTCOME" != "success" ]]; then
+          if [[ "${{ steps.operator_agent_config.outputs.enabled }}" == "true" && ( "$MANAGER_ADVISORY_OUTCOME" != "success" || "$MANAGER_POLICY_OVERLAY_OUTCOME" != "success" ) ]]; then
             echo "- Manager reasoning or policy overlay failed. Inspect manager_cron, decision emission, and policy application logic." >> "$GITHUB_STEP_SUMMARY"
           fi
 
-          if [[ "$ESCALATION_AUDIT_OUTCOME" != "success" || "$ESCALATION_LIFECYCLE_OUTCOME" != "success" ]]; then
+          if [[ "${{ steps.operator_agent_config.outputs.enabled }}" == "true" && ( "$ESCALATION_AUDIT_OUTCOME" != "success" || "$ESCALATION_LIFECYCLE_OUTCOME" != "success" ) ]]; then
             echo "- Escalation semantics or audit trail failed. Inspect escalation creation, state transitions, and provenance tracking." >> "$GITHUB_STEP_SUMMARY"
           fi
 
-          if [[ "$APPROVAL_STATE_MACHINE_OUTCOME" != "success" ]]; then
+          if [[ "${{ steps.operator_agent_config.outputs.enabled }}" == "true" && "$APPROVAL_STATE_MACHINE_OUTCOME" != "success" ]]; then
             echo "- Approval state machine validation failed. Inspect approval endpoints, state transitions, and control history linkage." >> "$GITHUB_STEP_SUMMARY"
           fi
 
-          if [[ "$PAPERCLIP_FIRST_EXECUTION_OUTCOME" != "success" ]]; then
+          if [[ "${{ steps.operator_agent_config.outputs.enabled }}" == "true" && "$PAPERCLIP_FIRST_EXECUTION_OUTCOME" != "success" ]]; then
             echo "- Paperclip first execution failed. Inspect approval-gated execution flow and provenance propagation." >> "$GITHUB_STEP_SUMMARY"
           fi
 
@@ -206,12 +225,16 @@ jobs:
           fi
 
           ALL_SCENARIO_OK="true"
-          if [[ "$MANAGER_ADVISORY_OUTCOME" != "success" || "$MANAGER_POLICY_OVERLAY_OUTCOME" != "success" || "$ESCALATION_AUDIT_OUTCOME" != "success" || "$ESCALATION_LIFECYCLE_OUTCOME" != "success" || "$APPROVAL_STATE_MACHINE_OUTCOME" != "success" || "$PAPERCLIP_FIRST_EXECUTION_OUTCOME" != "success" ]]; then
+          if [[ "${{ steps.operator_agent_config.outputs.enabled }}" == "true" && ( "$MANAGER_ADVISORY_OUTCOME" != "success" || "$MANAGER_POLICY_OVERLAY_OUTCOME" != "success" || "$ESCALATION_AUDIT_OUTCOME" != "success" || "$ESCALATION_LIFECYCLE_OUTCOME" != "success" || "$APPROVAL_STATE_MACHINE_OUTCOME" != "success" || "$PAPERCLIP_FIRST_EXECUTION_OUTCOME" != "success" ) ]]; then
             ALL_SCENARIO_OK="false"
           fi
 
           if [[ "$ALL_ENV_OK" == "true" && "$ALL_SCENARIO_OK" == "true" ]]; then
-            echo "- ✅ Operator governance validation passed." >> "$GITHUB_STEP_SUMMARY"
+            if [[ "${{ steps.operator_agent_config.outputs.enabled }}" == "true" ]]; then
+              echo "- ✅ Operator governance validation passed." >> "$GITHUB_STEP_SUMMARY"
+            else
+              echo "- ⚪ Operator governance checks skipped because ASYNC_VALIDATION_OPERATOR_AGENT_BASE_URL is not configured." >> "$GITHUB_STEP_SUMMARY"
+            fi
           elif [[ "$ALL_ENV_OK" == "false" ]]; then
             echo "- ❌ Environment bring-up failed; scenario results may be incomplete or misleading." >> "$GITHUB_STEP_SUMMARY"
           else

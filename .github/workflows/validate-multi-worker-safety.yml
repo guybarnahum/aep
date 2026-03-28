@@ -24,6 +24,7 @@ jobs:
     env:
       GIT_SHA: ${{ github.sha }}
       DEPLOY_URL: ${{ secrets.ASYNC_VALIDATION_BASE_URL }}
+      OPERATOR_AGENT_BASE_URL: ${{ secrets.ASYNC_VALIDATION_OPERATOR_AGENT_BASE_URL }}
       CF_ENV: async_validation
       HEALTH_RUNTIME_ENV: dev
       D1_DATABASE_NAME: aep-async-validation
@@ -79,13 +80,24 @@ jobs:
             --sha "$GIT_SHA" \
             --service control-plane | tee health-check.log
 
+      - name: Check operator-agent configuration
+        id: operator_agent_config
+        run: |
+          if [[ -n "$OPERATOR_AGENT_BASE_URL" ]]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Multi-worker department safety
         id: multi_worker_department
+        if: steps.operator_agent_config.outputs.enabled == 'true'
         run: |
           npm run ci:multi-worker-department-check | tee multi-worker-department.log
 
       - name: Agent timeout recovery
         id: agent_timeout_recovery
+        if: steps.operator_agent_config.outputs.enabled == 'true'
         run: |
           npm run ci:agent-timeout-recovery-check | tee agent-timeout-recovery.log
 
@@ -142,6 +154,9 @@ jobs:
           echo "- $(status_emoji "$TIMEOUT_RECOVERY_OUTCOME") Agent timeout recovery: $TIMEOUT_RECOVERY_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
           echo "  - Validates safe recovery from agent timeouts" >> "$GITHUB_STEP_SUMMARY"
           echo "  - Ensures no budget corruption on timeout" >> "$GITHUB_STEP_SUMMARY"
+          if [[ "${{ steps.operator_agent_config.outputs.enabled }}" != "true" ]]; then
+            echo "- ⚪ Operator-agent checks skipped: ASYNC_VALIDATION_OPERATOR_AGENT_BASE_URL is not configured." >> "$GITHUB_STEP_SUMMARY"
+          fi
           echo "" >> "$GITHUB_STEP_SUMMARY"
 
           echo "### Failure triage" >> "$GITHUB_STEP_SUMMARY"
@@ -152,11 +167,11 @@ jobs:
             echo "- Environment bring-up passed." >> "$GITHUB_STEP_SUMMARY"
           fi
 
-          if [[ "$MULTI_WORKER_OUTCOME" != "success" ]]; then
+          if [[ "${{ steps.operator_agent_config.outputs.enabled }}" == "true" && "$MULTI_WORKER_OUTCOME" != "success" ]]; then
             echo "- Multi-worker department safety failed. Inspect cross-worker coordination, approval gating logic, and state consistency." >> "$GITHUB_STEP_SUMMARY"
           fi
 
-          if [[ "$TIMEOUT_RECOVERY_OUTCOME" != "success" ]]; then
+          if [[ "${{ steps.operator_agent_config.outputs.enabled }}" == "true" && "$TIMEOUT_RECOVERY_OUTCOME" != "success" ]]; then
             echo "- Agent timeout recovery failed. Inspect timeout handling, budget preservation, and retry/resume logic." >> "$GITHUB_STEP_SUMMARY"
           fi
 
@@ -169,12 +184,16 @@ jobs:
           fi
 
           ALL_SAFETY_OK="true"
-          if [[ "$MULTI_WORKER_OUTCOME" != "success" || "$TIMEOUT_RECOVERY_OUTCOME" != "success" ]]; then
+          if [[ "${{ steps.operator_agent_config.outputs.enabled }}" == "true" && ( "$MULTI_WORKER_OUTCOME" != "success" || "$TIMEOUT_RECOVERY_OUTCOME" != "success" ) ]]; then
             ALL_SAFETY_OK="false"
           fi
 
           if [[ "$ALL_ENV_OK" == "true" && "$ALL_SAFETY_OK" == "true" ]]; then
-            echo "- ✅ Multi-worker safety validation passed." >> "$GITHUB_STEP_SUMMARY"
+            if [[ "${{ steps.operator_agent_config.outputs.enabled }}" == "true" ]]; then
+              echo "- ✅ Multi-worker safety validation passed." >> "$GITHUB_STEP_SUMMARY"
+            else
+              echo "- ⚪ Multi-worker safety checks skipped because ASYNC_VALIDATION_OPERATOR_AGENT_BASE_URL is not configured." >> "$GITHUB_STEP_SUMMARY"
+            fi
           elif [[ "$ALL_ENV_OK" == "false" ]]; then
             echo "- ❌ Environment bring-up failed; safety results may be incomplete or misleading." >> "$GITHUB_STEP_SUMMARY"
           else
