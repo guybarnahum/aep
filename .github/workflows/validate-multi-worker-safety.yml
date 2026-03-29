@@ -24,6 +24,7 @@ jobs:
     env:
       GIT_SHA: ${{ github.sha }}
       DEPLOY_URL: ${{ secrets.ASYNC_VALIDATION_BASE_URL }}
+      CONTROL_PLANE_BASE_URL: ${{ secrets.ASYNC_VALIDATION_BASE_URL }}
       OPERATOR_AGENT_BASE_URL: ${{ secrets.ASYNC_VALIDATION_OPERATOR_AGENT_BASE_URL }}
       CF_ENV: async_validation
       HEALTH_RUNTIME_ENV: dev
