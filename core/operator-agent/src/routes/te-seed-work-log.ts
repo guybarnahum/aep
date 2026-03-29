@@ -46,37 +46,53 @@ export async function handleSeedWorkLog(
   const log = new DecisionLog(env ?? {});
   const nowMs = Date.now();
 
-  for (let i = 0; i < count; i++) {
-    const ts = new Date(nowMs + i).toISOString();
-    const entry: AgentWorkLogEntry = {
-      timestamp: ts,
-      employeeId: body.employeeId,
-      employeeName: "Seeded Test Entry",
-      departmentId: "aep-infra-ops",
-      roleId: "timeout-recovery-operator",
-      policyVersion: "commit10-stageD",
-      trigger: "manual",
-      runId: `seed-run-${nowMs}-${i}`,
-      jobId: `seed-job-${nowMs}-${i}`,
-      tenant: "dev",
-      service: "control-plane",
-      action: "advance-timeout",
-      mode: "apply",
-      eligible: true,
-      reason: "eligible_timeout_recovery",
-      result: body.result,
-      budgetSnapshot: {
-        actionsUsedThisScan: 1,
-        actionsUsedThisHour: 1,
-        tenantActionsUsedThisHour: 1,
+  let seedAttempted = 0;
+  try {
+    for (let i = 0; i < count; i++) {
+      const ts = new Date(nowMs + i).toISOString();
+      const entry: AgentWorkLogEntry = {
+        timestamp: ts,
+        employeeId: body.employeeId,
+        employeeName: "Seeded Test Entry",
+        departmentId: "aep-infra-ops",
+        roleId: "timeout-recovery-operator",
+        policyVersion: "commit10-stageD",
+        trigger: "manual",
+        runId: `seed-run-${nowMs}-${i}`,
+        jobId: `seed-job-${nowMs}-${i}`,
+        tenant: "dev",
+        service: "control-plane",
+        action: "advance-timeout",
+        mode: "apply",
+        eligible: true,
+        reason: "eligible_timeout_recovery",
+        result: body.result,
+        budgetSnapshot: {
+          actionsUsedThisScan: 1,
+          actionsUsedThisHour: 1,
+          tenantActionsUsedThisHour: 1,
+        },
+        errorMessage:
+          body.result === "operator_action_failed"
+            ? "Seeded test failure"
+            : undefined,
+        executionContext: body.executionContext,
+      };
+      await log.write(entry);
+      seedAttempted = i + 1;
+    }
+  } catch (writeErr) {
+    const message =
+      writeErr instanceof Error ? writeErr.message : String(writeErr);
+    return Response.json(
+      {
+        ok: false,
+        error: "kv_write_failed",
+        message: `KV write failed during seed: ${message}`,
+        seedAttempted,
       },
-      errorMessage:
-        body.result === "operator_action_failed"
-          ? "Seeded test failure"
-          : undefined,
-      executionContext: body.executionContext,
-    };
-    await log.write(entry);
+      { status: 503 }
+    );
   }
 
   return Response.json({ ok: true, seeded: count });

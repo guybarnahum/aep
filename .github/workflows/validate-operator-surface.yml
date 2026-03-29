@@ -280,6 +280,7 @@ jobs:
           echo "  - Validates employees, escalations, approvals, controls, and work logs" >> "$GITHUB_STEP_SUMMARY"
           echo "  - Ensures approval endpoints and state machine are present" >> "$GITHUB_STEP_SUMMARY"
           echo "  - Confirms scheduler status and routing availability" >> "$GITHUB_STEP_SUMMARY"
+          echo "  - Note: read-only surface checks and /healthz can pass even when operator-agent KV-backed test/write endpoints are degraded" >> "$GITHUB_STEP_SUMMARY"
           echo "- $(status_emoji "$SCHEDULED_ROUTING_OUTCOME") Scheduled routing: $SCHEDULED_ROUTING_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
           echo "- $(status_emoji "$PAPERCLIP_FIRST_EXECUTION_OUTCOME") Paperclip first execution: $PAPERCLIP_FIRST_EXECUTION_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
           if [[ "${{ steps.operator_agent_config.outputs.enabled }}" != "true" ]]; then
@@ -323,7 +324,7 @@ jobs:
           fi
 
           if [[ "$PAPERCLIP_FIRST_EXECUTION_OUTCOME" != "success" ]]; then
-            echo "- Paperclip first execution failed. Inspect approval-gated execution flow." >> "$GITHUB_STEP_SUMMARY"
+            echo "- Paperclip first execution failed. Inspect seed/write path, execution provenance flow, and approval-gated execution flow. If warning signals mention 429, quota limits, or Cloudflare edge degradation, treat this as a soft infrastructure issue on the operator-agent write/test path rather than a read-surface outage." >> "$GITHUB_STEP_SUMMARY"
           fi
 
           echo "" >> "$GITHUB_STEP_SUMMARY"
@@ -341,7 +342,7 @@ jobs:
 
           if [[ "$ALL_ENV_OK" == "true" && "$ALL_SURFACE_OK" == "true" ]]; then
             if [[ "$HAS_OPERATOR_WARNINGS" == "true" ]]; then
-              echo "- ⚠️ Operator surface contract validation passed with warnings." >> "$GITHUB_STEP_SUMMARY"
+              echo "- ⚠️ Operator surface contract validation passed with warnings. Read-only operator-agent surface was healthy, but one or more write/test checks were soft-skipped due to operator-agent or Cloudflare infrastructure degradation." >> "$GITHUB_STEP_SUMMARY"
             else
               echo "- ✅ Operator surface contract validation passed." >> "$GITHUB_STEP_SUMMARY"
             fi

@@ -1,7 +1,10 @@
 /* eslint-disable no-console */
 
 import { resolveServiceBaseUrl } from "../lib/service-map";
-import { handleOperatorAgentUnavailableSkip } from "../lib/operator-agent-skip";
+import {
+  classifyOperatorAgentInfraError,
+  handleOperatorAgentSoftSkip,
+} from "../lib/operator-agent-skip";
 
 export {};
 
@@ -182,57 +185,140 @@ function managerSignalsFromRun(run: RunEnvelope): {
   };
 }
 
+type SeedPathDiagnostic = {
+  path: string;
+  status: number;
+  contentType: string;
+  cfRay: string;
+  server: string;
+  retryAfter: string;
+  bodySnippet: string;
+};
+
+async function collectSeedDiagnostic(
+  response: Response,
+  path: string
+): Promise<SeedPathDiagnostic> {
+  const body = await response.text();
+  return {
+    path,
+    status: response.status,
+    contentType: response.headers.get("content-type") ?? "",
+    cfRay: response.headers.get("cf-ray") ?? "",
+    server: response.headers.get("server") ?? "",
+    retryAfter: response.headers.get("retry-after") ?? "",
+    bodySnippet: body.slice(0, 300),
+  };
+}
+
+function diagnosticToErrorString(d: SeedPathDiagnostic): string {
+  const parts = [
+    `path=${d.path}`,
+    `status=${d.status}`,
+    d.cfRay ? `cf-ray=${d.cfRay}` : "",
+    d.retryAfter ? `retry-after=${d.retryAfter}` : "",
+    `body=${d.bodySnippet}`,
+  ].filter(Boolean);
+  return parts.join(" ");
+}
+
 async function seedWorkLog(
   agentBaseUrl: string,
   body: Record<string, unknown>
 ): Promise<SeedEnvelope> {
   const seedPaths = ["/agent/work-log/seed", "/agent/te/seed-work-log"];
+  const failures: SeedPathDiagnostic[] = [];
 
-  let response: Response | undefined;
   for (const seedPath of seedPaths) {
-    response = await fetch(`${agentBaseUrl}${seedPath}`, {
+    const response = await fetch(`${agentBaseUrl}${seedPath}`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(body),
     });
 
-    if (response.status !== 404) {
-      break;
+    if (response.ok) {
+      const parsed = (await readJson(response)) as SeedEnvelope;
+      if (!parsed || typeof parsed !== "object") {
+        throw new Error("Seed endpoint returned a non-object response");
+      }
+      return parsed;
     }
 
-    const body404 = await response.text();
-    if (body404.includes("<!DOCTYPE html")) {
-      const err = new Error(
-        `[not-deployed] operator-agent not deployed at ${agentBaseUrl}`
-      );
-      (err as Error & { notDeployed: boolean }).notDeployed = true;
-      throw err;
-    }
+    failures.push(await collectSeedDiagnostic(response, seedPath));
   }
 
-  if (!response) {
-    throw new Error("Seed endpoint request did not execute");
+  // Classify across all collected failures
+  const hasRateLimit = failures.some(
+    (f) =>
+      f.status === 429 ||
+      f.bodySnippet.toLowerCase().includes("rate limit") ||
+      f.bodySnippet.toLowerCase().includes("too many requests") ||
+      f.bodySnippet.toLowerCase().includes("quota")
+  );
+  const hasCloudflarePlaceholder404 = failures.some(
+    (f) =>
+      f.status === 404 &&
+      (f.bodySnippet.includes("<!DOCTYPE html") ||
+        f.bodySnippet.includes("<html")) &&
+      (f.bodySnippet.includes("Cloudflare") ||
+        f.bodySnippet.includes("There is nothing here yet") ||
+        f.bodySnippet.includes("The resource you are looking for"))
+  );
+  const allCloudflareEdgeErrors = failures.every(
+    (f) =>
+      [500, 502, 503, 504].includes(f.status) &&
+      (f.bodySnippet.includes("<!DOCTYPE html") ||
+        f.bodySnippet.includes("Cloudflare"))
+  );
+  const hasPlain404 = failures.some(
+    (f) =>
+      f.status === 404 &&
+      !f.bodySnippet.includes("<!DOCTYPE html") &&
+      !f.bodySnippet.includes("<html")
+  );
+
+  const rateFailure = failures.find(
+    (f) =>
+      f.status === 429 ||
+      f.bodySnippet.toLowerCase().includes("rate limit") ||
+      f.bodySnippet.toLowerCase().includes("too many requests") ||
+      f.bodySnippet.toLowerCase().includes("quota")
+  );
+
+  if (hasRateLimit && rateFailure) {
+    throw new Error(
+      `[rate-limited] operator-agent write/test path is rate-limited or quota-limited — ` +
+        `read-only surface may still be healthy; ` +
+        `path=${rateFailure.path} status=${rateFailure.status}` +
+        (rateFailure.cfRay ? ` cf-ray=${rateFailure.cfRay}` : "") +
+        (rateFailure.retryAfter ? ` retry-after=${rateFailure.retryAfter}` : "")
+    );
   }
 
-  if (response.status === 404) {
+  if (hasCloudflarePlaceholder404) {
+    throw new Error(
+      `[not-deployed] operator-agent not deployed or route not attached at ${agentBaseUrl} — ` +
+        failures.map(diagnosticToErrorString).join(" | ")
+    );
+  }
+
+  if (allCloudflareEdgeErrors && failures.length > 0) {
+    throw new Error(
+      `[cloudflare-edge-error] Cloudflare edge degraded for operator-agent seed path — ` +
+        failures.map(diagnosticToErrorString).join(" | ")
+    );
+  }
+
+  if (hasPlain404) {
     throw new Error(
       "Seed endpoint returned 404 — start the operator-agent with --var ENABLE_TEST_ENDPOINTS:true"
     );
   }
 
-  if (!response.ok) {
-    const failedBody = await response.text();
-    throw new Error(
-      `Seed endpoint failed with status ${response.status}: ${failedBody.slice(0, 300)}`
-    );
-  }
-
-  const parsed = (await readJson(response)) as SeedEnvelope;
-  if (!parsed || typeof parsed !== "object") {
-    throw new Error("Seed endpoint returned a non-object response");
-  }
-
-  return parsed;
+  throw new Error(
+    `Seed endpoint failed across all paths — ` +
+      failures.map(diagnosticToErrorString).join(" | ")
+  );
 }
 
 async function triggerScheduled(
@@ -260,16 +346,30 @@ async function main(): Promise<void> {
       count: 1,
     });
   } catch (err) {
-    if (handleOperatorAgentUnavailableSkip("paperclip-first-execution-check", err)) {
+    if (handleOperatorAgentSoftSkip("paperclip-first-execution-check", err)) {
       process.exit(0);
     }
-
-    // Soft-skip when the worker isn't deployed yet (Cloudflare HTML 404).
-    if (err instanceof Error && (err as Error & { notDeployed?: boolean }).notDeployed) {
-      console.warn(
-        `[skip] operator-agent not deployed at ${agentBaseUrl} — skipping paperclip-first-execution-check`
-      );
-      process.exit(0);
+    // Check for the structured errors thrown by seedWorkLog
+    if (err instanceof Error) {
+      const msg = err.message;
+      if (msg.startsWith("[not-deployed]")) {
+        console.warn(
+          `[warn] paperclip-first-execution-check: ${msg}; soft-skipping check`
+        );
+        process.exit(0);
+      }
+      if (msg.startsWith("[rate-limited]")) {
+        console.warn(
+          `[warn] paperclip-first-execution-check: ${msg}; soft-skipping check — write/test path appears Cloudflare/KV rate-limited or quota-limited; read surface may still be healthy`
+        );
+        process.exit(0);
+      }
+      if (msg.startsWith("[cloudflare-edge-error]")) {
+        console.warn(
+          `[warn] paperclip-first-execution-check: ${msg}; soft-skipping check`
+        );
+        process.exit(0);
+      }
     }
     throw err;
   }
