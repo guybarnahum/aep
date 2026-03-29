@@ -1,5 +1,6 @@
 /* eslint-disable no-console */
 
+import { handleOperatorAgentUnavailableSkip } from "../lib/operator-agent-skip";
 import { resolveServiceBaseUrl } from "../lib/service-map";
 
 export {};
@@ -199,6 +200,10 @@ async function main(): Promise<void> {
 }
 
 main().catch((error) => {
+  if (handleOperatorAgentUnavailableSkip("manager-policy-overlay-check", error)) {
+    process.exit(0);
+  }
+
   console.error("manager-policy-overlay-check failed");
   console.error(error);
   process.exit(1);

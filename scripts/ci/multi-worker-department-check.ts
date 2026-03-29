@@ -1,5 +1,6 @@
 /* eslint-disable no-console */
 
+import { handleOperatorAgentUnavailableSkip } from "../lib/operator-agent-skip";
 import { resolveServiceBaseUrl } from "../lib/service-map";
 
 export {};
@@ -367,6 +368,10 @@ async function main(): Promise<void> {
 }
 
 main().catch((error) => {
+  if (handleOperatorAgentUnavailableSkip("multi-worker-department-check", error)) {
+    process.exit(0);
+  }
+
   console.error("multi-worker-department-check failed");
   console.error(error);
   process.exit(1);

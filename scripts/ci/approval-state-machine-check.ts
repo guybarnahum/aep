@@ -1,5 +1,6 @@
 /* eslint-disable no-console */
 
+import { handleOperatorAgentUnavailableSkip } from "../lib/operator-agent-skip";
 import { resolveServiceBaseUrl } from "../lib/service-map";
 
 export {};
@@ -294,6 +295,10 @@ async function runApprovalStateMachineChecks(): Promise<void> {
 }
 
 runApprovalStateMachineChecks().catch((err) => {
+  if (handleOperatorAgentUnavailableSkip("approval-state-machine-check", err)) {
+    process.exit(0);
+  }
+
   console.error("[approval-state-machine-check] ❌ Check failed:", err.message);
   process.exit(1);
 });
