@@ -18,6 +18,7 @@
       ],
       "vars": {
         "AEP_CRON_FALLBACK_ENABLED": "true",
+        "ENABLE_TEST_ENDPOINTS": "true",
         "PAPERCLIP_SHARED_SECRET": "",
         "PAPERCLIP_AUTH_REQUIRED": "false"
       },
