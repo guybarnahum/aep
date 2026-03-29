@@ -34,12 +34,17 @@ function hasCloudflareHtmlBody(message: string): boolean {
 }
 
 function hasRateLimitSignal(message: string): boolean {
+  const lower = message.toLowerCase();
   return (
     message.includes("429") ||
-    message.toLowerCase().includes("rate limit") ||
-    message.toLowerCase().includes("rate-limit") ||
-    message.toLowerCase().includes("quota") ||
-    message.toLowerCase().includes("too many requests")
+    lower.includes("rate limit") ||
+    lower.includes("rate-limit") ||
+    lower.includes("quota") ||
+    lower.includes("too many requests") ||
+    lower.includes("limit exceeded") ||
+    lower.includes("kv put() limit exceeded") ||
+    lower.includes("kv put limit exceeded") ||
+    lower.includes("kv_write_failed")
   );
 }
 
@@ -55,7 +60,7 @@ export function classifyOperatorAgentInfraError(
     return {
       softSkip: true,
       kind: "rate_limited_or_quota_limited",
-      message: `operator-agent write/test path appears rate-limited or quota-limited (status ${status ?? "unknown"}); read-only surface may still be healthy`,
+      message: `operator-agent write/test path appears KV-quota-limited or rate-limited (status ${status ?? "unknown"}); read-only surface may still be healthy`,
     };
   }
 

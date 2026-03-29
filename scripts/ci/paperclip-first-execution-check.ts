@@ -249,11 +249,19 @@ async function seedWorkLog(
 
   // Classify across all collected failures
   const hasRateLimit = failures.some(
-    (f) =>
-      f.status === 429 ||
-      f.bodySnippet.toLowerCase().includes("rate limit") ||
-      f.bodySnippet.toLowerCase().includes("too many requests") ||
-      f.bodySnippet.toLowerCase().includes("quota")
+    (f) => {
+      const lower = f.bodySnippet.toLowerCase();
+      return (
+        f.status === 429 ||
+        lower.includes("rate limit") ||
+        lower.includes("too many requests") ||
+        lower.includes("quota") ||
+        lower.includes("limit exceeded") ||
+        lower.includes("kv put() limit exceeded") ||
+        lower.includes("kv put limit exceeded") ||
+        lower.includes("kv_write_failed")
+      );
+    }
   );
   const hasCloudflarePlaceholder404 = failures.some(
     (f) =>
@@ -287,7 +295,7 @@ async function seedWorkLog(
 
   if (hasRateLimit && rateFailure) {
     throw new Error(
-      `[rate-limited] operator-agent write/test path is rate-limited or quota-limited — ` +
+      `[rate-limited] operator-agent write/test path is KV-quota-limited or rate-limited — ` +
         `read-only surface may still be healthy; ` +
         `path=${rateFailure.path} status=${rateFailure.status}` +
         (rateFailure.cfRay ? ` cf-ray=${rateFailure.cfRay}` : "") +
@@ -360,7 +368,7 @@ async function main(): Promise<void> {
       }
       if (msg.startsWith("[rate-limited]")) {
         console.warn(
-          `[warn] paperclip-first-execution-check: ${msg}; soft-skipping check — write/test path appears Cloudflare/KV rate-limited or quota-limited; read surface may still be healthy`
+          `[warn] paperclip-first-execution-check: ${msg}; soft-skipping check — write/test path appears Cloudflare KV daily-write limited; read surface may still be healthy`
         );
         process.exit(0);
       }

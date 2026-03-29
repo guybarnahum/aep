@@ -324,7 +324,7 @@ jobs:
           fi
 
           if [[ "$PAPERCLIP_FIRST_EXECUTION_OUTCOME" != "success" ]]; then
-            echo "- Paperclip first execution failed. Inspect seed/write path, execution provenance flow, and approval-gated execution flow. If warning signals mention 429, quota limits, or Cloudflare edge degradation, treat this as a soft infrastructure issue on the operator-agent write/test path rather than a read-surface outage." >> "$GITHUB_STEP_SUMMARY"
+            echo "- Paperclip first execution failed. Inspect seed/write path, execution provenance flow, and approval-gated execution flow. If warning signals mention 429, quota limits, KV daily write limits, or Cloudflare edge degradation, treat this as a soft infrastructure issue on the operator-agent write/test path rather than a read-surface outage. The KV-backed seed path can exhaust its daily write quota while /healthz and read-only surface checks remain healthy." >> "$GITHUB_STEP_SUMMARY"
           fi
 
           echo "" >> "$GITHUB_STEP_SUMMARY"
