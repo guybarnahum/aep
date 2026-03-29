@@ -5,7 +5,7 @@
   "kv_namespaces": [
     {
       "binding": "OPERATOR_AGENT_KV",
-      "id": "replace-in-real-env"
+      "id": "7fe56cac65c04fc18c12093b0ee0d201"
     }
   ],
   "env": {
@@ -13,7 +13,7 @@
       "kv_namespaces": [
         {
           "binding": "OPERATOR_AGENT_KV",
-          "id": "replace-in-real-env"
+          "id": "bc7e86bde9ba478bb3d99068ea3b67d6"
         }
       ],
       "vars": {
@@ -24,8 +24,7 @@
       "services": [
         {
           "binding": "CONTROL_PLANE",
-          "service": "aep-control-plane-async-validation",
-          "environment": "async_validation"
+          "service": "aep-control-plane-async-validation"
         }
       ]
     },
@@ -33,7 +32,7 @@
       "kv_namespaces": [
         {
           "binding": "OPERATOR_AGENT_KV",
-          "id": "replace-in-real-env"
+          "id": "f5c93e01bce8489fad198ab6d122a4b5"
         }
       ],
       "vars": {
@@ -44,8 +43,7 @@
       "services": [
         {
           "binding": "CONTROL_PLANE",
-          "service": "aep-control-plane-staging",
-          "environment": "staging"
+          "service": "aep-control-plane-staging"
         }
       ]
     },
@@ -53,7 +51,7 @@
       "kv_namespaces": [
         {
           "binding": "OPERATOR_AGENT_KV",
-          "id": "replace-in-real-env"
+          "id": "5439b1945f0b4367ab9d59387321d622"
         }
       ],
       "vars": {
@@ -64,8 +62,7 @@
       "services": [
         {
           "binding": "CONTROL_PLANE",
-          "service": "aep-control-plane-production",
-          "environment": "production"
+          "service": "aep-control-plane-production"
         }
       ]
     }

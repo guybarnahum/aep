@@ -34,6 +34,7 @@ jobs:
       HEALTH_RUNTIME_ENV: dev
       D1_DATABASE_NAME: aep-async-validation
       WRANGLER_CONFIG: core/control-plane/wrangler.toml
+      OPERATOR_AGENT_WRANGLER_CONFIG: core/operator-agent/wrangler.jsonc
 
     steps:
       - uses: actions/checkout@v4
@@ -77,6 +78,16 @@ jobs:
           npx wrangler deploy \
             --config "$WRANGLER_CONFIG" \
             --env "$CF_ENV" | tee deploy.log
+
+      - name: Deploy operator-agent
+        id: deploy_operator_agent
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          npx wrangler deploy \
+            --config "$OPERATOR_AGENT_WRANGLER_CONFIG" \
+            --env "$CF_ENV" | tee operator-agent-deploy.log
 
       - name: Apply D1 migrations
         id: d1_migrations
@@ -183,6 +194,7 @@ jobs:
           }
 
           DEPLOY_OUTCOME="${{ steps.deploy_cf.outcome }}"
+          DEPLOY_OPERATOR_AGENT_OUTCOME="${{ steps.deploy_operator_agent.outcome }}"
           BASE_URL_CONFIG_OUTCOME="${{ steps.base_url_config.outcome }}"
           MIGRATIONS_OUTCOME="${{ steps.d1_migrations.outcome }}"
           READINESS_OUTCOME="${{ steps.wait_readiness.outcome }}"
@@ -206,7 +218,8 @@ jobs:
 
           echo "### Environment bring-up" >> "$GITHUB_STEP_SUMMARY"
           echo "- $(status_emoji "$BASE_URL_CONFIG_OUTCOME") Public base URL config: $BASE_URL_CONFIG_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
-          echo "- $(status_emoji "$DEPLOY_OUTCOME") Worker deploy: $DEPLOY_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
+          echo "- $(status_emoji "$DEPLOY_OUTCOME") Control-plane deploy: $DEPLOY_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
+          echo "- $(status_emoji "$DEPLOY_OPERATOR_AGENT_OUTCOME") Operator-agent deploy: $DEPLOY_OPERATOR_AGENT_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
           echo "- $(status_emoji "$MIGRATIONS_OUTCOME") D1 migrations: $MIGRATIONS_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
           echo "- $(status_emoji "$READINESS_OUTCOME") Readiness check: $READINESS_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
           echo "- $(status_emoji "$HEALTH_OUTCOME") Health check: $HEALTH_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
@@ -245,7 +258,7 @@ jobs:
             else
               echo "- Public base URL configuration failed. ASYNC_VALIDATION_BASE_URL must be an absolute URL (for example, https://aep-control-plane-async-validation.guybubba.workers.dev)." >> "$GITHUB_STEP_SUMMARY"
             fi
-          elif [[ "$DEPLOY_OUTCOME" != "success" || "$MIGRATIONS_OUTCOME" != "success" || "$READINESS_OUTCOME" != "success" || "$HEALTH_OUTCOME" != "success" ]]; then
+          elif [[ "$DEPLOY_OUTCOME" != "success" || "$DEPLOY_OPERATOR_AGENT_OUTCOME" != "success" || "$MIGRATIONS_OUTCOME" != "success" || "$READINESS_OUTCOME" != "success" || "$HEALTH_OUTCOME" != "success" ]]; then
             echo "- Environment bring-up failed. Start with deploy, migrations, readiness, and /healthz before investigating surface logic." >> "$GITHUB_STEP_SUMMARY"
           else
             echo "- Environment bring-up passed." >> "$GITHUB_STEP_SUMMARY"
@@ -267,7 +280,7 @@ jobs:
           echo "### Overall verdict" >> "$GITHUB_STEP_SUMMARY"
 
           ALL_ENV_OK="true"
-          if [[ "$BASE_URL_CONFIG_OUTCOME" != "success" || "$DEPLOY_OUTCOME" != "success" || "$MIGRATIONS_OUTCOME" != "success" || "$READINESS_OUTCOME" != "success" || "$HEALTH_OUTCOME" != "success" ]]; then
+          if [[ "$BASE_URL_CONFIG_OUTCOME" != "success" || "$DEPLOY_OUTCOME" != "success" || "$DEPLOY_OPERATOR_AGENT_OUTCOME" != "success" || "$MIGRATIONS_OUTCOME" != "success" || "$READINESS_OUTCOME" != "success" || "$HEALTH_OUTCOME" != "success" ]]; then
             ALL_ENV_OK="false"
           fi
 
