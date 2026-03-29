@@ -5,6 +5,8 @@ import { resolveServiceBaseUrl } from "../lib/service-map";
 
 export {};
 
+const POLICY_VERSION = "commit12-escalation-lifecycle-check";
+
 type EscalationEntry = {
   escalationId: string;
   timestamp: string;
@@ -85,6 +87,7 @@ async function main(): Promise<void> {
         employeeId: "emp_infra_ops_manager_01",
         roleId: "infra-ops-manager",
         trigger: "manual",
+        policyVersion: POLICY_VERSION,
         targetEmployeeIdsOverride: [
           "emp_timeout_recovery_01",
           "emp_retry_supervisor_01",
@@ -93,7 +96,8 @@ async function main(): Promise<void> {
     });
 
     if (!managerResponse.ok) {
-      throw new Error(`Manager run failed: ${managerResponse.status}`);
+      const body = await managerResponse.text();
+      throw new Error(`Manager run failed: ${managerResponse.status} ${body}`);
     }
 
     const refetch = await readJson<EscalationsResponse>(
