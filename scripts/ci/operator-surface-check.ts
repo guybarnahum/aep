@@ -82,47 +82,46 @@ type SchedulerStatusResponse = {
   cronFallbackEnabled: boolean;
 };
 
-type ApprovalsListResponse = {
-  ok: true;
-  count: number;
-  approvals: Array<{
-    id: string;
-    employeeId: string;
-    reason: string;
-    state: "pending_review" | "approved" | "rejected" | "expired" | "already_executed";
-    requestedAt: string;
-    expiresAt?: string;
-    approvedAt?: string;
-    rejectedAt?: string;
-    expiredAt?: string;
-    consumedAt?: string;
-    metadata?: Record<string, unknown>;
-    controlHistory?: Array<{
-      id: string;
-      timestamp: string;
-      action: string;
-    }>;
-  }>;
-};
-
-type ApprovalDetailResponse = {
-  ok: true;
-  id: string;
-  employeeId: string;
+type ApprovalEntry = {
+  id?: string;
+  approvalId?: string;
+  employeeId?: string;
+  requestedByEmployeeId?: string;
   reason: string;
-  state: "pending_review" | "approved" | "rejected" | "expired" | "already_executed";
-  requestedAt: string;
+  state?: "pending_review" | "approved" | "rejected" | "expired" | "already_executed";
+  status?: "pending" | "approved" | "rejected" | "expired";
+  requestedAt?: string;
+  timestamp?: string;
   expiresAt?: string;
   approvedAt?: string;
   rejectedAt?: string;
   expiredAt?: string;
   consumedAt?: string;
+  decidedAt?: string;
+  executedAt?: string;
+  executionId?: string;
   metadata?: Record<string, unknown>;
   controlHistory?: Array<{
     id: string;
     timestamp: string;
     action: string;
   }>;
+};
+
+type ApprovalsListResponse = {
+  ok: true;
+  count: number;
+  approvals?: ApprovalEntry[];
+  entries?: ApprovalEntry[];
+};
+
+type ApprovalDetailResponse = {
+  ok: true;
+  id?: string;
+  approval?: {
+    id?: string;
+    approvalId?: string;
+  };
 };
 
 type ApprovalActionResponse = {
@@ -255,8 +254,19 @@ async function main(): Promise<void> {
     throw new Error("/agent/approvals did not return ok=true");
   }
 
+  const approvalEntries = Array.isArray(approvals.approvals)
+    ? approvals.approvals
+    : Array.isArray(approvals.entries)
+      ? approvals.entries
+      : [];
+
+  if (!Array.isArray(approvalEntries)) {
+    throw new Error("/agent/approvals response does not contain an approvals list");
+  }
+
   // Validate approval state enum values
   const validApprovalStates = [
+    "pending",
     "pending_review",
     "approved",
     "rejected",
@@ -264,34 +274,41 @@ async function main(): Promise<void> {
     "already_executed",
   ] as const;
 
-  for (const approval of approvals.approvals) {
-    if (!validApprovalStates.includes(approval.state as never)) {
+  for (const approval of approvalEntries) {
+    const approvalId = approval.id ?? approval.approvalId;
+    const state = approval.state ?? approval.status;
+
+    if (!approvalId) {
+      throw new Error("Approval entry missing id/approvalId");
+    }
+
+    if (!state || !validApprovalStates.includes(state as never)) {
       throw new Error(
-        `Approval ${approval.id} has invalid state: ${approval.state}. ` +
+        `Approval ${approvalId} has invalid state: ${String(state)}. ` +
           `Expected one of: ${validApprovalStates.join(", ")}`
       );
     }
 
     // Validate state-specific timestamp fields
-    if (approval.state === "approved" && !approval.approvedAt) {
+    if (state === "approved" && !approval.approvedAt && !approval.decidedAt) {
       throw new Error(
-        `Approval ${approval.id} is approved but missing approvedAt timestamp`
+        `Approval ${approvalId} is approved but missing approvedAt/decidedAt timestamp`
       );
     }
 
-    if (approval.state === "rejected" && !approval.rejectedAt) {
+    if (state === "rejected" && !approval.rejectedAt && !approval.decidedAt) {
       throw new Error(
-        `Approval ${approval.id} is rejected but missing rejectedAt timestamp`
+        `Approval ${approvalId} is rejected but missing rejectedAt/decidedAt timestamp`
       );
     }
 
-    if (approval.state === "expired" && !approval.expiredAt) {
-      throw new Error(`Approval ${approval.id} is expired but missing expiredAt timestamp`);
+    if (state === "expired" && !approval.expiredAt) {
+      throw new Error(`Approval ${approvalId} is expired but missing expiredAt timestamp`);
     }
 
-    if (approval.state === "already_executed" && !approval.consumedAt) {
+    if (state === "already_executed" && !approval.consumedAt && !approval.executedAt) {
       throw new Error(
-        `Approval ${approval.id} is already_executed but missing consumedAt timestamp`
+        `Approval ${approvalId} is already_executed but missing consumedAt/executedAt timestamp`
       );
     }
 
@@ -300,7 +317,7 @@ async function main(): Promise<void> {
       for (const entry of approval.controlHistory) {
         if (!entry.id || !entry.timestamp || !entry.action) {
           throw new Error(
-            `Approval ${approval.id} control history entry missing required fields`
+            `Approval ${approvalId} control history entry missing required fields`
           );
         }
       }
@@ -308,8 +325,12 @@ async function main(): Promise<void> {
   }
 
   // Test approval detail endpoint if approvals exist
-  if (approvals.approvals.length > 0) {
-    const testApprovalId = approvals.approvals[0].id;
+  if (approvalEntries.length > 0) {
+    const testApprovalId = approvalEntries[0].id ?? approvalEntries[0].approvalId;
+    if (!testApprovalId) {
+      throw new Error("First approval entry is missing id/approvalId");
+    }
+
     const approvalDetail = await readJson<ApprovalDetailResponse>(
       await fetch(`${agentBaseUrl}/agent/approvals/${testApprovalId}`)
     );
@@ -318,27 +339,31 @@ async function main(): Promise<void> {
       throw new Error(`/agent/approvals/{id} did not return ok=true for ${testApprovalId}`);
     }
 
-    if (approvalDetail.id !== testApprovalId) {
+    const returnedId = approvalDetail.id ?? approvalDetail.approval?.id ?? approvalDetail.approval?.approvalId;
+
+    if (returnedId !== testApprovalId) {
       throw new Error(
-        `Approval detail ID mismatch: expected ${testApprovalId}, got ${approvalDetail.id}`
+        `Approval detail ID mismatch: expected ${testApprovalId}, got ${String(returnedId)}`
       );
     }
   }
 
   // Validate approve/reject endpoints are present for pending approvals
-  const pendingApprovals = approvals.approvals.filter((a) => a.state === "pending_review");
+  const pendingApprovals = approvalEntries.filter((a) => {
+    const state = a.state ?? a.status;
+    return state === "pending_review" || state === "pending";
+  });
 
   if (pendingApprovals.length > 0) {
-    const testApprovalId = pendingApprovals[0].id;
+    const testApprovalId = pendingApprovals[0].id ?? pendingApprovals[0].approvalId;
+    if (!testApprovalId) {
+      throw new Error("Pending approval entry is missing id/approvalId");
+    }
 
     // Test that endpoints exist (we don't mutate state here to avoid side effects)
     try {
-      const options = { method: "POST", headers: { "Content-Type": "application/json" } };
-
-      // Check endpoints exist by testing with a dry-run or preview without mutation
-      // For now we just validate the endpoint is reachable
-      const approveUrl = `${agentBaseUrl}/agent/approvals/${testApprovalId}/approve`;
-      const rejectUrl = `${agentBaseUrl}/agent/approvals/${testApprovalId}/reject`;
+      const approveUrl = `${agentBaseUrl}/agent/approvals/approve`;
+      const rejectUrl = `${agentBaseUrl}/agent/approvals/reject`;
 
       // Use HEAD to check endpoint existence without mutation
       const approveExists = await fetch(approveUrl, {
@@ -352,7 +377,7 @@ async function main(): Promise<void> {
       if (!approveExists && !rejectExists) {
         // At least one should exist - if neither does, the surface is incomplete
         throw new Error(
-          `Neither /agent/approvals/{id}/approve nor /agent/approvals/{id}/reject endpoints are available`
+          `Neither /agent/approvals/approve nor /agent/approvals/reject endpoints are available`
         );
       }
     } catch (err) {
