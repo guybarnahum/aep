@@ -17,23 +17,37 @@ export async function handleEmployeeControls(
 
   if (employeeId) {
     const record = await store.get(employeeId);
+    const effective = await store.getEffective(employeeId, new Date().toISOString());
     return Response.json({
       ok: true,
       employeeId,
       control: record,
+      effectiveState: {
+        state: effective.state,
+        blocked: effective.blocked,
+      },
     });
   }
 
   const entries: Array<{
     employeeId: string;
     control: EmployeeControlRecord | null;
+    effectiveState: {
+      state: "enabled" | "disabled_pending_review" | "disabled_by_manager" | "restricted";
+      blocked: boolean;
+    };
   }> = [];
 
   for (const employee of operatorEmployees) {
     const id = employee.identity.employeeId;
+    const effective = await store.getEffective(id, new Date().toISOString());
     entries.push({
       employeeId: id,
       control: await store.get(id),
+      effectiveState: {
+        state: effective.state,
+        blocked: effective.blocked,
+      },
     });
   }
 

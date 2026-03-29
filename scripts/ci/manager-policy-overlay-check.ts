@@ -54,7 +54,7 @@ type EmployeeControlsResponse = {
       requireTraceVerification?: boolean;
     };
   } | null;
-  effectiveState: {
+  effectiveState?: {
     state:
       | "enabled"
       | "disabled_pending_review"
@@ -156,6 +156,10 @@ async function main(): Promise<void> {
   }
 
   const controls = await getEmployeeControls(agentBaseUrl, observedEmployeeId);
+  const effectiveState = controls.effectiveState ?? {
+    state: "enabled" as const,
+    blocked: false,
+  };
   const employees = await getEmployees(agentBaseUrl);
   const employee = employees.employees.find(
     (item) => item.identity.employeeId === observedEmployeeId
@@ -165,8 +169,14 @@ async function main(): Promise<void> {
     throw new Error(`Observed employee missing from /agent/employees`);
   }
 
-  if (controls.effectiveState.state === "restricted") {
-    if (controls.effectiveState.blocked) {
+  if (controls.control === null && effectiveState.state !== "enabled") {
+    throw new Error(
+      `Expected missing control to imply enabled effective state, got ${effectiveState.state}`
+    );
+  }
+
+  if (effectiveState.state === "restricted") {
+    if (effectiveState.blocked) {
       throw new Error("Restricted employee must remain runnable");
     }
 
@@ -189,8 +199,8 @@ async function main(): Promise<void> {
 
   console.log("manager-policy-overlay-check passed", {
     observedEmployeeId,
-    state: controls.effectiveState.state,
-    blocked: controls.effectiveState.blocked,
+    state: effectiveState.state,
+    blocked: effectiveState.blocked,
     baseMaxActionsPerScan: employee.budget.maxActionsPerScan,
     effectiveMaxActionsPerScan: employee.effectiveBudget.maxActionsPerScan,
     restrictionDecisions: managerRun.summary.restrictionDecisions,
