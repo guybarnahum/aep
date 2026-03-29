@@ -89,6 +89,22 @@ jobs:
             --config "$OPERATOR_AGENT_WRANGLER_CONFIG" \
             --env "$CF_ENV" | tee operator-agent-deploy.log
 
+      - name: Resolve operator-agent URL
+        id: operator_agent_url
+        run: |
+          DEPLOYED_URL="$(grep -Eo 'https://[A-Za-z0-9._-]+\.workers\.dev' operator-agent-deploy.log | tail -n1 || true)"
+
+          if [[ -n "$DEPLOYED_URL" ]]; then
+            echo "url=$DEPLOYED_URL" >> "$GITHUB_OUTPUT"
+            echo "source=deploy" >> "$GITHUB_OUTPUT"
+          elif [[ -n "$OPERATOR_AGENT_BASE_URL" ]]; then
+            echo "url=$OPERATOR_AGENT_BASE_URL" >> "$GITHUB_OUTPUT"
+            echo "source=secret" >> "$GITHUB_OUTPUT"
+          else
+            echo "url=" >> "$GITHUB_OUTPUT"
+            echo "source=none" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Apply D1 migrations
         id: d1_migrations
         env:
@@ -117,21 +133,35 @@ jobs:
       - name: Check operator-agent configuration
         id: operator_agent_config
         run: |
-          if [[ -n "$OPERATOR_AGENT_BASE_URL" && "$OPERATOR_AGENT_BASE_URL" =~ ^https?://[^[:space:]]+$ ]]; then
+          RESOLVED_OPERATOR_AGENT_URL="${{ steps.operator_agent_url.outputs.url }}"
+          if [[ -n "$RESOLVED_OPERATOR_AGENT_URL" && "$RESOLVED_OPERATOR_AGENT_URL" =~ ^https?://[^[:space:]]+$ ]]; then
             echo "enabled=true" >> "$GITHUB_OUTPUT"
             echo "reason=configured" >> "$GITHUB_OUTPUT"
+            echo "url=$RESOLVED_OPERATOR_AGENT_URL" >> "$GITHUB_OUTPUT"
           else
             echo "enabled=false" >> "$GITHUB_OUTPUT"
-            if [[ -z "$OPERATOR_AGENT_BASE_URL" ]]; then
+            if [[ -z "$RESOLVED_OPERATOR_AGENT_URL" ]]; then
               echo "reason=missing" >> "$GITHUB_OUTPUT"
             else
               echo "reason=invalid_url" >> "$GITHUB_OUTPUT"
             fi
           fi
 
+      - name: Wait for operator-agent readiness
+        id: wait_operator_agent
+        if: steps.operator_agent_config.outputs.enabled == 'true'
+        run: |
+          npx tsx scripts/ci/wait-for-url.ts \
+            --url "${{ steps.operator_agent_config.outputs.url }}/healthz" \
+            --attempts 24 \
+            --interval-ms 5000 \
+            --timeout-ms 8000 | tee wait-operator-agent.log
+
       - name: Operator surface contract
         id: operator_surface
-        if: steps.operator_agent_config.outputs.enabled == 'true'
+        if: steps.operator_agent_config.outputs.enabled == 'true' && steps.wait_operator_agent.outcome == 'success'
+        env:
+          OPERATOR_AGENT_BASE_URL: ${{ steps.operator_agent_config.outputs.url }}
         run: |
           npm run ci:operator-surface-check 2>&1 | tee operator-surface.log
 
@@ -142,7 +172,9 @@ jobs:
 
       - name: Paperclip first execution
         id: paperclip_first_execution
-        if: steps.operator_agent_config.outputs.enabled == 'true'
+        if: steps.operator_agent_config.outputs.enabled == 'true' && steps.wait_operator_agent.outcome == 'success'
+        env:
+          OPERATOR_AGENT_BASE_URL: ${{ steps.operator_agent_config.outputs.url }}
         run: |
           npm run ci:paperclip-first-execution-check 2>&1 | tee paperclip-first-execution.log
 
@@ -199,6 +231,7 @@ jobs:
           MIGRATIONS_OUTCOME="${{ steps.d1_migrations.outcome }}"
           READINESS_OUTCOME="${{ steps.wait_readiness.outcome }}"
           HEALTH_OUTCOME="${{ steps.health_check.outcome }}"
+          OPERATOR_AGENT_READINESS_OUTCOME="${{ steps.wait_operator_agent.outcome }}"
           OPERATOR_SURFACE_OUTCOME="${{ steps.operator_surface.outcome }}"
           SCHEDULED_ROUTING_OUTCOME="${{ steps.scheduled_routing.outcome }}"
           PAPERCLIP_FIRST_EXECUTION_OUTCOME="${{ steps.paperclip_first_execution.outcome }}"
@@ -212,6 +245,9 @@ jobs:
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "- Environment: $CF_ENV" >> "$GITHUB_STEP_SUMMARY"
           echo "- URL: $DEPLOY_URL" >> "$GITHUB_STEP_SUMMARY"
+          if [[ -n "${{ steps.operator_agent_config.outputs.url }}" ]]; then
+            echo "- Operator-agent URL: ${{ steps.operator_agent_config.outputs.url }} (source: ${{ steps.operator_agent_url.outputs.source }})" >> "$GITHUB_STEP_SUMMARY"
+          fi
           echo "- SHA: $GIT_SHA" >> "$GITHUB_STEP_SUMMARY"
           echo "- Database: $D1_DATABASE_NAME" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
@@ -222,6 +258,7 @@ jobs:
           echo "- $(status_emoji "$DEPLOY_OPERATOR_AGENT_OUTCOME") Operator-agent deploy: $DEPLOY_OPERATOR_AGENT_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
           echo "- $(status_emoji "$MIGRATIONS_OUTCOME") D1 migrations: $MIGRATIONS_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
           echo "- $(status_emoji "$READINESS_OUTCOME") Readiness check: $READINESS_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
+          echo "- $(status_emoji "$OPERATOR_AGENT_READINESS_OUTCOME") Operator-agent readiness: $OPERATOR_AGENT_READINESS_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
           echo "- $(status_emoji "$HEALTH_OUTCOME") Health check: $HEALTH_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
 
@@ -258,7 +295,7 @@ jobs:
             else
               echo "- Public base URL configuration failed. ASYNC_VALIDATION_BASE_URL must be an absolute URL (for example, https://aep-control-plane-async-validation.guybubba.workers.dev)." >> "$GITHUB_STEP_SUMMARY"
             fi
-          elif [[ "$DEPLOY_OUTCOME" != "success" || "$DEPLOY_OPERATOR_AGENT_OUTCOME" != "success" || "$MIGRATIONS_OUTCOME" != "success" || "$READINESS_OUTCOME" != "success" || "$HEALTH_OUTCOME" != "success" ]]; then
+          elif [[ "$DEPLOY_OUTCOME" != "success" || "$DEPLOY_OPERATOR_AGENT_OUTCOME" != "success" || "$MIGRATIONS_OUTCOME" != "success" || "$READINESS_OUTCOME" != "success" || "$OPERATOR_AGENT_READINESS_OUTCOME" != "success" || "$HEALTH_OUTCOME" != "success" ]]; then
             echo "- Environment bring-up failed. Start with deploy, migrations, readiness, and /healthz before investigating surface logic." >> "$GITHUB_STEP_SUMMARY"
           else
             echo "- Environment bring-up passed." >> "$GITHUB_STEP_SUMMARY"
@@ -280,7 +317,7 @@ jobs:
           echo "### Overall verdict" >> "$GITHUB_STEP_SUMMARY"
 
           ALL_ENV_OK="true"
-          if [[ "$BASE_URL_CONFIG_OUTCOME" != "success" || "$DEPLOY_OUTCOME" != "success" || "$DEPLOY_OPERATOR_AGENT_OUTCOME" != "success" || "$MIGRATIONS_OUTCOME" != "success" || "$READINESS_OUTCOME" != "success" || "$HEALTH_OUTCOME" != "success" ]]; then
+          if [[ "$BASE_URL_CONFIG_OUTCOME" != "success" || "$DEPLOY_OUTCOME" != "success" || "$DEPLOY_OPERATOR_AGENT_OUTCOME" != "success" || "$MIGRATIONS_OUTCOME" != "success" || "$READINESS_OUTCOME" != "success" || "$OPERATOR_AGENT_READINESS_OUTCOME" != "success" || "$HEALTH_OUTCOME" != "success" ]]; then
             ALL_ENV_OK="false"
           fi
 
