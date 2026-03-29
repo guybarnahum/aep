@@ -1,6 +1,6 @@
 /* eslint-disable no-console */
 
-import { handleOperatorAgentUnavailableSkip } from "../lib/operator-agent-skip";
+import { handleOperatorAgentSoftSkip } from "../lib/operator-agent-skip";
 import { resolveServiceBaseUrl } from "../lib/service-map";
 
 export {};
@@ -250,7 +250,7 @@ async function main(): Promise<void> {
 }
 
 main().catch((error) => {
-  if (handleOperatorAgentUnavailableSkip("manager-advisory-check", error)) {
+  if (handleOperatorAgentSoftSkip("manager-advisory-check", error)) {
     process.exit(0);
   }
 
