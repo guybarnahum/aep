@@ -5,27 +5,30 @@ import { resolveServiceBaseUrl } from "../lib/service-map";
 
 export {};
 
+type ApprovalEntry = {
+  id: string;
+  employeeId: string;
+  reason: string;
+  state: "pending_review" | "approved" | "rejected" | "expired" | "already_executed";
+  requestedAt: string;
+  expiresAt?: string;
+  approvedAt?: string;
+  rejectedAt?: string;
+  expiredAt?: string;
+  consumedAt?: string;
+  metadata?: Record<string, unknown>;
+  controlHistory?: Array<{
+    id: string;
+    timestamp: string;
+    action: string;
+  }>;
+};
+
 type ApprovalsListResponse = {
   ok: true;
   count: number;
-  approvals: Array<{
-    id: string;
-    employeeId: string;
-    reason: string;
-    state: "pending_review" | "approved" | "rejected" | "expired" | "already_executed";
-    requestedAt: string;
-    expiresAt?: string;
-    approvedAt?: string;
-    rejectedAt?: string;
-    expiredAt?: string;
-    consumedAt?: string;
-    metadata?: Record<string, unknown>;
-    controlHistory?: Array<{
-      id: string;
-      timestamp: string;
-      action: string;
-    }>;
-  }>;
+  approvals?: ApprovalEntry[];
+  entries?: ApprovalEntry[];
 };
 
 type ApprovalDetailResponse = {
@@ -92,11 +95,19 @@ async function runApprovalStateMachineChecks(): Promise<void> {
     throw new Error("Approvals list response missing 'count' field");
   }
 
-  if (!Array.isArray(approvalsList.approvals)) {
-    throw new Error("Approvals list response missing 'approvals' array");
+  const approvals = Array.isArray(approvalsList.approvals)
+    ? approvalsList.approvals
+    : Array.isArray(approvalsList.entries)
+      ? approvalsList.entries
+      : null;
+
+  if (!approvals) {
+    throw new Error(
+      "Approvals list response missing approvals list (expected 'approvals' or 'entries' array)"
+    );
   }
 
-  console.log(`  ✓ List approvals endpoint valid; found ${approvalsList.count} approvals`);
+  console.log(`  ✓ List approvals endpoint valid; found ${approvals.length} approvals`);
 
   // Check 2: Validate approval state enum values
   console.log("[approval-state-machine-check] Check 2: Validate approval states");
@@ -108,7 +119,7 @@ async function runApprovalStateMachineChecks(): Promise<void> {
     "already_executed",
   ] as const;
 
-  for (const approval of approvalsList.approvals) {
+  for (const approval of approvals) {
     if (!validStates.includes(approval.state as never)) {
       throw new Error(
         `Approval ${approval.id} has invalid state: ${approval.state}. ` +
@@ -150,8 +161,8 @@ async function runApprovalStateMachineChecks(): Promise<void> {
   // Check 3: Validate approval detail endpoint
   console.log("[approval-state-machine-check] Check 3: Validate approval detail endpoint");
 
-  if (approvalsList.approvals.length > 0) {
-    const firstApproval = approvalsList.approvals[0];
+  if (approvals.length > 0) {
+    const firstApproval = approvals[0];
     const detailResponse = await fetch(`${baseUrl}/agent/approvals/${firstApproval.id}`);
     const approval = await readJson<ApprovalDetailResponse>(detailResponse);
 
@@ -179,7 +190,7 @@ async function runApprovalStateMachineChecks(): Promise<void> {
   // Check 4: Validate approval control history linkage
   console.log("[approval-state-machine-check] Check 4: Validate approval control history");
 
-  for (const approval of approvalsList.approvals) {
+  for (const approval of approvals) {
     if (approval.controlHistory && Array.isArray(approval.controlHistory)) {
       for (const entry of approval.controlHistory) {
         if (!entry.id) {
@@ -208,7 +219,7 @@ async function runApprovalStateMachineChecks(): Promise<void> {
   // Check 5: Validate approval metadata shape
   console.log("[approval-state-machine-check] Check 5: Validate approval metadata");
 
-  for (const approval of approvalsList.approvals) {
+  for (const approval of approvals) {
     if (approval.metadata) {
       if (typeof approval.metadata !== "object" || Array.isArray(approval.metadata)) {
         throw new Error(
@@ -225,7 +236,7 @@ async function runApprovalStateMachineChecks(): Promise<void> {
     "[approval-state-machine-check] Check 6: Validate no conflicting timestamps"
   );
 
-  for (const approval of approvalsList.approvals) {
+  for (const approval of approvals) {
     const timestamps = [
       approval.approvedAt ? new Date(approval.approvedAt).getTime() : null,
       approval.rejectedAt ? new Date(approval.rejectedAt).getTime() : null,
@@ -248,7 +259,7 @@ async function runApprovalStateMachineChecks(): Promise<void> {
   // Check 7: Validate expiration timeout semantics
   console.log("[approval-state-machine-check] Check 7: Validate expiration semantics");
 
-  for (const approval of approvalsList.approvals) {
+  for (const approval of approvals) {
     if (approval.state === "pending_review" && approval.expiresAt) {
       const expiresTime = new Date(approval.expiresAt).getTime();
       const now = Date.now();
@@ -269,7 +280,7 @@ async function runApprovalStateMachineChecks(): Promise<void> {
     "[approval-state-machine-check] Check 8: Validate rejected approvals preserve context"
   );
 
-  const rejectedApprovals = approvalsList.approvals.filter((a) => a.state === "rejected");
+  const rejectedApprovals = approvals.filter((a) => a.state === "rejected");
 
   for (const approval of rejectedApprovals) {
     if (!approval.rejectedAt) {
