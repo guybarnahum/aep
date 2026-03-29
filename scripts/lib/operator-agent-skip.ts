@@ -1,11 +1,15 @@
 export function isCloudflarePlaceholder404Error(error: unknown): boolean {
   const message = error instanceof Error ? error.message : String(error);
 
+  const hasLegacyCloudflareTemplateSignature =
+    message.includes("<!--[if lt IE 7]>") || message.includes("oldie");
+
   const hasCloudflareHtml =
     (message.includes("<!DOCTYPE html>") || message.includes("<html")) &&
     (message.includes("There is nothing here yet") ||
       message.includes("The resource you are looking for could not be found") ||
-      message.includes("Cloudflare"));
+      message.includes("Cloudflare") ||
+      hasLegacyCloudflareTemplateSignature);
 
   if (!hasCloudflareHtml) {
     return false;
