@@ -100,7 +100,20 @@ type ControlHistoryResponse = {
 type ApprovalsListResponse = {
   ok: true;
   count: number;
-  approvals: Array<{
+  approvals?: Array<{
+    id: string;
+    employeeId: string;
+    reason: string;
+    state: "pending_review" | "approved" | "rejected" | "expired" | "already_executed";
+    requestedAt: string;
+    expiresAt?: string;
+    approvedAt?: string;
+    rejectedAt?: string;
+    expiredAt?: string;
+    consumedAt?: string;
+    metadata?: Record<string, unknown>;
+  }>;
+  entries?: Array<{
     id: string;
     employeeId: string;
     reason: string;
@@ -268,7 +281,19 @@ async function main(): Promise<void> {
       throw new Error("/agent/approvals did not return ok=true");
     }
 
-    const approvalIdSet = new Set(approvals.approvals.map((a) => a.id));
+    const approvalEntries = Array.isArray(approvals.approvals)
+      ? approvals.approvals
+      : Array.isArray(approvals.entries)
+        ? approvals.entries
+        : null;
+
+    if (!approvalEntries) {
+      throw new Error(
+        "/agent/approvals response missing approvals list (expected 'approvals' or 'entries' array)"
+      );
+    }
+
+    const approvalIdSet = new Set(approvalEntries.map((a) => a.id));
 
     // Validate all referenced approvals exist
     for (const entry of entriesWithApprovals) {
@@ -280,7 +305,7 @@ async function main(): Promise<void> {
 
       // Ensure approval state in control history matches actual approval state
       if (entry.approvalState) {
-        const approval = approvals.approvals.find((a) => a.id === entry.approvalId);
+        const approval = approvalEntries.find((a) => a.id === entry.approvalId);
         if (approval && approval.state !== entry.approvalState) {
           console.warn(
             `Warning: Control history entry ${entry.historyId} recorded approval state ` +

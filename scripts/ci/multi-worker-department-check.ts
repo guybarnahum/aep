@@ -79,7 +79,15 @@ type ManagerRunResponse = {
 type ApprovalsListResponse = {
   ok: true;
   count: number;
-  approvals: Array<{
+  approvals?: Array<{
+    id: string;
+    employeeId: string;
+    reason: string;
+    state: "pending_review" | "approved" | "rejected" | "expired" | "already_executed";
+    requestedAt: string;
+    metadata?: Record<string, unknown>;
+  }>;
+  entries?: Array<{
     id: string;
     employeeId: string;
     reason: string;
@@ -289,10 +297,22 @@ async function main(): Promise<void> {
     throw new Error("/agent/approvals did not return ok=true");
   }
 
+  const approvalEntries = Array.isArray(approvalsData.approvals)
+    ? approvalsData.approvals
+    : Array.isArray(approvalsData.entries)
+      ? approvalsData.entries
+      : null;
+
+  if (!approvalEntries) {
+    throw new Error(
+      "/agent/approvals response missing approvals list (expected 'approvals' or 'entries' array)"
+    );
+  }
+
   // If restriction decisions were made, ensure there are approval records
   if (managerRun.summary.restrictionDecisions > 0) {
     // Check that there are pending or completed approvals for the actions
-    const restrictionApprovalsCount = approvalsData.approvals.filter(
+    const restrictionApprovalsCount = approvalEntries.filter(
       (a) => a.reason.toLowerCase().includes("restrict") || a.reason.toLowerCase().includes("decision")
     ).length;
 
@@ -319,7 +339,7 @@ async function main(): Promise<void> {
         // The manager ran and may have created decisions - verify the state is consistent
 
         // Look for an approval or restriction decision from manager run
-        const workerHasApproval = approvalsData.approvals.some(
+        const workerHasApproval = approvalEntries.some(
           (a) => a.employeeId === control.employeeId && 
                  (a.state === "pending_review" || a.state === "approved")
         );

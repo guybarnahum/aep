@@ -7,6 +7,21 @@ export {};
 
 const POLICY_VERSION = "commit10-stageD";
 
+type ApprovalEntry = {
+  id: string;
+  employeeId: string;
+  reason: string;
+  state: "pending_review" | "approved" | "rejected" | "expired" | "already_executed";
+  requestedAt: string;
+  metadata?: {
+    companyId?: string;
+    taskId?: string;
+    heartbeatId?: string;
+    executionSource?: string;
+    [key: string]: unknown;
+  };
+};
+
 type PaperclipRunResponse = {
   ok: true;
   status: "completed";
@@ -37,20 +52,8 @@ type PaperclipRunResponse = {
 type ApprovalsListResponse = {
   ok: true;
   count: number;
-  approvals: Array<{
-    id: string;
-    employeeId: string;
-    reason: string;
-    state: "pending_review" | "approved" | "rejected" | "expired" | "already_executed";
-    requestedAt: string;
-    metadata?: {
-      companyId?: string;
-      taskId?: string;
-      heartbeatId?: string;
-      executionSource?: string;
-      [key: string]: unknown;
-    };
-  }>;
+  approvals?: ApprovalEntry[];
+  entries?: ApprovalEntry[];
 };
 
 type ControlHistoryResponse = {
@@ -177,6 +180,18 @@ async function main(): Promise<void> {
     throw new Error("/agent/approvals did not return ok=true for provenance validation");
   }
 
+  const approvalEntries = Array.isArray(approvals.approvals)
+    ? approvals.approvals
+    : Array.isArray(approvals.entries)
+      ? approvals.entries
+      : null;
+
+  if (!approvalEntries) {
+    throw new Error(
+      "/agent/approvals response missing approvals list (expected 'approvals' or 'entries' array)"
+    );
+  }
+
   // Check that any approvals related to this execution have company metadata
   const executionCompanyId = result.executionContext?.companyId || "company-12345";
   const executionTaskId = result.executionContext?.taskId || result.taskId;
@@ -184,7 +199,7 @@ async function main(): Promise<void> {
 
   let approvalsWithCompanyProvenance = 0;
 
-  for (const approval of approvals.approvals) {
+  for (const approval of approvalEntries) {
     if (approval.metadata) {
       // Approvals that came from this execution should have company metadata
       if (
@@ -224,7 +239,7 @@ async function main(): Promise<void> {
         controlEntriesWithApprovalProvenance++;
 
         // Additional check: approval-based control changes should link to the approval
-        const relatedApproval = approvals.approvals.find(
+        const relatedApproval = approvalEntries.find(
           (a) => a.id === entry.metadata?.approvalId
         );
 
@@ -251,10 +266,11 @@ async function main(): Promise<void> {
     taskId: result.taskId,
     heartbeatId: result.heartbeatId,
     approvalsWithCompanyProvenance,
-    totalApprovalsInSystem: approvals.count,
+    totalApprovalsInSystem: approvalEntries.length,
     controlEntriesWithApprovalProvenance,
     totalControlHistoryEntries: controlHistory.count,
-    approvalProvenancePreserved: approvalsWithCompanyProvenance > 0 || approvals.count === 0,
+    approvalProvenancePreserved:
+      approvalsWithCompanyProvenance > 0 || approvalEntries.length === 0,
   });
 }
 
