@@ -122,7 +122,7 @@ jobs:
         id: operator_surface
         if: steps.operator_agent_config.outputs.enabled == 'true'
         run: |
-          npm run ci:operator-surface-check | tee operator-surface.log
+          npm run ci:operator-surface-check 2>&1 | tee operator-surface.log
 
       - name: Scheduled routing
         id: scheduled_routing
@@ -133,11 +133,35 @@ jobs:
         id: paperclip_first_execution
         if: steps.operator_agent_config.outputs.enabled == 'true'
         run: |
-          npm run ci:paperclip-first-execution-check | tee paperclip-first-execution.log
+          npm run ci:paperclip-first-execution-check 2>&1 | tee paperclip-first-execution.log
 
       - name: Write summary
         if: always()
         run: |
+          collect_operator_warnings() {
+            local logs=(
+              operator-surface.log
+              paperclip-first-execution.log
+            )
+            local found=""
+
+            for log_file in "${logs[@]}"; do
+              if [[ -f "$log_file" ]]; then
+                while IFS= read -r line; do
+                  if [[ "$line" =~ ^\[(warn|skip)\] ]]; then
+                    local cleaned="$line"
+                    cleaned="${cleaned#\[warn\] }"
+                    cleaned="${cleaned#\[skip\] }"
+                    found+="$cleaned"
+                    found+=$'\n'
+                  fi
+                done < "$log_file"
+              fi
+            done
+
+            printf "%s" "$found"
+          }
+
           status_emoji() {
             case "$1" in
               success) echo "✅" ;;
@@ -166,6 +190,11 @@ jobs:
           OPERATOR_SURFACE_OUTCOME="${{ steps.operator_surface.outcome }}"
           SCHEDULED_ROUTING_OUTCOME="${{ steps.scheduled_routing.outcome }}"
           PAPERCLIP_FIRST_EXECUTION_OUTCOME="${{ steps.paperclip_first_execution.outcome }}"
+          OPERATOR_WARNINGS="$(collect_operator_warnings)"
+          HAS_OPERATOR_WARNINGS="false"
+          if [[ -n "$OPERATOR_WARNINGS" ]]; then
+            HAS_OPERATOR_WARNINGS="true"
+          fi
 
           echo "## Operator surface contract validation summary" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
@@ -196,6 +225,15 @@ jobs:
             else
               echo "- ⚪ Operator-agent checks skipped: ASYNC_VALIDATION_OPERATOR_AGENT_BASE_URL is invalid (must be absolute, e.g. https://... )." >> "$GITHUB_STEP_SUMMARY"
             fi
+          fi
+
+          if [[ "$HAS_OPERATOR_WARNINGS" == "true" ]]; then
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "### Warning signals" >> "$GITHUB_STEP_SUMMARY"
+            while IFS= read -r warning_line; do
+              [[ -z "$warning_line" ]] && continue
+              echo "- ⚠️ $warning_line" >> "$GITHUB_STEP_SUMMARY"
+            done <<< "$OPERATOR_WARNINGS"
           fi
           echo "" >> "$GITHUB_STEP_SUMMARY"
 
@@ -239,7 +277,11 @@ jobs:
           fi
 
           if [[ "$ALL_ENV_OK" == "true" && "$ALL_SURFACE_OK" == "true" ]]; then
-            echo "- ✅ Operator surface contract validation passed." >> "$GITHUB_STEP_SUMMARY"
+            if [[ "$HAS_OPERATOR_WARNINGS" == "true" ]]; then
+              echo "- ⚠️ Operator surface contract validation passed with warnings." >> "$GITHUB_STEP_SUMMARY"
+            else
+              echo "- ✅ Operator surface contract validation passed." >> "$GITHUB_STEP_SUMMARY"
+            fi
           elif [[ "$ALL_ENV_OK" == "false" ]]; then
             echo "- ❌ Environment bring-up failed; surface results may be incomplete or misleading." >> "$GITHUB_STEP_SUMMARY"
           else

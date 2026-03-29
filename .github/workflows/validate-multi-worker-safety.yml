@@ -117,17 +117,41 @@ jobs:
         id: multi_worker_department
         if: steps.operator_agent_config.outputs.enabled == 'true'
         run: |
-          npm run ci:multi-worker-department-check | tee multi-worker-department.log
+          npm run ci:multi-worker-department-check 2>&1 | tee multi-worker-department.log
 
       - name: Agent timeout recovery
         id: agent_timeout_recovery
         if: steps.operator_agent_config.outputs.enabled == 'true'
         run: |
-          npm run ci:agent-timeout-recovery-check | tee agent-timeout-recovery.log
+          npm run ci:agent-timeout-recovery-check 2>&1 | tee agent-timeout-recovery.log
 
       - name: Write summary
         if: always()
         run: |
+          collect_operator_warnings() {
+            local logs=(
+              multi-worker-department.log
+              agent-timeout-recovery.log
+            )
+            local found=""
+
+            for log_file in "${logs[@]}"; do
+              if [[ -f "$log_file" ]]; then
+                while IFS= read -r line; do
+                  if [[ "$line" =~ ^\[(warn|skip)\] ]]; then
+                    local cleaned="$line"
+                    cleaned="${cleaned#\[warn\] }"
+                    cleaned="${cleaned#\[skip\] }"
+                    found+="$cleaned"
+                    found+=$'\n'
+                  fi
+                done < "$log_file"
+              fi
+            done
+
+            printf "%s" "$found"
+          }
+
           status_emoji() {
             case "$1" in
               success) echo "✅" ;;
@@ -155,6 +179,11 @@ jobs:
           HEALTH_OUTCOME="${{ steps.health_check.outcome }}"
           MULTI_WORKER_OUTCOME="${{ steps.multi_worker_department.outcome }}"
           TIMEOUT_RECOVERY_OUTCOME="${{ steps.agent_timeout_recovery.outcome }}"
+          OPERATOR_WARNINGS="$(collect_operator_warnings)"
+          HAS_OPERATOR_WARNINGS="false"
+          if [[ -n "$OPERATOR_WARNINGS" ]]; then
+            HAS_OPERATOR_WARNINGS="true"
+          fi
 
           echo "## Multi-worker safety validation summary" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
@@ -186,6 +215,15 @@ jobs:
             else
               echo "- ⚪ Operator-agent checks skipped: ASYNC_VALIDATION_OPERATOR_AGENT_BASE_URL is invalid (must be absolute, e.g. https://... )." >> "$GITHUB_STEP_SUMMARY"
             fi
+          fi
+
+          if [[ "$HAS_OPERATOR_WARNINGS" == "true" ]]; then
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "### Warning signals" >> "$GITHUB_STEP_SUMMARY"
+            while IFS= read -r warning_line; do
+              [[ -z "$warning_line" ]] && continue
+              echo "- ⚠️ $warning_line" >> "$GITHUB_STEP_SUMMARY"
+            done <<< "$OPERATOR_WARNINGS"
           fi
           echo "" >> "$GITHUB_STEP_SUMMARY"
 
@@ -226,7 +264,11 @@ jobs:
 
           if [[ "$ALL_ENV_OK" == "true" && "$ALL_SAFETY_OK" == "true" ]]; then
             if [[ "${{ steps.operator_agent_config.outputs.enabled }}" == "true" ]]; then
-              echo "- ✅ Multi-worker safety validation passed." >> "$GITHUB_STEP_SUMMARY"
+              if [[ "$HAS_OPERATOR_WARNINGS" == "true" ]]; then
+                echo "- ⚠️ Multi-worker safety validation passed with warnings." >> "$GITHUB_STEP_SUMMARY"
+              else
+                echo "- ✅ Multi-worker safety validation passed." >> "$GITHUB_STEP_SUMMARY"
+              fi
             else
               if [[ "${{ steps.operator_agent_config.outputs.reason }}" == "missing" ]]; then
                 echo "- ⚪ Multi-worker safety checks skipped because ASYNC_VALIDATION_OPERATOR_AGENT_BASE_URL is not configured." >> "$GITHUB_STEP_SUMMARY"

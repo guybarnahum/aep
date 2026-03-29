@@ -117,41 +117,69 @@ jobs:
         id: manager_advisory
         if: steps.operator_agent_config.outputs.enabled == 'true'
         run: |
-          npm run ci:manager-advisory-check | tee manager-advisory.log
+          npm run ci:manager-advisory-check 2>&1 | tee manager-advisory.log
 
       - name: Manager policy overlay
         id: manager_policy_overlay
         if: steps.operator_agent_config.outputs.enabled == 'true'
         run: |
-          npm run ci:manager-policy-overlay-check | tee manager-policy-overlay.log
+          npm run ci:manager-policy-overlay-check 2>&1 | tee manager-policy-overlay.log
 
       - name: Escalation audit
         id: escalation_audit
         if: steps.operator_agent_config.outputs.enabled == 'true'
         run: |
-          npm run ci:escalation-audit-check | tee escalation-audit.log
+          npm run ci:escalation-audit-check 2>&1 | tee escalation-audit.log
 
       - name: Escalation lifecycle
         id: escalation_lifecycle
         if: steps.operator_agent_config.outputs.enabled == 'true'
         run: |
-          npm run ci:escalation-lifecycle-check | tee escalation-lifecycle.log
+          npm run ci:escalation-lifecycle-check 2>&1 | tee escalation-lifecycle.log
 
       - name: Approval state machine
         id: approval_state_machine
         if: steps.operator_agent_config.outputs.enabled == 'true'
         run: |
-          npm run ci:approval-state-machine-check | tee approval-state-machine.log
+          npm run ci:approval-state-machine-check 2>&1 | tee approval-state-machine.log
 
       - name: Paperclip first execution
         id: paperclip_first_execution
         if: steps.operator_agent_config.outputs.enabled == 'true'
         run: |
-          npm run ci:paperclip-first-execution-check | tee paperclip-first-execution.log
+          npm run ci:paperclip-first-execution-check 2>&1 | tee paperclip-first-execution.log
 
       - name: Write summary
         if: always()
         run: |
+          collect_operator_warnings() {
+            local logs=(
+              manager-advisory.log
+              manager-policy-overlay.log
+              escalation-audit.log
+              escalation-lifecycle.log
+              approval-state-machine.log
+              paperclip-first-execution.log
+            )
+            local found=""
+
+            for log_file in "${logs[@]}"; do
+              if [[ -f "$log_file" ]]; then
+                while IFS= read -r line; do
+                  if [[ "$line" =~ ^\[(warn|skip)\] ]]; then
+                    local cleaned="$line"
+                    cleaned="${cleaned#\[warn\] }"
+                    cleaned="${cleaned#\[skip\] }"
+                    found+="$cleaned"
+                    found+=$'\n'
+                  fi
+                done < "$log_file"
+              fi
+            done
+
+            printf "%s" "$found"
+          }
+
           status_emoji() {
             case "$1" in
               success) echo "✅" ;;
@@ -183,6 +211,11 @@ jobs:
           ESCALATION_LIFECYCLE_OUTCOME="${{ steps.escalation_lifecycle.outcome }}"
           APPROVAL_STATE_MACHINE_OUTCOME="${{ steps.approval_state_machine.outcome }}"
           PAPERCLIP_FIRST_EXECUTION_OUTCOME="${{ steps.paperclip_first_execution.outcome }}"
+          OPERATOR_WARNINGS="$(collect_operator_warnings)"
+          HAS_OPERATOR_WARNINGS="false"
+          if [[ -n "$OPERATOR_WARNINGS" ]]; then
+            HAS_OPERATOR_WARNINGS="true"
+          fi
 
           echo "## Operator governance validation summary" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
@@ -219,6 +252,15 @@ jobs:
             else
               echo "- ⚪ Operator-agent checks skipped: ASYNC_VALIDATION_OPERATOR_AGENT_BASE_URL is invalid (must be absolute, e.g. https://... )." >> "$GITHUB_STEP_SUMMARY"
             fi
+          fi
+
+          if [[ "$HAS_OPERATOR_WARNINGS" == "true" ]]; then
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "### Warning signals" >> "$GITHUB_STEP_SUMMARY"
+            while IFS= read -r warning_line; do
+              [[ -z "$warning_line" ]] && continue
+              echo "- ⚠️ $warning_line" >> "$GITHUB_STEP_SUMMARY"
+            done <<< "$OPERATOR_WARNINGS"
           fi
           echo "" >> "$GITHUB_STEP_SUMMARY"
 
@@ -267,7 +309,11 @@ jobs:
 
           if [[ "$ALL_ENV_OK" == "true" && "$ALL_SCENARIO_OK" == "true" ]]; then
             if [[ "${{ steps.operator_agent_config.outputs.enabled }}" == "true" ]]; then
-              echo "- ✅ Operator governance validation passed." >> "$GITHUB_STEP_SUMMARY"
+              if [[ "$HAS_OPERATOR_WARNINGS" == "true" ]]; then
+                echo "- ⚠️ Operator governance validation passed with warnings." >> "$GITHUB_STEP_SUMMARY"
+              else
+                echo "- ✅ Operator governance validation passed." >> "$GITHUB_STEP_SUMMARY"
+              fi
             else
               if [[ "${{ steps.operator_agent_config.outputs.reason }}" == "missing" ]]; then
                 echo "- ⚪ Operator governance checks skipped because ASYNC_VALIDATION_OPERATOR_AGENT_BASE_URL is not configured." >> "$GITHUB_STEP_SUMMARY"

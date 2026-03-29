@@ -18,9 +18,8 @@ export function handleOperatorAgentUnavailableSkip(
     return false;
   }
 
-  const message = error instanceof Error ? error.message : String(error);
   console.log(
-    `[skip] ${scriptName}: operator-agent route returned a Cloudflare placeholder 404; skipping because the worker is not deployed or the public route is not attached (${message})`
+    `[warn] ${scriptName}: operator-agent route returned a Cloudflare placeholder 404; soft-skipping check because the worker is not deployed or the public route is not attached`
   );
   return true;
 }

@@ -117,13 +117,13 @@ jobs:
         id: paperclip_company_handoff
         if: steps.operator_agent_config.outputs.enabled == 'true'
         run: |
-          npm run ci:paperclip-company-handoff-check | tee paperclip-company-handoff.log
+          npm run ci:paperclip-company-handoff-check 2>&1 | tee paperclip-company-handoff.log
 
       - name: Paperclip first execution
         id: paperclip_first_execution
         if: steps.operator_agent_config.outputs.enabled == 'true'
         run: |
-          npm run ci:paperclip-first-execution-check | tee paperclip-first-execution.log
+          npm run ci:paperclip-first-execution-check 2>&1 | tee paperclip-first-execution.log
 
       - name: Scheduled routing
         id: scheduled_routing
@@ -133,6 +133,30 @@ jobs:
       - name: Write summary
         if: always()
         run: |
+          collect_operator_warnings() {
+            local logs=(
+              paperclip-company-handoff.log
+              paperclip-first-execution.log
+            )
+            local found=""
+
+            for log_file in "${logs[@]}"; do
+              if [[ -f "$log_file" ]]; then
+                while IFS= read -r line; do
+                  if [[ "$line" =~ ^\[(warn|skip)\] ]]; then
+                    local cleaned="$line"
+                    cleaned="${cleaned#\[warn\] }"
+                    cleaned="${cleaned#\[skip\] }"
+                    found+="$cleaned"
+                    found+=$'\n'
+                  fi
+                done < "$log_file"
+              fi
+            done
+
+            printf "%s" "$found"
+          }
+
           status_emoji() {
             case "$1" in
               success) echo "✅" ;;
@@ -161,6 +185,11 @@ jobs:
           PAPERCLIP_COMPANY_HANDOFF_OUTCOME="${{ steps.paperclip_company_handoff.outcome }}"
           PAPERCLIP_FIRST_EXECUTION_OUTCOME="${{ steps.paperclip_first_execution.outcome }}"
           SCHEDULED_ROUTING_OUTCOME="${{ steps.scheduled_routing.outcome }}"
+          OPERATOR_WARNINGS="$(collect_operator_warnings)"
+          HAS_OPERATOR_WARNINGS="false"
+          if [[ -n "$OPERATOR_WARNINGS" ]]; then
+            HAS_OPERATOR_WARNINGS="true"
+          fi
 
           echo "## Paperclip handoff validation summary" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
@@ -195,6 +224,15 @@ jobs:
             else
               echo "- ⚪ Operator-agent checks skipped: ASYNC_VALIDATION_OPERATOR_AGENT_BASE_URL is invalid (must be absolute, e.g. https://... )." >> "$GITHUB_STEP_SUMMARY"
             fi
+          fi
+
+          if [[ "$HAS_OPERATOR_WARNINGS" == "true" ]]; then
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "### Warning signals" >> "$GITHUB_STEP_SUMMARY"
+            while IFS= read -r warning_line; do
+              [[ -z "$warning_line" ]] && continue
+              echo "- ⚠️ $warning_line" >> "$GITHUB_STEP_SUMMARY"
+            done <<< "$OPERATOR_WARNINGS"
           fi
           echo "" >> "$GITHUB_STEP_SUMMARY"
 
@@ -242,7 +280,11 @@ jobs:
 
           if [[ "$ALL_ENV_OK" == "true" && "$ALL_HANDOFF_OK" == "true" ]]; then
             if [[ "${{ steps.operator_agent_config.outputs.enabled }}" == "true" ]]; then
-              echo "- ✅ Paperclip handoff contract validation passed." >> "$GITHUB_STEP_SUMMARY"
+              if [[ "$HAS_OPERATOR_WARNINGS" == "true" ]]; then
+                echo "- ⚠️ Paperclip handoff contract validation passed with warnings." >> "$GITHUB_STEP_SUMMARY"
+              else
+                echo "- ✅ Paperclip handoff contract validation passed." >> "$GITHUB_STEP_SUMMARY"
+              fi
             else
               if [[ "${{ steps.operator_agent_config.outputs.reason }}" == "missing" ]]; then
                 echo "- ⚪ Paperclip handoff checks skipped where operator-agent is required because ASYNC_VALIDATION_OPERATOR_AGENT_BASE_URL is not configured." >> "$GITHUB_STEP_SUMMARY"

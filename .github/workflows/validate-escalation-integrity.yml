@@ -117,23 +117,48 @@ jobs:
         id: escalation_lifecycle
         if: steps.operator_agent_config.outputs.enabled == 'true'
         run: |
-          npm run ci:escalation-lifecycle-check | tee escalation-lifecycle.log
+          npm run ci:escalation-lifecycle-check 2>&1 | tee escalation-lifecycle.log
 
       - name: Escalation audit
         id: escalation_audit
         if: steps.operator_agent_config.outputs.enabled == 'true'
         run: |
-          npm run ci:escalation-audit-check | tee escalation-audit.log
+          npm run ci:escalation-audit-check 2>&1 | tee escalation-audit.log
 
       - name: Manager advisory
         id: manager_advisory
         if: steps.operator_agent_config.outputs.enabled == 'true'
         run: |
-          npm run ci:manager-advisory-check | tee manager-advisory.log
+          npm run ci:manager-advisory-check 2>&1 | tee manager-advisory.log
 
       - name: Write summary
         if: always()
         run: |
+          collect_operator_warnings() {
+            local logs=(
+              escalation-lifecycle.log
+              escalation-audit.log
+              manager-advisory.log
+            )
+            local found=""
+
+            for log_file in "${logs[@]}"; do
+              if [[ -f "$log_file" ]]; then
+                while IFS= read -r line; do
+                  if [[ "$line" =~ ^\[(warn|skip)\] ]]; then
+                    local cleaned="$line"
+                    cleaned="${cleaned#\[warn\] }"
+                    cleaned="${cleaned#\[skip\] }"
+                    found+="$cleaned"
+                    found+=$'\n'
+                  fi
+                done < "$log_file"
+              fi
+            done
+
+            printf "%s" "$found"
+          }
+
           status_emoji() {
             case "$1" in
               success) echo "✅" ;;
@@ -162,6 +187,11 @@ jobs:
           ESCALATION_LIFECYCLE_OUTCOME="${{ steps.escalation_lifecycle.outcome }}"
           ESCALATION_AUDIT_OUTCOME="${{ steps.escalation_audit.outcome }}"
           MANAGER_ADVISORY_OUTCOME="${{ steps.manager_advisory.outcome }}"
+          OPERATOR_WARNINGS="$(collect_operator_warnings)"
+          HAS_OPERATOR_WARNINGS="false"
+          if [[ -n "$OPERATOR_WARNINGS" ]]; then
+            HAS_OPERATOR_WARNINGS="true"
+          fi
 
           echo "## Escalation integrity validation summary" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
@@ -194,6 +224,15 @@ jobs:
             else
               echo "- ⚪ Operator-agent checks skipped: ASYNC_VALIDATION_OPERATOR_AGENT_BASE_URL is invalid (must be absolute, e.g. https://... )." >> "$GITHUB_STEP_SUMMARY"
             fi
+          fi
+
+          if [[ "$HAS_OPERATOR_WARNINGS" == "true" ]]; then
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "### Warning signals" >> "$GITHUB_STEP_SUMMARY"
+            while IFS= read -r warning_line; do
+              [[ -z "$warning_line" ]] && continue
+              echo "- ⚠️ $warning_line" >> "$GITHUB_STEP_SUMMARY"
+            done <<< "$OPERATOR_WARNINGS"
           fi
           echo "" >> "$GITHUB_STEP_SUMMARY"
 
@@ -238,7 +277,11 @@ jobs:
 
           if [[ "$ALL_ENV_OK" == "true" && "$ALL_ESCALATION_OK" == "true" ]]; then
             if [[ "${{ steps.operator_agent_config.outputs.enabled }}" == "true" ]]; then
-              echo "- ✅ Escalation integrity validation passed." >> "$GITHUB_STEP_SUMMARY"
+              if [[ "$HAS_OPERATOR_WARNINGS" == "true" ]]; then
+                echo "- ⚠️ Escalation integrity validation passed with warnings." >> "$GITHUB_STEP_SUMMARY"
+              else
+                echo "- ✅ Escalation integrity validation passed." >> "$GITHUB_STEP_SUMMARY"
+              fi
             else
               if [[ "${{ steps.operator_agent_config.outputs.reason }}" == "missing" ]]; then
                 echo "- ⚪ Escalation integrity checks skipped because ASYNC_VALIDATION_OPERATOR_AGENT_BASE_URL is not configured." >> "$GITHUB_STEP_SUMMARY"
