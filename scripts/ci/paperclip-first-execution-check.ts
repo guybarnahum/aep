@@ -45,6 +45,7 @@ type SeedEnvelope = {
   ok?: boolean;
   seeded?: number;
   error?: string;
+  raw?: string;
 };
 
 const MANAGER_CRON = "*/5 * * * *";
@@ -204,7 +205,19 @@ async function seedWorkLog(
     );
   }
 
-  return (await readJson(response)) as SeedEnvelope;
+  if (!response.ok) {
+    const failedBody = await response.text();
+    throw new Error(
+      `Seed endpoint failed with status ${response.status}: ${failedBody.slice(0, 300)}`
+    );
+  }
+
+  const parsed = (await readJson(response)) as SeedEnvelope;
+  if (!parsed || typeof parsed !== "object") {
+    throw new Error("Seed endpoint returned a non-object response");
+  }
+
+  return parsed;
 }
 
 async function triggerScheduled(
@@ -243,7 +256,11 @@ async function main(): Promise<void> {
   }
 
   if (!seeded.ok || (seeded.seeded ?? 0) < 1) {
-    throw new Error(`Work-log seed step failed: ${String(seeded.error ?? "unknown")}`);
+    throw new Error(
+      `Work-log seed step failed: ${String(
+        seeded.error ?? seeded.raw ?? summarizeForError(seeded)
+      )}`
+    );
   }
 
   const validBody = {
