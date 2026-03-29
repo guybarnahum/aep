@@ -1,6 +1,7 @@
 /* eslint-disable no-console */
 
 import { resolveServiceBaseUrl } from "../lib/service-map";
+import { handleOperatorAgentUnavailableSkip } from "../lib/operator-agent-skip";
 
 export {};
 
@@ -245,6 +246,10 @@ async function main(): Promise<void> {
       count: 1,
     });
   } catch (err) {
+    if (handleOperatorAgentUnavailableSkip("paperclip-first-execution-check", err)) {
+      process.exit(0);
+    }
+
     // Soft-skip when the worker isn't deployed yet (Cloudflare HTML 404).
     if (err instanceof Error && (err as Error & { notDeployed?: boolean }).notDeployed) {
       console.warn(

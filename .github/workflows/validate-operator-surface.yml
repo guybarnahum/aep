@@ -105,6 +105,19 @@ jobs:
             echo "source=none" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Debug operator-agent URL resolution
+        id: debug_operator_agent_url
+        run: |
+          echo "operator_agent_url_source=${{ steps.operator_agent_url.outputs.source }}"
+          echo "operator_agent_url=${{ steps.operator_agent_url.outputs.url }}"
+          echo "operator_agent_secret_url=${OPERATOR_AGENT_BASE_URL:-<empty>}"
+
+          if [[ -n "${{ steps.operator_agent_url.outputs.url }}" ]]; then
+            echo "operator_agent_healthz_target=${{ steps.operator_agent_url.outputs.url }}/healthz"
+          else
+            echo "operator_agent_healthz_target=<unresolved>"
+          fi
+
       - name: Apply D1 migrations
         id: d1_migrations
         env:
