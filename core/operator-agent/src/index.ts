@@ -113,6 +113,13 @@ async function dispatch(request: Request, env: OperatorAgentEnv): Promise<Respon
     return handleSeedWorkLog(request, env);
   }
 
+  if (
+    env.ENABLE_TEST_ENDPOINTS === "true" &&
+    url.pathname === "/agent/work-log/seed"
+  ) {
+    return handleSeedWorkLog(request, env);
+  }
+
   return new Response("Not Found", { status: 404 });
 }
 

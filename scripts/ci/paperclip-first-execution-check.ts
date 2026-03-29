@@ -186,13 +186,20 @@ async function seedWorkLog(
   agentBaseUrl: string,
   body: Record<string, unknown>
 ): Promise<SeedEnvelope> {
-  const response = await fetch(`${agentBaseUrl}/agent/te/seed-work-log`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(body),
-  });
+  const seedPaths = ["/agent/work-log/seed", "/agent/te/seed-work-log"];
 
-  if (response.status === 404) {
+  let response: Response | undefined;
+  for (const seedPath of seedPaths) {
+    response = await fetch(`${agentBaseUrl}${seedPath}`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+    });
+
+    if (response.status !== 404) {
+      break;
+    }
+
     const body404 = await response.text();
     if (body404.includes("<!DOCTYPE html")) {
       const err = new Error(
@@ -201,6 +208,13 @@ async function seedWorkLog(
       (err as Error & { notDeployed: boolean }).notDeployed = true;
       throw err;
     }
+  }
+
+  if (!response) {
+    throw new Error("Seed endpoint request did not execute");
+  }
+
+  if (response.status === 404) {
     throw new Error(
       "Seed endpoint returned 404 — start the operator-agent with --var ENABLE_TEST_ENDPOINTS:true"
     );
