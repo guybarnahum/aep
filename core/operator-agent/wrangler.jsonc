@@ -71,7 +71,8 @@
   "vars": {
     "AEP_CRON_FALLBACK_ENABLED": "true",
     "PAPERCLIP_SHARED_SECRET": "",
-    "PAPERCLIP_AUTH_REQUIRED": "false"
+    "PAPERCLIP_AUTH_REQUIRED": "false",
+    "ENABLE_TEST_ENDPOINTS": "true"
   },
   "triggers": {
     "crons": ["* * * * *", "*/5 * * * *"]
