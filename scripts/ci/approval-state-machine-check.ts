@@ -12,22 +12,30 @@ type ApprovalEntry = {
   status: "pending" | "approved" | "rejected" | "expired";
   requestedAt: string;
   expiresAt?: string;
-  approvedAt?: string;
-  rejectedAt?: string;
-  expiredAt?: string;
-  metadata?: Record<string, unknown>;
-  controlHistory?: Array<{
-    id: string;
-    timestamp: string;
-    action: string;
-  }>;
-};
-
-type ApprovalsListResponse = {
-  ok: true;
-  count: number;
-  approvals?: ApprovalEntry[];
-  entries?: ApprovalEntry[];
+  approvalId: string;
+  timestamp: string;
+  companyId?: string;
+  taskId?: string;
+  heartbeatId?: string;
+  departmentId: string;
+  requestedByEmployeeId: string;
+  requestedByEmployeeName?: string;
+  requestedByRoleId: string;
+  source: string;
+  actionType: string;
+  payload: Record<string, unknown>;
+  status: "pending" | "approved" | "rejected" | "expired";
+  expiresAt?: string;
+  reason: string;
+  message: string;
+  decidedAt?: string;
+  decidedBy?: string;
+  decisionNote?: string;
+  executedAt?: string;
+  executionId?: string;
+  executedByEmployeeId?: string;
+  executedByRoleId?: string;
+  executionContext?: Record<string, unknown>;
 };
 
 type ApprovalDetailResponse = {
@@ -105,34 +113,23 @@ async function runApprovalStateMachineChecks(): Promise<void> {
   for (const approval of approvals) {
     if (!validStates.includes(approval.status as never)) {
       throw new Error(
-        `Approval ${approval.approvalId} has invalid state: ${approval.status}. ` +
+        `Approval ${approval.approvalId} has invalid status: ${approval.status}. ` +
           `Expected one of: ${validStates.join(", ")}`
       );
     }
-
-    // Validate timestamp coherence
-    if (!approval.requestedAt) {
-      throw new Error(`Approval ${approval.approvalId} missing requestedAt timestamp`);
+    if (!approval.timestamp) {
+      throw new Error(`Approval ${approval.approvalId} missing timestamp field`);
     }
-
-    // Validate state-specific fields
-    if (approval.status === "approved" && !approval.approvedAt) {
-      throw new Error(
-        `Approval ${approval.approvalId} is approved but missing approvedAt timestamp`
-      );
+    if (!approval.requestedByEmployeeId) {
+      throw new Error(`Approval ${approval.approvalId} missing requestedByEmployeeId field`);
     }
-
-    if (approval.status === "rejected" && !approval.rejectedAt) {
-      throw new Error(
-        `Approval ${approval.approvalId} is rejected but missing rejectedAt timestamp`
-      );
+    if (!approval.reason) {
+      throw new Error(`Approval ${approval.approvalId} missing reason field`);
     }
-
-    if (approval.status === "expired" && !approval.expiredAt) {
-      throw new Error(
-        `Approval ${approval.approvalId} is expired but missing expiredAt timestamp`
-      );
+    if (!approval.message) {
+      throw new Error(`Approval ${approval.approvalId} missing message field`);
     }
+    // Optional: check for departmentId, actionType, etc. as needed
   }
 
   console.log(`  ✓ All approval states are valid`);
@@ -158,7 +155,7 @@ async function runApprovalStateMachineChecks(): Promise<void> {
 
     if (approval.status !== firstApproval.status) {
       throw new Error(
-        `Approval detail state mismatch: expected ${firstApproval.status}, got ${approval.status}`
+        `Approval detail status mismatch: expected ${firstApproval.status}, got ${approval.status}`
       );
     }
 
