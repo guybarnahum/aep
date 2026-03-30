@@ -30,6 +30,8 @@ jobs:
       HEALTH_RUNTIME_ENV: dev
       D1_DATABASE_NAME: aep-async-validation
       WRANGLER_CONFIG: core/control-plane/wrangler.toml
+      OPERATOR_AGENT_D1_DATABASE_NAME: aep-operator-agent-async-validation
+      OPERATOR_AGENT_WRANGLER_CONFIG: core/operator-agent/wrangler.jsonc
 
     steps:
       - uses: actions/checkout@v4

@@ -45,6 +45,8 @@ jobs:
       CF_ENV: staging
       D1_DATABASE_NAME: aep-staging
       WRANGLER_CONFIG: core/control-plane/wrangler.toml
+      OPERATOR_AGENT_D1_DATABASE_NAME: aep-operator-agent-staging
+      OPERATOR_AGENT_WRANGLER_CONFIG: core/operator-agent/wrangler.jsonc
 
     steps:
       - uses: actions/checkout@v4

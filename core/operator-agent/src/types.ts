@@ -565,8 +565,12 @@ export interface EmployeeRunErrorResponse {
   controlPlaneTarget?: string;
 }
 
+export type OperatorAgentStoreBackend = "kv" | "dual" | "d1";
+
 export interface OperatorAgentEnv extends Record<string, unknown> {
   OPERATOR_AGENT_KV?: KVNamespace;
+  OPERATOR_AGENT_DB?: D1Database;
+  OPERATOR_AGENT_STORE_BACKEND?: string;
   CONTROL_PLANE?: Fetcher;
   CONTROL_PLANE_BASE_URL?: string;
   AEP_CRON_FALLBACK_ENABLED?: string;
