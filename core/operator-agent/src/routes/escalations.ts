@@ -1,4 +1,4 @@
-import { EscalationLog } from "@aep/operator-agent/lib/escalation-log";
+import { createStores } from "@aep/operator-agent/lib/store-factory";
 import type { EscalationState, OperatorAgentEnv } from "@aep/operator-agent/types";
 
 export async function handleEscalations(
@@ -20,8 +20,8 @@ export async function handleEscalations(
   const stateFilter =
     stateParam && validStates.includes(stateParam) ? stateParam : undefined;
 
-  const log = new EscalationLog(env ?? {});
-  const entries = await log.list(limit, stateFilter);
+  const store = createStores(env ?? {}).escalations;
+  const entries = await store.list(limit, stateFilter);
 
   return Response.json({
     ok: true,

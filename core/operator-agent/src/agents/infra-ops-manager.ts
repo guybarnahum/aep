@@ -1,6 +1,5 @@
 import { getConfig } from "@aep/operator-agent/config";
 import { getApprovalPolicy } from "@aep/operator-agent/lib/approval-policy";
-import { EscalationLog } from "@aep/operator-agent/lib/escalation-log";
 import { ManagerDecisionLog } from "@aep/operator-agent/lib/manager-decision-log";
 import { createStores } from "@aep/operator-agent/lib/store-factory";
 import { listAgentWorkLogEntries } from "@aep/operator-agent/lib/work-log-reader";
@@ -1142,7 +1141,7 @@ export async function runInfraOpsManager(
     await log.write(decision);
   }
 
-  const escalationLog = new EscalationLog(env ?? {});
+  const escalationStore = createStores(env ?? {}).escalations;
   for (const decision of decisions) {
     const shouldEscalate =
       decision.severity === "critical" ||
@@ -1163,7 +1162,7 @@ export async function runInfraOpsManager(
     const rec: EscalationReason = escalationReasons.has(decision.reason)
       ? (decision.reason as EscalationReason)
       : "repeated_verification_failures";
-    await escalationLog.write({
+    await escalationStore.write({
       escalationId: escalationId(
         decision.timestamp,
         decision.reason,

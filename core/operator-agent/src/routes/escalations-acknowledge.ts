@@ -1,4 +1,4 @@
-import { EscalationLog } from "@aep/operator-agent/lib/escalation-log";
+import { createStores } from "@aep/operator-agent/lib/store-factory";
 import { applyAcknowledged } from "@aep/operator-agent/lib/escalation-state";
 import type { OperatorAgentEnv } from "@aep/operator-agent/types";
 
@@ -22,8 +22,8 @@ export async function handleAcknowledgeEscalation(
 
   const actor = request.headers.get("x-actor") ?? "operator";
 
-  const log = new EscalationLog(env ?? {});
-  const escalation = await log.get(escalationId);
+  const store = createStores(env ?? {}).escalations;
+  const escalation = await store.get(escalationId);
 
   if (!escalation) {
     return new Response(
@@ -42,7 +42,7 @@ export async function handleAcknowledgeEscalation(
     );
   }
 
-  await log.put(updated);
+  await store.put(updated);
 
   return Response.json({ ok: true, escalation: updated });
 }
