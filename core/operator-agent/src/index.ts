@@ -33,6 +33,16 @@ function withCors(response: Response): Response {
 
 async function dispatch(request: Request, env: OperatorAgentEnv): Promise<Response> {
   const url = new URL(request.url);
+  // Test endpoint: allow CI to trigger scheduled event via HTTP
+  if (
+    env.ENABLE_TEST_ENDPOINTS === "true" &&
+    request.method === "GET" &&
+    url.pathname === "/__scheduled"
+  ) {
+    // Use a default cron value for test (can be parameterized if needed)
+    await handleScheduledCron("* * * * *", env);
+    return new Response("Scheduled event triggered", { status: 200 });
+  }
 
   if (request.method === "GET" && url.pathname === "/healthz") {
     return handleHealthz();
