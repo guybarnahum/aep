@@ -1,7 +1,7 @@
 import { getConfig } from "@aep/operator-agent/config";
 import { createControlPlaneClient } from "@aep/operator-agent/lib/api-client";
-import { BudgetEnforcer } from "@aep/operator-agent/lib/budget-enforcer";
-import { CooldownStore } from "@aep/operator-agent/lib/cooldown-store";
+import { D1BudgetEnforcer } from "@aep/operator-agent/lib/budget-enforcer-d1";
+import { D1CooldownStore } from "@aep/operator-agent/lib/cooldown-store-d1";
 import { DecisionLog } from "@aep/operator-agent/lib/decision-log";
 import { logInfo } from "@aep/operator-agent/lib/logger";
 import { evaluateTimeoutRecoveryPolicy } from "@aep/operator-agent/lib/policy";
@@ -69,12 +69,12 @@ export async function runTimeoutRecoveryOperator(
   const client = createControlPlaneClient(env);
   const mode = config.dryRun ? "dry-run" : "apply";
 
-  const budgetEnforcer = new BudgetEnforcer(
+  const budgetEnforcer = new D1BudgetEnforcer(
     env ?? {},
     employee.identity.employeeId,
     budget
   );
-  const cooldownStore = new CooldownStore(env ?? {}, config.cooldownMs);
+  const cooldownStore = new D1CooldownStore(env ?? {}, config.cooldownMs);
   const decisionLog = new DecisionLog(env ?? {});
 
   const runs = await client.listRuns();

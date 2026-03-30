@@ -2,12 +2,7 @@
   "name": "aep-operator-agent",
   "main": "src/index.ts",
   "compatibility_date": "2026-03-25",
-  "kv_namespaces": [
-    {
-      "binding": "OPERATOR_AGENT_KV",
-      "id": "7fe56cac65c04fc18c12093b0ee0d201"
-    }
-  ],
+  "kv_namespaces": [],
   "d1_databases": [
     {
       "binding": "OPERATOR_AGENT_DB",
@@ -18,12 +13,7 @@
   ],
   "env": {
     "async_validation": {
-      "kv_namespaces": [
-        {
-          "binding": "OPERATOR_AGENT_KV",
-          "id": "bc7e86bde9ba478bb3d99068ea3b67d6"
-        }
-      ],
+      "kv_namespaces": [],
       "d1_databases": [
         {
           "binding": "OPERATOR_AGENT_DB",
@@ -47,12 +37,7 @@
       ]
     },
     "staging": {
-      "kv_namespaces": [
-        {
-          "binding": "OPERATOR_AGENT_KV",
-          "id": "f5c93e01bce8489fad198ab6d122a4b5"
-        }
-      ],
+      "kv_namespaces": [],
       "d1_databases": [
         {
           "binding": "OPERATOR_AGENT_DB",
@@ -75,12 +60,7 @@
       ]
     },
     "production": {
-      "kv_namespaces": [
-        {
-          "binding": "OPERATOR_AGENT_KV",
-          "id": "5439b1945f0b4367ab9d59387321d622"
-        }
-      ],
+      "kv_namespaces": [],
       "d1_databases": [
         {
           "binding": "OPERATOR_AGENT_DB",

@@ -566,7 +566,6 @@ export interface EmployeeRunErrorResponse {
 }
 
 export interface OperatorAgentEnv extends Record<string, unknown> {
-  OPERATOR_AGENT_KV?: KVNamespace;
   OPERATOR_AGENT_DB?: D1Database;
   OPERATOR_AGENT_STORE_BACKEND?: string;
   CONTROL_PLANE?: Fetcher;

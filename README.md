@@ -105,15 +105,9 @@ Owns:
 
 - control-plane runtime state is persisted in D1
 - operator-agent governance state is persisted in D1 as the sole system of record
-- operator-agent governance tables include:
-  - approvals
-  - employee_controls
-  - employee_control_history
-  - escalations
-  - manager_decisions
-  - agent_work_log
-- operator-agent KV is no longer used for governance state persistence
-- work-log seed/test paths read and write via D1-backed store abstractions
+- operator-agent state (governance, budget, cooldown, etc.) is now persisted exclusively in D1
+- operator-agent KV is no longer used for any state persistence
+- all operator-agent APIs and test/seed paths read and write via D1-backed store abstractions
 
 ---
 
