@@ -32,6 +32,7 @@ jobs:
       WRANGLER_CONFIG: core/control-plane/wrangler.toml
       OPERATOR_AGENT_D1_DATABASE_NAME: aep-operator-agent-async-validation
       OPERATOR_AGENT_WRANGLER_CONFIG: core/operator-agent/wrangler.jsonc
+      ENABLE_TEST_ENDPOINTS: 'true'
 
     steps:
       - uses: actions/checkout@v4
