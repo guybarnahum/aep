@@ -2,7 +2,7 @@ import { getConfig } from "@aep/operator-agent/config";
 import { runInfraOpsManager } from "@aep/operator-agent/agents/infra-ops-manager";
 import { runRetrySupervisor } from "@aep/operator-agent/agents/retry-supervisor";
 import { runTimeoutRecoveryOperator } from "@aep/operator-agent/agents/timeout-recovery";
-import { EmployeeControlStore } from "@aep/operator-agent/lib/employee-control-store";
+import { createStores } from "@aep/operator-agent/lib/store-factory";
 import { mergeAuthority, mergeBudget } from "@aep/operator-agent/lib/policy-merge";
 import { cloneAuthority } from "@aep/operator-agent/org/authority";
 import { cloneBudget } from "@aep/operator-agent/org/budgets";
@@ -110,7 +110,7 @@ async function resolveEffectivePolicy(
   resolved: ResolvedEmployeeRunContext,
   env?: OperatorAgentEnv
 ): Promise<EffectiveEmployeePolicy> {
-  const store = new EmployeeControlStore(env ?? {});
+  const store = createStores(env ?? {}).employeeControls;
   const control = await store.getEffective(
     resolved.employee.identity.employeeId,
     new Date().toISOString()

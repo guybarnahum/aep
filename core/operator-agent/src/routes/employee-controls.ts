@@ -1,4 +1,4 @@
-import { EmployeeControlStore } from "@aep/operator-agent/lib/employee-control-store";
+import { createStores } from "@aep/operator-agent/lib/store-factory";
 import { operatorEmployees } from "@aep/operator-agent/org/employees";
 import type { EmployeeControlRecord, OperatorAgentEnv } from "@aep/operator-agent/types";
 
@@ -13,7 +13,8 @@ export async function handleEmployeeControls(
   const url = new URL(request.url);
   const employeeId = url.searchParams.get("employeeId");
 
-  const store = new EmployeeControlStore(env ?? {});
+  const stores = createStores(env ?? {});
+  const store = stores.employeeControls;
 
   if (employeeId) {
     const record = await store.get(employeeId);

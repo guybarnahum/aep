@@ -1,4 +1,4 @@
-import { EmployeeControlStore } from "@aep/operator-agent/lib/employee-control-store";
+import { createStores } from "@aep/operator-agent/lib/store-factory";
 import {
   mergeAuthority,
   mergeBudget,
@@ -14,7 +14,7 @@ export async function handleEmployees(
     return new Response("Method Not Allowed", { status: 405 });
   }
 
-  const store = new EmployeeControlStore(env ?? {});
+  const store = createStores(env ?? {}).employeeControls;
 
   const employees = await Promise.all(
     operatorEmployees.map(async (employee) => {

@@ -1,4 +1,4 @@
-import { EmployeeControlHistoryLog } from "@aep/operator-agent/lib/control-history-log";
+import { createStores } from "@aep/operator-agent/lib/store-factory";
 import type { OperatorAgentEnv } from "@aep/operator-agent/types";
 
 export async function handleControlHistory(
@@ -17,7 +17,7 @@ export async function handleControlHistory(
     Math.min(100, limitParam ? Number(limitParam) || 20 : 20)
   );
 
-  const history = new EmployeeControlHistoryLog(env ?? {});
+  const history = createStores(env ?? {}).employeeControlHistory;
   const entries = await history.list({ employeeId, limit });
 
   return Response.json({

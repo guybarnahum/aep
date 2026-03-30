@@ -1,6 +1,10 @@
 import type { OperatorAgentEnv, OperatorAgentStoreBackend } from "@aep/operator-agent/types";
 import { D1ApprovalStore } from "@aep/operator-agent/lib/approval-store-d1";
 import { DualApprovalStore } from "@aep/operator-agent/lib/approval-store-dual";
+import { D1EmployeeControlHistoryStore } from "@aep/operator-agent/lib/control-history-log-d1";
+import { DualEmployeeControlHistoryStore } from "@aep/operator-agent/lib/control-history-log-dual";
+import { D1EmployeeControlStore } from "@aep/operator-agent/lib/employee-control-store-d1";
+import { DualEmployeeControlStore } from "@aep/operator-agent/lib/employee-control-store-dual";
 import {
   KvAgentWorkLogStoreAdapter,
   KvApprovalStoreAdapter,
@@ -42,8 +46,18 @@ export function createStores(env: OperatorAgentEnv): OperatorAgentStores {
         : backend === "dual"
           ? new DualApprovalStore(env)
           : new KvApprovalStoreAdapter(env),
-    employeeControls: new KvEmployeeControlStoreAdapter(env),
-    employeeControlHistory: new KvEmployeeControlHistoryStoreAdapter(env),
+    employeeControls:
+      backend === "d1"
+        ? new D1EmployeeControlStore(env)
+        : backend === "dual"
+          ? new DualEmployeeControlStore(env)
+          : new KvEmployeeControlStoreAdapter(env),
+    employeeControlHistory:
+      backend === "d1"
+        ? new D1EmployeeControlHistoryStore(env)
+        : backend === "dual"
+          ? new DualEmployeeControlHistoryStore(env)
+          : new KvEmployeeControlHistoryStoreAdapter(env),
     escalations: new KvEscalationStoreAdapter(env),
     managerDecisions: new KvManagerDecisionStoreAdapter(env),
     agentWorkLog: new KvAgentWorkLogStoreAdapter(env),

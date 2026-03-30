@@ -4,17 +4,14 @@ import { D1ApprovalStore } from "../../core/operator-agent/src/lib/approval-stor
 import { KvApprovalStoreAdapter } from "../../core/operator-agent/src/lib/kv-store-adapters";
 import type { OperatorAgentEnv } from "../../core/operator-agent/src/types";
 
-export {};
-
-function getEnvFromRuntime(): OperatorAgentEnv {
-  throw new Error(
-    "getEnvFromRuntime() not implemented. Run this in a Worker-aware runtime or wire env bindings explicitly."
-  );
+export interface ApprovalsBackfillResult {
+  approvalsInserted: number;
+  approvalsFailed: number;
 }
 
-async function main(): Promise<void> {
-  const env = getEnvFromRuntime();
-
+export async function runApprovalsBackfill(
+  env: OperatorAgentEnv
+): Promise<ApprovalsBackfillResult> {
   const kv = new KvApprovalStoreAdapter(env);
   const d1 = new D1ApprovalStore(env);
 
@@ -41,10 +38,9 @@ async function main(): Promise<void> {
     inserted,
     failed,
   });
-}
 
-main().catch((error) => {
-  console.error("operator-agent-approvals-kv-to-d1 backfill failed");
-  console.error(error);
-  process.exit(1);
-});
+  return {
+    approvalsInserted: inserted,
+    approvalsFailed: failed,
+  };
+}

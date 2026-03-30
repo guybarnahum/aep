@@ -1,14 +1,18 @@
 import { getConfig } from "@aep/operator-agent/config";
 import { getApprovalPolicy } from "@aep/operator-agent/lib/approval-policy";
-import { EmployeeControlStore } from "@aep/operator-agent/lib/employee-control-store";
 import { EscalationLog } from "@aep/operator-agent/lib/escalation-log";
 import { ManagerDecisionLog } from "@aep/operator-agent/lib/manager-decision-log";
 import { createStores } from "@aep/operator-agent/lib/store-factory";
 import { listAgentWorkLogEntries } from "@aep/operator-agent/lib/work-log-reader";
-import type { IApprovalStore } from "@aep/operator-agent/lib/store-types";
+import type {
+  IApprovalStore,
+  IEmployeeControlHistoryStore,
+  IEmployeeControlStore,
+} from "@aep/operator-agent/lib/store-types";
 import type {
   AgentEmployeeDefinition,
   ApprovalRecord,
+  EmployeeControlHistoryRecord,
   EmployeeControlRecord,
   EscalationReason,
   ManagedEmployeeObservationSummary,
@@ -140,6 +144,10 @@ function approvalExecutionId(
   return `approval-exec:${timestamp}:${actionType}:${employeeId}`;
 }
 
+function controlHistoryId(employeeId: string, timestamp: string): string {
+  return `${employeeId}:${timestamp}`;
+}
+
 function buildApprovalRecord(args: {
   manager: AgentEmployeeDefinition["identity"];
   nowIso: string;
@@ -177,6 +185,34 @@ function buildApprovalRecord(args: {
     reason: args.reason,
     message: args.message,
     executionContext: args.executionContext,
+  };
+}
+
+function buildControlHistoryRecord(args: {
+  departmentId: EmployeeControlHistoryRecord["departmentId"];
+  controlRecord: EmployeeControlRecord;
+}): EmployeeControlHistoryRecord {
+  return {
+    historyId: controlHistoryId(args.controlRecord.employeeId, args.controlRecord.updatedAt),
+    timestamp: args.controlRecord.updatedAt,
+    employeeId: args.controlRecord.employeeId,
+    departmentId: args.departmentId,
+    updatedByEmployeeId: args.controlRecord.updatedByEmployeeId,
+    updatedByRoleId: args.controlRecord.updatedByRoleId,
+    policyVersion: args.controlRecord.policyVersion,
+    transition: args.controlRecord.transition,
+    previousState: args.controlRecord.previousState,
+    nextState: args.controlRecord.state,
+    reason: args.controlRecord.reason,
+    message: args.controlRecord.message,
+    reviewAfter: args.controlRecord.reviewAfter,
+    expiresAt: args.controlRecord.expiresAt,
+    budgetOverride: args.controlRecord.budgetOverride,
+    authorityOverride: args.controlRecord.authorityOverride,
+    approvalId: args.controlRecord.approvalId,
+    approvalExecutedAt: args.controlRecord.approvalExecutedAt,
+    approvalExecutionId: args.controlRecord.approvalExecutionId,
+    evidence: args.controlRecord.evidence,
   };
 }
 
@@ -225,7 +261,8 @@ function heartbeatIdFromExecutionContext(
 
 async function applyApprovalBackedControl(args: {
   approvalStore: IApprovalStore;
-  controlStore: EmployeeControlStore;
+  controlStore: IEmployeeControlStore;
+  controlHistoryStore: IEmployeeControlHistoryStore;
   manager: AgentEmployeeDefinition["identity"];
   employeeId: string;
   policyVersion: string;
@@ -297,6 +334,12 @@ async function applyApprovalBackedControl(args: {
   };
 
   await args.controlStore.put(linkedControlRecord);
+  await args.controlHistoryStore.write(
+    buildControlHistoryRecord({
+      departmentId: args.manager.departmentId,
+      controlRecord: linkedControlRecord,
+    })
+  );
 
   const marked = await args.approvalStore.markExecuted({
     approvalId: latest.approvalId,
@@ -350,8 +393,10 @@ export async function runInfraOpsManager(
   const observedEmployeeIds = resolveObservedEmployeeIds(context, config);
 
   const decisions: ManagerDecision[] = [];
-  const approvalStore = createStores(env ?? {}).approvals;
-  const controlStore = new EmployeeControlStore(env ?? {});
+  const stores = createStores(env ?? {});
+  const approvalStore = stores.approvals;
+  const controlStore = stores.employeeControls;
+  const controlHistoryStore = stores.employeeControlHistory;
 
   let totalWorkLogEntries = 0;
   let totalVerificationFailed = 0;
@@ -468,6 +513,7 @@ export async function runInfraOpsManager(
         const applyResult = await applyApprovalBackedControl({
           approvalStore,
           controlStore,
+          controlHistoryStore,
           manager: manager.identity,
           employeeId: observedEmployeeId,
           policyVersion: context.policyVersion,
@@ -598,6 +644,7 @@ export async function runInfraOpsManager(
         const applyResult = await applyApprovalBackedControl({
           approvalStore,
           controlStore,
+          controlHistoryStore,
           manager: manager.identity,
           employeeId: observedEmployeeId,
           policyVersion: context.policyVersion,
@@ -764,6 +811,7 @@ export async function runInfraOpsManager(
         const applyResult = await applyApprovalBackedControl({
           approvalStore,
           controlStore,
+          controlHistoryStore,
           manager: manager.identity,
           employeeId: observedEmployeeId,
           policyVersion: context.policyVersion,
@@ -918,6 +966,7 @@ export async function runInfraOpsManager(
         const applyResult = await applyApprovalBackedControl({
           approvalStore,
           controlStore,
+          controlHistoryStore,
           manager: manager.identity,
           employeeId: observedEmployeeId,
           policyVersion: context.policyVersion,
@@ -994,8 +1043,7 @@ export async function runInfraOpsManager(
       const message =
         "Infra Ops Manager cleared employee restrictions after a quiet review window with no recent failures or budget exhaustion.";
 
-      await controlStore.put(
-        buildControlRecord({
+      const clearedControlRecord = buildControlRecord({
           managerEmployeeId: manager.identity.employeeId,
           managerRoleId: manager.identity.roleId,
           employeeId: observedEmployeeId,
@@ -1008,6 +1056,13 @@ export async function runInfraOpsManager(
           previousState: currentControl.state,
           windowEntryCount: entries.length,
           resultCounts: counts,
+        });
+
+      await controlStore.put(clearedControlRecord);
+      await controlHistoryStore.write(
+        buildControlHistoryRecord({
+          departmentId: manager.identity.departmentId,
+          controlRecord: clearedControlRecord,
         })
       );
 
