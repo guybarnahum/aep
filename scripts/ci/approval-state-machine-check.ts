@@ -10,7 +10,7 @@ type ApprovalEntry = {
   employeeId: string;
   reason: string;
   status: "pending" | "approved" | "rejected" | "expired";
-  createdAt: string;
+  requestedAt: string;
   expiresAt?: string;
   approvedAt?: string;
   rejectedAt?: string;
@@ -111,8 +111,8 @@ async function runApprovalStateMachineChecks(): Promise<void> {
     }
 
     // Validate timestamp coherence
-    if (!approval.createdAt) {
-      throw new Error(`Approval ${approval.approvalId} missing createdAt timestamp`);
+    if (!approval.requestedAt) {
+      throw new Error(`Approval ${approval.approvalId} missing requestedAt timestamp`);
     }
 
     // Validate state-specific fields
