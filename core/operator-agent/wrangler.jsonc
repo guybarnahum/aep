@@ -34,7 +34,7 @@
       ],
       "vars": {
         "AEP_CRON_FALLBACK_ENABLED": "true",
-        "OPERATOR_AGENT_STORE_BACKEND": "dual",
+        "OPERATOR_AGENT_STORE_BACKEND": "d1",
         "ENABLE_TEST_ENDPOINTS": "true",
         "PAPERCLIP_SHARED_SECRET": "",
         "PAPERCLIP_AUTH_REQUIRED": "false"
@@ -63,7 +63,7 @@
       ],
       "vars": {
         "AEP_CRON_FALLBACK_ENABLED": "true",
-        "OPERATOR_AGENT_STORE_BACKEND": "kv",
+        "OPERATOR_AGENT_STORE_BACKEND": "d1",
         "PAPERCLIP_SHARED_SECRET": "",
         "PAPERCLIP_AUTH_REQUIRED": "false"
       },
@@ -91,7 +91,7 @@
       ],
       "vars": {
         "AEP_CRON_FALLBACK_ENABLED": "true",
-        "OPERATOR_AGENT_STORE_BACKEND": "kv",
+        "OPERATOR_AGENT_STORE_BACKEND": "d1",
         "PAPERCLIP_SHARED_SECRET": "",
         "PAPERCLIP_AUTH_REQUIRED": "false"
       },
@@ -105,7 +105,7 @@
   },
   "vars": {
     "AEP_CRON_FALLBACK_ENABLED": "true",
-    "OPERATOR_AGENT_STORE_BACKEND": "kv",
+    "OPERATOR_AGENT_STORE_BACKEND": "d1",
     "PAPERCLIP_SHARED_SECRET": "",
     "PAPERCLIP_AUTH_REQUIRED": "false",
     "ENABLE_TEST_ENDPOINTS": "true"

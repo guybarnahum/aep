@@ -101,6 +101,22 @@ Owns:
 
 ---
 
+## Storage Architecture
+
+- control-plane runtime state is persisted in D1
+- operator-agent governance state is persisted in D1 as the sole system of record
+- operator-agent governance tables include:
+  - approvals
+  - employee_controls
+  - employee_control_history
+  - escalations
+  - manager_decisions
+  - agent_work_log
+- operator-agent KV is no longer used for governance state persistence
+- work-log seed/test paths read and write via D1-backed store abstractions
+
+---
+
 ### 4. Logical job abstraction
 
 - jobs are the unit of reasoning

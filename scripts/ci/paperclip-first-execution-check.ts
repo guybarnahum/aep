@@ -295,7 +295,7 @@ async function seedWorkLog(
 
   if (hasRateLimit && rateFailure) {
     throw new Error(
-      `[rate-limited] operator-agent write/test path is KV-quota-limited or rate-limited — ` +
+      `[rate-limited] operator-agent write/test path is rate-limited or quota-limited — ` +
         `read-only surface may still be healthy; ` +
         `path=${rateFailure.path} status=${rateFailure.status}` +
         (rateFailure.cfRay ? ` cf-ray=${rateFailure.cfRay}` : "") +
@@ -368,7 +368,7 @@ async function main(): Promise<void> {
       }
       if (msg.startsWith("[rate-limited]")) {
         console.warn(
-          `[warn] paperclip-first-execution-check: ${msg}; soft-skipping check — write/test path appears Cloudflare KV daily-write limited; read surface may still be healthy`
+          `[warn] paperclip-first-execution-check: ${msg}; soft-skipping check — write/test path appears rate-limited or quota-limited; read surface may still be healthy`
         );
         process.exit(0);
       }

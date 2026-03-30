@@ -51,12 +51,12 @@ function rowToHistory(row: EmployeeControlHistoryRow): EmployeeControlHistoryRec
     message: row.message,
     reviewAfter: row.review_after ?? undefined,
     expiresAt: row.expires_at ?? undefined,
-    budgetOverride: fromJson(row.budget_override_json),
-    authorityOverride: fromJson(row.authority_override_json),
+    budgetOverride: fromJson(row.budget_override_json) ?? undefined,
+    authorityOverride: fromJson(row.authority_override_json) ?? undefined,
     approvalId: row.approval_id ?? undefined,
     approvalExecutedAt: row.approval_executed_at ?? undefined,
     approvalExecutionId: row.approval_execution_id ?? undefined,
-    evidence: fromJson(row.evidence_json),
+    evidence: fromJson(row.evidence_json) ?? undefined,
   };
 }
 
