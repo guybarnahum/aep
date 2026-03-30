@@ -1,10 +1,11 @@
 import { getConfig } from "@aep/operator-agent/config";
-import { ApprovalStore } from "@aep/operator-agent/lib/approval-store";
 import { getApprovalPolicy } from "@aep/operator-agent/lib/approval-policy";
 import { EmployeeControlStore } from "@aep/operator-agent/lib/employee-control-store";
 import { EscalationLog } from "@aep/operator-agent/lib/escalation-log";
 import { ManagerDecisionLog } from "@aep/operator-agent/lib/manager-decision-log";
+import { createStores } from "@aep/operator-agent/lib/store-factory";
 import { listAgentWorkLogEntries } from "@aep/operator-agent/lib/work-log-reader";
+import type { IApprovalStore } from "@aep/operator-agent/lib/store-types";
 import type {
   AgentEmployeeDefinition,
   ApprovalRecord,
@@ -223,7 +224,7 @@ function heartbeatIdFromExecutionContext(
 }
 
 async function applyApprovalBackedControl(args: {
-  approvalStore: ApprovalStore;
+  approvalStore: IApprovalStore;
   controlStore: EmployeeControlStore;
   manager: AgentEmployeeDefinition["identity"];
   employeeId: string;
@@ -349,7 +350,7 @@ export async function runInfraOpsManager(
   const observedEmployeeIds = resolveObservedEmployeeIds(context, config);
 
   const decisions: ManagerDecision[] = [];
-  const approvalStore = new ApprovalStore(env ?? {});
+  const approvalStore = createStores(env ?? {}).approvals;
   const controlStore = new EmployeeControlStore(env ?? {});
 
   let totalWorkLogEntries = 0;

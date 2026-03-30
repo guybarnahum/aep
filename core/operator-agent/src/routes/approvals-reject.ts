@@ -1,4 +1,4 @@
-import { ApprovalStore } from "@aep/operator-agent/lib/approval-store";
+import { createStores } from "@aep/operator-agent/lib/store-factory";
 import type { OperatorAgentEnv } from "@aep/operator-agent/types";
 
 function asRecord(value: unknown): Record<string, unknown> {
@@ -48,7 +48,7 @@ export async function handleRejectApproval(
       ? record.decisionNote
       : undefined;
 
-  const store = new ApprovalStore(env ?? {});
+  const store = createStores(env ?? {}).approvals;
   const result = await store.decide({
     approvalId,
     nextStatus: "rejected",

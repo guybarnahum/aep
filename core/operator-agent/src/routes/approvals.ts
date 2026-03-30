@@ -1,4 +1,4 @@
-import { ApprovalStore } from "@aep/operator-agent/lib/approval-store";
+import { createStores } from "@aep/operator-agent/lib/store-factory";
 import type {
   ApprovalStatus,
   OperatorAgentEnv,
@@ -35,7 +35,7 @@ export async function handleApprovals(
   const employeeId = url.searchParams.get("employeeId") ?? undefined;
   const companyId = url.searchParams.get("companyId") ?? undefined;
 
-  const store = new ApprovalStore(env ?? {});
+  const store = createStores(env ?? {}).approvals;
   const entries = await store.list({
     limit,
     status,

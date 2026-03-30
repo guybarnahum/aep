@@ -1,4 +1,6 @@
 import type { OperatorAgentEnv, OperatorAgentStoreBackend } from "@aep/operator-agent/types";
+import { D1ApprovalStore } from "@aep/operator-agent/lib/approval-store-d1";
+import { DualApprovalStore } from "@aep/operator-agent/lib/approval-store-dual";
 import {
   KvAgentWorkLogStoreAdapter,
   KvApprovalStoreAdapter,
@@ -31,12 +33,15 @@ export function getStoreBackend(env: OperatorAgentEnv): OperatorAgentStoreBacken
 }
 
 export function createStores(env: OperatorAgentEnv): OperatorAgentStores {
-  // Stage 1 keeps runtime behavior unchanged by using KV adapters
-  // for every backend mode until D1 stores are wired in a follow-up slice.
-  void getStoreBackend(env);
+  const backend = getStoreBackend(env);
 
   return {
-    approvals: new KvApprovalStoreAdapter(env),
+    approvals:
+      backend === "d1"
+        ? new D1ApprovalStore(env)
+        : backend === "dual"
+          ? new DualApprovalStore(env)
+          : new KvApprovalStoreAdapter(env),
     employeeControls: new KvEmployeeControlStoreAdapter(env),
     employeeControlHistory: new KvEmployeeControlHistoryStoreAdapter(env),
     escalations: new KvEscalationStoreAdapter(env),

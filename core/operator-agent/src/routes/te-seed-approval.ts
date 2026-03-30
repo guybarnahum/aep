@@ -1,4 +1,4 @@
-import { ApprovalStore } from "@aep/operator-agent/lib/approval-store";
+import { createStores } from "@aep/operator-agent/lib/store-factory";
 import type {
   AgentRoleId,
   ApprovalRecord,
@@ -109,7 +109,7 @@ export async function handleSeedApproval(
     executionContext: body.executionContext,
   };
 
-  const store = new ApprovalStore(env);
+  const store = createStores(env).approvals;
   await store.write(approval);
 
   return Response.json({

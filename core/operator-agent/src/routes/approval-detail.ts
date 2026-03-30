@@ -1,4 +1,4 @@
-import { ApprovalStore } from "@aep/operator-agent/lib/approval-store";
+import { createStores } from "@aep/operator-agent/lib/store-factory";
 import type { OperatorAgentEnv } from "@aep/operator-agent/types";
 
 export async function handleApprovalDetail(
@@ -10,7 +10,7 @@ export async function handleApprovalDetail(
     return new Response("Method Not Allowed", { status: 405 });
   }
 
-  const store = new ApprovalStore(env);
+  const store = createStores(env).approvals;
   const approval = await store.get(approvalId);
 
   if (!approval) {
