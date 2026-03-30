@@ -1,6 +1,5 @@
 import { getConfig } from "@aep/operator-agent/config";
 import { getApprovalPolicy } from "@aep/operator-agent/lib/approval-policy";
-import { ManagerDecisionLog } from "@aep/operator-agent/lib/manager-decision-log";
 import { createStores } from "@aep/operator-agent/lib/store-factory";
 import { listAgentWorkLogEntries } from "@aep/operator-agent/lib/work-log-reader";
 import type {
@@ -396,6 +395,8 @@ export async function runInfraOpsManager(
   const approvalStore = stores.approvals;
   const controlStore = stores.employeeControls;
   const controlHistoryStore = stores.employeeControlHistory;
+  const managerDecisionStore = stores.managerDecisions;
+  const escalationStore = stores.escalations;
 
   let totalWorkLogEntries = 0;
   let totalVerificationFailed = 0;
@@ -1136,12 +1137,10 @@ export async function runInfraOpsManager(
     crossWorkerAlerts += 1;
   }
 
-  const log = new ManagerDecisionLog(env ?? {});
   for (const decision of decisions) {
-    await log.write(decision);
+    await managerDecisionStore.write(decision);
   }
 
-  const escalationStore = createStores(env ?? {}).escalations;
   for (const decision of decisions) {
     const shouldEscalate =
       decision.severity === "critical" ||

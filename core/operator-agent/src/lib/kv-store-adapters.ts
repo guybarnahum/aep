@@ -27,6 +27,17 @@ import type {
   IManagerDecisionStore,
 } from "@aep/operator-agent/lib/store-types";
 
+function compareManagerDecisionsDescending(
+  a: ManagerDecision,
+  b: ManagerDecision
+): number {
+  return b.timestamp.localeCompare(a.timestamp);
+}
+
+function managerDecisionPrefix(managerEmployeeId: string): string {
+  return `managerlog:${managerEmployeeId}:`;
+}
+
 export class KvApprovalStoreAdapter implements IApprovalStore {
   private readonly store: ApprovalStore;
 
@@ -188,14 +199,44 @@ export class KvEscalationStoreAdapter implements IEscalationStore {
 }
 
 export class KvManagerDecisionStoreAdapter implements IManagerDecisionStore {
+  private readonly env: OperatorAgentEnv;
   private readonly store: ManagerDecisionLog;
 
   constructor(env: OperatorAgentEnv) {
+    this.env = env;
     this.store = new ManagerDecisionLog(env);
   }
 
   async write(entry: ManagerDecision): Promise<void> {
     await this.store.write(entry);
+  }
+
+  async list(args: {
+    managerEmployeeId: string;
+    limit: number;
+  }): Promise<ManagerDecision[]> {
+    const listed = await this.env.OPERATOR_AGENT_KV?.list({
+      prefix: managerDecisionPrefix(args.managerEmployeeId),
+      limit: args.limit,
+    });
+    const keys = listed?.keys ?? [];
+    const entries: ManagerDecision[] = [];
+
+    for (const key of keys) {
+      const raw = await this.env.OPERATOR_AGENT_KV?.get(key.name);
+      if (!raw) {
+        continue;
+      }
+
+      try {
+        entries.push(JSON.parse(raw) as ManagerDecision);
+      } catch {
+        // Ignore malformed entries to preserve legacy route behavior.
+      }
+    }
+
+    entries.sort(compareManagerDecisionsDescending);
+    return entries.slice(0, args.limit);
   }
 }
 

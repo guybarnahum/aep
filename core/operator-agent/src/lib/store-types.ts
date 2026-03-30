@@ -88,6 +88,7 @@ export interface IEscalationStore {
 
 export interface IManagerDecisionStore {
   write(entry: ManagerDecision): Promise<void>;
+  list(args: { managerEmployeeId: string; limit: number }): Promise<ManagerDecision[]>;
 }
 
 export interface IAgentWorkLogStore {
