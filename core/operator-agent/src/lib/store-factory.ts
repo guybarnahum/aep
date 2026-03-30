@@ -9,6 +9,8 @@ import { D1EscalationStore } from "@aep/operator-agent/lib/escalation-log-d1";
 import { DualEscalationStore } from "@aep/operator-agent/lib/escalation-log-dual";
 import { D1ManagerDecisionStore } from "@aep/operator-agent/lib/manager-decision-log-d1";
 import { DualManagerDecisionStore } from "@aep/operator-agent/lib/manager-decision-log-dual";
+import { D1AgentWorkLogStore } from "@aep/operator-agent/lib/work-log-store-d1";
+import { DualAgentWorkLogStore } from "@aep/operator-agent/lib/work-log-store-dual";
 import {
   KvAgentWorkLogStoreAdapter,
   KvApprovalStoreAdapter,
@@ -74,6 +76,11 @@ export function createStores(env: OperatorAgentEnv): OperatorAgentStores {
         : backend === "dual"
           ? new DualManagerDecisionStore(env)
           : new KvManagerDecisionStoreAdapter(env),
-    agentWorkLog: new KvAgentWorkLogStoreAdapter(env),
+    agentWorkLog:
+      backend === "d1"
+        ? new D1AgentWorkLogStore(env)
+        : backend === "dual"
+          ? new DualAgentWorkLogStore(env)
+          : new KvAgentWorkLogStoreAdapter(env),
   };
 }

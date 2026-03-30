@@ -1,10 +1,8 @@
 import { ApprovalStore } from "@aep/operator-agent/lib/approval-store";
 import { EmployeeControlHistoryLog } from "@aep/operator-agent/lib/control-history-log";
-import { DecisionLog } from "@aep/operator-agent/lib/decision-log";
 import { EmployeeControlStore } from "@aep/operator-agent/lib/employee-control-store";
 import { EscalationLog } from "@aep/operator-agent/lib/escalation-log";
 import { ManagerDecisionLog } from "@aep/operator-agent/lib/manager-decision-log";
-import { listAgentWorkLogEntries } from "@aep/operator-agent/lib/work-log-reader";
 import type {
   AgentRoleId,
   AgentWorkLogEntry,
@@ -36,6 +34,21 @@ function compareManagerDecisionsDescending(
 
 function managerDecisionPrefix(managerEmployeeId: string): string {
   return `managerlog:${managerEmployeeId}:`;
+}
+
+function compareWorkLogEntriesDescending(
+  a: AgentWorkLogEntry,
+  b: AgentWorkLogEntry
+): number {
+  return b.timestamp.localeCompare(a.timestamp);
+}
+
+function workLogPrefix(employeeId: string): string {
+  return `worklog:${employeeId}:`;
+}
+
+function workLogKey(employeeId: string, timestamp: string, jobId: string): string {
+  return `worklog:${employeeId}:${timestamp}:${jobId}`;
 }
 
 export class KvApprovalStoreAdapter implements IApprovalStore {
@@ -242,25 +255,43 @@ export class KvManagerDecisionStoreAdapter implements IManagerDecisionStore {
 
 export class KvAgentWorkLogStoreAdapter implements IAgentWorkLogStore {
   private readonly env: OperatorAgentEnv;
-  private readonly store: DecisionLog;
 
   constructor(env: OperatorAgentEnv) {
     this.env = env;
-    this.store = new DecisionLog(env);
   }
 
   async write(entry: AgentWorkLogEntry): Promise<void> {
-    await this.store.write(entry);
+    const key = workLogKey(entry.employeeId, entry.timestamp, entry.jobId);
+    await this.env.OPERATOR_AGENT_KV?.put(key, JSON.stringify(entry), {
+      expirationTtl: 60 * 60 * 24 * 14,
+    });
   }
 
   async listByEmployee(args: {
     employeeId: string;
     limit: number;
   }): Promise<AgentWorkLogEntry[]> {
-    return listAgentWorkLogEntries({
-      env: this.env,
-      employeeId: args.employeeId,
+    const listed = await this.env.OPERATOR_AGENT_KV?.list({
+      prefix: workLogPrefix(args.employeeId),
       limit: args.limit,
     });
+    const keys = listed?.keys ?? [];
+    const entries: AgentWorkLogEntry[] = [];
+
+    for (const key of keys) {
+      const raw = await this.env.OPERATOR_AGENT_KV?.get(key.name);
+      if (!raw) {
+        continue;
+      }
+
+      try {
+        entries.push(JSON.parse(raw) as AgentWorkLogEntry);
+      } catch {
+        // Ignore malformed entries to preserve legacy route behavior.
+      }
+    }
+
+    entries.sort(compareWorkLogEntriesDescending);
+    return entries.slice(0, args.limit);
   }
 }

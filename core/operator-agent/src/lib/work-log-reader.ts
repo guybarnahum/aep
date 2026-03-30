@@ -1,3 +1,4 @@
+import { createStores } from "@aep/operator-agent/lib/store-factory";
 import type { AgentWorkLogEntry, OperatorAgentEnv } from "@aep/operator-agent/types";
 
 export function workLogPrefix(employeeId: string): string {
@@ -16,28 +17,9 @@ export async function listAgentWorkLogEntries(args: {
   employeeId: string;
   limit: number;
 }): Promise<AgentWorkLogEntry[]> {
-  const prefix = workLogPrefix(args.employeeId);
-  const list = await args.env?.OPERATOR_AGENT_KV?.list({
-    prefix,
+  const stores = createStores(args.env ?? {});
+  return stores.agentWorkLog.listByEmployee({
+    employeeId: args.employeeId,
     limit: args.limit,
   });
-  const keys = list?.keys ?? [];
-
-  const entries: AgentWorkLogEntry[] = [];
-
-  for (const key of keys) {
-    const raw = await args.env?.OPERATOR_AGENT_KV?.get(key.name);
-    if (!raw) {
-      continue;
-    }
-
-    try {
-      entries.push(JSON.parse(raw) as AgentWorkLogEntry);
-    } catch {
-      // ignore malformed entries
-    }
-  }
-
-  entries.sort(compareWorkLogEntriesDescending);
-  return entries;
 }
