@@ -1,17 +1,21 @@
-import { execSync } from "child_process";
 import { execFileSync } from "node:child_process";
 import { DEFAULT_PROVIDER } from "@aep/shared";
-import type { DeploymentAdapter, DeployArgs, DeployResult } from "@aep/deployment-engine/types";
-function combineOutput(stdout: unknown, stderr: unknown): string {
-  const out = typeof stdout === "string" ? stdout : stdout?.toString?.() ?? "";
-  const err = typeof stderr === "string" ? stderr : stderr?.toString?.() ?? "";
-  return [out, err].filter(Boolean).join("\n").trim();
-}
+import type {
+  DeploymentAdapter,
+  DeployArgs,
+  DeployResult,
+} from "@aep/deployment-engine/types";
 
 export interface NodeWranglerDeployInput {
   serviceName: string;
   workingDir: string;
   envId: string;
+}
+
+function combineOutput(stdout: unknown, stderr: unknown): string {
+  const out = typeof stdout === "string" ? stdout : stdout?.toString?.() ?? "";
+  const err = typeof stderr === "string" ? stderr : stderr?.toString?.() ?? "";
+  return [out, err].filter(Boolean).join("\n").trim();
 }
 
 export class CloudflareNodeDeploymentAdapter implements DeploymentAdapter {
@@ -74,32 +78,10 @@ export class CloudflareNodeDeploymentAdapter implements DeploymentAdapter {
       console.error("[deploy error]", detail || error);
 
       throw new Error(
-        `Cloudflare deployment failed for ${deploymentName}${detail ? `\n${detail}` : ""}`,
+        `Cloudflare deployment failed for ${deploymentName}${
+          detail ? `\n${detail}` : ""
+        }`,
       );
-    }
-
-    try {
-      const output = execSync(cmd, {
-        stdio: "pipe",
-      }).toString();
-
-      console.log("[deploy output]", output);
-
-      const urlMatch = output.match(/https:\/\/[^\s]+/);
-      if (!urlMatch) {
-        throw new Error("Could not parse deployed URL from Wrangler output");
-      }
-
-      const url = urlMatch[0];
-
-      return {
-        provider: args.provider,
-        deploymentRef: deploymentName,
-        previewUrl: url,
-      };
-    } catch (err: any) {
-      console.error("[deploy error]", err?.stdout?.toString?.() ?? err);
-      throw new Error("Deployment failed");
     }
   }
 
@@ -126,17 +108,6 @@ export class CloudflareNodeDeploymentAdapter implements DeploymentAdapter {
       throw new Error(
         `Teardown failed for ${deploymentRef}${detail ? `\n${detail}` : ""}`,
       );
-    }
-
-    try {
-      const output = execSync(cmd, {
-        stdio: "pipe",
-      }).toString();
-
-      console.log("[teardown output]", output);
-    } catch (err: any) {
-      console.error("[teardown error]", err?.stdout?.toString?.() ?? err);
-      throw new Error(`Teardown failed for ${deploymentRef}`);
     }
   }
 }
