@@ -871,6 +871,8 @@ async function main(): Promise<void> {
   const cli = parseArgs(process.argv.slice(2));
   const headers = buildHeaders(cli.env);
 
+  const startTimeoutMs = Math.max(cli.timeoutMs, 45000);
+
   console.log("🔁 AEP async deploy check");
   console.log(`   Scenario:      ${cli.scenario}`);
   console.log(`   Env:           ${cli.env ?? "(not enforced)"}`);
@@ -878,25 +880,46 @@ async function main(): Promise<void> {
   console.log(`   Provider:      ${cli.provider}`);
   console.log(`   Service name:  ${cli.serviceName}`);
   console.log(`   Timeout:       ${cli.timeoutMs}ms`);
+  console.log(`   Start timeout: ${startTimeoutMs}ms`);
   console.log(`   Poll attempts: ${cli.pollAttempts}`);
   console.log(`   Poll interval: ${cli.pollIntervalMs}ms`);
 
   const startUrl = joinUrl(cli.baseUrl, "/workflow/start");
   console.log("==> Starting async deploy workflow");
 
-  let startResult: RequestResult;
-  try {
-    startResult = await requestJson({
-      url: startUrl,
-      method: "POST",
-      timeoutMs: cli.timeoutMs,
-      headers,
-      body: cli.payload,
-    });
-  } catch (error) {
+  let startResult: RequestResult | undefined;
+  let startError: unknown;
+
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    try {
+      startResult = await requestJson({
+        url: startUrl,
+        method: "POST",
+        timeoutMs: startTimeoutMs,
+        headers,
+        body: cli.payload,
+      });
+      break;
+    } catch (error) {
+      startError = error;
+      const message = error instanceof Error ? error.message : String(error);
+
+      console.warn(
+        `⚠️  Initial async deploy request attempt ${attempt}/3 failed: ${message}`,
+      );
+
+      if (attempt < 3) {
+        await sleep(2000);
+      }
+    }
+  }
+
+  if (!startResult) {
     const message =
-      error instanceof Error ? error.message : "Unknown network error while starting workflow";
-    fail(`Initial async deploy request failed: ${message}`);
+      startError instanceof Error
+        ? startError.message
+        : "Unknown network error while starting workflow";
+    fail(`Initial async deploy request failed after retries: ${message}`);
   }
 
   console.log(
