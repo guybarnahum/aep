@@ -1,3 +1,28 @@
+function verifyAdvanceTimeoutApplied(
+  trace: TraceEvent[],
+  jobId: string
+): { ok: boolean; evidence: string[] } {
+  const evidence: string[] = [];
+
+  const requested = hasTraceEvent(trace, "operator.action_requested", jobId);
+  if (requested) {
+    evidence.push("operator.action_requested");
+  }
+
+  const applied = hasTraceEvent(trace, "operator.action_applied", jobId);
+  if (applied) {
+    evidence.push("operator.action_applied");
+  }
+
+  return {
+    ok: requested && applied,
+    evidence,
+  };
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 /* eslint-disable no-console */
 
 import { handleOperatorAgentSoftSkip } from "../lib/operator-agent-skip";
@@ -561,28 +586,32 @@ async function main(): Promise<void> {
       throw new Error("Agent response did not include the eligible job decision");
     }
 
-    const trace = await getTrace(controlPlaneBaseUrl, eligibleRun.id);
+    let trace: TraceEvent[] = [];
+    let verification = { ok: false, evidence: [] as string[] };
 
-    const requestedPresent = hasTraceEvent(
-      trace,
-      "operator.action_requested",
-      eligibleJob.id
-    );
-    const appliedPresent = hasTraceEvent(
-      trace,
-      "operator.action_applied",
-      eligibleJob.id
-    );
+    for (let attempt = 1; attempt <= 6; attempt += 1) {
+      trace = await getTrace(controlPlaneBaseUrl, eligibleRun.id);
+      verification = verifyAdvanceTimeoutApplied(trace, eligibleJob.id);
 
-    if (!requestedPresent || !appliedPresent) {
+      if (verification.ok) {
+        break;
+      }
+
+      if (attempt < 6) {
+        await sleep(1000);
+      }
+    }
+
+    if (!verification.ok) {
       throw new Error(
-        `Expected trace to contain operator.action_requested and operator.action_applied for job ${eligibleJob.id}`
+        `Expected trace to contain operator.action_requested and operator.action_applied for job ${eligibleJob.id}; saw evidence: ${verification.evidence.join(", ") || "(none)"}`
       );
     }
 
     console.log("Verified operator trace events", {
       runId: eligibleRun.id,
       jobId: eligibleJob.id,
+      evidence: verification.evidence,
     });
 
     const secondRun = await runAgent(agentBaseUrl);
