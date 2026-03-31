@@ -6,6 +6,72 @@ import { resolveServiceBaseUrl } from "../lib/service-map";
 export {};
 
 const STAGE6_POLICY_VERSION = "commit9-stage6";
+const ALLOWED_TENANTS = new Set(["dev", "qa", "internal-aep"]);
+const ALLOWED_SERVICE = "control-plane";
+const SEEDED_WORKFLOW_PROJECT_ID = "ci-agent-timeout-recovery";
+type WorkflowStartResponse = {
+  workflow_run_id: string;
+  trace_id: string;
+  status: string;
+};
+function isAllowedRun(run: RunSummary): boolean {
+  return (
+    typeof run.tenant === "string" &&
+    ALLOWED_TENANTS.has(run.tenant) &&
+    typeof run.service === "string" &&
+    run.service === ALLOWED_SERVICE
+  );
+}
+
+async function startSeededAllowedWorkflow(
+  controlPlaneBaseUrl: string
+): Promise<WorkflowStartResponse> {
+  const response = await fetch(`${controlPlaneBaseUrl}/workflow/start`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({
+      tenant_id: "dev",
+      project_id: SEEDED_WORKFLOW_PROJECT_ID,
+      repo_url: "https://github.com/example/repo",
+      branch: "main",
+      service_name: ALLOWED_SERVICE,
+      deploy_mode: "async",
+      teardown_mode: "async",
+    }),
+  });
+
+  const json = await readJson<WorkflowStartResponse>(response);
+
+  if (!json.workflow_run_id) {
+    throw new Error("Seeded workflow start did not return workflow_run_id");
+  }
+
+  return json;
+}
+
+async function waitForTimeoutEligibleJob(
+  controlPlaneBaseUrl: string,
+  runId: string,
+  attempts = 20,
+  intervalMs = 1000
+): Promise<JobSummary> {
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    const jobs = await getRunJobs(controlPlaneBaseUrl, runId);
+    const found = jobs.find((job) => job.operator_actions?.can_advance_timeout);
+
+    if (found) {
+      return found;
+    }
+
+    if (attempt < attempts) {
+      await sleep(intervalMs);
+    }
+  }
+
+  throw new Error(`Timed out waiting for timeout-eligible job for run ${runId}`);
+}
 
 type RunSummary = {
   id: string;
@@ -550,10 +616,15 @@ async function main(): Promise<void> {
   if (!workerDisabledAtStart) {
     const runs = await listRuns(controlPlaneBaseUrl);
 
+
     let eligibleRun: RunSummary | undefined;
     let eligibleJob: JobSummary | undefined;
 
     for (const run of runs) {
+      if (!isAllowedRun(run)) {
+        continue;
+      }
+
       const jobs = await getRunJobs(controlPlaneBaseUrl, run.id);
       const found = jobs.find((job) => job.operator_actions?.can_advance_timeout);
 
@@ -565,7 +636,22 @@ async function main(): Promise<void> {
     }
 
     if (!eligibleRun || !eligibleJob) {
-      throw new Error("No timeout-eligible job found for agent validation");
+      console.log(
+        "No currently actionable allowed-tenant timeout-eligible job found; starting seeded workflow"
+      );
+
+      const seeded = await startSeededAllowedWorkflow(controlPlaneBaseUrl);
+      const seededJob = await waitForTimeoutEligibleJob(
+        controlPlaneBaseUrl,
+        seeded.workflow_run_id
+      );
+
+      eligibleRun = {
+        id: seeded.workflow_run_id,
+        tenant: "dev",
+        service: ALLOWED_SERVICE,
+      };
+      eligibleJob = seededJob;
     }
 
     console.log("Found eligible job", {
