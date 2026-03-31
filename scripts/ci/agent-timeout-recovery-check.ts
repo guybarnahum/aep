@@ -588,6 +588,17 @@ async function main(): Promise<void> {
       throw new Error("Agent response did not include the eligible job decision");
     }
 
+    const actionLikeResults = new Set([
+      "action_requested",
+      "verified_applied",
+    ]);
+
+    if (!actionLikeResults.has(firstDecision.result)) {
+      throw new Error(
+        `Expected first decision for eligible job ${eligibleJob.id} to be action_requested or verified_applied, got ${firstDecision.result}`
+      );
+    }
+
     let trace: TraceEvent[] = [];
     let verification = { ok: false, evidence: [] as string[] };
 
@@ -606,13 +617,14 @@ async function main(): Promise<void> {
 
     if (!verification.ok) {
       throw new Error(
-        `Expected trace to contain operator.action_requested and operator.action_applied for job ${eligibleJob.id}; saw evidence: ${verification.evidence.join(", ") || "(none)"}`
+        `Expected trace to contain operator.action_requested and operator.action_applied for job ${eligibleJob.id}; firstDecision.result=${firstDecision.result}; saw evidence: ${verification.evidence.join(", ") || "(none)"}`
       );
     }
 
     console.log("Verified operator trace events", {
       runId: eligibleRun.id,
       jobId: eligibleJob.id,
+      firstDecisionResult: firstDecision.result,
       evidence: verification.evidence,
     });
 
