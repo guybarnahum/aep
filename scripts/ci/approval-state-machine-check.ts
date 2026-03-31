@@ -5,22 +5,33 @@ import { resolveServiceBaseUrl } from "../lib/service-map";
 
 export {};
 
+type ApprovalStatus = "pending" | "approved" | "rejected" | "expired";
+
 type ApprovalEntry = {
   approvalId: string;
-  employeeId: string;
-  reason: string;
-  status: "pending" | "approved" | "rejected" | "expired";
-  requestedAt: string;
+  timestamp: string;
+  companyId?: string;
+  taskId?: string;
+  heartbeatId?: string;
+  departmentId: string;
+  requestedByEmployeeId: string;
+  requestedByEmployeeName?: string;
+  requestedByRoleId: string;
+  source: "manager" | "policy" | "system";
+  actionType: string;
+  payload: Record<string, unknown>;
+  status: ApprovalStatus;
   expiresAt?: string;
-  approvedAt?: string;
-  rejectedAt?: string;
-  expiredAt?: string;
-  metadata?: Record<string, unknown>;
-  controlHistory?: Array<{
-    id: string;
-    timestamp: string;
-    action: string;
-  }>;
+  reason: string;
+  message: string;
+  decidedAt?: string;
+  decidedBy?: string;
+  decisionNote?: string;
+  executedAt?: string;
+  executionId?: string;
+  executedByEmployeeId?: string;
+  executedByRoleId?: string;
+  executionContext?: Record<string, unknown>;
 };
 
 type ApprovalsListResponse = {
@@ -35,27 +46,22 @@ type ApprovalDetailResponse = {
   approval: ApprovalEntry;
 };
 
-type ApprovalActionResponse = {
-  ok: true;
-  approvalId: string;
-  status: "pending" | "approved" | "rejected" | "expired";
-  actionedAt?: string;
-};
-
-function requireEnv(name: string): string {
-  const value = process.env[name];
-  if (!value) {
-    throw new Error(`Missing required env var: ${name}`);
-  }
-  return value;
-}
-
 async function readJson<T>(response: Response): Promise<T> {
   if (!response.ok) {
     const body = await response.text();
     throw new Error(`Request failed: ${response.status} ${body}`);
   }
   return (await response.json()) as T;
+}
+
+function isObjectRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isIsoDateLike(value: string | undefined): boolean {
+  if (!value) return false;
+  const time = Date.parse(value);
+  return Number.isFinite(time);
 }
 
 async function runApprovalStateMachineChecks(): Promise<void> {
@@ -66,17 +72,16 @@ async function runApprovalStateMachineChecks(): Promise<void> {
 
   console.log(`[approval-state-machine-check] Using base URL: ${baseUrl}`);
 
-  // Check 1: List approvals and validate response shape
   console.log("[approval-state-machine-check] Check 1: List approvals endpoint");
   const listResponse = await fetch(`${baseUrl}/agent/approvals`);
   const approvalsList = await readJson<ApprovalsListResponse>(listResponse);
 
   if (!approvalsList.ok) {
-    throw new Error("Approvals list response missing 'ok' field");
+    throw new Error("Approvals list response missing ok=true");
   }
 
   if (typeof approvalsList.count !== "number") {
-    throw new Error("Approvals list response missing 'count' field");
+    throw new Error("Approvals list response missing numeric count field");
   }
 
   const approvals = Array.isArray(approvalsList.approvals)
@@ -93,61 +98,147 @@ async function runApprovalStateMachineChecks(): Promise<void> {
 
   console.log(`  ✓ List approvals endpoint valid; found ${approvals.length} approvals`);
 
-  // Check 2: Validate approval state enum values
-  console.log("[approval-state-machine-check] Check 2: Validate approval states");
-  const validStates = [
+  console.log("[approval-state-machine-check] Check 2: Validate approval core shape and states");
+  const validStates: readonly ApprovalStatus[] = [
     "pending",
     "approved",
     "rejected",
     "expired",
-  ] as const;
+  ];
 
   for (const approval of approvals) {
-    if (!validStates.includes(approval.status as never)) {
+    if (!approval.approvalId) {
+      throw new Error("Approval missing approvalId");
+    }
+
+    if (!validStates.includes(approval.status)) {
       throw new Error(
-        `Approval ${approval.approvalId} has invalid state: ${approval.status}. ` +
+        `Approval ${approval.approvalId} has invalid status: ${approval.status}. ` +
           `Expected one of: ${validStates.join(", ")}`
       );
     }
 
-    // Validate timestamp coherence
-    if (!approval.requestedAt) {
-      throw new Error(`Approval ${approval.approvalId} missing requestedAt timestamp`);
+    if (!approval.timestamp) {
+      throw new Error(`Approval ${approval.approvalId} missing timestamp`);
     }
 
-    // Validate state-specific fields
-    if (approval.status === "approved" && !approval.approvedAt) {
+    if (!isIsoDateLike(approval.timestamp)) {
       throw new Error(
-        `Approval ${approval.approvalId} is approved but missing approvedAt timestamp`
+        `Approval ${approval.approvalId} has non-ISO timestamp: ${approval.timestamp}`
       );
     }
 
-    if (approval.status === "rejected" && !approval.rejectedAt) {
+    if (!approval.departmentId) {
+      throw new Error(`Approval ${approval.approvalId} missing departmentId`);
+    }
+
+    if (!approval.requestedByEmployeeId) {
       throw new Error(
-        `Approval ${approval.approvalId} is rejected but missing rejectedAt timestamp`
+        `Approval ${approval.approvalId} missing requestedByEmployeeId`
       );
     }
 
-    if (approval.status === "expired" && !approval.expiredAt) {
+    if (!approval.requestedByRoleId) {
+      throw new Error(`Approval ${approval.approvalId} missing requestedByRoleId`);
+    }
+
+    if (!approval.source) {
+      throw new Error(`Approval ${approval.approvalId} missing source`);
+    }
+
+    if (!approval.actionType) {
+      throw new Error(`Approval ${approval.approvalId} missing actionType`);
+    }
+
+    if (!isObjectRecord(approval.payload)) {
       throw new Error(
-        `Approval ${approval.approvalId} is expired but missing expiredAt timestamp`
+        `Approval ${approval.approvalId} payload must be an object`
+      );
+    }
+
+    if (!approval.reason) {
+      throw new Error(`Approval ${approval.approvalId} missing reason`);
+    }
+
+    if (!approval.message) {
+      throw new Error(`Approval ${approval.approvalId} missing message`);
+    }
+
+    if (approval.expiresAt && !isIsoDateLike(approval.expiresAt)) {
+      throw new Error(
+        `Approval ${approval.approvalId} has invalid expiresAt: ${approval.expiresAt}`
+      );
+    }
+
+    if (approval.decidedAt && !isIsoDateLike(approval.decidedAt)) {
+      throw new Error(
+        `Approval ${approval.approvalId} has invalid decidedAt: ${approval.decidedAt}`
+      );
+    }
+
+    if (approval.executedAt && !isIsoDateLike(approval.executedAt)) {
+      throw new Error(
+        `Approval ${approval.approvalId} has invalid executedAt: ${approval.executedAt}`
       );
     }
   }
 
-  console.log(`  ✓ All approval states are valid`);
+  console.log("  ✓ Approval core shape and statuses are valid");
 
-  // Check 3: Validate approval detail endpoint
-  console.log("[approval-state-machine-check] Check 3: Validate approval detail endpoint");
+  console.log("[approval-state-machine-check] Check 3: Validate status-specific semantics");
+  for (const approval of approvals) {
+    if (approval.status === "approved" || approval.status === "rejected") {
+      if (!approval.decidedAt) {
+        throw new Error(
+          `Approval ${approval.approvalId} is ${approval.status} but missing decidedAt`
+        );
+      }
 
+      if (!approval.decidedBy) {
+        throw new Error(
+          `Approval ${approval.approvalId} is ${approval.status} but missing decidedBy`
+        );
+      }
+    }
+
+    if (approval.status === "expired") {
+      if (!approval.expiresAt) {
+        throw new Error(
+          `Approval ${approval.approvalId} is expired but missing expiresAt`
+        );
+      }
+    }
+
+    if (approval.executedAt && !approval.executionId) {
+      throw new Error(
+        `Approval ${approval.approvalId} has executedAt but missing executionId`
+      );
+    }
+
+    if (approval.executionId && !approval.executedAt) {
+      throw new Error(
+        `Approval ${approval.approvalId} has executionId but missing executedAt`
+      );
+    }
+  }
+
+  console.log("  ✓ Status-specific approval semantics are valid");
+
+  console.log("[approval-state-machine-check] Check 4: Validate detail endpoint");
   if (approvals.length > 0) {
     const firstApproval = approvals[0];
-    const detailResponse = await fetch(`${baseUrl}/agent/approvals/${firstApproval.approvalId}`);
+    const detailResponse = await fetch(
+      `${baseUrl}/agent/approvals/${firstApproval.approvalId}`
+    );
     const detailEnvelope = await readJson<ApprovalDetailResponse>(detailResponse);
-    const approval = detailEnvelope.approval;
 
     if (!detailEnvelope.ok) {
-      throw new Error("Approval detail response missing 'ok' field");
+      throw new Error("Approval detail response missing ok=true");
+    }
+
+    const approval = detailEnvelope.approval;
+    if (!approval) {
+      throw new Error("Approval detail response missing approval object");
     }
 
     if (approval.approvalId !== firstApproval.approvalId) {
@@ -158,126 +249,62 @@ async function runApprovalStateMachineChecks(): Promise<void> {
 
     if (approval.status !== firstApproval.status) {
       throw new Error(
-        `Approval detail state mismatch: expected ${firstApproval.status}, got ${approval.status}`
+        `Approval detail status mismatch: expected ${firstApproval.status}, got ${approval.status}`
       );
     }
 
-    console.log(`  ✓ Approval detail endpoint valid for approval ${approval.approvalId}`);
-  } else {
-    console.log(`  ⚠ No approvals to validate detail endpoint; skipping detail check`);
-  }
-
-  // Check 4: Validate approval control history linkage
-  console.log("[approval-state-machine-check] Check 4: Validate approval control history");
-
-  for (const approval of approvals) {
-    if (approval.controlHistory && Array.isArray(approval.controlHistory)) {
-      for (const entry of approval.controlHistory) {
-        if (!entry.id) {
-          throw new Error(
-            `Approval ${approval.approvalId} control history entry missing id field`
-          );
-        }
-
-        if (!entry.timestamp) {
-          throw new Error(
-            `Approval ${approval.approvalId} control history entry missing timestamp field`
-          );
-        }
-
-        if (!entry.action) {
-          throw new Error(
-            `Approval ${approval.approvalId} control history entry missing action field`
-          );
-        }
-      }
+    if (approval.timestamp !== firstApproval.timestamp) {
+      throw new Error(
+        `Approval detail timestamp mismatch: expected ${firstApproval.timestamp}, got ${approval.timestamp}`
+      );
     }
+
+    console.log(
+      `  ✓ Approval detail endpoint valid for approval ${approval.approvalId}`
+    );
+  } else {
+    console.log("  ⚠ No approvals to validate detail endpoint; skipping detail check");
   }
 
-  console.log(`  ✓ Approval control history linkage is valid`);
-
-  // Check 5: Validate approval metadata shape
-  console.log("[approval-state-machine-check] Check 5: Validate approval metadata");
-
+  console.log("[approval-state-machine-check] Check 5: Validate decision/execution consistency");
   for (const approval of approvals) {
-    if (approval.metadata) {
-      if (typeof approval.metadata !== "object" || Array.isArray(approval.metadata)) {
+    if (approval.status === "pending") {
+      if (approval.decidedAt || approval.decidedBy) {
         throw new Error(
-          `Approval ${approval.approvalId} metadata must be an object, got ${typeof approval.metadata}`
+          `Approval ${approval.approvalId} is pending but already has decision fields`
         );
       }
     }
-  }
 
-  console.log(`  ✓ Approval metadata is valid`);
-
-  // Check 6: Validate no stale transition states
-  console.log(
-    "[approval-state-machine-check] Check 6: Validate no conflicting timestamps"
-  );
-
-  for (const approval of approvals) {
-    const timestamps = [
-      approval.approvedAt ? new Date(approval.approvedAt).getTime() : null,
-      approval.rejectedAt ? new Date(approval.rejectedAt).getTime() : null,
-      approval.expiredAt ? new Date(approval.expiredAt).getTime() : null,
-    ].filter((t) => t !== null);
-
-    if (timestamps.length > 1) {
+    if (approval.status === "expired" && approval.executedAt) {
       throw new Error(
-        `Approval ${approval.approvalId} has multiple terminal timestamps: ` +
-          `approved=${approval.approvedAt}, rejected=${approval.rejectedAt}, expired=${approval.expiredAt}. ` +
-          `An approval can only have one terminal state.`
+        `Approval ${approval.approvalId} is expired but also has executedAt`
+      );
+    }
+
+    if (approval.status === "rejected" && approval.executedAt) {
+      throw new Error(
+        `Approval ${approval.approvalId} is rejected but also has executedAt`
       );
     }
   }
 
-  console.log(`  ✓ No conflicting approval terminal states detected`);
+  console.log("  ✓ Decision and execution consistency is valid");
 
-  // Check 7: Validate expiration timeout semantics
-  console.log("[approval-state-machine-check] Check 7: Validate expiration semantics");
-
+  console.log("[approval-state-machine-check] Check 6: Validate expiration semantics");
+  const now = Date.now();
   for (const approval of approvals) {
     if (approval.status === "pending" && approval.expiresAt) {
-      const expiresTime = new Date(approval.expiresAt).getTime();
-      const now = Date.now();
-
-      if (expiresTime <= now) {
+      const expiresTime = Date.parse(approval.expiresAt);
+      if (Number.isFinite(expiresTime) && expiresTime <= now) {
         console.log(
-          `  ⚠ Approval ${approval.approvalId} has expired expiresAt but is still pending; expected status to be 'expired'`
+          `  ⚠ Approval ${approval.approvalId} has past expiresAt but is still pending; expected lazy-expiration to convert it on read if fetched after store normalization`
         );
       }
     }
   }
 
-  console.log(`  ✓ Expiration semantics validated`);
-
-  // Check 8: Validate reject preserves request context
-  console.log(
-    "[approval-state-machine-check] Check 8: Validate rejected approvals preserve context"
-  );
-
-  const rejectedApprovals = approvals.filter((a) => a.status === "rejected");
-
-  for (const approval of rejectedApprovals) {
-    if (!approval.rejectedAt) {
-      throw new Error(
-        `Rejected approval ${approval.approvalId} missing rejectedAt timestamp`
-      );
-    }
-
-    if (!approval.reason) {
-      throw new Error(`Rejected approval ${approval.approvalId} missing reason field`);
-    }
-
-    if (!approval.employeeId) {
-      throw new Error(
-        `Rejected approval ${approval.approvalId} missing employeeId field`
-      );
-    }
-  }
-
-  console.log(`  ✓ Rejected approvals preserve context (${rejectedApprovals.length} found)`);
+  console.log("  ✓ Expiration semantics validated");
 
   console.log("[approval-state-machine-check] ✅ All approval state machine checks passed");
 }
