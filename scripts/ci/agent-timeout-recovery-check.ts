@@ -49,6 +49,7 @@ type AgentDecision = {
 
 type AgentRunResponse = {
   ok: true;
+  status: "completed";
   policyVersion: string;
   dryRun: boolean;
   budget: {
@@ -66,6 +67,39 @@ type AgentRunResponse = {
     verificationFailed: number;
     skippedCooldownActive: number;
   };
+};
+
+type EmployeeControlRecord = {
+  employeeId: string;
+  state:
+    | "enabled"
+    | "disabled_pending_review"
+    | "disabled_by_manager"
+    | "restricted";
+  transition: string;
+  updatedAt: string;
+  updatedByEmployeeId: string;
+  updatedByRoleId: string;
+  policyVersion: string;
+  reason: string;
+  message: string;
+  evidence?: {
+    windowEntryCount: number;
+    resultCounts?: Record<string, number>;
+  };
+};
+
+type EmployeeControlBlockedResponse = {
+  ok: true;
+  status: "skipped_disabled_by_manager" | "skipped_pending_review";
+  policyVersion: string;
+  trigger: string;
+  employee: {
+    employeeId: string;
+    roleId: string;
+  };
+  message: string;
+  control: EmployeeControlRecord;
 };
 
 type PaperclipAgentRunResponse = {
@@ -113,14 +147,25 @@ type ManagerRunResponse = {
     employeeId: string;
     roleId: string;
   };
-  observedEmployeeId: string;
+  observedEmployeeIds: string[];
   scanned: {
     workLogEntries: number;
+    employeesObserved: number;
   };
   summary: {
     repeatedVerificationFailures: number;
     operatorActionFailures: number;
     budgetExhaustionSignals: number;
+    reEnableDecisions: number;
+    restrictionDecisions: number;
+    clearedRestrictionDecisions: number;
+    crossWorkerAlerts: number;
+    escalationsCreated: number;
+    approvalsRequested?: number;
+    approvalBlockedDecisions?: number;
+    approvalAppliedDecisions?: number;
+    approvalExpiredBlocks?: number;
+    approvalAlreadyExecutedBlocks?: number;
     decisionsEmitted: number;
   };
   decisions: ManagerDecision[];
@@ -128,38 +173,13 @@ type ManagerRunResponse = {
   controlPlaneBaseUrl: string;
 };
 
-type EmployeeControlBlockedResponse = {
-  ok: true;
-  status: "skipped_disabled_by_manager";
-  policyVersion: string;
-  trigger: string;
-  employee: {
-    employeeId: string;
-    roleId: string;
-  };
-  message: string;
-  control: {
-    employeeId: string;
-    enabled: boolean;
-    updatedAt: string;
-    updatedByEmployeeId: string;
-    updatedByRoleId: string;
-    policyVersion: string;
-    reason: string;
-    message: string;
-    evidence?: {
-      windowEntryCount: number;
-      resultCounts?: Record<string, number>;
-    };
-  };
-};
-
-function requireEnv(name: string): string {
-  const value = process.env[name];
-  if (!value) {
-    throw new Error(`Missing required env var: ${name}`);
-  }
-  return value;
+function isBlockedResponse(
+  response: AgentRunResponse | EmployeeControlBlockedResponse
+): response is EmployeeControlBlockedResponse {
+  return (
+    response.status === "skipped_disabled_by_manager" ||
+    response.status === "skipped_pending_review"
+  );
 }
 
 async function readJson<T>(response: Response): Promise<T> {
@@ -302,7 +322,7 @@ async function runAgent(
     }),
   });
 
-  return readJson<AgentRunResponse>(response);
+  return readJson<AgentRunResponse | EmployeeControlBlockedResponse>(response);
 }
 
 async function runAgentViaPaperclip(
@@ -374,23 +394,16 @@ async function getManagerLog(agentBaseUrl: string): Promise<{
 
 async function getEmployeeControls(agentBaseUrl: string): Promise<{
   ok: true;
-  count?: number;
-  entries?: Array<{
-    employeeId: string;
-    control: {
-      employeeId: string;
-      enabled: boolean;
-      updatedByEmployeeId: string;
-      reason: string;
-    } | null;
-  }>;
   employeeId?: string;
-  control?: {
-    employeeId: string;
-    enabled: boolean;
-    updatedByEmployeeId: string;
-    reason: string;
-  } | null;
+  control?: EmployeeControlRecord | null;
+  effectiveState?: {
+    state:
+      | "enabled"
+      | "disabled_pending_review"
+      | "disabled_by_manager"
+      | "restricted";
+    blocked: boolean;
+  };
 }> {
   const response = await fetch(
     `${agentBaseUrl}/agent/employee-controls?employeeId=emp_timeout_recovery_01`
@@ -442,20 +455,20 @@ async function main(): Promise<void> {
     );
   }
 
-  const workerDisabledAtStart =
-    "status" in overrideProbe &&
-    overrideProbe.status === "skipped_disabled_by_manager";
+  const workerDisabledAtStart = isBlockedResponse(overrideProbe);
 
   if (workerDisabledAtStart) {
-    console.log("Worker is already disabled at script start; skipping active worker action checks", {
-      employeeId: overrideProbe.employee.employeeId,
-      reason: overrideProbe.control.reason,
-    });
+    console.log(
+      "Worker is already disabled at script start; skipping active worker action checks",
+      {
+        employeeId: overrideProbe.employee.employeeId,
+        reason: overrideProbe.control.reason,
+      }
+    );
   }
 
   if (
     !workerDisabledAtStart &&
-    !("status" in overrideProbe) &&
     overrideProbe.budget.maxActionsPerScan !== 1
   ) {
     throw new Error(
@@ -480,7 +493,7 @@ async function main(): Promise<void> {
   }
 
   if (
-    !("status" in paperclipProbe.result) &&
+    !isBlockedResponse(paperclipProbe.result) &&
     paperclipProbe.result.budget.maxActionsPerScan !== 1
   ) {
     throw new Error(
@@ -525,14 +538,14 @@ async function main(): Promise<void> {
 
     console.log("Found eligible job", {
       runId: eligibleRun.id,
-      jobId: eligibleJob.id
+      jobId: eligibleJob.id,
     });
 
     const firstRun = await runAgent(agentBaseUrl);
 
-    if ("status" in firstRun) {
+    if (isBlockedResponse(firstRun)) {
       throw new Error(
-        `Worker unexpectedly disabled during active worker checks: ${firstRun.control.reason}`
+        `Worker unexpectedly blocked during active worker checks: ${firstRun.control.reason}`
       );
     }
 
@@ -569,13 +582,13 @@ async function main(): Promise<void> {
 
     console.log("Verified operator trace events", {
       runId: eligibleRun.id,
-      jobId: eligibleJob.id
+      jobId: eligibleJob.id,
     });
 
     const secondRun = await runAgent(agentBaseUrl);
-    if ("status" in secondRun) {
+    if (isBlockedResponse(secondRun)) {
       throw new Error(
-        `Worker unexpectedly disabled before second-run non-action check: ${secondRun.control.reason}`
+        `Worker unexpectedly blocked before second-run non-action check: ${secondRun.control.reason}`
       );
     }
 
@@ -587,15 +600,15 @@ async function main(): Promise<void> {
       throw new Error("Second agent run did not include the eligible job decision");
     }
 
-  const acceptableSecondRunResults = new Set([
-    "skipped_cooldown_active",
-    "skipped_not_eligible",
-    "skipped_tenant_not_allowed",
-    "skipped_service_not_allowed",
-    "skipped_budget_scan_exhausted",
-    "skipped_budget_hourly_exhausted",
-    "skipped_budget_tenant_hourly_exhausted"
-  ]);
+    const acceptableSecondRunResults = new Set([
+      "skipped_cooldown_active",
+      "skipped_not_eligible",
+      "skipped_tenant_not_allowed",
+      "skipped_service_not_allowed",
+      "skipped_budget_scan_exhausted",
+      "skipped_budget_hourly_exhausted",
+      "skipped_budget_tenant_hourly_exhausted",
+    ]);
 
     if (!acceptableSecondRunResults.has(secondDecision.result)) {
       throw new Error(
@@ -606,7 +619,7 @@ async function main(): Promise<void> {
     console.log("Verified second run did not re-apply the operator action", {
       runId: eligibleRun.id,
       jobId: eligibleJob.id,
-      secondRunResult: secondDecision.result
+      secondRunResult: secondDecision.result,
     });
 
     const compatibilityRun = await runAgentCompatibility(agentBaseUrl);
@@ -632,9 +645,12 @@ async function main(): Promise<void> {
     );
   }
 
-  if (managerRun.observedEmployeeId !== "emp_timeout_recovery_01") {
+  if (
+    !Array.isArray(managerRun.observedEmployeeIds) ||
+    !managerRun.observedEmployeeIds.includes("emp_timeout_recovery_01")
+  ) {
     throw new Error(
-      `Unexpected observedEmployeeId: ${managerRun.observedEmployeeId}`
+      `Expected observedEmployeeIds to include emp_timeout_recovery_01, got ${JSON.stringify(managerRun.observedEmployeeIds)}`
     );
   }
 
@@ -661,24 +677,21 @@ async function main(): Promise<void> {
     throw new Error("Employee controls route did not return ok=true");
   }
 
-  const workerControl = employeeControls.control;
-  if (workerControl && workerControl.enabled === false) {
+  const workerEffectiveState = employeeControls.effectiveState;
+
+  if (workerEffectiveState?.blocked) {
     const blockedRun = await runWorkerAfterManagerDisable(agentBaseUrl);
 
-    if (
-      !("status" in blockedRun) ||
-      blockedRun.status !== "skipped_disabled_by_manager"
-    ) {
+    if (!isBlockedResponse(blockedRun)) {
       throw new Error(
-        `Expected worker run to be skipped_disabled_by_manager, got ${
-          "status" in blockedRun ? blockedRun.status : "unknown"
-        }`
+        `Expected worker run to be blocked, got ${blockedRun.status}`
       );
     }
 
     console.log("Verified worker run is blocked by manager-applied local control", {
       employeeId: blockedRun.employee.employeeId,
       reason: blockedRun.control.reason,
+      state: blockedRun.control.state,
     });
   } else {
     console.log("No disabling control present for worker; manager remained advisory in this run");
