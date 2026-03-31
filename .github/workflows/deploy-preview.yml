@@ -5,8 +5,8 @@ on:
   pull_request:
 
 concurrency:
-  group: deploy-preview-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  group: deploy-preview
+  cancel-in-progress: false
 
 jobs:
   test:

@@ -10,8 +10,8 @@ permissions:
   contents: read
 
 concurrency:
-  group: validate-paperclip-handoff-${{ github.ref }}
-  cancel-in-progress: true
+  group: env-async-validation
+  cancel-in-progress: false
 
 jobs:
   validate-paperclip-handoff:

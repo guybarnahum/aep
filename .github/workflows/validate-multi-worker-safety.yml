@@ -10,8 +10,8 @@ permissions:
   contents: read
 
 concurrency:
-  group: validate-multi-worker-safety-${{ github.ref }}
-  cancel-in-progress: true
+  group: env-async-validation
+  cancel-in-progress: false
 
 jobs:
   validate-multi-worker:

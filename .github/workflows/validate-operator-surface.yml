@@ -15,8 +15,8 @@ permissions:
   contents: read
 
 concurrency:
-  group: validate-operator-surface-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  group: env-async-validation
+  cancel-in-progress: false
 
 jobs:
   validate-surface:
