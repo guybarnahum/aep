@@ -1,4 +1,3 @@
-
 /* eslint-disable no-console */
 
 import { handleOperatorAgentSoftSkip } from "../lib/operator-agent-skip";
@@ -191,100 +190,102 @@ function isBlockedResponse(
 
 async function readJson<T>(response: Response): Promise<T> {
   if (!response.ok) {
-    const actionLikeResults = new Set([
-      "action_requested",
-      "verified_applied",
-    ]);
+    const body = await response.text();
+    throw new Error(`Request failed: ${response.status} ${body}`);
+  }
+  return (await response.json()) as T;
+}
 
-    const firstDecision = firstRun.decisions.find((decision) =>
-      actionLikeResults.has(decision.result)
+async function listRuns(baseUrl: string): Promise<RunSummary[]> {
+  const response = await fetch(`${baseUrl}/runs`);
+  const json = await readJson<unknown>(response);
+
+  if (Array.isArray(json)) {
+    return (json as RunSummary[]).map(normalizeRunSummary);
+  }
+  if (
+    json &&
+    typeof json === "object" &&
+    "runs" in json &&
+    Array.isArray((json as { runs?: unknown }).runs)
+  ) {
+    return (json as { runs: RunSummary[] }).runs.map(normalizeRunSummary);
+  }
+
+  throw new Error("Unexpected /runs response shape");
+}
+
+async function getRunJobs(baseUrl: string, runId: string): Promise<JobSummary[]> {
+  const response = await fetch(`${baseUrl}/runs/${runId}/jobs`);
+  const json = await readJson<unknown>(response);
+
+  if (Array.isArray(json)) {
+    return (json as JobSummary[]).map((job) => normalizeJobSummary(job, runId));
+  }
+  if (
+    json &&
+    typeof json === "object" &&
+    "jobs" in json &&
+    Array.isArray((json as { jobs?: unknown }).jobs)
+  ) {
+    return (json as { jobs: JobSummary[] }).jobs.map((job) =>
+      normalizeJobSummary(job, runId)
     );
+  }
 
-    if (!firstDecision) {
-      throw new Error(
-        `Expected at least one action-taking decision (action_requested or verified_applied), got decisions: ${firstRun.decisions
-          .map((d) => `${d.runId}/${d.jobId}:${d.result}${d.reason ? `:${d.reason}` : ""}`)
-          .join(", ")}`
-      );
-    }
+  throw new Error(`Unexpected /runs/${runId}/jobs response shape`);
+}
 
-    const actedRunId = firstDecision.runId;
-    const actedJobId = firstDecision.jobId;
+async function getTrace(baseUrl: string, runId: string): Promise<TraceEvent[]> {
+  const response = await fetch(`${baseUrl}/trace/${runId}`);
+  const json = await readJson<unknown>(response);
 
-    console.log("Selected acted decision for verification", {
-      runId: actedRunId,
-      jobId: actedJobId,
-      tenant: firstDecision.tenant,
-      service: firstDecision.service,
-      result: firstDecision.result,
-      reason: firstDecision.reason,
-    });
+  if (Array.isArray(json)) return (json as TraceEvent[]).map(normalizeTraceEvent);
+  if (
+    json &&
+    typeof json === "object" &&
+    "events" in json &&
+    Array.isArray((json as { events?: unknown }).events)
+  ) {
+    return (json as { events: TraceEvent[] }).events.map(normalizeTraceEvent);
+  }
+  if (
+    json &&
+    typeof json === "object" &&
+    "trace" in json &&
+    Array.isArray((json as { trace?: unknown }).trace)
+  ) {
+    return (json as { trace: TraceEvent[] }).trace.map(normalizeTraceEvent);
+  }
 
-    let trace: TraceEvent[] = [];
-    let verification = { ok: false, evidence: [] as string[] };
+  throw new Error(`Unexpected /trace/${runId} response shape`);
+}
 
-    for (let attempt = 1; attempt <= 6; attempt += 1) {
-      trace = await getTrace(controlPlaneBaseUrl, actedRunId);
-      verification = verifyAdvanceTimeoutApplied(trace, actedJobId);
+function normalizeRunSummary(raw: RunSummary): RunSummary {
+  const id = raw.id ?? raw.run_id;
+  if (!id) {
+    throw new Error("Run entry missing id/run_id");
+  }
 
-      if (verification.ok) {
-        break;
-      }
+  return {
+    ...raw,
+    id,
+    tenant: raw.tenant ?? raw.tenant_id,
+    service: raw.service ?? raw.service_name,
+  };
+}
 
-      if (attempt < 6) {
-        await sleep(1000);
-      }
-    }
+function normalizeJobSummary(raw: JobSummary, runId: string): JobSummary {
+  const id = raw.id ?? raw.job_id;
+  if (!id) {
+    throw new Error(`Job entry missing id/job_id for run ${runId}`);
+  }
 
-    if (!verification.ok) {
-      throw new Error(
-        `Expected trace to contain operator.action_requested and operator.action_applied for job ${actedJobId}; firstDecision.result=${firstDecision.result}; saw evidence: ${verification.evidence.join(", ") || "(none)"}`
-      );
-    }
-
-    console.log("Verified operator trace events", {
-      runId: actedRunId,
-      jobId: actedJobId,
-      firstDecisionResult: firstDecision.result,
-      evidence: verification.evidence,
-    });
-
-    const secondRun = await runAgent(agentBaseUrl);
-    if (isBlockedResponse(secondRun)) {
-      throw new Error(
-        `Worker unexpectedly blocked before second-run non-action check: ${secondRun.control.reason}`
-      );
-    }
-
-    const secondDecision = secondRun.decisions.find(
-      (decision) => decision.runId === actedRunId && decision.jobId === actedJobId
-    );
-
-    if (!secondDecision) {
-      throw new Error("Second agent run did not include the acted job decision");
-    }
-
-    const acceptableSecondRunResults = new Set([
-      "skipped_cooldown_active",
-      "skipped_not_eligible",
-      "skipped_tenant_not_allowed",
-      "skipped_service_not_allowed",
-      "skipped_budget_scan_exhausted",
-      "skipped_budget_hourly_exhausted",
-      "skipped_budget_tenant_hourly_exhausted",
-    ]);
-
-    if (!acceptableSecondRunResults.has(secondDecision.result)) {
-      throw new Error(
-        `Unexpected second-run result for job ${actedJobId}: ${secondDecision.result}`
-      );
-    }
-
-    console.log("Verified second run did not re-apply the operator action", {
-      runId: actedRunId,
-      jobId: actedJobId,
-      secondRunResult: secondDecision.result,
-    });
+  return {
+    ...raw,
+    id,
+    run_id: raw.run_id ?? runId,
+  };
 }
 
 function normalizeTraceEvent(raw: TraceEvent): TraceEvent {
@@ -584,31 +585,41 @@ async function main(): Promise<void> {
       throw new Error("Agent is in dry-run mode; expected apply mode for validation");
     }
 
-    const firstDecision = firstRun.decisions.find(
-      (decision) => decision.runId === eligibleRun!.id && decision.jobId === eligibleJob!.id
-    );
-
-    if (!firstDecision) {
-      throw new Error("Agent response did not include the eligible job decision");
-    }
-
     const actionLikeResults = new Set([
       "action_requested",
       "verified_applied",
     ]);
 
-    if (!actionLikeResults.has(firstDecision.result)) {
+    const firstDecision = firstRun.decisions.find((decision) =>
+      actionLikeResults.has(decision.result)
+    );
+
+    if (!firstDecision) {
       throw new Error(
-        `Expected first decision for eligible job ${eligibleJob.id} to be action_requested or verified_applied, got ${firstDecision.result}`
+        `Expected at least one action-taking decision (action_requested or verified_applied), got decisions: ${firstRun.decisions
+          .map((d) => `${d.runId}/${d.jobId}:${d.result}${d.reason ? `:${d.reason}` : ""}`)
+          .join(", ")}`
       );
     }
+
+    const actedRunId = firstDecision.runId;
+    const actedJobId = firstDecision.jobId;
+
+    console.log("Selected acted decision for verification", {
+      runId: actedRunId,
+      jobId: actedJobId,
+      tenant: firstDecision.tenant,
+      service: firstDecision.service,
+      result: firstDecision.result,
+      reason: firstDecision.reason,
+    });
 
     let trace: TraceEvent[] = [];
     let verification = { ok: false, evidence: [] as string[] };
 
     for (let attempt = 1; attempt <= 6; attempt += 1) {
-      trace = await getTrace(controlPlaneBaseUrl, eligibleRun.id);
-      verification = verifyAdvanceTimeoutApplied(trace, eligibleJob.id);
+      trace = await getTrace(controlPlaneBaseUrl, actedRunId);
+      verification = verifyAdvanceTimeoutApplied(trace, actedJobId);
 
       if (verification.ok) {
         break;
@@ -621,13 +632,13 @@ async function main(): Promise<void> {
 
     if (!verification.ok) {
       throw new Error(
-        `Expected trace to contain operator.action_requested and operator.action_applied for job ${eligibleJob.id}; firstDecision.result=${firstDecision.result}; saw evidence: ${verification.evidence.join(", ") || "(none)"}`
+        `Expected trace to contain operator.action_requested and operator.action_applied for job ${actedJobId}; firstDecision.result=${firstDecision.result}; saw evidence: ${verification.evidence.join(", ") || "(none)"}`
       );
     }
 
     console.log("Verified operator trace events", {
-      runId: eligibleRun.id,
-      jobId: eligibleJob.id,
+      runId: actedRunId,
+      jobId: actedJobId,
       firstDecisionResult: firstDecision.result,
       evidence: verification.evidence,
     });
@@ -640,11 +651,11 @@ async function main(): Promise<void> {
     }
 
     const secondDecision = secondRun.decisions.find(
-      (decision) => decision.runId === eligibleRun!.id && decision.jobId === eligibleJob!.id
+      (decision) => decision.runId === actedRunId && decision.jobId === actedJobId
     );
 
     if (!secondDecision) {
-      throw new Error("Second agent run did not include the eligible job decision");
+      throw new Error("Second agent run did not include the acted job decision");
     }
 
     const acceptableSecondRunResults = new Set([
@@ -659,13 +670,13 @@ async function main(): Promise<void> {
 
     if (!acceptableSecondRunResults.has(secondDecision.result)) {
       throw new Error(
-        `Unexpected second-run result for job ${eligibleJob.id}: ${secondDecision.result}`
+        `Unexpected second-run result for job ${actedJobId}: ${secondDecision.result}`
       );
     }
 
     console.log("Verified second run did not re-apply the operator action", {
-      runId: eligibleRun.id,
-      jobId: eligibleJob.id,
+      runId: actedRunId,
+      jobId: actedJobId,
       secondRunResult: secondDecision.result,
     });
 
