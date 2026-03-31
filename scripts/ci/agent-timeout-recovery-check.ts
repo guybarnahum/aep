@@ -1,28 +1,4 @@
-function verifyAdvanceTimeoutApplied(
-  trace: TraceEvent[],
-  jobId: string
-): { ok: boolean; evidence: string[] } {
-  const evidence: string[] = [];
 
-  const requested = hasTraceEvent(trace, "operator.action_requested", jobId);
-  if (requested) {
-    evidence.push("operator.action_requested");
-  }
-
-  const applied = hasTraceEvent(trace, "operator.action_applied", jobId);
-  if (applied) {
-    evidence.push("operator.action_applied");
-  }
-
-  return {
-    ok: requested && applied,
-    evidence,
-  };
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
 /* eslint-disable no-console */
 
 import { handleOperatorAgentSoftSkip } from "../lib/operator-agent-skip";
@@ -321,6 +297,32 @@ function hasTraceEvent(
   jobId: string
 ): boolean {
   return trace.some((event) => event.type === type && event.job_id === jobId);
+}
+
+function verifyAdvanceTimeoutApplied(
+  trace: TraceEvent[],
+  jobId: string
+): { ok: boolean; evidence: string[] } {
+  const evidence: string[] = [];
+
+  const requested = hasTraceEvent(trace, "operator.action_requested", jobId);
+  if (requested) {
+    evidence.push("operator.action_requested");
+  }
+
+  const applied = hasTraceEvent(trace, "operator.action_applied", jobId);
+  if (applied) {
+    evidence.push("operator.action_applied");
+  }
+
+  return {
+    ok: requested && applied,
+    evidence,
+  };
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 async function runAgent(
