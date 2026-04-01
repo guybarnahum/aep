@@ -6,6 +6,9 @@ on:
       deploy_url:
         required: true
         type: string
+      operator_agent_base_url:
+        required: false
+        type: string
       cf_env:
         required: true
         type: string
@@ -16,9 +19,6 @@ on:
         required: false
         type: string
         default: "20"
-    secrets:
-      OPERATOR_AGENT_BASE_URL:
-        required: false
     outputs:
       enabled:
         description: "Whether post-deploy validation was enabled"
@@ -41,7 +41,7 @@ jobs:
         shell: bash -eo pipefail {0}
     env:
       DEPLOY_URL: ${{ inputs.deploy_url }}
-      OPERATOR_AGENT_BASE_URL: ${{ secrets.OPERATOR_AGENT_BASE_URL }}
+      OPERATOR_AGENT_BASE_URL: ${{ inputs.operator_agent_base_url }}
       CF_ENV: ${{ inputs.cf_env }}
       GIT_SHA: ${{ inputs.git_sha }}
     outputs:
@@ -59,12 +59,12 @@ jobs:
 
       - run: npm ci
 
-      - name: Debug reusable workflow secret presence
+      - name: Debug reusable workflow input presence
         run: |
           if [[ -n "$OPERATOR_AGENT_BASE_URL" ]]; then
-            echo "OPERATOR_AGENT_BASE_URL_PRESENT_IN_CALLEE=true"
+            echo "OPERATOR_AGENT_BASE_URL_INPUT_PRESENT_IN_CALLEE=true"
           else
-            echo "OPERATOR_AGENT_BASE_URL_PRESENT_IN_CALLEE=false"
+            echo "OPERATOR_AGENT_BASE_URL_INPUT_PRESENT_IN_CALLEE=false"
           fi
 
       - name: Check validation configuration
@@ -78,7 +78,7 @@ jobs:
             if [[ -z "$OPERATOR_AGENT_BASE_URL" ]]; then
               echo "reason=missing" >> "$GITHUB_OUTPUT"
               echo "Missing OPERATOR_AGENT_BASE_URL in _validate_post_deploy.yml." >&2
-              echo "The caller must pass OPERATOR_AGENT_BASE_URL as a secret into this reusable workflow." >&2
+              echo "The caller must pass operator_agent_base_url as an input into this reusable workflow." >&2
             else
               echo "reason=invalid_url" >> "$GITHUB_OUTPUT"
               echo "Invalid OPERATOR_AGENT_BASE_URL in _validate_post_deploy.yml. Must be absolute, e.g. https://... ." >&2
@@ -136,9 +136,9 @@ jobs:
           if [[ "$ENABLED" != "true" ]]; then
             echo "### Configuration" >> "$GITHUB_STEP_SUMMARY"
             if [[ "${{ steps.config.outputs.reason }}" == "missing" ]]; then
-              echo "- ⚪ Post-deploy validation skipped: OPERATOR_AGENT_BASE_URL was not provided to the reusable workflow." >> "$GITHUB_STEP_SUMMARY"
+              echo "- ⚪ Post-deploy validation skipped: operator_agent_base_url was not provided to the reusable workflow." >> "$GITHUB_STEP_SUMMARY"
             else
-              echo "- ⚪ Post-deploy validation skipped: OPERATOR_AGENT_BASE_URL was invalid." >> "$GITHUB_STEP_SUMMARY"
+              echo "- ⚪ Post-deploy validation skipped: operator_agent_base_url was invalid." >> "$GITHUB_STEP_SUMMARY"
             fi
             exit 0
           fi

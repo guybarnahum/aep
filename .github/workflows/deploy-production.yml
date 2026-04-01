@@ -53,19 +53,34 @@ jobs:
   debug-production-secrets:
     needs: test
     runs-on: ubuntu-latest
+    environment:
+      name: production
+      deployment: false
     steps:
-      - name: Debug production secret presence
+      - name: Debug production environment configuration presence
         run: |
-          if [[ -n "${{ secrets.PRODUCTION_BASE_URL }}" ]]; then
+          if [[ -n "${{ vars.DEPLOY_URL }}" ]]; then
             echo "PRODUCTION_BASE_URL_PRESENT=true"
           else
             echo "PRODUCTION_BASE_URL_PRESENT=false"
           fi
 
-          if [[ -n "${{ secrets.PRODUCTION_OPERATOR_AGENT_BASE_URL }}" ]]; then
+          if [[ -n "${{ vars.OPERATOR_AGENT_BASE_URL }}" ]]; then
             echo "PRODUCTION_OPERATOR_AGENT_BASE_URL_PRESENT=true"
           else
             echo "PRODUCTION_OPERATOR_AGENT_BASE_URL_PRESENT=false"
+          fi
+
+          if [[ -n "${{ secrets.CLOUDFLARE_API_TOKEN }}" ]]; then
+            echo "PRODUCTION_CLOUDFLARE_API_TOKEN_PRESENT=true"
+          else
+            echo "PRODUCTION_CLOUDFLARE_API_TOKEN_PRESENT=false"
+          fi
+
+          if [[ -n "${{ secrets.CLOUDFLARE_ACCOUNT_ID }}" ]]; then
+            echo "PRODUCTION_CLOUDFLARE_ACCOUNT_ID_PRESENT=true"
+          else
+            echo "PRODUCTION_CLOUDFLARE_ACCOUNT_ID_PRESENT=false"
           fi
 
   deploy-production-env:
@@ -74,6 +89,7 @@ jobs:
       - debug-production-secrets
     uses: ./.github/workflows/_deploy_environment.yml
     with:
+      environment_name: production
       cf_env: production
       git_sha: ${{ github.sha }}
       health_runtime_env: production
@@ -88,11 +104,7 @@ jobs:
       readiness_attempts: "24"
       readiness_interval_ms: "5000"
       readiness_timeout_ms: "8000"
-    secrets:
-      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-      DEPLOY_URL: ${{ secrets.PRODUCTION_BASE_URL }}
-      OPERATOR_AGENT_BASE_URL_FALLBACK: ${{ secrets.PRODUCTION_OPERATOR_AGENT_BASE_URL }}
+    secrets: inherit
 
   validate-production-smoke:
     needs: deploy-production-env
@@ -120,11 +132,10 @@ jobs:
     uses: ./.github/workflows/_validate_post_deploy.yml
     with:
       deploy_url: ${{ needs.deploy-production-env.outputs.deploy_url }}
+      operator_agent_base_url: ${{ needs.deploy-production-env.outputs.operator_agent_url }}
       cf_env: ${{ needs.deploy-production-env.outputs.cf_env }}
       git_sha: ${{ needs.deploy-production-env.outputs.git_sha }}
       node_version: "20"
-    secrets:
-      OPERATOR_AGENT_BASE_URL: ${{ secrets.PRODUCTION_OPERATOR_AGENT_BASE_URL }}
 
   final-summary:
     needs:
@@ -144,7 +155,7 @@ jobs:
           echo "- Control-plane smoke: ${{ needs.validate-production-smoke.outputs.outcome }}" >> "$GITHUB_STEP_SUMMARY"
 
           if [[ "${{ needs.validate-production-post-deploy.outputs.enabled }}" != "true" ]]; then
-            echo "- Post-deploy validation: skipped (warning: PRODUCTION_OPERATOR_AGENT_BASE_URL not configured)" >> "$GITHUB_STEP_SUMMARY"
+            echo "- Post-deploy validation: skipped (warning: operator-agent base URL not configured for the production environment)" >> "$GITHUB_STEP_SUMMARY"
           elif [[ "${{ needs.validate-production-post-deploy.outputs.attention }}" == "true" ]]; then
             echo "- Post-deploy validation: ${{ needs.validate-production-post-deploy.outputs.outcome }} (attention: WARN/SKIP entries present)" >> "$GITHUB_STEP_SUMMARY"
           else

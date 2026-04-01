@@ -26,25 +26,41 @@ concurrency:
 jobs:
   debug-async-validation-secrets:
     runs-on: ubuntu-latest
+    environment:
+      name: async-validation
+      deployment: false
     steps:
-      - name: Debug async validation secret presence
+      - name: Debug async validation environment configuration presence
         run: |
-          if [[ -n "${{ secrets.ASYNC_VALIDATION_BASE_URL }}" ]]; then
+          if [[ -n "${{ vars.DEPLOY_URL }}" ]]; then
             echo "ASYNC_VALIDATION_BASE_URL_PRESENT=true"
           else
             echo "ASYNC_VALIDATION_BASE_URL_PRESENT=false"
           fi
 
-          if [[ -n "${{ secrets.ASYNC_VALIDATION_OPERATOR_AGENT_BASE_URL }}" ]]; then
+          if [[ -n "${{ vars.OPERATOR_AGENT_BASE_URL }}" ]]; then
             echo "ASYNC_VALIDATION_OPERATOR_AGENT_BASE_URL_PRESENT=true"
           else
             echo "ASYNC_VALIDATION_OPERATOR_AGENT_BASE_URL_PRESENT=false"
+          fi
+
+          if [[ -n "${{ secrets.CLOUDFLARE_API_TOKEN }}" ]]; then
+            echo "ASYNC_VALIDATION_CLOUDFLARE_API_TOKEN_PRESENT=true"
+          else
+            echo "ASYNC_VALIDATION_CLOUDFLARE_API_TOKEN_PRESENT=false"
+          fi
+
+          if [[ -n "${{ secrets.CLOUDFLARE_ACCOUNT_ID }}" ]]; then
+            echo "ASYNC_VALIDATION_CLOUDFLARE_ACCOUNT_ID_PRESENT=true"
+          else
+            echo "ASYNC_VALIDATION_CLOUDFLARE_ACCOUNT_ID_PRESENT=false"
           fi
 
   deploy-async-environment:
     needs: debug-async-validation-secrets
     uses: ./.github/workflows/_deploy_environment.yml
     with:
+      environment_name: async-validation
       cf_env: async_validation
       git_sha: ${{ github.sha }}
       health_runtime_env: dev
@@ -59,11 +75,7 @@ jobs:
       readiness_attempts: "24"
       readiness_interval_ms: "5000"
       readiness_timeout_ms: "8000"
-    secrets:
-      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-      DEPLOY_URL: ${{ secrets.ASYNC_VALIDATION_BASE_URL }}
-      OPERATOR_AGENT_BASE_URL_FALLBACK: ${{ secrets.ASYNC_VALIDATION_OPERATOR_AGENT_BASE_URL }}
+    secrets: inherit
 
   validate-operator-surface:
     needs: deploy-async-environment
