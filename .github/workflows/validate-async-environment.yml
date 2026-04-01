@@ -29,6 +29,9 @@ jobs:
     environment:
       name: async-validation
       deployment: false
+    outputs:
+      deploy_url: ${{ steps.resolve.outputs.deploy_url }}
+      operator_agent_base_url: ${{ steps.resolve.outputs.operator_agent_base_url }}
     steps:
       - name: Debug async validation environment configuration presence
         run: |
@@ -56,11 +59,29 @@ jobs:
             echo "ASYNC_VALIDATION_CLOUDFLARE_ACCOUNT_ID_PRESENT=false"
           fi
 
+      - name: Resolve async validation base URLs
+        id: resolve
+        run: |
+          DEPLOY_URL="${{ vars.DEPLOY_URL }}"
+          if [[ -z "$DEPLOY_URL" ]]; then
+            DEPLOY_URL="${{ secrets.ASYNC_VALIDATION_BASE_URL }}"
+          fi
+
+          OPERATOR_AGENT_BASE_URL="${{ vars.OPERATOR_AGENT_BASE_URL }}"
+          if [[ -z "$OPERATOR_AGENT_BASE_URL" ]]; then
+            OPERATOR_AGENT_BASE_URL="${{ secrets.ASYNC_VALIDATION_OPERATOR_AGENT_BASE_URL }}"
+          fi
+
+          echo "deploy_url=$DEPLOY_URL" >> "$GITHUB_OUTPUT"
+          echo "operator_agent_base_url=$OPERATOR_AGENT_BASE_URL" >> "$GITHUB_OUTPUT"
+
   deploy-async-environment:
     needs: debug-async-validation-secrets
     uses: ./.github/workflows/_deploy_environment.yml
     with:
       environment_name: async-validation
+      deploy_url: ${{ needs.debug-async-validation-secrets.outputs.deploy_url }}
+      operator_agent_base_url_fallback: ${{ needs.debug-async-validation-secrets.outputs.operator_agent_base_url }}
       cf_env: async_validation
       git_sha: ${{ github.sha }}
       health_runtime_env: dev

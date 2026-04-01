@@ -37,6 +37,9 @@ jobs:
     environment:
       name: preview
       deployment: false
+    outputs:
+      deploy_url: ${{ steps.resolve.outputs.deploy_url }}
+      operator_agent_base_url: ${{ steps.resolve.outputs.operator_agent_base_url }}
     steps:
       - name: Debug preview environment configuration presence
         run: |
@@ -64,6 +67,22 @@ jobs:
             echo "PREVIEW_CLOUDFLARE_ACCOUNT_ID_PRESENT=false"
           fi
 
+      - name: Resolve preview base URLs
+        id: resolve
+        run: |
+          DEPLOY_URL="${{ vars.DEPLOY_URL }}"
+          if [[ -z "$DEPLOY_URL" ]]; then
+            DEPLOY_URL="${{ secrets.PREVIEW_BASE_URL }}"
+          fi
+
+          OPERATOR_AGENT_BASE_URL="${{ vars.OPERATOR_AGENT_BASE_URL }}"
+          if [[ -z "$OPERATOR_AGENT_BASE_URL" ]]; then
+            OPERATOR_AGENT_BASE_URL="${{ secrets.PREVIEW_OPERATOR_AGENT_BASE_URL }}"
+          fi
+
+          echo "deploy_url=$DEPLOY_URL" >> "$GITHUB_OUTPUT"
+          echo "operator_agent_base_url=$OPERATOR_AGENT_BASE_URL" >> "$GITHUB_OUTPUT"
+
   deploy-preview-env:
     needs:
       - test
@@ -71,6 +90,8 @@ jobs:
     uses: ./.github/workflows/_deploy_environment.yml
     with:
       environment_name: preview
+      deploy_url: ${{ needs.debug-preview-secrets.outputs.deploy_url }}
+      operator_agent_base_url_fallback: ${{ needs.debug-preview-secrets.outputs.operator_agent_base_url }}
       cf_env: preview
       git_sha: ${{ github.sha }}
       health_runtime_env: preview

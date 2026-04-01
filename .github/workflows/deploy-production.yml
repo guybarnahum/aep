@@ -56,19 +56,22 @@ jobs:
     environment:
       name: production
       deployment: false
+    outputs:
+      deploy_url: ${{ steps.resolve.outputs.deploy_url }}
+      operator_agent_base_url: ${{ steps.resolve.outputs.operator_agent_base_url }}
     steps:
       - name: Debug production environment configuration presence
         run: |
           if [[ -n "${{ vars.DEPLOY_URL }}" ]]; then
-            echo "PRODUCTION_BASE_URL_PRESENT=true"
+            echo "PROD_BASE_URL_PRESENT=true"
           else
-            echo "PRODUCTION_BASE_URL_PRESENT=false"
+            echo "PROD_BASE_URL_PRESENT=false"
           fi
 
           if [[ -n "${{ vars.OPERATOR_AGENT_BASE_URL }}" ]]; then
-            echo "PRODUCTION_OPERATOR_AGENT_BASE_URL_PRESENT=true"
+            echo "PROD_OPERATOR_AGENT_BASE_URL_PRESENT=true"
           else
-            echo "PRODUCTION_OPERATOR_AGENT_BASE_URL_PRESENT=false"
+            echo "PROD_OPERATOR_AGENT_BASE_URL_PRESENT=false"
           fi
 
           if [[ -n "${{ secrets.CLOUDFLARE_API_TOKEN }}" ]]; then
@@ -83,6 +86,22 @@ jobs:
             echo "PRODUCTION_CLOUDFLARE_ACCOUNT_ID_PRESENT=false"
           fi
 
+      - name: Resolve production base URLs
+        id: resolve
+        run: |
+          DEPLOY_URL="${{ vars.DEPLOY_URL }}"
+          if [[ -z "$DEPLOY_URL" ]]; then
+            DEPLOY_URL="${{ secrets.PROD_BASE_URL }}"
+          fi
+
+          OPERATOR_AGENT_BASE_URL="${{ vars.OPERATOR_AGENT_BASE_URL }}"
+          if [[ -z "$OPERATOR_AGENT_BASE_URL" ]]; then
+            OPERATOR_AGENT_BASE_URL="${{ secrets.PROD_OPERATOR_AGENT_BASE_URL }}"
+          fi
+
+          echo "deploy_url=$DEPLOY_URL" >> "$GITHUB_OUTPUT"
+          echo "operator_agent_base_url=$OPERATOR_AGENT_BASE_URL" >> "$GITHUB_OUTPUT"
+
   deploy-production-env:
     needs:
       - test
@@ -90,6 +109,8 @@ jobs:
     uses: ./.github/workflows/_deploy_environment.yml
     with:
       environment_name: production
+      deploy_url: ${{ needs.debug-production-secrets.outputs.deploy_url }}
+      operator_agent_base_url_fallback: ${{ needs.debug-production-secrets.outputs.operator_agent_base_url }}
       cf_env: production
       git_sha: ${{ github.sha }}
       health_runtime_env: production

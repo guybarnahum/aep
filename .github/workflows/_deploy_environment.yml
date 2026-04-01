@@ -6,6 +6,12 @@ on:
       environment_name:
         required: true
         type: string
+      deploy_url:
+        required: true
+        type: string
+      operator_agent_base_url_fallback:
+        required: false
+        type: string
       cf_env:
         required: true
         type: string
@@ -90,13 +96,13 @@ jobs:
         shell: bash -eo pipefail {0}
     env:
       GIT_SHA: ${{ inputs.git_sha }}
-      DEPLOY_URL: ${{ vars.DEPLOY_URL }}
+      DEPLOY_URL: ${{ inputs.deploy_url }}
       CF_ENV: ${{ inputs.cf_env }}
       HEALTH_RUNTIME_ENV: ${{ inputs.health_runtime_env }}
       D1_DATABASE_NAME: ${{ inputs.d1_database_name }}
       WRANGLER_CONFIG: ${{ inputs.wrangler_config }}
       OPERATOR_AGENT_WRANGLER_CONFIG: ${{ inputs.operator_agent_wrangler_config }}
-      OPERATOR_AGENT_BASE_URL_FALLBACK: ${{ vars.OPERATOR_AGENT_BASE_URL }}
+      OPERATOR_AGENT_BASE_URL_FALLBACK: ${{ inputs.operator_agent_base_url_fallback }}
       OPERATOR_AGENT_D1_DATABASE_NAME: ${{ inputs.operator_agent_d1_database_name }}
       ENABLE_TEST_ENDPOINTS: ${{ inputs.enable_test_endpoints }}
     outputs:
@@ -118,18 +124,18 @@ jobs:
 
       - run: npm ci
 
-      - name: Debug environment configuration presence
+      - name: Debug deploy workflow input presence
         run: |
           if [[ -n "$DEPLOY_URL" ]]; then
-            echo "DEPLOY_URL_VAR_PRESENT_IN_CALLEE=true"
+            echo "DEPLOY_URL_INPUT_PRESENT_IN_CALLEE=true"
           else
-            echo "DEPLOY_URL_VAR_PRESENT_IN_CALLEE=false"
+            echo "DEPLOY_URL_INPUT_PRESENT_IN_CALLEE=false"
           fi
 
           if [[ -n "$OPERATOR_AGENT_BASE_URL_FALLBACK" ]]; then
-            echo "OPERATOR_AGENT_BASE_URL_VAR_PRESENT_IN_CALLEE=true"
+            echo "OPERATOR_AGENT_BASE_URL_INPUT_PRESENT_IN_CALLEE=true"
           else
-            echo "OPERATOR_AGENT_BASE_URL_VAR_PRESENT_IN_CALLEE=false"
+            echo "OPERATOR_AGENT_BASE_URL_INPUT_PRESENT_IN_CALLEE=false"
           fi
 
           if [[ -n "${{ secrets.CLOUDFLARE_API_TOKEN }}" ]]; then
@@ -157,15 +163,15 @@ jobs:
               echo "reason=missing" >> "$GITHUB_OUTPUT"
               echo "Missing DEPLOY_URL in _deploy_environment.yml." >&2
               echo "" >&2
-              echo "This reusable workflow expects its deploy job to be bound to an environment that defines a DEPLOY_URL variable." >&2
+              echo "This reusable workflow expects the caller to pass a deploy_url input." >&2
               echo "" >&2
-              echo "Check the environment configuration for '${{ inputs.environment_name }}':" >&2
-              echo "  - vars.DEPLOY_URL must be set to the public control-plane base URL" >&2
-              echo "  - vars.OPERATOR_AGENT_BASE_URL is optional and used when operator-agent is not deployed in this lane" >&2
+              echo "Check the caller configuration for '${{ inputs.environment_name }}':" >&2
+              echo "  - deploy_url must resolve to the public control-plane base URL" >&2
+              echo "  - operator_agent_base_url_fallback is optional and used when operator-agent is not deployed in this lane" >&2
               echo "  - secrets.CLOUDFLARE_API_TOKEN and secrets.CLOUDFLARE_ACCOUNT_ID must be available to the job" >&2
               echo "" >&2
               echo "Likely causes:" >&2
-              echo "  1. the environment variable DEPLOY_URL is missing or empty" >&2
+              echo "  1. the caller could not resolve a deploy URL from environment vars or legacy secrets" >&2
               echo "  2. the caller passed the wrong environment_name" >&2
               echo "  3. the workflow is running in an event context that cannot access that environment" >&2
             else
@@ -363,7 +369,7 @@ jobs:
 
           echo "### Failure triage" >> "$GITHUB_STEP_SUMMARY"
           if [[ "$BASE_URL_CONFIG_OUTCOME" != "success" ]]; then
-            echo "- Base URL configuration failed. Ensure the '${{ inputs.environment_name }}' environment exposes vars.DEPLOY_URL and that this reusable workflow was called with the correct environment_name." >> "$GITHUB_STEP_SUMMARY"
+            echo "- Base URL configuration failed. Ensure the caller resolved deploy_url correctly for '${{ inputs.environment_name }}' from environment vars or legacy secrets." >> "$GITHUB_STEP_SUMMARY"
           elif [[ "$DEPLOY_CONTROL_PLANE_OUTCOME" != "success" || "$MIGRATIONS_OUTCOME" != "success" || "$WAIT_CONTROL_PLANE_OUTCOME" != "success" || "$HEALTH_OUTCOME" != "success" ]]; then
             echo "- Control-plane bring-up failed. Start with deploy logs, migrations, readiness, and /healthz." >> "$GITHUB_STEP_SUMMARY"
           elif [[ "${{ inputs.deploy_operator_agent }}" == "true" && "$DEPLOY_OPERATOR_AGENT_OUTCOME" != "success" ]]; then
