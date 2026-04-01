@@ -1,0 +1,185 @@
+name: Validate Async Environment
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_operator_surface:
+        description: "Run operator surface validation"
+        required: false
+        type: boolean
+        default: true
+      run_operator_governance:
+        description: "Run operator governance validation"
+        required: false
+        type: boolean
+        default: true
+      run_paperclip_handoff:
+        description: "Run Paperclip handoff validation"
+        required: false
+        type: boolean
+        default: true
+
+concurrency:
+  group: env-async-validation
+  cancel-in-progress: false
+
+jobs:
+  deploy-async-environment:
+    uses: ./.github/workflows/_deploy_environment.yml
+    with:
+      cf_env: async_validation
+      git_sha: ${{ github.sha }}
+      health_runtime_env: dev
+      wrangler_config: core/control-plane/wrangler.toml
+      d1_database_name: aep-async-validation
+      deploy_operator_agent: true
+      operator_agent_wrangler_config: core/operator-agent/wrangler.jsonc
+      operator_agent_d1_database_name: aep-operator-agent-async-validation
+      enable_test_endpoints: "true"
+      insecure_allow_version_mismatch: false
+      node_version: "20"
+      readiness_attempts: "24"
+      readiness_interval_ms: "5000"
+      readiness_timeout_ms: "8000"
+    secrets:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      DEPLOY_URL: ${{ secrets.ASYNC_VALIDATION_BASE_URL }}
+      OPERATOR_AGENT_BASE_URL_FALLBACK: ${{ secrets.ASYNC_VALIDATION_OPERATOR_AGENT_BASE_URL }}
+
+  validate-operator-surface:
+    needs: deploy-async-environment
+    if: ${{ inputs.run_operator_surface }}
+    uses: ./.github/workflows/_validate_operator_surface.yml
+    with:
+      deploy_url: ${{ needs.deploy-async-environment.outputs.deploy_url }}
+      operator_agent_base_url: ${{ needs.deploy-async-environment.outputs.operator_agent_url }}
+      cf_env: ${{ needs.deploy-async-environment.outputs.cf_env }}
+      git_sha: ${{ needs.deploy-async-environment.outputs.git_sha }}
+      health_runtime_env: dev
+      node_version: "20"
+
+  validate-operator-governance:
+    needs:
+      - deploy-async-environment
+      - validate-operator-surface
+    if: ${{ always() && inputs.run_operator_governance && needs.deploy-async-environment.result == 'success' && (needs.validate-operator-surface.result == 'success' || needs.validate-operator-surface.result == 'skipped') }}
+    uses: ./.github/workflows/_validate_operator_governance.yml
+    with:
+      deploy_url: ${{ needs.deploy-async-environment.outputs.deploy_url }}
+      operator_agent_base_url: ${{ needs.deploy-async-environment.outputs.operator_agent_url }}
+      cf_env: ${{ needs.deploy-async-environment.outputs.cf_env }}
+      git_sha: ${{ needs.deploy-async-environment.outputs.git_sha }}
+      health_runtime_env: dev
+      node_version: "20"
+
+  validate-paperclip-handoff:
+    needs:
+      - deploy-async-environment
+      - validate-operator-governance
+    if: ${{ always() && inputs.run_paperclip_handoff && needs.deploy-async-environment.result == 'success' && (needs.validate-operator-governance.result == 'success' || needs.validate-operator-governance.result == 'skipped') }}
+    uses: ./.github/workflows/_validate_paperclip_handoff.yml
+    with:
+      deploy_url: ${{ needs.deploy-async-environment.outputs.deploy_url }}
+      operator_agent_base_url: ${{ needs.deploy-async-environment.outputs.operator_agent_url }}
+      cf_env: ${{ needs.deploy-async-environment.outputs.cf_env }}
+      git_sha: ${{ needs.deploy-async-environment.outputs.git_sha }}
+      health_runtime_env: dev
+      node_version: "20"
+
+  final-summary:
+    needs:
+      - deploy-async-environment
+      - validate-operator-surface
+      - validate-operator-governance
+      - validate-paperclip-handoff
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Write aggregate summary
+        run: |
+          echo "## Async validation aggregate summary" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Environment deploy: ${{ needs.deploy-async-environment.result }}" >> "$GITHUB_STEP_SUMMARY"
+
+          if [[ "${{ inputs.run_operator_surface }}" == "true" ]]; then
+            if [[ "${{ needs.validate-operator-surface.outputs.enabled }}" != "true" && "${{ needs.validate-operator-surface.result }}" == "success" ]]; then
+              echo "- Operator surface: ${{ needs.validate-operator-surface.outputs.outcome }} (operator-agent-dependent checks skipped by config)" >> "$GITHUB_STEP_SUMMARY"
+            elif [[ "${{ needs.validate-operator-surface.outputs.attention }}" == "true" ]]; then
+              echo "- Operator surface: ${{ needs.validate-operator-surface.outputs.outcome }} (attention: warning/skip entries present)" >> "$GITHUB_STEP_SUMMARY"
+            else
+              echo "- Operator surface: ${{ needs.validate-operator-surface.outputs.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+            fi
+          else
+            echo "- Operator surface: skipped by dispatch input" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+          if [[ "${{ inputs.run_operator_governance }}" == "true" ]]; then
+            if [[ "${{ needs.validate-operator-governance.outputs.enabled }}" != "true" && "${{ needs.validate-operator-governance.result }}" == "success" ]]; then
+              echo "- Operator governance: ${{ needs.validate-operator-governance.outputs.outcome }} (operator-agent-dependent checks skipped by config)" >> "$GITHUB_STEP_SUMMARY"
+            elif [[ "${{ needs.validate-operator-governance.outputs.attention }}" == "true" ]]; then
+              echo "- Operator governance: ${{ needs.validate-operator-governance.outputs.outcome }} (attention: warning/skip entries present)" >> "$GITHUB_STEP_SUMMARY"
+            else
+              echo "- Operator governance: ${{ needs.validate-operator-governance.outputs.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+            fi
+          else
+            echo "- Operator governance: skipped by dispatch input" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+          if [[ "${{ inputs.run_paperclip_handoff }}" == "true" ]]; then
+            if [[ "${{ needs.validate-paperclip-handoff.outputs.enabled }}" != "true" && "${{ needs.validate-paperclip-handoff.result }}" == "success" ]]; then
+              echo "- Paperclip handoff: ${{ needs.validate-paperclip-handoff.outputs.outcome }} (operator-agent-dependent checks skipped by config)" >> "$GITHUB_STEP_SUMMARY"
+            elif [[ "${{ needs.validate-paperclip-handoff.outputs.attention }}" == "true" ]]; then
+              echo "- Paperclip handoff: ${{ needs.validate-paperclip-handoff.outputs.outcome }} (attention: warning/skip entries present)" >> "$GITHUB_STEP_SUMMARY"
+            else
+              echo "- Paperclip handoff: ${{ needs.validate-paperclip-handoff.outputs.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+            fi
+          else
+            echo "- Paperclip handoff: skipped by dispatch input" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "### Lane verdict" >> "$GITHUB_STEP_SUMMARY"
+
+          if [[ "${{ needs.deploy-async-environment.result }}" != "success" ]]; then
+            echo "- ❌ Async validation lane failed during environment bring-up." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          FAILED="false"
+          ATTENTION="false"
+
+          if [[ "${{ inputs.run_operator_surface }}" == "true" ]]; then
+            if [[ "${{ needs.validate-operator-surface.outputs.outcome }}" != "success" ]]; then
+              FAILED="true"
+            fi
+            if [[ "${{ needs.validate-operator-surface.outputs.attention }}" == "true" ]]; then
+              ATTENTION="true"
+            fi
+          fi
+
+          if [[ "${{ inputs.run_operator_governance }}" == "true" ]]; then
+            if [[ "${{ needs.validate-operator-governance.outputs.outcome }}" != "success" ]]; then
+              FAILED="true"
+            fi
+            if [[ "${{ needs.validate-operator-governance.outputs.attention }}" == "true" ]]; then
+              ATTENTION="true"
+            fi
+          fi
+
+          if [[ "${{ inputs.run_paperclip_handoff }}" == "true" ]]; then
+            if [[ "${{ needs.validate-paperclip-handoff.outputs.outcome }}" != "success" ]]; then
+              FAILED="true"
+            fi
+            if [[ "${{ needs.validate-paperclip-handoff.outputs.attention }}" == "true" ]]; then
+              ATTENTION="true"
+            fi
+          fi
+
+          if [[ "$FAILED" == "true" ]]; then
+            echo "- ❌ Async validation lane failed." >> "$GITHUB_STEP_SUMMARY"
+          elif [[ "$ATTENTION" == "true" ]]; then
+            echo "- ⚠️ Async validation lane passed with warning/skip attention." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "- ✅ Async validation lane passed." >> "$GITHUB_STEP_SUMMARY"
+          fi
