@@ -124,8 +124,41 @@ jobs:
       readiness_timeout_ms: "8000"
     secrets: inherit
 
-  validate-operator-surface:
+  debug-async-deploy-outputs:
     needs: deploy-async-environment
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Debug reusable deploy outputs
+        run: |
+          if [[ -n "${{ needs.deploy-async-environment.outputs.deploy_url }}" ]]; then
+            echo "ASYNC_VALIDATION_DEPLOY_URL_OUTPUT_PRESENT=true"
+          else
+            echo "ASYNC_VALIDATION_DEPLOY_URL_OUTPUT_PRESENT=false"
+          fi
+
+          if [[ -n "${{ needs.deploy-async-environment.outputs.operator_agent_url }}" ]]; then
+            echo "ASYNC_VALIDATION_OPERATOR_AGENT_URL_OUTPUT_PRESENT=true"
+          else
+            echo "ASYNC_VALIDATION_OPERATOR_AGENT_URL_OUTPUT_PRESENT=false"
+          fi
+
+          if [[ -n "${{ needs.deploy-async-environment.outputs.cf_env }}" ]]; then
+            echo "ASYNC_VALIDATION_CF_ENV_OUTPUT_PRESENT=true"
+          else
+            echo "ASYNC_VALIDATION_CF_ENV_OUTPUT_PRESENT=false"
+          fi
+
+          if [[ -n "${{ needs.deploy-async-environment.outputs.git_sha }}" ]]; then
+            echo "ASYNC_VALIDATION_GIT_SHA_OUTPUT_PRESENT=true"
+          else
+            echo "ASYNC_VALIDATION_GIT_SHA_OUTPUT_PRESENT=false"
+          fi
+
+  validate-operator-surface:
+    needs:
+      - deploy-async-environment
+      - debug-async-deploy-outputs
     if: ${{ inputs.run_operator_surface }}
     uses: ./.github/workflows/_validate_operator_surface.yml
     with:
@@ -136,10 +169,12 @@ jobs:
       git_sha: ${{ needs.deploy-async-environment.outputs.git_sha }}
       health_runtime_env: dev
       node_version: "20"
+    secrets: inherit
 
   validate-operator-governance:
     needs:
       - deploy-async-environment
+      - debug-async-deploy-outputs
       - validate-operator-surface
     if: ${{ always() && inputs.run_operator_governance && needs.deploy-async-environment.result == 'success' && (needs.validate-operator-surface.result == 'success' || needs.validate-operator-surface.result == 'skipped') }}
     uses: ./.github/workflows/_validate_operator_governance.yml
@@ -151,10 +186,12 @@ jobs:
       git_sha: ${{ needs.deploy-async-environment.outputs.git_sha }}
       health_runtime_env: dev
       node_version: "20"
+    secrets: inherit
 
   validate-paperclip-handoff:
     needs:
       - deploy-async-environment
+      - debug-async-deploy-outputs
       - validate-operator-governance
     if: ${{ always() && inputs.run_paperclip_handoff && needs.deploy-async-environment.result == 'success' && (needs.validate-operator-governance.result == 'success' || needs.validate-operator-governance.result == 'skipped') }}
     uses: ./.github/workflows/_validate_paperclip_handoff.yml
@@ -166,6 +203,7 @@ jobs:
       git_sha: ${{ needs.deploy-async-environment.outputs.git_sha }}
       health_runtime_env: dev
       node_version: "20"
+    secrets: inherit
 
   final-summary:
     needs:

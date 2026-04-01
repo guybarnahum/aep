@@ -134,8 +134,41 @@ jobs:
       readiness_timeout_ms: "8000"
     secrets: inherit
 
-  validate-preview-smoke:
+  debug-preview-deploy-outputs:
     needs: deploy-preview-env
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Debug reusable deploy outputs
+        run: |
+          if [[ -n "${{ needs.deploy-preview-env.outputs.deploy_url }}" ]]; then
+            echo "PREVIEW_DEPLOY_URL_OUTPUT_PRESENT=true"
+          else
+            echo "PREVIEW_DEPLOY_URL_OUTPUT_PRESENT=false"
+          fi
+
+          if [[ -n "${{ needs.deploy-preview-env.outputs.operator_agent_url }}" ]]; then
+            echo "PREVIEW_OPERATOR_AGENT_URL_OUTPUT_PRESENT=true"
+          else
+            echo "PREVIEW_OPERATOR_AGENT_URL_OUTPUT_PRESENT=false"
+          fi
+
+          if [[ -n "${{ needs.deploy-preview-env.outputs.cf_env }}" ]]; then
+            echo "PREVIEW_CF_ENV_OUTPUT_PRESENT=true"
+          else
+            echo "PREVIEW_CF_ENV_OUTPUT_PRESENT=false"
+          fi
+
+          if [[ -n "${{ needs.deploy-preview-env.outputs.git_sha }}" ]]; then
+            echo "PREVIEW_GIT_SHA_OUTPUT_PRESENT=true"
+          else
+            echo "PREVIEW_GIT_SHA_OUTPUT_PRESENT=false"
+          fi
+
+  validate-preview-smoke:
+    needs:
+      - deploy-preview-env
+      - debug-preview-deploy-outputs
     uses: ./.github/workflows/_validate_control_plane_smoke.yml
     with:
       environment_name: preview
@@ -155,9 +188,12 @@ jobs:
       poll_failure_values: "failed,cancelled"
       poll_attempts: "20"
       poll_interval_ms: "3000"
+    secrets: inherit
 
   validate-preview-post-deploy:
-    needs: deploy-preview-env
+    needs:
+      - deploy-preview-env
+      - debug-preview-deploy-outputs
     uses: ./.github/workflows/_validate_post_deploy.yml
     with:
       environment_name: preview
@@ -166,6 +202,7 @@ jobs:
       cf_env: ${{ needs.deploy-preview-env.outputs.cf_env }}
       git_sha: ${{ needs.deploy-preview-env.outputs.git_sha }}
       node_version: "20"
+    secrets: inherit
 
   final-summary:
     needs:
