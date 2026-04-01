@@ -50,8 +50,28 @@ jobs:
 
       - run: npm test
 
-  deploy-production-env:
+  debug-production-secrets:
     needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Debug production secret presence
+        run: |
+          if [[ -n "${{ secrets.PRODUCTION_BASE_URL }}" ]]; then
+            echo "PRODUCTION_BASE_URL_PRESENT=true"
+          else
+            echo "PRODUCTION_BASE_URL_PRESENT=false"
+          fi
+
+          if [[ -n "${{ secrets.PRODUCTION_OPERATOR_AGENT_BASE_URL }}" ]]; then
+            echo "PRODUCTION_OPERATOR_AGENT_BASE_URL_PRESENT=true"
+          else
+            echo "PRODUCTION_OPERATOR_AGENT_BASE_URL_PRESENT=false"
+          fi
+
+  deploy-production-env:
+    needs:
+      - test
+      - debug-production-secrets
     uses: ./.github/workflows/_deploy_environment.yml
     with:
       cf_env: production

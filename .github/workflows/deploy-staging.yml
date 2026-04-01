@@ -31,8 +31,28 @@ jobs:
 
       - run: npm test
 
-  deploy-staging-env:
+  debug-staging-secrets:
     needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Debug staging secret presence
+        run: |
+          if [[ -n "${{ secrets.STAGING_BASE_URL }}" ]]; then
+            echo "STAGING_BASE_URL_PRESENT=true"
+          else
+            echo "STAGING_BASE_URL_PRESENT=false"
+          fi
+
+          if [[ -n "${{ secrets.STAGING_OPERATOR_AGENT_BASE_URL }}" ]]; then
+            echo "STAGING_OPERATOR_AGENT_BASE_URL_PRESENT=true"
+          else
+            echo "STAGING_OPERATOR_AGENT_BASE_URL_PRESENT=false"
+          fi
+
+  deploy-staging-env:
+    needs:
+      - test
+      - debug-staging-secrets
     uses: ./.github/workflows/_deploy_environment.yml
     with:
       cf_env: staging

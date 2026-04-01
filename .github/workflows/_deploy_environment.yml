@@ -122,6 +122,20 @@ jobs:
 
       - run: npm ci
 
+      - name: Debug reusable workflow secret presence
+        run: |
+          if [[ -n "$DEPLOY_URL" ]]; then
+            echo "DEPLOY_URL_PRESENT_IN_CALLEE=true"
+          else
+            echo "DEPLOY_URL_PRESENT_IN_CALLEE=false"
+          fi
+
+          if [[ -n "$OPERATOR_AGENT_BASE_URL_FALLBACK" ]]; then
+            echo "OPERATOR_AGENT_BASE_URL_FALLBACK_PRESENT_IN_CALLEE=true"
+          else
+            echo "OPERATOR_AGENT_BASE_URL_FALLBACK_PRESENT_IN_CALLEE=false"
+          fi
+
       - name: Check public base URL configuration
         id: base_url_config
         run: |
@@ -130,13 +144,29 @@ jobs:
             echo "reason=configured" >> "$GITHUB_OUTPUT"
           else
             echo "valid=false" >> "$GITHUB_OUTPUT"
+
             if [[ -z "$DEPLOY_URL" ]]; then
               echo "reason=missing" >> "$GITHUB_OUTPUT"
-              echo "Missing DEPLOY_URL secret. Configure an absolute https://... base URL." >&2
+              echo "Missing DEPLOY_URL in _deploy_environment.yml." >&2
+              echo "" >&2
+              echo "This reusable workflow expects the caller to pass DEPLOY_URL as a secret." >&2
+              echo "" >&2
+              echo "Check the caller mapping:" >&2
+              echo "  - deploy-preview.yml -> PREVIEW_BASE_URL" >&2
+              echo "  - deploy-staging.yml -> STAGING_BASE_URL" >&2
+              echo "  - deploy-production.yml -> PRODUCTION_BASE_URL" >&2
+              echo "  - validate-async-environment.yml -> ASYNC_VALIDATION_BASE_URL" >&2
+              echo "" >&2
+              echo "Likely causes:" >&2
+              echo "  1. the caller secret mapping is missing or incorrect" >&2
+              echo "  2. the source GitHub secret is empty or unavailable in this event context" >&2
+              echo "  3. the reusable workflow contract drifted from the caller" >&2
             else
               echo "reason=invalid_url" >> "$GITHUB_OUTPUT"
-              echo "Invalid DEPLOY_URL secret: '$DEPLOY_URL'. Must be absolute." >&2
+              echo "Invalid DEPLOY_URL in _deploy_environment.yml: '$DEPLOY_URL'." >&2
+              echo "It must be an absolute URL, for example: https://example.workers.dev" >&2
             fi
+
             exit 1
           fi
 
@@ -326,7 +356,7 @@ jobs:
 
           echo "### Failure triage" >> "$GITHUB_STEP_SUMMARY"
           if [[ "$BASE_URL_CONFIG_OUTCOME" != "success" ]]; then
-            echo "- Base URL configuration failed. Ensure deploy_url is an absolute URL." >> "$GITHUB_STEP_SUMMARY"
+            echo "- Base URL configuration failed. Ensure the caller passed a valid DEPLOY_URL secret into _deploy_environment.yml." >> "$GITHUB_STEP_SUMMARY"
           elif [[ "$DEPLOY_CONTROL_PLANE_OUTCOME" != "success" || "$MIGRATIONS_OUTCOME" != "success" || "$WAIT_CONTROL_PLANE_OUTCOME" != "success" || "$HEALTH_OUTCOME" != "success" ]]; then
             echo "- Control-plane bring-up failed. Start with deploy logs, migrations, readiness, and /healthz." >> "$GITHUB_STEP_SUMMARY"
           elif [[ "${{ inputs.deploy_operator_agent }}" == "true" && "$DEPLOY_OPERATOR_AGENT_OUTCOME" != "success" ]]; then

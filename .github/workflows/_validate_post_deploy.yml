@@ -59,6 +59,14 @@ jobs:
 
       - run: npm ci
 
+      - name: Debug reusable workflow secret presence
+        run: |
+          if [[ -n "$OPERATOR_AGENT_BASE_URL" ]]; then
+            echo "OPERATOR_AGENT_BASE_URL_PRESENT_IN_CALLEE=true"
+          else
+            echo "OPERATOR_AGENT_BASE_URL_PRESENT_IN_CALLEE=false"
+          fi
+
       - name: Check validation configuration
         id: config
         run: |
@@ -69,8 +77,11 @@ jobs:
             echo "enabled=false" >> "$GITHUB_OUTPUT"
             if [[ -z "$OPERATOR_AGENT_BASE_URL" ]]; then
               echo "reason=missing" >> "$GITHUB_OUTPUT"
+              echo "Missing OPERATOR_AGENT_BASE_URL in _validate_post_deploy.yml." >&2
+              echo "The caller must pass OPERATOR_AGENT_BASE_URL as a secret into this reusable workflow." >&2
             else
               echo "reason=invalid_url" >> "$GITHUB_OUTPUT"
+              echo "Invalid OPERATOR_AGENT_BASE_URL in _validate_post_deploy.yml. Must be absolute, e.g. https://... ." >&2
             fi
           fi
 
@@ -125,7 +136,7 @@ jobs:
           if [[ "$ENABLED" != "true" ]]; then
             echo "### Configuration" >> "$GITHUB_STEP_SUMMARY"
             if [[ "${{ steps.config.outputs.reason }}" == "missing" ]]; then
-              echo "- ⚪ Post-deploy validation skipped: OPERATOR_AGENT_BASE_URL was not provided." >> "$GITHUB_STEP_SUMMARY"
+              echo "- ⚪ Post-deploy validation skipped: OPERATOR_AGENT_BASE_URL was not provided to the reusable workflow." >> "$GITHUB_STEP_SUMMARY"
             else
               echo "- ⚪ Post-deploy validation skipped: OPERATOR_AGENT_BASE_URL was invalid." >> "$GITHUB_STEP_SUMMARY"
             fi

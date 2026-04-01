@@ -31,8 +31,28 @@ jobs:
 
       - run: npm test
 
-  deploy-preview-env:
+  debug-preview-secrets:
     needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Debug preview secret presence
+        run: |
+          if [[ -n "${{ secrets.PREVIEW_BASE_URL }}" ]]; then
+            echo "PREVIEW_BASE_URL_PRESENT=true"
+          else
+            echo "PREVIEW_BASE_URL_PRESENT=false"
+          fi
+
+          if [[ -n "${{ secrets.PREVIEW_OPERATOR_AGENT_BASE_URL }}" ]]; then
+            echo "PREVIEW_OPERATOR_AGENT_BASE_URL_PRESENT=true"
+          else
+            echo "PREVIEW_OPERATOR_AGENT_BASE_URL_PRESENT=false"
+          fi
+
+  deploy-preview-env:
+    needs:
+      - test
+      - debug-preview-secrets
     uses: ./.github/workflows/_deploy_environment.yml
     with:
       cf_env: preview

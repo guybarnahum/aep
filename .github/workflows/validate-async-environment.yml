@@ -24,7 +24,25 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  debug-async-validation-secrets:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Debug async validation secret presence
+        run: |
+          if [[ -n "${{ secrets.ASYNC_VALIDATION_BASE_URL }}" ]]; then
+            echo "ASYNC_VALIDATION_BASE_URL_PRESENT=true"
+          else
+            echo "ASYNC_VALIDATION_BASE_URL_PRESENT=false"
+          fi
+
+          if [[ -n "${{ secrets.ASYNC_VALIDATION_OPERATOR_AGENT_BASE_URL }}" ]]; then
+            echo "ASYNC_VALIDATION_OPERATOR_AGENT_BASE_URL_PRESENT=true"
+          else
+            echo "ASYNC_VALIDATION_OPERATOR_AGENT_BASE_URL_PRESENT=false"
+          fi
+
   deploy-async-environment:
+    needs: debug-async-validation-secrets
     uses: ./.github/workflows/_deploy_environment.yml
     with:
       cf_env: async_validation
