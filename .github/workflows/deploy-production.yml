@@ -63,15 +63,27 @@ jobs:
       - name: Debug production environment configuration presence
         run: |
           if [[ -n "${{ vars.DEPLOY_URL }}" ]]; then
-            echo "PROD_BASE_URL_PRESENT=true"
+            echo "PROD_DEPLOY_URL_VAR_PRESENT=true"
           else
-            echo "PROD_BASE_URL_PRESENT=false"
+            echo "PROD_DEPLOY_URL_VAR_PRESENT=false"
           fi
 
           if [[ -n "${{ vars.OPERATOR_AGENT_BASE_URL }}" ]]; then
-            echo "PROD_OPERATOR_AGENT_BASE_URL_PRESENT=true"
+            echo "PROD_OPERATOR_AGENT_BASE_URL_VAR_PRESENT=true"
           else
-            echo "PROD_OPERATOR_AGENT_BASE_URL_PRESENT=false"
+            echo "PROD_OPERATOR_AGENT_BASE_URL_VAR_PRESENT=false"
+          fi
+
+          if [[ -n "${{ secrets.PROD_BASE_URL }}" ]]; then
+            echo "PROD_BASE_URL_SECRET_PRESENT=true"
+          else
+            echo "PROD_BASE_URL_SECRET_PRESENT=false"
+          fi
+
+          if [[ -n "${{ secrets.PROD_OPERATOR_AGENT_BASE_URL }}" ]]; then
+            echo "PROD_OPERATOR_AGENT_BASE_URL_SECRET_PRESENT=true"
+          else
+            echo "PROD_OPERATOR_AGENT_BASE_URL_SECRET_PRESENT=false"
           fi
 
           if [[ -n "${{ secrets.CLOUDFLARE_API_TOKEN }}" ]]; then
@@ -89,16 +101,30 @@ jobs:
       - name: Resolve production base URLs
         id: resolve
         run: |
+          DEPLOY_URL_SOURCE="missing"
           DEPLOY_URL="${{ vars.DEPLOY_URL }}"
-          if [[ -z "$DEPLOY_URL" ]]; then
+          if [[ -n "$DEPLOY_URL" ]]; then
+            DEPLOY_URL_SOURCE="vars.DEPLOY_URL"
+          else
             DEPLOY_URL="${{ secrets.PROD_BASE_URL }}"
+            if [[ -n "$DEPLOY_URL" ]]; then
+              DEPLOY_URL_SOURCE="secrets.PROD_BASE_URL"
+            fi
           fi
 
+          OPERATOR_AGENT_BASE_URL_SOURCE="missing"
           OPERATOR_AGENT_BASE_URL="${{ vars.OPERATOR_AGENT_BASE_URL }}"
-          if [[ -z "$OPERATOR_AGENT_BASE_URL" ]]; then
+          if [[ -n "$OPERATOR_AGENT_BASE_URL" ]]; then
+            OPERATOR_AGENT_BASE_URL_SOURCE="vars.OPERATOR_AGENT_BASE_URL"
+          else
             OPERATOR_AGENT_BASE_URL="${{ secrets.PROD_OPERATOR_AGENT_BASE_URL }}"
+            if [[ -n "$OPERATOR_AGENT_BASE_URL" ]]; then
+              OPERATOR_AGENT_BASE_URL_SOURCE="secrets.PROD_OPERATOR_AGENT_BASE_URL"
+            fi
           fi
 
+          echo "Resolved production deploy URL source: $DEPLOY_URL_SOURCE"
+          echo "Resolved production operator-agent URL source: $OPERATOR_AGENT_BASE_URL_SOURCE"
           echo "deploy_url=$DEPLOY_URL" >> "$GITHUB_OUTPUT"
           echo "operator_agent_base_url=$OPERATOR_AGENT_BASE_URL" >> "$GITHUB_OUTPUT"
 

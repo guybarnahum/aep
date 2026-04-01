@@ -36,15 +36,27 @@ jobs:
       - name: Debug async validation environment configuration presence
         run: |
           if [[ -n "${{ vars.DEPLOY_URL }}" ]]; then
-            echo "ASYNC_VALIDATION_BASE_URL_PRESENT=true"
+            echo "ASYNC_VALIDATION_DEPLOY_URL_VAR_PRESENT=true"
           else
-            echo "ASYNC_VALIDATION_BASE_URL_PRESENT=false"
+            echo "ASYNC_VALIDATION_DEPLOY_URL_VAR_PRESENT=false"
           fi
 
           if [[ -n "${{ vars.OPERATOR_AGENT_BASE_URL }}" ]]; then
-            echo "ASYNC_VALIDATION_OPERATOR_AGENT_BASE_URL_PRESENT=true"
+            echo "ASYNC_VALIDATION_OPERATOR_AGENT_BASE_URL_VAR_PRESENT=true"
           else
-            echo "ASYNC_VALIDATION_OPERATOR_AGENT_BASE_URL_PRESENT=false"
+            echo "ASYNC_VALIDATION_OPERATOR_AGENT_BASE_URL_VAR_PRESENT=false"
+          fi
+
+          if [[ -n "${{ secrets.ASYNC_VALIDATION_BASE_URL }}" ]]; then
+            echo "ASYNC_VALIDATION_BASE_URL_SECRET_PRESENT=true"
+          else
+            echo "ASYNC_VALIDATION_BASE_URL_SECRET_PRESENT=false"
+          fi
+
+          if [[ -n "${{ secrets.ASYNC_VALIDATION_OPERATOR_AGENT_BASE_URL }}" ]]; then
+            echo "ASYNC_VALIDATION_OPERATOR_AGENT_BASE_URL_SECRET_PRESENT=true"
+          else
+            echo "ASYNC_VALIDATION_OPERATOR_AGENT_BASE_URL_SECRET_PRESENT=false"
           fi
 
           if [[ -n "${{ secrets.CLOUDFLARE_API_TOKEN }}" ]]; then
@@ -62,16 +74,30 @@ jobs:
       - name: Resolve async validation base URLs
         id: resolve
         run: |
+          DEPLOY_URL_SOURCE="missing"
           DEPLOY_URL="${{ vars.DEPLOY_URL }}"
-          if [[ -z "$DEPLOY_URL" ]]; then
+          if [[ -n "$DEPLOY_URL" ]]; then
+            DEPLOY_URL_SOURCE="vars.DEPLOY_URL"
+          else
             DEPLOY_URL="${{ secrets.ASYNC_VALIDATION_BASE_URL }}"
+            if [[ -n "$DEPLOY_URL" ]]; then
+              DEPLOY_URL_SOURCE="secrets.ASYNC_VALIDATION_BASE_URL"
+            fi
           fi
 
+          OPERATOR_AGENT_BASE_URL_SOURCE="missing"
           OPERATOR_AGENT_BASE_URL="${{ vars.OPERATOR_AGENT_BASE_URL }}"
-          if [[ -z "$OPERATOR_AGENT_BASE_URL" ]]; then
+          if [[ -n "$OPERATOR_AGENT_BASE_URL" ]]; then
+            OPERATOR_AGENT_BASE_URL_SOURCE="vars.OPERATOR_AGENT_BASE_URL"
+          else
             OPERATOR_AGENT_BASE_URL="${{ secrets.ASYNC_VALIDATION_OPERATOR_AGENT_BASE_URL }}"
+            if [[ -n "$OPERATOR_AGENT_BASE_URL" ]]; then
+              OPERATOR_AGENT_BASE_URL_SOURCE="secrets.ASYNC_VALIDATION_OPERATOR_AGENT_BASE_URL"
+            fi
           fi
 
+          echo "Resolved async validation deploy URL source: $DEPLOY_URL_SOURCE"
+          echo "Resolved async validation operator-agent URL source: $OPERATOR_AGENT_BASE_URL_SOURCE"
           echo "deploy_url=$DEPLOY_URL" >> "$GITHUB_OUTPUT"
           echo "operator_agent_base_url=$OPERATOR_AGENT_BASE_URL" >> "$GITHUB_OUTPUT"
 
