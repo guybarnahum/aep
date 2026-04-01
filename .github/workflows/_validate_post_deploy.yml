@@ -6,9 +6,6 @@ on:
       deploy_url:
         required: true
         type: string
-      operator_agent_base_url:
-        required: false
-        type: string
       cf_env:
         required: true
         type: string
@@ -19,6 +16,9 @@ on:
         required: false
         type: string
         default: "20"
+    secrets:
+      OPERATOR_AGENT_BASE_URL:
+        required: false
     outputs:
       enabled:
         description: "Whether post-deploy validation was enabled"
@@ -41,7 +41,7 @@ jobs:
         shell: bash -eo pipefail {0}
     env:
       DEPLOY_URL: ${{ inputs.deploy_url }}
-      OPERATOR_AGENT_BASE_URL: ${{ inputs.operator_agent_base_url }}
+      OPERATOR_AGENT_BASE_URL: ${{ secrets.OPERATOR_AGENT_BASE_URL }}
       CF_ENV: ${{ inputs.cf_env }}
       GIT_SHA: ${{ inputs.git_sha }}
     outputs:
@@ -125,9 +125,9 @@ jobs:
           if [[ "$ENABLED" != "true" ]]; then
             echo "### Configuration" >> "$GITHUB_STEP_SUMMARY"
             if [[ "${{ steps.config.outputs.reason }}" == "missing" ]]; then
-              echo "- ⚪ Post-deploy validation skipped: operator_agent_base_url was not provided." >> "$GITHUB_STEP_SUMMARY"
+              echo "- ⚪ Post-deploy validation skipped: OPERATOR_AGENT_BASE_URL was not provided." >> "$GITHUB_STEP_SUMMARY"
             else
-              echo "- ⚪ Post-deploy validation skipped: operator_agent_base_url was invalid." >> "$GITHUB_STEP_SUMMARY"
+              echo "- ⚪ Post-deploy validation skipped: OPERATOR_AGENT_BASE_URL was invalid." >> "$GITHUB_STEP_SUMMARY"
             fi
             exit 0
           fi

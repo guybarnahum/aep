@@ -6,9 +6,6 @@ on:
       cf_env:
         required: true
         type: string
-      deploy_url:
-        required: true
-        type: string
       git_sha:
         required: true
         type: string
@@ -25,9 +22,6 @@ on:
         required: true
         type: boolean
       operator_agent_wrangler_config:
-        required: false
-        type: string
-      operator_agent_base_url_fallback:
         required: false
         type: string
       operator_agent_d1_database_name:
@@ -62,6 +56,10 @@ on:
         required: true
       CLOUDFLARE_ACCOUNT_ID:
         required: true
+      DEPLOY_URL:
+        required: true
+      OPERATOR_AGENT_BASE_URL_FALLBACK:
+        required: false
     outputs:
       deploy_url:
         description: "Resolved control-plane deploy URL"
@@ -97,13 +95,13 @@ jobs:
         shell: bash -eo pipefail {0}
     env:
       GIT_SHA: ${{ inputs.git_sha }}
-      DEPLOY_URL: ${{ inputs.deploy_url }}
+      DEPLOY_URL: ${{ secrets.DEPLOY_URL }}
       CF_ENV: ${{ inputs.cf_env }}
       HEALTH_RUNTIME_ENV: ${{ inputs.health_runtime_env }}
       D1_DATABASE_NAME: ${{ inputs.d1_database_name }}
       WRANGLER_CONFIG: ${{ inputs.wrangler_config }}
       OPERATOR_AGENT_WRANGLER_CONFIG: ${{ inputs.operator_agent_wrangler_config }}
-      OPERATOR_AGENT_BASE_URL_FALLBACK: ${{ inputs.operator_agent_base_url_fallback }}
+      OPERATOR_AGENT_BASE_URL_FALLBACK: ${{ secrets.OPERATOR_AGENT_BASE_URL_FALLBACK }}
       OPERATOR_AGENT_D1_DATABASE_NAME: ${{ inputs.operator_agent_d1_database_name }}
       ENABLE_TEST_ENDPOINTS: ${{ inputs.enable_test_endpoints }}
     outputs:
@@ -135,10 +133,10 @@ jobs:
             echo "valid=false" >> "$GITHUB_OUTPUT"
             if [[ -z "$DEPLOY_URL" ]]; then
               echo "reason=missing" >> "$GITHUB_OUTPUT"
-              echo "Missing deploy_url input. Configure an absolute https://... base URL." >&2
+              echo "Missing DEPLOY_URL secret. Configure an absolute https://... base URL." >&2
             else
               echo "reason=invalid_url" >> "$GITHUB_OUTPUT"
-              echo "Invalid deploy_url input: '$DEPLOY_URL'. Must be absolute." >&2
+              echo "Invalid DEPLOY_URL secret: '$DEPLOY_URL'. Must be absolute." >&2
             fi
             exit 1
           fi
