@@ -129,6 +129,7 @@ jobs:
     if: ${{ inputs.run_operator_surface }}
     uses: ./.github/workflows/_validate_operator_surface.yml
     with:
+      environment_name: async-validation
       deploy_url: ${{ needs.deploy-async-environment.outputs.deploy_url }}
       operator_agent_base_url: ${{ needs.deploy-async-environment.outputs.operator_agent_url }}
       cf_env: ${{ needs.deploy-async-environment.outputs.cf_env }}
@@ -143,6 +144,7 @@ jobs:
     if: ${{ always() && inputs.run_operator_governance && needs.deploy-async-environment.result == 'success' && (needs.validate-operator-surface.result == 'success' || needs.validate-operator-surface.result == 'skipped') }}
     uses: ./.github/workflows/_validate_operator_governance.yml
     with:
+      environment_name: async-validation
       deploy_url: ${{ needs.deploy-async-environment.outputs.deploy_url }}
       operator_agent_base_url: ${{ needs.deploy-async-environment.outputs.operator_agent_url }}
       cf_env: ${{ needs.deploy-async-environment.outputs.cf_env }}
@@ -157,6 +159,7 @@ jobs:
     if: ${{ always() && inputs.run_paperclip_handoff && needs.deploy-async-environment.result == 'success' && (needs.validate-operator-governance.result == 'success' || needs.validate-operator-governance.result == 'skipped') }}
     uses: ./.github/workflows/_validate_paperclip_handoff.yml
     with:
+      environment_name: async-validation
       deploy_url: ${{ needs.deploy-async-environment.outputs.deploy_url }}
       operator_agent_base_url: ${{ needs.deploy-async-environment.outputs.operator_agent_url }}
       cf_env: ${{ needs.deploy-async-environment.outputs.cf_env }}

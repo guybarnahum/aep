@@ -3,6 +3,9 @@ name: _validate_control_plane_smoke
 on:
   workflow_call:
     inputs:
+      environment_name:
+        required: true
+        type: string
       deploy_url:
         required: true
         type: string
@@ -81,7 +84,7 @@ jobs:
     outputs:
       outcome: ${{ steps.capture_outcome.outputs.value }}
     env:
-      DEPLOY_URL: ${{ inputs.deploy_url }}
+      DEPLOY_URL_INPUT: ${{ inputs.deploy_url }}
       CF_ENV: ${{ inputs.cf_env }}
       GIT_SHA: ${{ inputs.git_sha }}
 
@@ -94,6 +97,39 @@ jobs:
           cache: npm
 
       - run: npm ci
+
+      - name: Resolve effective deploy URL
+        run: |
+          DEPLOY_URL="$DEPLOY_URL_INPUT"
+          DEPLOY_URL_SOURCE="inputs.deploy_url"
+
+          if [[ ! "$DEPLOY_URL" =~ ^https?://[^[:space:]]+$ ]]; then
+            DEPLOY_URL="${{ inputs.environment_name == 'preview' && secrets.PREVIEW_BASE_URL || inputs.environment_name == 'staging' && secrets.STAGING_BASE_URL || inputs.environment_name == 'production' && secrets.PROD_BASE_URL || inputs.environment_name == 'async-validation' && secrets.ASYNC_VALIDATION_BASE_URL || '' }}"
+            if [[ -n "$DEPLOY_URL" ]]; then
+              DEPLOY_URL_SOURCE="legacy environment secret"
+            else
+              DEPLOY_URL_SOURCE="missing"
+            fi
+          fi
+
+          echo "DEPLOY_URL=$DEPLOY_URL" >> "$GITHUB_ENV"
+          echo "DEPLOY_URL_SOURCE=$DEPLOY_URL_SOURCE" >> "$GITHUB_ENV"
+
+      - name: Debug reusable workflow input presence
+        run: |
+          if [[ -n "$DEPLOY_URL_INPUT" ]]; then
+            echo "DEPLOY_URL_INPUT_PRESENT_IN_CALLEE=true"
+          else
+            echo "DEPLOY_URL_INPUT_PRESENT_IN_CALLEE=false"
+          fi
+
+          if [[ -n "$DEPLOY_URL" ]]; then
+            echo "DEPLOY_URL_EFFECTIVE_PRESENT_IN_CALLEE=true"
+          else
+            echo "DEPLOY_URL_EFFECTIVE_PRESENT_IN_CALLEE=false"
+          fi
+
+          echo "DEPLOY_URL_EFFECTIVE_SOURCE_IN_CALLEE=$DEPLOY_URL_SOURCE"
 
       - name: Run smoke validation
         id: smoke_validation

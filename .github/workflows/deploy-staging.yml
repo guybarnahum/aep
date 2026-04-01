@@ -138,6 +138,7 @@ jobs:
     needs: deploy-staging-env
     uses: ./.github/workflows/_validate_control_plane_smoke.yml
     with:
+      environment_name: staging
       deploy_url: ${{ needs.deploy-staging-env.outputs.deploy_url }}
       cf_env: ${{ needs.deploy-staging-env.outputs.cf_env }}
       git_sha: ${{ needs.deploy-staging-env.outputs.git_sha }}
@@ -159,6 +160,7 @@ jobs:
     needs: deploy-staging-env
     uses: ./.github/workflows/_validate_post_deploy.yml
     with:
+      environment_name: staging
       deploy_url: ${{ needs.deploy-staging-env.outputs.deploy_url }}
       operator_agent_base_url: ${{ needs.deploy-staging-env.outputs.operator_agent_url }}
       cf_env: ${{ needs.deploy-staging-env.outputs.cf_env }}

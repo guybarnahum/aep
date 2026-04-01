@@ -3,6 +3,9 @@ name: _validate_post_deploy
 on:
   workflow_call:
     inputs:
+      environment_name:
+        required: true
+        type: string
       deploy_url:
         required: true
         type: string
@@ -40,8 +43,8 @@ jobs:
       run:
         shell: bash -eo pipefail {0}
     env:
-      DEPLOY_URL: ${{ inputs.deploy_url }}
-      OPERATOR_AGENT_BASE_URL: ${{ inputs.operator_agent_base_url }}
+      DEPLOY_URL_INPUT: ${{ inputs.deploy_url }}
+      OPERATOR_AGENT_BASE_URL_INPUT: ${{ inputs.operator_agent_base_url }}
       CF_ENV: ${{ inputs.cf_env }}
       GIT_SHA: ${{ inputs.git_sha }}
     outputs:
@@ -59,13 +62,59 @@ jobs:
 
       - run: npm ci
 
+      - name: Resolve effective validation URLs
+        run: |
+          DEPLOY_URL="$DEPLOY_URL_INPUT"
+          DEPLOY_URL_SOURCE="inputs.deploy_url"
+
+          if [[ ! "$DEPLOY_URL" =~ ^https?://[^[:space:]]+$ ]]; then
+            DEPLOY_URL="${{ inputs.environment_name == 'preview' && secrets.PREVIEW_BASE_URL || inputs.environment_name == 'staging' && secrets.STAGING_BASE_URL || inputs.environment_name == 'production' && secrets.PROD_BASE_URL || inputs.environment_name == 'async-validation' && secrets.ASYNC_VALIDATION_BASE_URL || '' }}"
+            if [[ -n "$DEPLOY_URL" ]]; then
+              DEPLOY_URL_SOURCE="legacy environment secret"
+            else
+              DEPLOY_URL_SOURCE="missing"
+            fi
+          fi
+
+          OPERATOR_AGENT_BASE_URL="$OPERATOR_AGENT_BASE_URL_INPUT"
+          OPERATOR_AGENT_BASE_URL_SOURCE="inputs.operator_agent_base_url"
+
+          if [[ ! "$OPERATOR_AGENT_BASE_URL" =~ ^https?://[^[:space:]]+$ ]]; then
+            OPERATOR_AGENT_BASE_URL="${{ inputs.environment_name == 'preview' && secrets.PREVIEW_OPERATOR_AGENT_BASE_URL || inputs.environment_name == 'staging' && secrets.STAGING_OPERATOR_AGENT_BASE_URL || inputs.environment_name == 'production' && secrets.PROD_OPERATOR_AGENT_BASE_URL || inputs.environment_name == 'async-validation' && secrets.ASYNC_VALIDATION_OPERATOR_AGENT_BASE_URL || '' }}"
+            if [[ -n "$OPERATOR_AGENT_BASE_URL" ]]; then
+              OPERATOR_AGENT_BASE_URL_SOURCE="legacy environment secret"
+            else
+              OPERATOR_AGENT_BASE_URL_SOURCE="missing"
+            fi
+          fi
+
+          echo "DEPLOY_URL=$DEPLOY_URL" >> "$GITHUB_ENV"
+          echo "DEPLOY_URL_SOURCE=$DEPLOY_URL_SOURCE" >> "$GITHUB_ENV"
+          echo "OPERATOR_AGENT_BASE_URL=$OPERATOR_AGENT_BASE_URL" >> "$GITHUB_ENV"
+          echo "OPERATOR_AGENT_BASE_URL_SOURCE=$OPERATOR_AGENT_BASE_URL_SOURCE" >> "$GITHUB_ENV"
+
       - name: Debug reusable workflow input presence
         run: |
-          if [[ -n "$OPERATOR_AGENT_BASE_URL" ]]; then
+          if [[ -n "$OPERATOR_AGENT_BASE_URL_INPUT" ]]; then
             echo "OPERATOR_AGENT_BASE_URL_INPUT_PRESENT_IN_CALLEE=true"
           else
             echo "OPERATOR_AGENT_BASE_URL_INPUT_PRESENT_IN_CALLEE=false"
           fi
+
+          if [[ -n "$DEPLOY_URL" ]]; then
+            echo "DEPLOY_URL_EFFECTIVE_PRESENT_IN_CALLEE=true"
+          else
+            echo "DEPLOY_URL_EFFECTIVE_PRESENT_IN_CALLEE=false"
+          fi
+
+          if [[ -n "$OPERATOR_AGENT_BASE_URL" ]]; then
+            echo "OPERATOR_AGENT_BASE_URL_EFFECTIVE_PRESENT_IN_CALLEE=true"
+          else
+            echo "OPERATOR_AGENT_BASE_URL_EFFECTIVE_PRESENT_IN_CALLEE=false"
+          fi
+
+          echo "DEPLOY_URL_EFFECTIVE_SOURCE_IN_CALLEE=$DEPLOY_URL_SOURCE"
+          echo "OPERATOR_AGENT_BASE_URL_EFFECTIVE_SOURCE_IN_CALLEE=$OPERATOR_AGENT_BASE_URL_SOURCE"
 
       - name: Check validation configuration
         id: config
