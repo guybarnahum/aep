@@ -31,93 +31,13 @@ jobs:
 
       - run: npm test
 
-  debug-staging-secrets:
-    needs: test
-    runs-on: ubuntu-latest
-    environment:
-      name: staging
-      deployment: false
-    outputs:
-      deploy_url: ${{ steps.resolve.outputs.deploy_url }}
-      operator_agent_base_url: ${{ steps.resolve.outputs.operator_agent_base_url }}
-    steps:
-      - name: Debug staging environment configuration presence
-        run: |
-          if [[ -n "${{ vars.DEPLOY_URL }}" ]]; then
-            echo "STAGING_DEPLOY_URL_VAR_PRESENT=true"
-          else
-            echo "STAGING_DEPLOY_URL_VAR_PRESENT=false"
-          fi
-
-          if [[ -n "${{ vars.OPERATOR_AGENT_BASE_URL }}" ]]; then
-            echo "STAGING_OPERATOR_AGENT_BASE_URL_VAR_PRESENT=true"
-          else
-            echo "STAGING_OPERATOR_AGENT_BASE_URL_VAR_PRESENT=false"
-          fi
-
-          if [[ -n "${{ secrets.STAGING_BASE_URL }}" ]]; then
-            echo "STAGING_BASE_URL_SECRET_PRESENT=true"
-          else
-            echo "STAGING_BASE_URL_SECRET_PRESENT=false"
-          fi
-
-          if [[ -n "${{ secrets.STAGING_OPERATOR_AGENT_BASE_URL }}" ]]; then
-            echo "STAGING_OPERATOR_AGENT_BASE_URL_SECRET_PRESENT=true"
-          else
-            echo "STAGING_OPERATOR_AGENT_BASE_URL_SECRET_PRESENT=false"
-          fi
-
-          if [[ -n "${{ secrets.CLOUDFLARE_API_TOKEN }}" ]]; then
-            echo "STAGING_CLOUDFLARE_API_TOKEN_PRESENT=true"
-          else
-            echo "STAGING_CLOUDFLARE_API_TOKEN_PRESENT=false"
-          fi
-
-          if [[ -n "${{ secrets.CLOUDFLARE_ACCOUNT_ID }}" ]]; then
-            echo "STAGING_CLOUDFLARE_ACCOUNT_ID_PRESENT=true"
-          else
-            echo "STAGING_CLOUDFLARE_ACCOUNT_ID_PRESENT=false"
-          fi
-
-      - name: Resolve staging base URLs
-        id: resolve
-        run: |
-          DEPLOY_URL_SOURCE="missing"
-          DEPLOY_URL="${{ vars.DEPLOY_URL }}"
-          if [[ -n "$DEPLOY_URL" ]]; then
-            DEPLOY_URL_SOURCE="vars.DEPLOY_URL"
-          else
-            DEPLOY_URL="${{ secrets.STAGING_BASE_URL }}"
-            if [[ -n "$DEPLOY_URL" ]]; then
-              DEPLOY_URL_SOURCE="secrets.STAGING_BASE_URL"
-            fi
-          fi
-
-          OPERATOR_AGENT_BASE_URL_SOURCE="missing"
-          OPERATOR_AGENT_BASE_URL="${{ vars.OPERATOR_AGENT_BASE_URL }}"
-          if [[ -n "$OPERATOR_AGENT_BASE_URL" ]]; then
-            OPERATOR_AGENT_BASE_URL_SOURCE="vars.OPERATOR_AGENT_BASE_URL"
-          else
-            OPERATOR_AGENT_BASE_URL="${{ secrets.STAGING_OPERATOR_AGENT_BASE_URL }}"
-            if [[ -n "$OPERATOR_AGENT_BASE_URL" ]]; then
-              OPERATOR_AGENT_BASE_URL_SOURCE="secrets.STAGING_OPERATOR_AGENT_BASE_URL"
-            fi
-          fi
-
-          echo "Resolved staging deploy URL source: $DEPLOY_URL_SOURCE"
-          echo "Resolved staging operator-agent URL source: $OPERATOR_AGENT_BASE_URL_SOURCE"
-          echo "deploy_url=$DEPLOY_URL" >> "$GITHUB_OUTPUT"
-          echo "operator_agent_base_url=$OPERATOR_AGENT_BASE_URL" >> "$GITHUB_OUTPUT"
-
   deploy-staging-env:
-    needs:
-      - test
-      - debug-staging-secrets
+    needs: test
     uses: ./.github/workflows/_deploy_environment.yml
     with:
       environment_name: staging
-      deploy_url: ${{ needs.debug-staging-secrets.outputs.deploy_url }}
-      operator_agent_base_url_fallback: ${{ needs.debug-staging-secrets.outputs.operator_agent_base_url }}
+      deploy_url: ""
+      operator_agent_base_url_fallback: ""
       cf_env: staging
       git_sha: ${{ github.sha }}
       health_runtime_env: staging
@@ -134,45 +54,12 @@ jobs:
       readiness_timeout_ms: "8000"
     secrets: inherit
 
-  debug-staging-deploy-outputs:
-    needs: deploy-staging-env
-    if: always()
-    runs-on: ubuntu-latest
-    steps:
-      - name: Debug reusable deploy outputs
-        run: |
-          if [[ -n "${{ needs.deploy-staging-env.outputs.deploy_url }}" ]]; then
-            echo "STAGING_DEPLOY_URL_OUTPUT_PRESENT=true"
-          else
-            echo "STAGING_DEPLOY_URL_OUTPUT_PRESENT=false"
-          fi
-
-          if [[ -n "${{ needs.deploy-staging-env.outputs.operator_agent_url }}" ]]; then
-            echo "STAGING_OPERATOR_AGENT_URL_OUTPUT_PRESENT=true"
-          else
-            echo "STAGING_OPERATOR_AGENT_URL_OUTPUT_PRESENT=false"
-          fi
-
-          if [[ -n "${{ needs.deploy-staging-env.outputs.cf_env }}" ]]; then
-            echo "STAGING_CF_ENV_OUTPUT_PRESENT=true"
-          else
-            echo "STAGING_CF_ENV_OUTPUT_PRESENT=false"
-          fi
-
-          if [[ -n "${{ needs.deploy-staging-env.outputs.git_sha }}" ]]; then
-            echo "STAGING_GIT_SHA_OUTPUT_PRESENT=true"
-          else
-            echo "STAGING_GIT_SHA_OUTPUT_PRESENT=false"
-          fi
-
   validate-staging-smoke:
-    needs:
-      - deploy-staging-env
-      - debug-staging-deploy-outputs
+    needs: deploy-staging-env
     uses: ./.github/workflows/_validate_control_plane_smoke.yml
     with:
       environment_name: staging
-      deploy_url: ${{ needs.deploy-staging-env.outputs.deploy_url }}
+      deploy_url: ""
       cf_env: ${{ needs.deploy-staging-env.outputs.cf_env }}
       git_sha: ${{ needs.deploy-staging-env.outputs.git_sha }}
       node_version: "20"
@@ -191,14 +78,12 @@ jobs:
     secrets: inherit
 
   validate-staging-post-deploy:
-    needs:
-      - deploy-staging-env
-      - debug-staging-deploy-outputs
+    needs: deploy-staging-env
     uses: ./.github/workflows/_validate_post_deploy.yml
     with:
       environment_name: staging
-      deploy_url: ${{ needs.deploy-staging-env.outputs.deploy_url }}
-      operator_agent_base_url: ${{ needs.deploy-staging-env.outputs.operator_agent_url }}
+      deploy_url: ""
+      operator_agent_base_url: ""
       cf_env: ${{ needs.deploy-staging-env.outputs.cf_env }}
       git_sha: ${{ needs.deploy-staging-env.outputs.git_sha }}
       node_version: "20"

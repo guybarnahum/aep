@@ -7,7 +7,7 @@ on:
         required: true
         type: string
       deploy_url:
-        required: true
+        required: false
         type: string
       operator_agent_base_url:
         required: false
@@ -45,10 +45,25 @@ jobs:
       run:
         shell: bash -eo pipefail {0}
     env:
+      ENVIRONMENT_NAME: ${{ inputs.environment_name }}
       DEPLOY_URL_INPUT: ${{ inputs.deploy_url }}
       OPERATOR_AGENT_BASE_URL_INPUT: ${{ inputs.operator_agent_base_url }}
       CF_ENV: ${{ inputs.cf_env }}
       GIT_SHA: ${{ inputs.git_sha }}
+
+      DEPLOY_URL: ${{ vars.DEPLOY_URL }}
+      OPERATOR_AGENT_BASE_URL: ${{ vars.OPERATOR_AGENT_BASE_URL }}
+
+      PREVIEW_BASE_URL: ${{ secrets.PREVIEW_BASE_URL }}
+      PREVIEW_OPERATOR_AGENT_BASE_URL: ${{ secrets.PREVIEW_OPERATOR_AGENT_BASE_URL }}
+      STAGING_BASE_URL: ${{ secrets.STAGING_BASE_URL }}
+      STAGING_OPERATOR_AGENT_BASE_URL: ${{ secrets.STAGING_OPERATOR_AGENT_BASE_URL }}
+      PRODUCTION_BASE_URL: ${{ secrets.PRODUCTION_BASE_URL }}
+      PRODUCTION_OPERATOR_AGENT_BASE_URL: ${{ secrets.PRODUCTION_OPERATOR_AGENT_BASE_URL }}
+      PROD_BASE_URL: ${{ secrets.PROD_BASE_URL }}
+      PROD_OPERATOR_AGENT_BASE_URL: ${{ secrets.PROD_OPERATOR_AGENT_BASE_URL }}
+      ASYNC_VALIDATION_BASE_URL: ${{ secrets.ASYNC_VALIDATION_BASE_URL }}
+      ASYNC_VALIDATION_OPERATOR_AGENT_BASE_URL: ${{ secrets.ASYNC_VALIDATION_OPERATOR_AGENT_BASE_URL }}
     outputs:
       enabled: ${{ steps.capture.outputs.enabled }}
       outcome: ${{ steps.capture.outputs.outcome }}
@@ -66,57 +81,12 @@ jobs:
 
       - name: Resolve effective validation URLs
         run: |
-          DEPLOY_URL="$DEPLOY_URL_INPUT"
-          DEPLOY_URL_SOURCE="inputs.deploy_url"
+          eval "$(bash ./scripts/ci/resolve-environment-urls.sh)"
 
-          if [[ ! "$DEPLOY_URL" =~ ^https?://[^[:space:]]+$ ]]; then
-            DEPLOY_URL="${{ inputs.environment_name == 'preview' && secrets.PREVIEW_BASE_URL || inputs.environment_name == 'staging' && secrets.STAGING_BASE_URL || inputs.environment_name == 'production' && secrets.PROD_BASE_URL || inputs.environment_name == 'async-validation' && secrets.ASYNC_VALIDATION_BASE_URL || '' }}"
-            if [[ -n "$DEPLOY_URL" ]]; then
-              DEPLOY_URL_SOURCE="legacy environment secret"
-            else
-              DEPLOY_URL_SOURCE="missing"
-            fi
-          fi
-
-          OPERATOR_AGENT_BASE_URL="$OPERATOR_AGENT_BASE_URL_INPUT"
-          OPERATOR_AGENT_BASE_URL_SOURCE="inputs.operator_agent_base_url"
-
-          if [[ ! "$OPERATOR_AGENT_BASE_URL" =~ ^https?://[^[:space:]]+$ ]]; then
-            OPERATOR_AGENT_BASE_URL="${{ inputs.environment_name == 'preview' && secrets.PREVIEW_OPERATOR_AGENT_BASE_URL || inputs.environment_name == 'staging' && secrets.STAGING_OPERATOR_AGENT_BASE_URL || inputs.environment_name == 'production' && secrets.PROD_OPERATOR_AGENT_BASE_URL || inputs.environment_name == 'async-validation' && secrets.ASYNC_VALIDATION_OPERATOR_AGENT_BASE_URL || '' }}"
-            if [[ -n "$OPERATOR_AGENT_BASE_URL" ]]; then
-              OPERATOR_AGENT_BASE_URL_SOURCE="legacy environment secret"
-            else
-              OPERATOR_AGENT_BASE_URL_SOURCE="missing"
-            fi
-          fi
-
-          echo "DEPLOY_URL=$DEPLOY_URL" >> "$GITHUB_ENV"
-          echo "DEPLOY_URL_SOURCE=$DEPLOY_URL_SOURCE" >> "$GITHUB_ENV"
-          echo "OPERATOR_AGENT_BASE_URL=$OPERATOR_AGENT_BASE_URL" >> "$GITHUB_ENV"
-          echo "OPERATOR_AGENT_BASE_URL_SOURCE=$OPERATOR_AGENT_BASE_URL_SOURCE" >> "$GITHUB_ENV"
-
-      - name: Debug reusable workflow input presence
-        run: |
-          if [[ -n "$OPERATOR_AGENT_BASE_URL_INPUT" ]]; then
-            echo "OPERATOR_AGENT_BASE_URL_INPUT_PRESENT_IN_CALLEE=true"
-          else
-            echo "OPERATOR_AGENT_BASE_URL_INPUT_PRESENT_IN_CALLEE=false"
-          fi
-
-          if [[ -n "$DEPLOY_URL" ]]; then
-            echo "DEPLOY_URL_EFFECTIVE_PRESENT_IN_CALLEE=true"
-          else
-            echo "DEPLOY_URL_EFFECTIVE_PRESENT_IN_CALLEE=false"
-          fi
-
-          if [[ -n "$OPERATOR_AGENT_BASE_URL" ]]; then
-            echo "OPERATOR_AGENT_BASE_URL_EFFECTIVE_PRESENT_IN_CALLEE=true"
-          else
-            echo "OPERATOR_AGENT_BASE_URL_EFFECTIVE_PRESENT_IN_CALLEE=false"
-          fi
-
-          echo "DEPLOY_URL_EFFECTIVE_SOURCE_IN_CALLEE=$DEPLOY_URL_SOURCE"
-          echo "OPERATOR_AGENT_BASE_URL_EFFECTIVE_SOURCE_IN_CALLEE=$OPERATOR_AGENT_BASE_URL_SOURCE"
+          echo "DEPLOY_URL=$RESOLVED_DEPLOY_URL" >> "$GITHUB_ENV"
+          echo "DEPLOY_URL_SOURCE=$RESOLVED_DEPLOY_URL_SOURCE" >> "$GITHUB_ENV"
+          echo "OPERATOR_AGENT_BASE_URL=$RESOLVED_OPERATOR_AGENT_BASE_URL" >> "$GITHUB_ENV"
+          echo "OPERATOR_AGENT_BASE_URL_SOURCE=$RESOLVED_OPERATOR_AGENT_BASE_URL_SOURCE" >> "$GITHUB_ENV"
 
       - name: Check validation configuration
         id: config
@@ -129,7 +99,7 @@ jobs:
             if [[ -z "$OPERATOR_AGENT_BASE_URL" ]]; then
               echo "reason=missing" >> "$GITHUB_OUTPUT"
               echo "Missing OPERATOR_AGENT_BASE_URL in _validate_post_deploy.yml." >&2
-              echo "The caller must pass operator_agent_base_url as an input into this reusable workflow." >&2
+              echo "Resolution order is: input -> vars.OPERATOR_AGENT_BASE_URL -> legacy environment secret." >&2
             else
               echo "reason=invalid_url" >> "$GITHUB_OUTPUT"
               echo "Invalid OPERATOR_AGENT_BASE_URL in _validate_post_deploy.yml. Must be absolute, e.g. https://... ." >&2
@@ -181,15 +151,17 @@ jobs:
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "- Environment: $CF_ENV" >> "$GITHUB_STEP_SUMMARY"
           echo "- URL: $DEPLOY_URL" >> "$GITHUB_STEP_SUMMARY"
+          echo "- URL source: $DEPLOY_URL_SOURCE" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Operator-agent URL source: $OPERATOR_AGENT_BASE_URL_SOURCE" >> "$GITHUB_STEP_SUMMARY"
           echo "- SHA: $GIT_SHA" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
 
           if [[ "$ENABLED" != "true" ]]; then
             echo "### Configuration" >> "$GITHUB_STEP_SUMMARY"
             if [[ "${{ steps.config.outputs.reason }}" == "missing" ]]; then
-              echo "- ⚪ Post-deploy validation skipped: operator_agent_base_url was not provided to the reusable workflow." >> "$GITHUB_STEP_SUMMARY"
+              echo "- ⚪ Post-deploy validation skipped: operator-agent base URL could not be resolved for this environment." >> "$GITHUB_STEP_SUMMARY"
             else
-              echo "- ⚪ Post-deploy validation skipped: operator_agent_base_url was invalid." >> "$GITHUB_STEP_SUMMARY"
+              echo "- ⚪ Post-deploy validation skipped: operator-agent base URL was invalid." >> "$GITHUB_STEP_SUMMARY"
             fi
             exit 0
           fi

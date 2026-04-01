@@ -7,7 +7,7 @@ on:
         required: true
         type: string
       deploy_url:
-        required: true
+        required: false
         type: string
       cf_env:
         required: true
@@ -86,9 +86,18 @@ jobs:
     outputs:
       outcome: ${{ steps.capture_outcome.outputs.value }}
     env:
+      ENVIRONMENT_NAME: ${{ inputs.environment_name }}
       DEPLOY_URL_INPUT: ${{ inputs.deploy_url }}
       CF_ENV: ${{ inputs.cf_env }}
       GIT_SHA: ${{ inputs.git_sha }}
+
+      DEPLOY_URL: ${{ vars.DEPLOY_URL }}
+
+      PREVIEW_BASE_URL: ${{ secrets.PREVIEW_BASE_URL }}
+      STAGING_BASE_URL: ${{ secrets.STAGING_BASE_URL }}
+      PRODUCTION_BASE_URL: ${{ secrets.PRODUCTION_BASE_URL }}
+      PROD_BASE_URL: ${{ secrets.PROD_BASE_URL }}
+      ASYNC_VALIDATION_BASE_URL: ${{ secrets.ASYNC_VALIDATION_BASE_URL }}
 
     steps:
       - uses: actions/checkout@v4
@@ -102,36 +111,10 @@ jobs:
 
       - name: Resolve effective deploy URL
         run: |
-          DEPLOY_URL="$DEPLOY_URL_INPUT"
-          DEPLOY_URL_SOURCE="inputs.deploy_url"
+          eval "$(bash ./scripts/ci/resolve-environment-urls.sh)"
 
-          if [[ ! "$DEPLOY_URL" =~ ^https?://[^[:space:]]+$ ]]; then
-            DEPLOY_URL="${{ inputs.environment_name == 'preview' && secrets.PREVIEW_BASE_URL || inputs.environment_name == 'staging' && secrets.STAGING_BASE_URL || inputs.environment_name == 'production' && secrets.PROD_BASE_URL || inputs.environment_name == 'async-validation' && secrets.ASYNC_VALIDATION_BASE_URL || '' }}"
-            if [[ -n "$DEPLOY_URL" ]]; then
-              DEPLOY_URL_SOURCE="legacy environment secret"
-            else
-              DEPLOY_URL_SOURCE="missing"
-            fi
-          fi
-
-          echo "DEPLOY_URL=$DEPLOY_URL" >> "$GITHUB_ENV"
-          echo "DEPLOY_URL_SOURCE=$DEPLOY_URL_SOURCE" >> "$GITHUB_ENV"
-
-      - name: Debug reusable workflow input presence
-        run: |
-          if [[ -n "$DEPLOY_URL_INPUT" ]]; then
-            echo "DEPLOY_URL_INPUT_PRESENT_IN_CALLEE=true"
-          else
-            echo "DEPLOY_URL_INPUT_PRESENT_IN_CALLEE=false"
-          fi
-
-          if [[ -n "$DEPLOY_URL" ]]; then
-            echo "DEPLOY_URL_EFFECTIVE_PRESENT_IN_CALLEE=true"
-          else
-            echo "DEPLOY_URL_EFFECTIVE_PRESENT_IN_CALLEE=false"
-          fi
-
-          echo "DEPLOY_URL_EFFECTIVE_SOURCE_IN_CALLEE=$DEPLOY_URL_SOURCE"
+          echo "DEPLOY_URL=$RESOLVED_DEPLOY_URL" >> "$GITHUB_ENV"
+          echo "DEPLOY_URL_SOURCE=$RESOLVED_DEPLOY_URL_SOURCE" >> "$GITHUB_ENV"
 
       - name: Check control-plane base URL configuration
         id: base_url_config
@@ -144,7 +127,8 @@ jobs:
             if [[ -z "$DEPLOY_URL" ]]; then
               echo "reason=missing" >> "$GITHUB_OUTPUT"
               echo "Missing deploy_url for _validate_control_plane_smoke.yml." >&2
-              echo "The caller input was empty and no environment fallback resolved for '${{ inputs.environment_name }}'." >&2
+              echo "Resolution order is: input -> vars.DEPLOY_URL -> legacy environment secret." >&2
+              echo "No environment-backed fallback resolved for '${{ inputs.environment_name }}'." >&2
             else
               echo "reason=invalid_url" >> "$GITHUB_OUTPUT"
               echo "Invalid deploy_url for _validate_control_plane_smoke.yml: '$DEPLOY_URL'. Must be absolute." >&2

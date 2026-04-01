@@ -24,90 +24,12 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  debug-async-validation-secrets:
-    runs-on: ubuntu-latest
-    environment:
-      name: async-validation
-      deployment: false
-    outputs:
-      deploy_url: ${{ steps.resolve.outputs.deploy_url }}
-      operator_agent_base_url: ${{ steps.resolve.outputs.operator_agent_base_url }}
-    steps:
-      - name: Debug async validation environment configuration presence
-        run: |
-          if [[ -n "${{ vars.DEPLOY_URL }}" ]]; then
-            echo "ASYNC_VALIDATION_DEPLOY_URL_VAR_PRESENT=true"
-          else
-            echo "ASYNC_VALIDATION_DEPLOY_URL_VAR_PRESENT=false"
-          fi
-
-          if [[ -n "${{ vars.OPERATOR_AGENT_BASE_URL }}" ]]; then
-            echo "ASYNC_VALIDATION_OPERATOR_AGENT_BASE_URL_VAR_PRESENT=true"
-          else
-            echo "ASYNC_VALIDATION_OPERATOR_AGENT_BASE_URL_VAR_PRESENT=false"
-          fi
-
-          if [[ -n "${{ secrets.ASYNC_VALIDATION_BASE_URL }}" ]]; then
-            echo "ASYNC_VALIDATION_BASE_URL_SECRET_PRESENT=true"
-          else
-            echo "ASYNC_VALIDATION_BASE_URL_SECRET_PRESENT=false"
-          fi
-
-          if [[ -n "${{ secrets.ASYNC_VALIDATION_OPERATOR_AGENT_BASE_URL }}" ]]; then
-            echo "ASYNC_VALIDATION_OPERATOR_AGENT_BASE_URL_SECRET_PRESENT=true"
-          else
-            echo "ASYNC_VALIDATION_OPERATOR_AGENT_BASE_URL_SECRET_PRESENT=false"
-          fi
-
-          if [[ -n "${{ secrets.CLOUDFLARE_API_TOKEN }}" ]]; then
-            echo "ASYNC_VALIDATION_CLOUDFLARE_API_TOKEN_PRESENT=true"
-          else
-            echo "ASYNC_VALIDATION_CLOUDFLARE_API_TOKEN_PRESENT=false"
-          fi
-
-          if [[ -n "${{ secrets.CLOUDFLARE_ACCOUNT_ID }}" ]]; then
-            echo "ASYNC_VALIDATION_CLOUDFLARE_ACCOUNT_ID_PRESENT=true"
-          else
-            echo "ASYNC_VALIDATION_CLOUDFLARE_ACCOUNT_ID_PRESENT=false"
-          fi
-
-      - name: Resolve async validation base URLs
-        id: resolve
-        run: |
-          DEPLOY_URL_SOURCE="missing"
-          DEPLOY_URL="${{ vars.DEPLOY_URL }}"
-          if [[ -n "$DEPLOY_URL" ]]; then
-            DEPLOY_URL_SOURCE="vars.DEPLOY_URL"
-          else
-            DEPLOY_URL="${{ secrets.ASYNC_VALIDATION_BASE_URL }}"
-            if [[ -n "$DEPLOY_URL" ]]; then
-              DEPLOY_URL_SOURCE="secrets.ASYNC_VALIDATION_BASE_URL"
-            fi
-          fi
-
-          OPERATOR_AGENT_BASE_URL_SOURCE="missing"
-          OPERATOR_AGENT_BASE_URL="${{ vars.OPERATOR_AGENT_BASE_URL }}"
-          if [[ -n "$OPERATOR_AGENT_BASE_URL" ]]; then
-            OPERATOR_AGENT_BASE_URL_SOURCE="vars.OPERATOR_AGENT_BASE_URL"
-          else
-            OPERATOR_AGENT_BASE_URL="${{ secrets.ASYNC_VALIDATION_OPERATOR_AGENT_BASE_URL }}"
-            if [[ -n "$OPERATOR_AGENT_BASE_URL" ]]; then
-              OPERATOR_AGENT_BASE_URL_SOURCE="secrets.ASYNC_VALIDATION_OPERATOR_AGENT_BASE_URL"
-            fi
-          fi
-
-          echo "Resolved async validation deploy URL source: $DEPLOY_URL_SOURCE"
-          echo "Resolved async validation operator-agent URL source: $OPERATOR_AGENT_BASE_URL_SOURCE"
-          echo "deploy_url=$DEPLOY_URL" >> "$GITHUB_OUTPUT"
-          echo "operator_agent_base_url=$OPERATOR_AGENT_BASE_URL" >> "$GITHUB_OUTPUT"
-
   deploy-async-environment:
-    needs: debug-async-validation-secrets
     uses: ./.github/workflows/_deploy_environment.yml
     with:
       environment_name: async-validation
-      deploy_url: ${{ needs.debug-async-validation-secrets.outputs.deploy_url }}
-      operator_agent_base_url_fallback: ${{ needs.debug-async-validation-secrets.outputs.operator_agent_base_url }}
+      deploy_url: ""
+      operator_agent_base_url_fallback: ""
       cf_env: async_validation
       git_sha: ${{ github.sha }}
       health_runtime_env: dev
@@ -124,47 +46,14 @@ jobs:
       readiness_timeout_ms: "8000"
     secrets: inherit
 
-  debug-async-deploy-outputs:
-    needs: deploy-async-environment
-    if: always()
-    runs-on: ubuntu-latest
-    steps:
-      - name: Debug reusable deploy outputs
-        run: |
-          if [[ -n "${{ needs.deploy-async-environment.outputs.deploy_url }}" ]]; then
-            echo "ASYNC_VALIDATION_DEPLOY_URL_OUTPUT_PRESENT=true"
-          else
-            echo "ASYNC_VALIDATION_DEPLOY_URL_OUTPUT_PRESENT=false"
-          fi
-
-          if [[ -n "${{ needs.deploy-async-environment.outputs.operator_agent_url }}" ]]; then
-            echo "ASYNC_VALIDATION_OPERATOR_AGENT_URL_OUTPUT_PRESENT=true"
-          else
-            echo "ASYNC_VALIDATION_OPERATOR_AGENT_URL_OUTPUT_PRESENT=false"
-          fi
-
-          if [[ -n "${{ needs.deploy-async-environment.outputs.cf_env }}" ]]; then
-            echo "ASYNC_VALIDATION_CF_ENV_OUTPUT_PRESENT=true"
-          else
-            echo "ASYNC_VALIDATION_CF_ENV_OUTPUT_PRESENT=false"
-          fi
-
-          if [[ -n "${{ needs.deploy-async-environment.outputs.git_sha }}" ]]; then
-            echo "ASYNC_VALIDATION_GIT_SHA_OUTPUT_PRESENT=true"
-          else
-            echo "ASYNC_VALIDATION_GIT_SHA_OUTPUT_PRESENT=false"
-          fi
-
   validate-operator-surface:
-    needs:
-      - deploy-async-environment
-      - debug-async-deploy-outputs
+    needs: deploy-async-environment
     if: ${{ inputs.run_operator_surface }}
     uses: ./.github/workflows/_validate_operator_surface.yml
     with:
       environment_name: async-validation
-      deploy_url: ${{ needs.deploy-async-environment.outputs.deploy_url }}
-      operator_agent_base_url: ${{ needs.deploy-async-environment.outputs.operator_agent_url }}
+      deploy_url: ""
+      operator_agent_base_url: ""
       cf_env: ${{ needs.deploy-async-environment.outputs.cf_env }}
       git_sha: ${{ needs.deploy-async-environment.outputs.git_sha }}
       health_runtime_env: dev
@@ -174,14 +63,13 @@ jobs:
   validate-operator-governance:
     needs:
       - deploy-async-environment
-      - debug-async-deploy-outputs
       - validate-operator-surface
     if: ${{ always() && inputs.run_operator_governance && needs.deploy-async-environment.result == 'success' && (needs.validate-operator-surface.result == 'success' || needs.validate-operator-surface.result == 'skipped') }}
     uses: ./.github/workflows/_validate_operator_governance.yml
     with:
       environment_name: async-validation
-      deploy_url: ${{ needs.deploy-async-environment.outputs.deploy_url }}
-      operator_agent_base_url: ${{ needs.deploy-async-environment.outputs.operator_agent_url }}
+      deploy_url: ""
+      operator_agent_base_url: ""
       cf_env: ${{ needs.deploy-async-environment.outputs.cf_env }}
       git_sha: ${{ needs.deploy-async-environment.outputs.git_sha }}
       health_runtime_env: dev
@@ -191,14 +79,13 @@ jobs:
   validate-paperclip-handoff:
     needs:
       - deploy-async-environment
-      - debug-async-deploy-outputs
       - validate-operator-governance
     if: ${{ always() && inputs.run_paperclip_handoff && needs.deploy-async-environment.result == 'success' && (needs.validate-operator-governance.result == 'success' || needs.validate-operator-governance.result == 'skipped') }}
     uses: ./.github/workflows/_validate_paperclip_handoff.yml
     with:
       environment_name: async-validation
-      deploy_url: ${{ needs.deploy-async-environment.outputs.deploy_url }}
-      operator_agent_base_url: ${{ needs.deploy-async-environment.outputs.operator_agent_url }}
+      deploy_url: ""
+      operator_agent_base_url: ""
       cf_env: ${{ needs.deploy-async-environment.outputs.cf_env }}
       git_sha: ${{ needs.deploy-async-environment.outputs.git_sha }}
       health_runtime_env: dev

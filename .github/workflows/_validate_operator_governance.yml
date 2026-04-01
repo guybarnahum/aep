@@ -7,7 +7,7 @@ on:
         required: true
         type: string
       deploy_url:
-        required: true
+        required: false
         type: string
       operator_agent_base_url:
         required: false
@@ -49,11 +49,26 @@ jobs:
       run:
         shell: bash -eo pipefail {0}
     env:
+      ENVIRONMENT_NAME: ${{ inputs.environment_name }}
       GIT_SHA: ${{ inputs.git_sha }}
       DEPLOY_URL_INPUT: ${{ inputs.deploy_url }}
       OPERATOR_AGENT_BASE_URL_INPUT: ${{ inputs.operator_agent_base_url }}
       CF_ENV: ${{ inputs.cf_env }}
       HEALTH_RUNTIME_ENV: ${{ inputs.health_runtime_env }}
+
+      DEPLOY_URL: ${{ vars.DEPLOY_URL }}
+      OPERATOR_AGENT_BASE_URL: ${{ vars.OPERATOR_AGENT_BASE_URL }}
+
+      PREVIEW_BASE_URL: ${{ secrets.PREVIEW_BASE_URL }}
+      PREVIEW_OPERATOR_AGENT_BASE_URL: ${{ secrets.PREVIEW_OPERATOR_AGENT_BASE_URL }}
+      STAGING_BASE_URL: ${{ secrets.STAGING_BASE_URL }}
+      STAGING_OPERATOR_AGENT_BASE_URL: ${{ secrets.STAGING_OPERATOR_AGENT_BASE_URL }}
+      PRODUCTION_BASE_URL: ${{ secrets.PRODUCTION_BASE_URL }}
+      PRODUCTION_OPERATOR_AGENT_BASE_URL: ${{ secrets.PRODUCTION_OPERATOR_AGENT_BASE_URL }}
+      PROD_BASE_URL: ${{ secrets.PROD_BASE_URL }}
+      PROD_OPERATOR_AGENT_BASE_URL: ${{ secrets.PROD_OPERATOR_AGENT_BASE_URL }}
+      ASYNC_VALIDATION_BASE_URL: ${{ secrets.ASYNC_VALIDATION_BASE_URL }}
+      ASYNC_VALIDATION_OPERATOR_AGENT_BASE_URL: ${{ secrets.ASYNC_VALIDATION_OPERATOR_AGENT_BASE_URL }}
     outputs:
       enabled: ${{ steps.capture.outputs.enabled }}
       outcome: ${{ steps.capture.outputs.outcome }}
@@ -71,34 +86,12 @@ jobs:
 
       - name: Resolve effective validation URLs
         run: |
-          DEPLOY_URL="$DEPLOY_URL_INPUT"
-          DEPLOY_URL_SOURCE="inputs.deploy_url"
+          eval "$(bash ./scripts/ci/resolve-environment-urls.sh)"
 
-          if [[ ! "$DEPLOY_URL" =~ ^https?://[^[:space:]]+$ ]]; then
-            DEPLOY_URL="${{ inputs.environment_name == 'preview' && secrets.PREVIEW_BASE_URL || inputs.environment_name == 'staging' && secrets.STAGING_BASE_URL || inputs.environment_name == 'production' && secrets.PROD_BASE_URL || inputs.environment_name == 'async-validation' && secrets.ASYNC_VALIDATION_BASE_URL || '' }}"
-            if [[ -n "$DEPLOY_URL" ]]; then
-              DEPLOY_URL_SOURCE="legacy environment secret"
-            else
-              DEPLOY_URL_SOURCE="missing"
-            fi
-          fi
-
-          OPERATOR_AGENT_BASE_URL="$OPERATOR_AGENT_BASE_URL_INPUT"
-          OPERATOR_AGENT_BASE_URL_SOURCE="inputs.operator_agent_base_url"
-
-          if [[ ! "$OPERATOR_AGENT_BASE_URL" =~ ^https?://[^[:space:]]+$ ]]; then
-            OPERATOR_AGENT_BASE_URL="${{ inputs.environment_name == 'preview' && secrets.PREVIEW_OPERATOR_AGENT_BASE_URL || inputs.environment_name == 'staging' && secrets.STAGING_OPERATOR_AGENT_BASE_URL || inputs.environment_name == 'production' && secrets.PROD_OPERATOR_AGENT_BASE_URL || inputs.environment_name == 'async-validation' && secrets.ASYNC_VALIDATION_OPERATOR_AGENT_BASE_URL || '' }}"
-            if [[ -n "$OPERATOR_AGENT_BASE_URL" ]]; then
-              OPERATOR_AGENT_BASE_URL_SOURCE="legacy environment secret"
-            else
-              OPERATOR_AGENT_BASE_URL_SOURCE="missing"
-            fi
-          fi
-
-          echo "DEPLOY_URL=$DEPLOY_URL" >> "$GITHUB_ENV"
-          echo "DEPLOY_URL_SOURCE=$DEPLOY_URL_SOURCE" >> "$GITHUB_ENV"
-          echo "OPERATOR_AGENT_BASE_URL=$OPERATOR_AGENT_BASE_URL" >> "$GITHUB_ENV"
-          echo "OPERATOR_AGENT_BASE_URL_SOURCE=$OPERATOR_AGENT_BASE_URL_SOURCE" >> "$GITHUB_ENV"
+          echo "DEPLOY_URL=$RESOLVED_DEPLOY_URL" >> "$GITHUB_ENV"
+          echo "DEPLOY_URL_SOURCE=$RESOLVED_DEPLOY_URL_SOURCE" >> "$GITHUB_ENV"
+          echo "OPERATOR_AGENT_BASE_URL=$RESOLVED_OPERATOR_AGENT_BASE_URL" >> "$GITHUB_ENV"
+          echo "OPERATOR_AGENT_BASE_URL_SOURCE=$RESOLVED_OPERATOR_AGENT_BASE_URL_SOURCE" >> "$GITHUB_ENV"
 
       - name: Check control-plane base URL configuration
         id: base_url_config
@@ -110,7 +103,8 @@ jobs:
             echo "valid=false" >> "$GITHUB_OUTPUT"
             if [[ -z "$DEPLOY_URL" ]]; then
               echo "reason=missing" >> "$GITHUB_OUTPUT"
-              echo "Missing deploy_url input. Configure an absolute https://... base URL." >&2
+              echo "Missing DEPLOY_URL in _validate_operator_governance.yml." >&2
+              echo "Resolution order is: input -> vars.DEPLOY_URL -> legacy environment secret." >&2
             else
               echo "reason=invalid_url" >> "$GITHUB_OUTPUT"
               echo "Invalid deploy_url input: '$DEPLOY_URL'. Must be absolute." >&2
@@ -155,48 +149,36 @@ jobs:
       - name: Manager advisory
         id: manager_advisory
         if: steps.operator_agent_config.outputs.enabled == 'true' && steps.wait_operator_agent.outcome == 'success'
-        env:
-          OPERATOR_AGENT_BASE_URL: ${{ inputs.operator_agent_base_url }}
         run: |
           npm run ci:manager-advisory-check 2>&1 | tee manager-advisory.log
 
       - name: Manager policy overlay
         id: manager_policy_overlay
         if: steps.operator_agent_config.outputs.enabled == 'true' && steps.wait_operator_agent.outcome == 'success'
-        env:
-          OPERATOR_AGENT_BASE_URL: ${{ inputs.operator_agent_base_url }}
         run: |
           npm run ci:manager-policy-overlay-check 2>&1 | tee manager-policy-overlay.log
 
       - name: Escalation audit
         id: escalation_audit
         if: steps.operator_agent_config.outputs.enabled == 'true' && steps.wait_operator_agent.outcome == 'success'
-        env:
-          OPERATOR_AGENT_BASE_URL: ${{ inputs.operator_agent_base_url }}
         run: |
           npm run ci:escalation-audit-check 2>&1 | tee escalation-audit.log
 
       - name: Escalation lifecycle
         id: escalation_lifecycle
         if: steps.operator_agent_config.outputs.enabled == 'true' && steps.wait_operator_agent.outcome == 'success'
-        env:
-          OPERATOR_AGENT_BASE_URL: ${{ inputs.operator_agent_base_url }}
         run: |
           npm run ci:escalation-lifecycle-check 2>&1 | tee escalation-lifecycle.log
 
       - name: Approval state machine
         id: approval_state_machine
         if: steps.operator_agent_config.outputs.enabled == 'true' && steps.wait_operator_agent.outcome == 'success'
-        env:
-          OPERATOR_AGENT_BASE_URL: ${{ inputs.operator_agent_base_url }}
         run: |
           npm run ci:approval-state-machine-check 2>&1 | tee approval-state-machine.log
 
       - name: Paperclip first execution
         id: paperclip_first_execution
         if: steps.operator_agent_config.outputs.enabled == 'true' && steps.wait_operator_agent.outcome == 'success'
-        env:
-          OPERATOR_AGENT_BASE_URL: ${{ inputs.operator_agent_base_url }}
         run: |
           npm run ci:paperclip-first-execution-check 2>&1 | tee paperclip-first-execution.log
 
