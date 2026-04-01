@@ -78,6 +78,8 @@ permissions:
 jobs:
   validate-control-plane-smoke:
     runs-on: ubuntu-latest
+    environment:
+      name: ${{ inputs.environment_name }}
     defaults:
       run:
         shell: bash -eo pipefail {0}
@@ -131,6 +133,25 @@ jobs:
 
           echo "DEPLOY_URL_EFFECTIVE_SOURCE_IN_CALLEE=$DEPLOY_URL_SOURCE"
 
+      - name: Check control-plane base URL configuration
+        id: base_url_config
+        run: |
+          if [[ -n "$DEPLOY_URL" && "$DEPLOY_URL" =~ ^https?://[^[:space:]]+$ ]]; then
+            echo "valid=true" >> "$GITHUB_OUTPUT"
+            echo "reason=configured" >> "$GITHUB_OUTPUT"
+          else
+            echo "valid=false" >> "$GITHUB_OUTPUT"
+            if [[ -z "$DEPLOY_URL" ]]; then
+              echo "reason=missing" >> "$GITHUB_OUTPUT"
+              echo "Missing deploy_url for _validate_control_plane_smoke.yml." >&2
+              echo "The caller input was empty and no environment fallback resolved for '${{ inputs.environment_name }}'." >&2
+            else
+              echo "reason=invalid_url" >> "$GITHUB_OUTPUT"
+              echo "Invalid deploy_url for _validate_control_plane_smoke.yml: '$DEPLOY_URL'. Must be absolute." >&2
+            fi
+            exit 1
+          fi
+
       - name: Run smoke validation
         id: smoke_validation
         run: |
@@ -174,6 +195,7 @@ jobs:
           echo "## Control-plane smoke validation" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "- Environment: $CF_ENV" >> "$GITHUB_STEP_SUMMARY"
+          echo "- URL source: ${DEPLOY_URL_SOURCE:-unknown}" >> "$GITHUB_STEP_SUMMARY"
           echo "- URL: $DEPLOY_URL" >> "$GITHUB_STEP_SUMMARY"
           echo "- SHA: $GIT_SHA" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"

@@ -39,6 +39,8 @@ permissions:
 jobs:
   validate-post-deploy:
     runs-on: ubuntu-latest
+    environment:
+      name: ${{ inputs.environment_name }}
     defaults:
       run:
         shell: bash -eo pipefail {0}
