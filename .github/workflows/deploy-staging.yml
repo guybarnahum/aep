@@ -18,6 +18,7 @@ jobs:
       GIT_SHA: ${{ github.sha }}
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-node@v4
         with:
           node-version: 20
@@ -30,246 +31,64 @@ jobs:
 
       - run: npm test
 
-  deploy-staging:
+  deploy-staging-env:
     needs: test
-    runs-on: ubuntu-latest
-    environment: staging
-    defaults:
-      run:
-        shell: bash -eo pipefail {0}
-    permissions:
-      contents: read
-    env:
-      GIT_SHA: ${{ github.sha }}
-      DEPLOY_URL: ${{ secrets.STAGING_BASE_URL }}
-      CF_ENV: staging
-      D1_DATABASE_NAME: aep-staging
-      WRANGLER_CONFIG: core/control-plane/wrangler.toml
-      OPERATOR_AGENT_D1_DATABASE_NAME: aep-operator-agent-staging
-      OPERATOR_AGENT_WRANGLER_CONFIG: core/operator-agent/wrangler.jsonc
+    uses: ./.github/workflows/_deploy_environment.yml
+    with:
+      cf_env: staging
+      deploy_url: ${{ secrets.STAGING_BASE_URL }}
+      git_sha: ${{ github.sha }}
+      health_runtime_env: staging
+      wrangler_config: core/control-plane/wrangler.toml
+      d1_database_name: aep-staging
+      deploy_operator_agent: false
+      operator_agent_wrangler_config: core/operator-agent/wrangler.jsonc
+      operator_agent_base_url_fallback: ${{ secrets.STAGING_OPERATOR_AGENT_BASE_URL }}
+      operator_agent_d1_database_name: aep-operator-agent-staging
+      enable_test_endpoints: "false"
+      insecure_allow_version_mismatch: true
+      node_version: "20"
+      readiness_attempts: "24"
+      readiness_interval_ms: "5000"
+      readiness_timeout_ms: "8000"
+    secrets: inherit
 
-    steps:
-      - uses: actions/checkout@v4
+  validate-staging-smoke:
+    needs: deploy-staging-env
+    uses: ./.github/workflows/_validate_control_plane_smoke.yml
+    with:
+      deploy_url: ${{ needs.deploy-staging-env.outputs.deploy_url }}
+      cf_env: ${{ needs.deploy-staging-env.outputs.cf_env }}
+      git_sha: ${{ needs.deploy-staging-env.outputs.git_sha }}
+      node_version: "20"
+      smoke_method: "POST"
+      smoke_path: "/workflow/start"
+      smoke_payload: '{"tenant_id":"t_demo","project_id":"p_demo","repo_url":"https://github.com/example/repo","branch":"main","service_name":"sample-worker","teardown_mode":"sync"}'
+      expect_status: "202"
+      expect_json_key: "workflow_run_id"
+      poll_path_template: "/workflow/{id}"
+      poll_id_key: "workflow_run_id"
+      poll_success_key: "run.status"
+      poll_success_values: "completed"
+      poll_failure_values: "failed,cancelled"
+      poll_attempts: "20"
+      poll_interval_ms: "3000"
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
-
-      - run: npm ci
-
-      - name: Generate build metadata
-        run: ./scripts/ci/generate-build-meta.sh
-
-      - run: npm run build
-
-      - name: Deploy to Cloudflare
-        id: deploy_cf
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: |
-          npx wrangler deploy \
-            --config "$WRANGLER_CONFIG" \
-            --env "$CF_ENV" | tee deploy.log
-
-      - name: Apply D1 migrations
-        id: d1_migrations
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: ./scripts/ci/apply-d1-migrations.sh | tee migrations.log
-
-      - name: Wait for readiness
-        id: wait_readiness
-        run: |
-          npx tsx scripts/ci/wait-for-url.ts \
-            --url "$DEPLOY_URL/healthz" \
-            --attempts 24 \
-            --interval-ms 5000 \
-            --timeout-ms 8000 | tee wait-for-url.log
-
-      - name: Health check
-        id: health_check
-        run: |
-          npx tsx scripts/ci/check-health.ts \
-            --url "$DEPLOY_URL/healthz" \
-            --env "$CF_ENV" \
-            --sha "$GIT_SHA" \
-            --insecure-allow-version-mismatch true \
-            --service control-plane | tee health-check.log
-
-      - name: Smoke test
-        id: smoke_test
-        run: |
-          npx tsx scripts/ci/smoke-test.ts \
-            --base-url "$DEPLOY_URL" \
-            --env "$CF_ENV" \
-            --method POST \
-            --path /workflow/start \
-            --payload '{"tenant_id":"t_demo","project_id":"p_demo","repo_url":"https://github.com/example/repo","branch":"main","service_name":"sample-worker","teardown_mode":"sync"}' \
-            --expect-status 202 \
-            --expect-json-key workflow_run_id \
-            --poll-path-template /workflow/{id} \
-            --poll-id-key workflow_run_id \
-            --poll-success-key run.status \
-            --poll-success-values completed \
-            --poll-failure-values failed,cancelled \
-            --poll-attempts 20 \
-            --poll-interval-ms 3000 | tee smoke-test.log
-
-      - name: Write summary
-        if: always()
-        run: |
-          status_emoji() {
-            case "$1" in
-              success) echo "✅" ;;
-              failure) echo "❌" ;;
-              cancelled) echo "⚪" ;;
-              skipped) echo "⚪" ;;
-              *) echo "❓" ;;
-            esac
-          }
-
-          DEPLOY_OUTCOME="${{ steps.deploy_cf.outcome }}"
-          MIGRATIONS_OUTCOME="${{ steps.d1_migrations.outcome }}"
-          READINESS_OUTCOME="${{ steps.wait_readiness.outcome }}"
-          HEALTH_OUTCOME="${{ steps.health_check.outcome }}"
-          SMOKE_OUTCOME="${{ steps.smoke_test.outcome }}"
-
-          echo "## Deploy summary" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Environment: $CF_ENV" >> "$GITHUB_STEP_SUMMARY"
-          echo "- URL: $DEPLOY_URL" >> "$GITHUB_STEP_SUMMARY"
-          echo "- SHA: $GIT_SHA" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Database: $D1_DATABASE_NAME" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Trigger: $GITHUB_EVENT_NAME" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "### Step outcomes" >> "$GITHUB_STEP_SUMMARY"
-          echo "- $(status_emoji "$DEPLOY_OUTCOME") Worker deploy: $DEPLOY_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
-          echo "- $(status_emoji "$MIGRATIONS_OUTCOME") D1 migrations: $MIGRATIONS_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
-          echo "- $(status_emoji "$READINESS_OUTCOME") Readiness check: $READINESS_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
-          echo "- $(status_emoji "$HEALTH_OUTCOME") Health check: $HEALTH_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
-          echo "- $(status_emoji "$SMOKE_OUTCOME") Smoke test: $SMOKE_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-
-          if [[ "$HEALTH_OUTCOME" != "success" ]]; then
-            echo "> Health check failed. Inspect \`health-check.log\` in workflow logs." >> "$GITHUB_STEP_SUMMARY"
-          fi
-
-          if [[ -f health-check.log ]]; then
-            HEALTH_WARN_LINES="$(grep -E '^WARN - ' health-check.log || true)"
-            if [[ -n "$HEALTH_WARN_LINES" ]]; then
-              echo "### Health warnings" >> "$GITHUB_STEP_SUMMARY"
-              while IFS= read -r line; do
-                echo "- ${line}" >> "$GITHUB_STEP_SUMMARY"
-              done <<< "$HEALTH_WARN_LINES"
-              echo "" >> "$GITHUB_STEP_SUMMARY"
-            fi
-          fi
-
-          if [[ "$SMOKE_OUTCOME" != "success" ]]; then
-            echo "> Smoke test failed. Inspect \`smoke-test.log\` in workflow logs." >> "$GITHUB_STEP_SUMMARY"
-          fi
-
-  post-deploy-validation:
-    needs: deploy-staging
-    runs-on: ubuntu-latest
-    environment: staging
-    outputs:
-      validation_enabled: ${{ steps.config.outputs.enabled }}
-      validation_outcome: ${{ steps.outcome.outputs.value }}
-      validation_attention: ${{ steps.outcome.outputs.attention }}
-    defaults:
-      run:
-        shell: bash -eo pipefail {0}
-    permissions:
-      contents: read
-    env:
-      OPERATOR_AGENT_BASE_URL: ${{ secrets.STAGING_OPERATOR_AGENT_BASE_URL }}
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
-
-      - run: npm ci
-
-      - name: Check validation configuration
-        id: config
-        run: |
-          if [[ -n "$OPERATOR_AGENT_BASE_URL" ]]; then
-            echo "enabled=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "enabled=false" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Run post-deploy validation
-        id: post_deploy_validation
-        if: steps.config.outputs.enabled == 'true'
-        run: npm run ci:post-deploy-validation 2>&1 | tee post-deploy-validation.log
-
-      - name: Capture outcome
-        id: outcome
-        if: always()
-        run: |
-          if [[ "${{ steps.config.outputs.enabled }}" != "true" ]]; then
-            echo "value=skipped" >> "$GITHUB_OUTPUT"
-            echo "attention=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "value=${{ steps.post_deploy_validation.outcome }}" >> "$GITHUB_OUTPUT"
-            if [[ -f post-deploy-validation.log ]] && grep -Eq '^- (WARN|SKIP): ' post-deploy-validation.log; then
-              echo "attention=true" >> "$GITHUB_OUTPUT"
-            else
-              echo "attention=false" >> "$GITHUB_OUTPUT"
-            fi
-          fi
-
-      - name: Write summary
-        if: always()
-        run: |
-          if [[ "${{ steps.config.outputs.enabled }}" != "true" ]]; then
-            echo "## Staging post-deploy validation" >> "$GITHUB_STEP_SUMMARY"
-            echo "" >> "$GITHUB_STEP_SUMMARY"
-            echo "- Warning: STAGING_OPERATOR_AGENT_BASE_URL is not configured; post-deploy validation skipped." >> "$GITHUB_STEP_SUMMARY"
-            exit 0
-          fi
-
-          OUTCOME="${{ steps.post_deploy_validation.outcome }}"
-          echo "## Staging post-deploy validation" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Outcome: $OUTCOME" >> "$GITHUB_STEP_SUMMARY"
-
-          if [[ -f post-deploy-validation.log ]]; then
-            ATTENTION_LINES="$(grep -E '^- (WARN|SKIP): ' post-deploy-validation.log || true)"
-            DETAIL_LINES="$(grep -E '^- (WARN|SKIP|PASS|FAIL): ' post-deploy-validation.log || true)"
-            if [[ -n "$ATTENTION_LINES" ]]; then
-              echo "" >> "$GITHUB_STEP_SUMMARY"
-              echo "### Validation attention" >> "$GITHUB_STEP_SUMMARY"
-              while IFS= read -r line; do
-                echo "- **${line}**" >> "$GITHUB_STEP_SUMMARY"
-              done <<< "$ATTENTION_LINES"
-            fi
-            if [[ -n "$DETAIL_LINES" ]]; then
-              echo "" >> "$GITHUB_STEP_SUMMARY"
-              echo "### Validation details" >> "$GITHUB_STEP_SUMMARY"
-              while IFS= read -r line; do
-                echo "$line" >> "$GITHUB_STEP_SUMMARY"
-              done <<< "$DETAIL_LINES"
-            fi
-          fi
-
-          if [[ "$OUTCOME" != "success" ]]; then
-            echo "> Post-deploy validation failed. Inspect \`post-deploy-validation.log\` in workflow logs." >> "$GITHUB_STEP_SUMMARY"
-          fi
+  validate-staging-post-deploy:
+    needs: deploy-staging-env
+    uses: ./.github/workflows/_validate_post_deploy.yml
+    with:
+      deploy_url: ${{ needs.deploy-staging-env.outputs.deploy_url }}
+      operator_agent_base_url: ${{ secrets.STAGING_OPERATOR_AGENT_BASE_URL }}
+      cf_env: ${{ needs.deploy-staging-env.outputs.cf_env }}
+      git_sha: ${{ needs.deploy-staging-env.outputs.git_sha }}
+      node_version: "20"
 
   final-summary:
     needs:
-      - deploy-staging
-      - post-deploy-validation
+      - deploy-staging-env
+      - validate-staging-smoke
+      - validate-staging-post-deploy
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -277,11 +96,28 @@ jobs:
         run: |
           echo "## Staging aggregate summary" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Deploy job: ${{ needs.deploy-staging.result }}" >> "$GITHUB_STEP_SUMMARY"
-          if [[ "${{ needs.post-deploy-validation.outputs.validation_enabled }}" != "true" ]]; then
+          echo "- Deploy environment: ${{ needs.deploy-staging-env.result }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Control-plane smoke: ${{ needs.validate-staging-smoke.outputs.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+
+          if [[ "${{ needs.validate-staging-post-deploy.outputs.enabled }}" != "true" ]]; then
             echo "- Post-deploy validation: skipped (warning: STAGING_OPERATOR_AGENT_BASE_URL not configured)" >> "$GITHUB_STEP_SUMMARY"
-          elif [[ "${{ needs.post-deploy-validation.outputs.validation_attention }}" == "true" ]]; then
-            echo "- Post-deploy validation: ${{ needs.post-deploy-validation.outputs.validation_outcome }} (attention: WARN/SKIP entries present)" >> "$GITHUB_STEP_SUMMARY"
+          elif [[ "${{ needs.validate-staging-post-deploy.outputs.attention }}" == "true" ]]; then
+            echo "- Post-deploy validation: ${{ needs.validate-staging-post-deploy.outputs.outcome }} (attention: WARN/SKIP entries present)" >> "$GITHUB_STEP_SUMMARY"
           else
-            echo "- Post-deploy validation: ${{ needs.post-deploy-validation.outputs.validation_outcome }}" >> "$GITHUB_STEP_SUMMARY"
+            echo "- Post-deploy validation: ${{ needs.validate-staging-post-deploy.outputs.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "### Lane verdict" >> "$GITHUB_STEP_SUMMARY"
+
+          if [[ "${{ needs.deploy-staging-env.result }}" != "success" ]]; then
+            echo "- ❌ Staging deploy lane failed during environment bring-up." >> "$GITHUB_STEP_SUMMARY"
+          elif [[ "${{ needs.validate-staging-smoke.outputs.outcome }}" != "success" ]]; then
+            echo "- ❌ Staging environment deployed, but control-plane smoke validation failed." >> "$GITHUB_STEP_SUMMARY"
+          elif [[ "${{ needs.validate-staging-post-deploy.outputs.enabled }}" == "true" && "${{ needs.validate-staging-post-deploy.outputs.outcome }}" != "success" ]]; then
+            echo "- ❌ Staging environment and smoke passed, but post-deploy validation failed." >> "$GITHUB_STEP_SUMMARY"
+          elif [[ "${{ needs.validate-staging-post-deploy.outputs.attention }}" == "true" ]]; then
+            echo "- ⚠️ Staging deploy lane passed with post-deploy warning/skip attention." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "- ✅ Staging deploy lane passed." >> "$GITHUB_STEP_SUMMARY"
           fi
