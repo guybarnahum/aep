@@ -35,7 +35,6 @@ on:
         value: ${{ jobs.validate-operator-governance.outputs.attention }}
 
 permissions:
-  id-token: write
   contents: read
 
 jobs:

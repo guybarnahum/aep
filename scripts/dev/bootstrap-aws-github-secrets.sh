@@ -192,7 +192,6 @@ print_outputs() {
   echo
   echo "Workflow reminder:"
   echo "  permissions:"
-  echo "    id-token: write"
   echo "    contents: read"
   echo
   echo "Optional local exports:"
