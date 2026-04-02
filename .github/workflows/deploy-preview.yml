@@ -36,8 +36,6 @@ jobs:
     uses: ./.github/workflows/_deploy_environment.yml
     with:
       environment_name: preview
-      deploy_url: ""
-      operator_agent_base_url_fallback: ""
       cf_env: preview
       git_sha: ${{ github.sha }}
       health_runtime_env: preview
@@ -59,7 +57,6 @@ jobs:
     uses: ./.github/workflows/_validate_control_plane_smoke.yml
     with:
       environment_name: preview
-      deploy_url: ""
       cf_env: ${{ needs.deploy-preview-env.outputs.cf_env }}
       git_sha: ${{ needs.deploy-preview-env.outputs.git_sha }}
       node_version: "20"
@@ -82,8 +79,6 @@ jobs:
     uses: ./.github/workflows/_validate_post_deploy.yml
     with:
       environment_name: preview
-      deploy_url: ""
-      operator_agent_base_url: ""
       cf_env: ${{ needs.deploy-preview-env.outputs.cf_env }}
       git_sha: ${{ needs.deploy-preview-env.outputs.git_sha }}
       node_version: "20"

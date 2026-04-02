@@ -17,8 +17,6 @@ set -euo pipefail
 #   STAGING_OPERATOR_AGENT_BASE_URL
 #   PRODUCTION_BASE_URL
 #   PRODUCTION_OPERATOR_AGENT_BASE_URL
-#   PROD_BASE_URL
-#   PROD_OPERATOR_AGENT_BASE_URL
 #   ASYNC_VALIDATION_BASE_URL
 #   ASYNC_VALIDATION_OPERATOR_AGENT_BASE_URL
 #
@@ -67,8 +65,6 @@ resolve_deploy_url_from_environment() {
         echo "${DEPLOY_URL}|env.DEPLOY_URL"
       elif is_absolute_url "${PRODUCTION_BASE_URL:-}"; then
         echo "${PRODUCTION_BASE_URL}|env.PRODUCTION_BASE_URL"
-      elif is_absolute_url "${PROD_BASE_URL:-}"; then
-        echo "${PROD_BASE_URL}|env.PROD_BASE_URL"
       else
         echo "|missing"
       fi
@@ -113,8 +109,6 @@ resolve_operator_agent_url_from_environment() {
         echo "${OPERATOR_AGENT_BASE_URL}|env.OPERATOR_AGENT_BASE_URL"
       elif is_absolute_url "${PRODUCTION_OPERATOR_AGENT_BASE_URL:-}"; then
         echo "${PRODUCTION_OPERATOR_AGENT_BASE_URL}|env.PRODUCTION_OPERATOR_AGENT_BASE_URL"
-      elif is_absolute_url "${PROD_OPERATOR_AGENT_BASE_URL:-}"; then
-        echo "${PROD_OPERATOR_AGENT_BASE_URL}|env.PROD_OPERATOR_AGENT_BASE_URL"
       else
         echo "|missing"
       fi

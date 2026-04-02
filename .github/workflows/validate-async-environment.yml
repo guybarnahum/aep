@@ -28,8 +28,6 @@ jobs:
     uses: ./.github/workflows/_deploy_environment.yml
     with:
       environment_name: async-validation
-      deploy_url: ""
-      operator_agent_base_url_fallback: ""
       cf_env: async_validation
       git_sha: ${{ github.sha }}
       health_runtime_env: dev
@@ -52,8 +50,6 @@ jobs:
     uses: ./.github/workflows/_validate_operator_surface.yml
     with:
       environment_name: async-validation
-      deploy_url: ""
-      operator_agent_base_url: ""
       cf_env: ${{ needs.deploy-async-environment.outputs.cf_env }}
       git_sha: ${{ needs.deploy-async-environment.outputs.git_sha }}
       health_runtime_env: dev
@@ -68,8 +64,6 @@ jobs:
     uses: ./.github/workflows/_validate_operator_governance.yml
     with:
       environment_name: async-validation
-      deploy_url: ""
-      operator_agent_base_url: ""
       cf_env: ${{ needs.deploy-async-environment.outputs.cf_env }}
       git_sha: ${{ needs.deploy-async-environment.outputs.git_sha }}
       health_runtime_env: dev
@@ -84,8 +78,6 @@ jobs:
     uses: ./.github/workflows/_validate_paperclip_handoff.yml
     with:
       environment_name: async-validation
-      deploy_url: ""
-      operator_agent_base_url: ""
       cf_env: ${{ needs.deploy-async-environment.outputs.cf_env }}
       git_sha: ${{ needs.deploy-async-environment.outputs.git_sha }}
       health_runtime_env: dev

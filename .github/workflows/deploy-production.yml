@@ -55,8 +55,6 @@ jobs:
     uses: ./.github/workflows/_deploy_environment.yml
     with:
       environment_name: production
-      deploy_url: ""
-      operator_agent_base_url_fallback: ""
       cf_env: production
       git_sha: ${{ github.sha }}
       health_runtime_env: production
@@ -78,7 +76,6 @@ jobs:
     uses: ./.github/workflows/_validate_control_plane_smoke.yml
     with:
       environment_name: production
-      deploy_url: ""
       cf_env: ${{ needs.deploy-production-env.outputs.cf_env }}
       git_sha: ${{ needs.deploy-production-env.outputs.git_sha }}
       node_version: "20"
@@ -101,8 +98,6 @@ jobs:
     uses: ./.github/workflows/_validate_post_deploy.yml
     with:
       environment_name: production
-      deploy_url: ""
-      operator_agent_base_url: ""
       cf_env: ${{ needs.deploy-production-env.outputs.cf_env }}
       git_sha: ${{ needs.deploy-production-env.outputs.git_sha }}
       node_version: "20"
