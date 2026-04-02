@@ -9,6 +9,7 @@ set -euo pipefail
 echo "Destroying preview resources"
 echo "  worker:   $PREVIEW_WORKER_NAME"
 echo "  database: $PREVIEW_D1_DATABASE_NAME"
+echo "  mode:     direct teardown"
 
 WORKER_STATUS="deleted"
 DATABASE_STATUS="deleted"
@@ -24,6 +25,7 @@ fi
 echo "Preview resource cleanup result"
 echo "  worker_status: $WORKER_STATUS"
 echo "  database_status: $DATABASE_STATUS"
+echo "  lifecycle: primary PR-close cleanup path"
 
 printf 'PREVIEW_WORKER_STATUS=%s\n' "$WORKER_STATUS"
 printf 'PREVIEW_DATABASE_STATUS=%s\n' "$DATABASE_STATUS"

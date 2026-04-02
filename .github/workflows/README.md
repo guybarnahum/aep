@@ -13,6 +13,7 @@ Top-level workflows use **hyphenated names**:
 
 - `deploy-preview.yml`
 - `destroy-preview.yml`
+- `reap-preview-garbage.yml`
 - `deploy-staging.yml`
 - `deploy-production.yml`
 - `validate-async-environment.yml`
@@ -57,8 +58,16 @@ Preview is dynamic:
 - the deploy URL is produced by the preview deploy workflow outputs
 - preview should not rely on `PREVIEW_BASE_URL`
 - preview is destroyed on PR close by `destroy-preview.yml`
+- orphaned leftovers are cleaned conservatively by `reap-preview-garbage.yml`
 
 This lane should stay fast and representative.
+
+### Preview lifecycle
+
+- PR opens or updates: deploy or update the preview environment
+- preview validations run against the emitted deploy URL
+- PR closes: destroy the preview environment via `destroy-preview.yml`
+- scheduled or manual reaper runs: clean up orphaned preview resources missed by the primary teardown path
 
 ### Staging
 
@@ -136,7 +145,7 @@ Preview is the exception to the long-lived environment-backed fallback model:
 
 - preview receives its deploy URL dynamically from `_deploy_preview_environment.yml` outputs
 - long-lived lanes such as staging, production, and async-validation can still resolve via environment vars/secrets
-- preview lifecycle is split across bring-up in `deploy-preview.yml` and teardown in `destroy-preview.yml`
+- preview lifecycle is split across bring-up in `deploy-preview.yml`, primary teardown in `destroy-preview.yml`, and conservative backstop cleanup in `reap-preview-garbage.yml`
 
 This is the preferred GitHub Actions pattern for this repo. Direct caller-side secret passing for deploy URLs is no longer the preferred model.
 
@@ -359,6 +368,7 @@ New deeper suites should become new `_validate_*` reusable workflows and be call
 ├── README.md
 ├── deploy-preview.yml
 ├── destroy-preview.yml
+├── reap-preview-garbage.yml
 ├── deploy-staging.yml
 ├── deploy-production.yml
 ├── validate-async-environment.yml
@@ -386,7 +396,7 @@ New deeper suites should become new `_validate_*` reusable workflows and be call
 3. **Top-level workflows should represent lanes, not individual checks**
    Preview, staging, production, async validation, and async deep validation are lanes.
 
-Preview is not a long-lived environment-backed lane like staging or production; its lifecycle is split across bring-up and teardown workflows.
+Preview is not a long-lived environment-backed lane like staging or production; its lifecycle is split across bring-up, primary teardown, and conservative backstop cleanup workflows.
 
 4. **Summaries should be first class**
    Every reusable workflow should emit a clear summary and machine-usable outputs.

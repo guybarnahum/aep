@@ -1,0 +1,51 @@
+name: Reap Preview Garbage
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 9 * * *"
+
+concurrency:
+  group: reap-preview-garbage
+  cancel-in-progress: false
+
+jobs:
+  reap-preview-garbage:
+    runs-on: ubuntu-latest
+    environment:
+      name: preview
+    defaults:
+      run:
+        shell: bash -eo pipefail {0}
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Reap orphaned preview resources
+        id: reap_preview
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: |
+          bash ./scripts/ci/reap-preview-garbage.sh | tee reap-preview-garbage.log
+
+      - name: Write summary
+        if: always()
+        run: |
+          echo "## Preview garbage reaper summary" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+
+          if [[ -f reap-preview-garbage.log ]]; then
+            cat reap-preview-garbage.log >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "- No reaper log found." >> "$GITHUB_STEP_SUMMARY"
+          fi
