@@ -72,9 +72,9 @@ jobs:
       attention: ${{ steps.capture.outputs.attention }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: ${{ inputs.node_version }}
           cache: npm
@@ -117,7 +117,7 @@ jobs:
 
       - name: Configure AWS credentials
         if: env.PROVIDER == 'aws'
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v5
         with:
           aws-region: ${{ secrets.AWS_REGION }}
           role-to-assume: ${{ secrets.AWS_GITHUB_ACTIONS_ROLE_ARN }}
