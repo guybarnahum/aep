@@ -124,6 +124,9 @@ jobs:
 
       - name: A1 happy path
         id: a1_happy_path
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           npx tsx scripts/ci/async-deploy-check.ts \
             --base-url "$DEPLOY_URL" \
@@ -134,6 +137,9 @@ jobs:
       - name: A2 duplicate terminal callback
         if: env.PROVIDER == 'cloudflare'
         id: a2_duplicate_terminal
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           npx tsx scripts/ci/async-deploy-check.ts \
             --base-url "$DEPLOY_URL" \
@@ -144,6 +150,9 @@ jobs:
       - name: A3 regressive callback ignored
         if: env.PROVIDER == 'cloudflare'
         id: a3_regressive_callback
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           npx tsx scripts/ci/async-deploy-check.ts \
             --base-url "$DEPLOY_URL" \
@@ -154,6 +163,9 @@ jobs:
       - name: A4 stale callback ignored
         if: env.PROVIDER == 'cloudflare'
         id: a4_stale_callback
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           npx tsx scripts/ci/async-deploy-check.ts \
             --base-url "$DEPLOY_URL" \
@@ -164,6 +176,9 @@ jobs:
       - name: B1 retryable failure then success
         if: env.PROVIDER == 'cloudflare'
         id: b1_retry_then_success
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           npx tsx scripts/ci/async-deploy-check.ts \
             --base-url "$DEPLOY_URL" \
@@ -173,6 +188,9 @@ jobs:
 
       - name: B2 non-retryable failure
         id: b2_non_retryable_failure
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           npx tsx scripts/ci/async-deploy-check.ts \
             --base-url "$DEPLOY_URL" \
@@ -183,6 +201,9 @@ jobs:
       - name: B3 retry exhaustion
         if: env.PROVIDER == 'cloudflare'
         id: b3_retry_exhaustion
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           npx tsx scripts/ci/async-deploy-check.ts \
             --base-url "$DEPLOY_URL" \
@@ -193,6 +214,9 @@ jobs:
       - name: B4 timeout then retry
         if: env.PROVIDER == 'cloudflare'
         id: b4_timeout_then_retry
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           npx tsx scripts/ci/async-deploy-check.ts \
             --base-url "$DEPLOY_URL" \
@@ -202,6 +226,9 @@ jobs:
 
       - name: B5 teardown non-retryable failure
         id: b5_teardown_non_retryable_failure
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           npx tsx scripts/ci/async-deploy-check.ts \
             --base-url "$DEPLOY_URL" \
