@@ -87,17 +87,31 @@ Purpose:
 
 This is the right place for deeper stateful validation.
 
+## Canonical environment resolution model
+
+The canonical model for deploy and validation workflows is:
+
+- top-level workflows pass `environment_name`
+- callers use `secrets: inherit`
+- reusable workflows bind to `environment: ${{ inputs.environment_name }}`
+- reusable workflows resolve URLs internally
+
+URL resolution order inside reusable workflows is:
+
+1. explicit input if supplied
+2. environment vars such as `vars.DEPLOY_URL` and `vars.OPERATOR_AGENT_BASE_URL`
+3. environment secrets fallback
+4. fail or skip with summary guidance
+
+This is the preferred GitHub Actions pattern for this repo. Direct caller-side secret passing for deploy URLs is no longer the preferred model.
+
 ## Async-validation ownership
 
-The shared `async_validation` environment must have exactly **one top-level owner**:
+The shared `async_validation` environment has one canonical owner for the reusable async validation lane:
 
 - `validate-async-environment.yml`
 
-Reason:
-
-GitHub Actions concurrency provides mutual exclusion, but not an unlimited FIFO queue. If multiple top-level workflows independently compete for the same shared environment, runs can displace each other. Centralizing ownership in a single orchestrator makes the async validation lane controlled and sequential.
-
-As the refactor progresses, legacy top-level async validation workflows will be folded into this orchestrator as reusable workflows.
+That workflow is the top-level entrypoint for `_validate_operator_surface.yml`, `_validate_operator_governance.yml`, and `_validate_paperclip_handoff.yml`.
 
 ## Reusable building blocks
 
@@ -256,67 +270,53 @@ Examples:
 
 Do not add deeper mutation-heavy or long-running suites directly to preview, staging, or production unless they are explicitly lightweight and deploy-lane safe.
 
-## Stage model
+### Keep async suites reusable
 
-The refactor is staged so the repository stays coherent and testable after each step.
+New deeper suites should become new `_validate_*` reusable workflows and be called from `validate-async-environment.yml`.
 
-### Stage A
+## Core steady-state workflow set
 
-Additive only:
-
-- `README.md`
-- `_deploy_environment.yml`
-- `_validate_control_plane_smoke.yml`
-- `_validate_post_deploy.yml`
-
-No existing workflow behavior changes yet.
-
-### Stage B
-
-Refactor:
-
-- `deploy-preview.yml`
-- `deploy-staging.yml`
-
-to call the new reusable building blocks.
-
-### Stage C
-
-Add:
-
-- `deploy-production.yml`
-
-### Stage D
-
-Convert legacy async validation workflows into reusable workflows:
-
-- `_validate_operator_surface.yml`
-- `_validate_operator_governance.yml`
-- `_validate_paperclip_handoff.yml`
-
-### Stage E
-
-Add the single async validation orchestrator:
-
-- `validate-async-environment.yml`
-
-### Stage F
-
-Remove legacy top-level async validation entrypoints and finalize docs.
+```text
+.github/workflows/
+├── README.md
+├── deploy-preview.yml
+├── deploy-staging.yml
+├── deploy-production.yml
+├── validate-async-environment.yml
+├── _deploy_environment.yml
+├── _validate_control_plane_smoke.yml
+├── _validate_post_deploy.yml
+├── _validate_operator_surface.yml
+├── _validate_operator_governance.yml
+└── _validate_paperclip_handoff.yml
+```
 
 ## Design rules
 
-1. **Deploy once, validate many times**  
+1. **Deploy once, validate many times**
    Environment bring-up should be shared and reusable.
 
-2. **Validation suites should be scenario-oriented**  
+2. **Validation suites should be scenario-oriented**
    Surface, governance, and handoff each deserve their own suite.
 
-3. **Top-level workflows should represent lanes, not individual checks**  
+3. **Top-level workflows should represent lanes, not individual checks**
    Preview, staging, production, and async validation are lanes.
 
-4. **Summaries should be first class**  
+4. **Summaries should be first class**
    Every reusable workflow should emit a clear summary and machine-usable outputs.
+
+5. **Warnings and skips should be visible but distinct from hard failures**
+   Blocking failure, advisory warning, skipped-by-config, and infra degradation should remain distinguishable.
+
+## Note on failures after workflow cleanup
+
+At this point, workflow failures are expected to surface real product or data-contract invariants rather than CI architecture issues.
+
+Example:
+
+- expired approvals must include `expiresAt`
+
+That kind of failure should now be treated as a system contract issue, not a workflow wiring issue.
 
 5. **Warnings and skips should be visible but distinct from hard failures**  
    Blocking failure, advisory warning, skipped-by-config, and infra degradation should remain distinguishable.
