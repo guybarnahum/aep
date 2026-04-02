@@ -5,22 +5,38 @@ set -euo pipefail
 : "${CLOUDFLARE_ACCOUNT_ID:?CLOUDFLARE_ACCOUNT_ID must be set}"
 : "${D1_DATABASE_NAME:?D1_DATABASE_NAME must be set}"
 
-extract_database_id() {
-  sed -n 's/.*database_id *= *"\([^"]*\)".*/\1/p' | head -n1
+extract_database_id_from_info_json() {
+  node -e '
+    const fs = require("fs");
+    const input = fs.readFileSync(0, "utf8");
+    const data = JSON.parse(input);
+    const id =
+      data.uuid ||
+      data.database_id ||
+      data.id ||
+      "";
+    if (id) process.stdout.write(id);
+  '
 }
 
 echo "Ensuring D1 database exists"
 echo "  database: $D1_DATABASE_NAME"
 
-INFO_OUTPUT="$(npx wrangler d1 info "$D1_DATABASE_NAME" 2>/dev/null || true)"
-DATABASE_ID="$(printf '%s\n' "$INFO_OUTPUT" | extract_database_id || true)"
 DATABASE_CREATED="false"
+DATABASE_ID=""
+
+INFO_JSON="$(npx wrangler d1 info "$D1_DATABASE_NAME" --json 2>/dev/null || true)"
+if [[ -n "$INFO_JSON" ]]; then
+  DATABASE_ID="$(printf '%s' "$INFO_JSON" | extract_database_id_from_info_json || true)"
+fi
 
 if [[ -z "$DATABASE_ID" ]]; then
   echo "Database not found; creating"
-  CREATE_OUTPUT="$(npx wrangler d1 create "$D1_DATABASE_NAME")"
-  DATABASE_ID="$(printf '%s\n' "$CREATE_OUTPUT" | extract_database_id || true)"
+  npx wrangler d1 create "$D1_DATABASE_NAME" >/dev/null
   DATABASE_CREATED="true"
+
+  INFO_JSON="$(npx wrangler d1 info "$D1_DATABASE_NAME" --json)"
+  DATABASE_ID="$(printf '%s' "$INFO_JSON" | extract_database_id_from_info_json || true)"
 fi
 
 if [[ -z "$DATABASE_ID" ]]; then
