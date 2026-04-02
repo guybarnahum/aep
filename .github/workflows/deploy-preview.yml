@@ -33,19 +33,12 @@ jobs:
 
   deploy-preview-env:
     needs: test
-    uses: ./.github/workflows/_deploy_environment.yml
+    uses: ./.github/workflows/_deploy_preview_environment.yml
     with:
       environment_name: preview
-      cf_env: preview
       git_sha: ${{ github.sha }}
       health_runtime_env: preview
-      wrangler_config: core/control-plane/wrangler.jsonc
-      d1_database_name: aep-preview
       deploy_operator_agent: false
-      operator_agent_wrangler_config: core/operator-agent/wrangler.jsonc
-      operator_agent_d1_database_name: aep-operator-agent-preview
-      enable_test_endpoints: "false"
-      insecure_allow_version_mismatch: true
       node_version: "20"
       readiness_attempts: "24"
       readiness_interval_ms: "5000"
@@ -57,7 +50,8 @@ jobs:
     uses: ./.github/workflows/_validate_control_plane_smoke.yml
     with:
       environment_name: preview
-      cf_env: ${{ needs.deploy-preview-env.outputs.cf_env }}
+      deploy_url: ${{ needs.deploy-preview-env.outputs.deploy_url }}
+      cf_env: preview
       git_sha: ${{ needs.deploy-preview-env.outputs.git_sha }}
       node_version: "20"
       smoke_method: "POST"
@@ -79,7 +73,8 @@ jobs:
     uses: ./.github/workflows/_validate_post_deploy.yml
     with:
       environment_name: preview
-      cf_env: ${{ needs.deploy-preview-env.outputs.cf_env }}
+      deploy_url: ${{ needs.deploy-preview-env.outputs.deploy_url }}
+      cf_env: preview
       git_sha: ${{ needs.deploy-preview-env.outputs.git_sha }}
       node_version: "20"
     secrets: inherit
@@ -97,6 +92,10 @@ jobs:
           echo "## Preview aggregate summary" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "- Deploy environment: ${{ needs.deploy-preview-env.result }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Preview key: ${{ needs.deploy-preview-env.outputs.preview_key }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Worker name: ${{ needs.deploy-preview-env.outputs.worker_name }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- D1 database: ${{ needs.deploy-preview-env.outputs.d1_database_name }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- URL: ${{ needs.deploy-preview-env.outputs.deploy_url }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- Control-plane smoke: ${{ needs.validate-preview-smoke.outputs.outcome }}" >> "$GITHUB_STEP_SUMMARY"
 
           if [[ "${{ needs.validate-preview-post-deploy.outputs.enabled }}" != "true" ]]; then
