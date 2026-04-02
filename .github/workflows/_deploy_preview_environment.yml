@@ -73,7 +73,7 @@ jobs:
       GIT_SHA: ${{ inputs.git_sha }}
       HEALTH_RUNTIME_ENV: ${{ inputs.health_runtime_env }}
       PREVIEW_TEMPLATE_PATH: core/control-plane/wrangler.preview.jsonc.template
-      PREVIEW_OUTPUT_PATH: core/control-plane/.tmp/wrangler.preview.generated.jsonc
+      PREVIEW_OUTPUT_PATH: core/control-plane/wrangler.preview.generated.jsonc
     outputs:
       deploy_url: ${{ steps.export_outputs.outputs.deploy_url }}
       preview_key: ${{ steps.export_outputs.outputs.preview_key }}
