@@ -87,6 +87,7 @@ jobs:
           eval "$(bash ./scripts/ci/resolve-environment-urls.sh)"
           echo "DEPLOY_URL=$RESOLVED_DEPLOY_URL" >> "$GITHUB_ENV"
           echo "DEPLOY_URL_SOURCE=$RESOLVED_DEPLOY_URL_SOURCE" >> "$GITHUB_ENV"
+          echo "CONTROL_PLANE_BASE_URL=$RESOLVED_DEPLOY_URL" >> "$GITHUB_ENV"
           echo "OPERATOR_AGENT_BASE_URL=$RESOLVED_OPERATOR_AGENT_BASE_URL" >> "$GITHUB_ENV"
           echo "OPERATOR_AGENT_BASE_URL_SOURCE=$RESOLVED_OPERATOR_AGENT_BASE_URL_SOURCE" >> "$GITHUB_ENV"
 
@@ -145,12 +146,18 @@ jobs:
       - name: Multi-worker department safety
         id: multi_worker_department
         if: steps.operator_agent_config.outputs.enabled == 'true' && steps.wait_operator_agent.outcome == 'success'
+        env:
+          CONTROL_PLANE_BASE_URL: ${{ env.CONTROL_PLANE_BASE_URL }}
+          OPERATOR_AGENT_BASE_URL: ${{ env.OPERATOR_AGENT_BASE_URL }}
         run: |
           npm run ci:multi-worker-department-check 2>&1 | tee multi-worker-department.log
 
       - name: Agent timeout recovery
         id: agent_timeout_recovery
         if: steps.operator_agent_config.outputs.enabled == 'true' && steps.wait_operator_agent.outcome == 'success'
+        env:
+          CONTROL_PLANE_BASE_URL: ${{ env.CONTROL_PLANE_BASE_URL }}
+          OPERATOR_AGENT_BASE_URL: ${{ env.OPERATOR_AGENT_BASE_URL }}
         run: |
           npm run ci:agent-timeout-recovery-check 2>&1 | tee agent-timeout-recovery.log
 
@@ -251,6 +258,7 @@ jobs:
           echo "- Environment: $CF_ENV" >> "$GITHUB_STEP_SUMMARY"
           echo "- URL source: $DEPLOY_URL_SOURCE" >> "$GITHUB_STEP_SUMMARY"
           echo "- URL: $DEPLOY_URL" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Control-plane URL: $CONTROL_PLANE_BASE_URL" >> "$GITHUB_STEP_SUMMARY"
           echo "- Operator-agent URL source: $OPERATOR_AGENT_BASE_URL_SOURCE" >> "$GITHUB_STEP_SUMMARY"
           echo "- SHA: $GIT_SHA" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
