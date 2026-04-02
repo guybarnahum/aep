@@ -1,0 +1,54 @@
+name: Destroy Preview
+
+on:
+  pull_request:
+    types: [closed]
+
+concurrency:
+  group: destroy-preview-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  destroy-preview:
+    runs-on: ubuntu-latest
+    environment:
+      name: preview
+    defaults:
+      run:
+        shell: bash -eo pipefail {0}
+    env:
+      PR_NUMBER: ${{ github.event.pull_request.number }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Derive preview identity
+        run: |
+          PREVIEW_KEY="pr-${PR_NUMBER}"
+          PREVIEW_WORKER_NAME="aep-control-plane-${PREVIEW_KEY}"
+          PREVIEW_D1_DATABASE_NAME="aep-preview-${PREVIEW_KEY}"
+
+          echo "PREVIEW_KEY=$PREVIEW_KEY" >> "$GITHUB_ENV"
+          echo "PREVIEW_WORKER_NAME=$PREVIEW_WORKER_NAME" >> "$GITHUB_ENV"
+          echo "PREVIEW_D1_DATABASE_NAME=$PREVIEW_D1_DATABASE_NAME" >> "$GITHUB_ENV"
+
+      - name: Destroy preview resources
+        id: destroy_preview
+        run: |
+          bash ./scripts/ci/destroy-preview-resources.sh | tee destroy-preview.log
+
+      - name: Write summary
+        if: always()
+        run: |
+          echo "## Preview teardown summary" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Preview key: $PREVIEW_KEY" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Worker name: $PREVIEW_WORKER_NAME" >> "$GITHUB_STEP_SUMMARY"
+          echo "- D1 database: $PREVIEW_D1_DATABASE_NAME" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Result: ${{ steps.destroy_preview.outcome }}" >> "$GITHUB_STEP_SUMMARY"

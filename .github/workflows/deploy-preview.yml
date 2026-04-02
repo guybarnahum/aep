@@ -96,6 +96,7 @@ jobs:
           echo "- Worker name: ${{ needs.deploy-preview-env.outputs.worker_name }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- D1 database: ${{ needs.deploy-preview-env.outputs.d1_database_name }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- URL: ${{ needs.deploy-preview-env.outputs.deploy_url }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Lifecycle: ephemeral preview; destroyed on PR close via destroy-preview.yml" >> "$GITHUB_STEP_SUMMARY"
           echo "- Control-plane smoke: ${{ needs.validate-preview-smoke.outputs.outcome }}" >> "$GITHUB_STEP_SUMMARY"
 
           if [[ "${{ needs.validate-preview-post-deploy.outputs.enabled }}" != "true" ]]; then

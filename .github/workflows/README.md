@@ -12,6 +12,7 @@ The goal is to make deployment and validation first class, composable, and easy 
 Top-level workflows use **hyphenated names**:
 
 - `deploy-preview.yml`
+- `destroy-preview.yml`
 - `deploy-staging.yml`
 - `deploy-production.yml`
 - `validate-async-environment.yml`
@@ -20,6 +21,7 @@ Top-level workflows use **hyphenated names**:
 Reusable internal workflows use a leading underscore and an action-oriented name:
 
 - `_deploy_environment.yml`
+- `_deploy_preview_environment.yml`
 - `_validate_control_plane_smoke.yml`
 - `_validate_post_deploy.yml`
 - `_validate_async_orchestration.yml`
@@ -50,9 +52,11 @@ Purpose:
 
 Preview is dynamic:
 
+- preview is PR-scoped and ephemeral
+- preview deploy uses Worker and D1 names derived from the PR number
 - the deploy URL is produced by the preview deploy workflow outputs
 - preview should not rely on `PREVIEW_BASE_URL`
-- preview teardown is handled separately from deploy and validation wiring
+- preview is destroyed on PR close by `destroy-preview.yml`
 
 This lane should stay fast and representative.
 
@@ -132,6 +136,7 @@ Preview is the exception to the long-lived environment-backed fallback model:
 
 - preview receives its deploy URL dynamically from `_deploy_preview_environment.yml` outputs
 - long-lived lanes such as staging, production, and async-validation can still resolve via environment vars/secrets
+- preview lifecycle is split across bring-up in `deploy-preview.yml` and teardown in `destroy-preview.yml`
 
 This is the preferred GitHub Actions pattern for this repo. Direct caller-side secret passing for deploy URLs is no longer the preferred model.
 
@@ -353,11 +358,13 @@ New deeper suites should become new `_validate_*` reusable workflows and be call
 .github/workflows/
 ├── README.md
 ├── deploy-preview.yml
+├── destroy-preview.yml
 ├── deploy-staging.yml
 ├── deploy-production.yml
 ├── validate-async-environment.yml
 ├── validate-async-deep.yml
 ├── _deploy_environment.yml
+├── _deploy_preview_environment.yml
 ├── _validate_control_plane_smoke.yml
 ├── _validate_post_deploy.yml
 ├── _validate_async_orchestration.yml
@@ -378,6 +385,8 @@ New deeper suites should become new `_validate_*` reusable workflows and be call
 
 3. **Top-level workflows should represent lanes, not individual checks**
    Preview, staging, production, async validation, and async deep validation are lanes.
+
+Preview is not a long-lived environment-backed lane like staging or production; its lifecycle is split across bring-up and teardown workflows.
 
 4. **Summaries should be first class**
    Every reusable workflow should emit a clear summary and machine-usable outputs.
