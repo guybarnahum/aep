@@ -1,49 +1,91 @@
-name: Validate Async Orchestration
+name: _validate_async_orchestration
 
 on:
-  workflow_dispatch:
+  workflow_call:
     inputs:
-      provider:
-        description: "Deployment provider"
+      environment_name:
+        required: true
+        type: string
+      deploy_url:
         required: false
-        default: "cloudflare"
+        type: string
+      cf_env:
+        required: true
+        type: string
+      git_sha:
+        required: true
+        type: string
+      health_runtime_env:
+        required: false
+        type: string
+        default: dev
+      provider:
+        required: false
+        type: string
+        default: cloudflare
+      node_version:
+        required: false
+        type: string
+        default: "20"
+    outputs:
+      enabled:
+        description: "Whether async orchestration validation was enabled"
+        value: ${{ jobs.validate-async-orchestration.outputs.enabled }}
+      outcome:
+        description: "Overall outcome of the async orchestration validation suite"
+        value: ${{ jobs.validate-async-orchestration.outputs.outcome }}
+      attention:
+        description: "Whether warning/skip attention signals were present"
+        value: ${{ jobs.validate-async-orchestration.outputs.attention }}
 
 permissions:
   contents: read
 
 jobs:
-  validate-async:
+  validate-async-orchestration:
     runs-on: ubuntu-latest
-    environment: async-validation
+    environment:
+      name: ${{ inputs.environment_name }}
     defaults:
       run:
         shell: bash -eo pipefail {0}
-
     env:
-      PROVIDER: ${{ github.event.inputs.provider || 'cloudflare' }}
-      GIT_SHA: ${{ github.sha }}
-      DEPLOY_URL: ${{ secrets.ASYNC_VALIDATION_BASE_URL }}
-      CF_ENV: async_validation
-      # Health check validates the control-plane runtime identity contract, which
-      # remains "dev" for async-validation deployments in the current environment model.
-      HEALTH_RUNTIME_ENV: dev
-      D1_DATABASE_NAME: aep-async-validation
-      WRANGLER_CONFIG: core/control-plane/wrangler.toml
-      OPERATOR_AGENT_D1_DATABASE_NAME: aep-operator-agent-async-validation
-      OPERATOR_AGENT_WRANGLER_CONFIG: core/operator-agent/wrangler.jsonc
+      ENVIRONMENT_NAME: ${{ inputs.environment_name }}
+      DEPLOY_URL_INPUT: ${{ inputs.deploy_url }}
+      CF_ENV: ${{ inputs.cf_env }}
+      GIT_SHA: ${{ inputs.git_sha }}
+      HEALTH_RUNTIME_ENV: ${{ inputs.health_runtime_env }}
+      PROVIDER: ${{ inputs.provider }}
+
+      DEPLOY_URL: ${{ vars.DEPLOY_URL }}
+
+      PREVIEW_BASE_URL: ${{ secrets.PREVIEW_BASE_URL }}
+      STAGING_BASE_URL: ${{ secrets.STAGING_BASE_URL }}
+      PRODUCTION_BASE_URL: ${{ secrets.PRODUCTION_BASE_URL }}
+      ASYNC_VALIDATION_BASE_URL: ${{ secrets.ASYNC_VALIDATION_BASE_URL }}
+
       AWS_REGION: ${{ secrets.AWS_REGION }}
-      AWS_LAMBDA_EXECUTION_ROLE_ARN: ${{ secrets.AWS_LAMBDA_EXECUTION_ROLE_ARN }}
-      ENABLE_TEST_ENDPOINTS: 'true'
+      AWS_GITHUB_ACTIONS_ROLE_ARN: ${{ secrets.AWS_GITHUB_ACTIONS_ROLE_ARN }}
+    outputs:
+      enabled: ${{ steps.capture.outputs.enabled }}
+      outcome: ${{ steps.capture.outputs.outcome }}
+      attention: ${{ steps.capture.outputs.attention }}
 
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: ${{ inputs.node_version }}
           cache: npm
 
       - run: npm ci
+
+      - name: Resolve effective deploy URL
+        run: |
+          eval "$(bash ./scripts/ci/resolve-environment-urls.sh)"
+          echo "DEPLOY_URL=$RESOLVED_DEPLOY_URL" >> "$GITHUB_ENV"
+          echo "DEPLOY_URL_SOURCE=$RESOLVED_DEPLOY_URL_SOURCE" >> "$GITHUB_ENV"
 
       - name: Check public base URL configuration
         id: base_url_config
@@ -55,51 +97,14 @@ jobs:
             echo "valid=false" >> "$GITHUB_OUTPUT"
             if [[ -z "$DEPLOY_URL" ]]; then
               echo "reason=missing" >> "$GITHUB_OUTPUT"
-              echo "Missing ASYNC_VALIDATION_BASE_URL. Configure an absolute https://... base URL." >&2
+              echo "Missing deploy_url for _validate_async_orchestration.yml." >&2
+              echo "Resolution order is: input -> vars.DEPLOY_URL -> environment secret." >&2
             else
               echo "reason=invalid_url" >> "$GITHUB_OUTPUT"
-              echo "Invalid ASYNC_VALIDATION_BASE_URL: '$DEPLOY_URL'. Must be absolute, e.g. https://aep-control-plane-async-validation.guybubba.workers.dev" >&2
+              echo "Invalid deploy_url for _validate_async_orchestration.yml: '$DEPLOY_URL'. Must be absolute." >&2
             fi
             exit 1
           fi
-
-      - name: Configure AWS credentials
-        if: env.PROVIDER == 'aws'
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-region: ${{ secrets.AWS_REGION }}
-          role-to-assume: ${{ secrets.AWS_GITHUB_ACTIONS_ROLE_ARN }}
-
-      - name: Generate build metadata
-        run: ./scripts/ci/generate-build-meta.sh
-
-      - run: npm run build
-
-      - name: Deploy control plane (async-validation)
-        id: deploy_cf
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: |
-          npx wrangler deploy \
-            --config "$WRANGLER_CONFIG" \
-            --env "$CF_ENV" | tee deploy.log
-
-      - name: Apply D1 migrations
-        id: d1_migrations
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: ./scripts/ci/apply-d1-migrations.sh | tee migrations.log
-
-      - name: Wait for readiness
-        id: wait_readiness
-        run: |
-          npx tsx scripts/ci/wait-for-url.ts \
-            --url "$DEPLOY_URL/healthz" \
-            --attempts 24 \
-            --interval-ms 5000 \
-            --timeout-ms 8000 | tee wait-for-url.log
 
       - name: Health check
         id: health_check
@@ -110,11 +115,15 @@ jobs:
             --sha "$GIT_SHA" \
             --service control-plane | tee health-check.log
 
+      - name: Configure AWS credentials
+        if: env.PROVIDER == 'aws'
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: ${{ secrets.AWS_REGION }}
+          role-to-assume: ${{ secrets.AWS_GITHUB_ACTIONS_ROLE_ARN }}
+
       - name: A1 happy path
         id: a1_happy_path
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           npx tsx scripts/ci/async-deploy-check.ts \
             --base-url "$DEPLOY_URL" \
@@ -125,9 +134,6 @@ jobs:
       - name: A2 duplicate terminal callback
         if: env.PROVIDER == 'cloudflare'
         id: a2_duplicate_terminal
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           npx tsx scripts/ci/async-deploy-check.ts \
             --base-url "$DEPLOY_URL" \
@@ -138,9 +144,6 @@ jobs:
       - name: A3 regressive callback ignored
         if: env.PROVIDER == 'cloudflare'
         id: a3_regressive_callback
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           npx tsx scripts/ci/async-deploy-check.ts \
             --base-url "$DEPLOY_URL" \
@@ -151,9 +154,6 @@ jobs:
       - name: A4 stale callback ignored
         if: env.PROVIDER == 'cloudflare'
         id: a4_stale_callback
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           npx tsx scripts/ci/async-deploy-check.ts \
             --base-url "$DEPLOY_URL" \
@@ -164,9 +164,6 @@ jobs:
       - name: B1 retryable failure then success
         if: env.PROVIDER == 'cloudflare'
         id: b1_retry_then_success
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           npx tsx scripts/ci/async-deploy-check.ts \
             --base-url "$DEPLOY_URL" \
@@ -176,9 +173,6 @@ jobs:
 
       - name: B2 non-retryable failure
         id: b2_non_retryable_failure
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           npx tsx scripts/ci/async-deploy-check.ts \
             --base-url "$DEPLOY_URL" \
@@ -189,9 +183,6 @@ jobs:
       - name: B3 retry exhaustion
         if: env.PROVIDER == 'cloudflare'
         id: b3_retry_exhaustion
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           npx tsx scripts/ci/async-deploy-check.ts \
             --base-url "$DEPLOY_URL" \
@@ -202,9 +193,6 @@ jobs:
       - name: B4 timeout then retry
         if: env.PROVIDER == 'cloudflare'
         id: b4_timeout_then_retry
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           npx tsx scripts/ci/async-deploy-check.ts \
             --base-url "$DEPLOY_URL" \
@@ -214,15 +202,36 @@ jobs:
 
       - name: B5 teardown non-retryable failure
         id: b5_teardown_non_retryable_failure
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           npx tsx scripts/ci/async-deploy-check.ts \
             --base-url "$DEPLOY_URL" \
             --provider "$PROVIDER" \
             --service-name sample-worker \
             --scenario b5-teardown-non-retryable-failure | tee b5-teardown-non-retryable-failure.log
+
+      - name: Capture outputs
+        id: capture
+        if: always()
+        run: |
+          echo "enabled=true" >> "$GITHUB_OUTPUT"
+
+          ATTENTION="false"
+          OUTCOME="success"
+
+          if [[ "${{ steps.base_url_config.outcome }}" != "success" || "${{ steps.health_check.outcome }}" != "success" ]]; then
+            OUTCOME="failure"
+          elif [[ "$PROVIDER" == "aws" ]]; then
+            if [[ "${{ steps.a1_happy_path.outcome }}" != "success" || "${{ steps.b2_non_retryable_failure.outcome }}" != "success" || "${{ steps.b5_teardown_non_retryable_failure.outcome }}" != "success" ]]; then
+              OUTCOME="failure"
+            fi
+          else
+            if [[ "${{ steps.a1_happy_path.outcome }}" != "success" || "${{ steps.a2_duplicate_terminal.outcome }}" != "success" || "${{ steps.a3_regressive_callback.outcome }}" != "success" || "${{ steps.a4_stale_callback.outcome }}" != "success" || "${{ steps.b1_retry_then_success.outcome }}" != "success" || "${{ steps.b2_non_retryable_failure.outcome }}" != "success" || "${{ steps.b3_retry_exhaustion.outcome }}" != "success" || "${{ steps.b4_timeout_then_retry.outcome }}" != "success" || "${{ steps.b5_teardown_non_retryable_failure.outcome }}" != "success" ]]; then
+              OUTCOME="failure"
+            fi
+          fi
+
+          echo "outcome=$OUTCOME" >> "$GITHUB_OUTPUT"
+          echo "attention=$ATTENTION" >> "$GITHUB_OUTPUT"
 
       - name: Write summary
         if: always()
@@ -234,16 +243,6 @@ jobs:
               cancelled) echo "⚪" ;;
               skipped) echo "⚪" ;;
               *) echo "❓" ;;
-            esac
-          }
-
-          status_text() {
-            case "$1" in
-              success) echo "passed" ;;
-              failure) echo "failed" ;;
-              cancelled) echo "cancelled" ;;
-              skipped) echo "skipped" ;;
-              *) echo "unknown" ;;
             esac
           }
 
@@ -333,10 +332,7 @@ jobs:
             esac
           }
 
-          DEPLOY_OUTCOME="${{ steps.deploy_cf.outcome }}"
           BASE_URL_CONFIG_OUTCOME="${{ steps.base_url_config.outcome }}"
-          MIGRATIONS_OUTCOME="${{ steps.d1_migrations.outcome }}"
-          READINESS_OUTCOME="${{ steps.wait_readiness.outcome }}"
           HEALTH_OUTCOME="${{ steps.health_check.outcome }}"
           A1_OUTCOME="${{ steps.a1_happy_path.outcome }}"
           A2_OUTCOME="${{ steps.a2_duplicate_terminal.outcome || 'skipped' }}"
@@ -353,15 +349,13 @@ jobs:
           echo "- Provider: $PROVIDER" >> "$GITHUB_STEP_SUMMARY"
           echo "- Environment: $CF_ENV" >> "$GITHUB_STEP_SUMMARY"
           echo "- Runtime env: $HEALTH_RUNTIME_ENV" >> "$GITHUB_STEP_SUMMARY"
+          echo "- URL source: ${DEPLOY_URL_SOURCE:-unknown}" >> "$GITHUB_STEP_SUMMARY"
           echo "- URL: $DEPLOY_URL" >> "$GITHUB_STEP_SUMMARY"
           echo "- SHA: $GIT_SHA" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
 
-          echo "### Environment bring-up" >> "$GITHUB_STEP_SUMMARY"
+          echo "### Preflight" >> "$GITHUB_STEP_SUMMARY"
           echo "- $(status_emoji "$BASE_URL_CONFIG_OUTCOME") Public base URL config: $BASE_URL_CONFIG_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
-          echo "- $(status_emoji "$DEPLOY_OUTCOME") Worker deploy: $DEPLOY_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
-          echo "- $(status_emoji "$MIGRATIONS_OUTCOME") D1 migrations: $MIGRATIONS_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
-          echo "- $(status_emoji "$READINESS_OUTCOME") Readiness check: $READINESS_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
           echo "- $(status_emoji "$HEALTH_OUTCOME") Health check: $HEALTH_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
 
@@ -390,59 +384,26 @@ jobs:
           echo "" >> "$GITHUB_STEP_SUMMARY"
 
           echo "### Failure triage" >> "$GITHUB_STEP_SUMMARY"
-
           if [[ "$BASE_URL_CONFIG_OUTCOME" != "success" ]]; then
-            if [[ "${{ steps.base_url_config.outputs.reason }}" == "missing" ]]; then
-              echo "- Public base URL configuration failed. ASYNC_VALIDATION_BASE_URL is missing." >> "$GITHUB_STEP_SUMMARY"
-            else
-              echo "- Public base URL configuration failed. ASYNC_VALIDATION_BASE_URL must be an absolute URL (for example, https://aep-control-plane-async-validation.guybubba.workers.dev)." >> "$GITHUB_STEP_SUMMARY"
-            fi
-          elif [[ "$DEPLOY_OUTCOME" != "success" || "$MIGRATIONS_OUTCOME" != "success" || "$READINESS_OUTCOME" != "success" || "$HEALTH_OUTCOME" != "success" ]]; then
-            echo "- Environment bring-up failed. Start with deploy, migrations, readiness, and /healthz before investigating scenario logic." >> "$GITHUB_STEP_SUMMARY"
-          else
-            echo "- Environment bring-up passed." >> "$GITHUB_STEP_SUMMARY"
-          fi
-
-          if [[ "$A1_OUTCOME" != "success" ]]; then
+            echo "- Deploy URL resolution failed for async orchestration validation." >> "$GITHUB_STEP_SUMMARY"
+          elif [[ "$HEALTH_OUTCOME" != "success" ]]; then
+            echo "- Control-plane preflight failed. Start with /healthz before investigating orchestration scenarios." >> "$GITHUB_STEP_SUMMARY"
+          elif [[ "$A1_OUTCOME" != "success" ]]; then
             echo "- A1 failed. Inspect the base async orchestration path first; edge-case scenario failures may be downstream noise." >> "$GITHUB_STEP_SUMMARY"
-          fi
-
-          if [[ "$PROVIDER" == "cloudflare" && ( "$A2_OUTCOME" != "success" || "$A3_OUTCOME" != "success" || "$A4_OUTCOME" != "success" ) ]]; then
+          elif [[ "$PROVIDER" == "cloudflare" && ( "$A2_OUTCOME" != "success" || "$A3_OUTCOME" != "success" || "$A4_OUTCOME" != "success" ) ]]; then
             echo "- One or more Stage 2A callback-hardening checks failed. Inspect callback idempotency, invalid-transition handling, and stale-attempt gating." >> "$GITHUB_STEP_SUMMARY"
-          fi
-
-          if [[ "$B2_OUTCOME" != "success" || "$B5_OUTCOME" != "success" ]]; then
+          elif [[ "$B2_OUTCOME" != "success" || "$B5_OUTCOME" != "success" ]]; then
             echo "- One or more required failure-path checks failed. Inspect terminal failure propagation and teardown cleanup-risk handling." >> "$GITHUB_STEP_SUMMARY"
-          fi
-
-          if [[ "$PROVIDER" == "cloudflare" && ( "$B1_OUTCOME" != "success" || "$B3_OUTCOME" != "success" || "$B4_OUTCOME" != "success" ) ]]; then
+          elif [[ "$PROVIDER" == "cloudflare" && ( "$B1_OUTCOME" != "success" || "$B3_OUTCOME" != "success" || "$B4_OUTCOME" != "success" ) ]]; then
             echo "- One or more Stage 2B retry/timeout checks failed. Inspect retry scheduling, retry exhaustion, timeout advancement, and workflow failure propagation." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "- Async orchestration suite passed." >> "$GITHUB_STEP_SUMMARY"
           fi
-
           echo "" >> "$GITHUB_STEP_SUMMARY"
+
           echo "### Overall verdict" >> "$GITHUB_STEP_SUMMARY"
-
-          ALL_ENV_OK="true"
-          if [[ "$BASE_URL_CONFIG_OUTCOME" != "success" || "$DEPLOY_OUTCOME" != "success" || "$MIGRATIONS_OUTCOME" != "success" || "$READINESS_OUTCOME" != "success" || "$HEALTH_OUTCOME" != "success" ]]; then
-            ALL_ENV_OK="false"
-          fi
-
-          if [[ "$PROVIDER" == "aws" ]]; then
-            ALL_REQUIRED_OK="true"
-            if [[ "$A1_OUTCOME" != "success" || "$B2_OUTCOME" != "success" || "$B5_OUTCOME" != "success" ]]; then
-              ALL_REQUIRED_OK="false"
-            fi
-          else
-            ALL_REQUIRED_OK="true"
-            if [[ "$A1_OUTCOME" != "success" || "$A2_OUTCOME" != "success" || "$A3_OUTCOME" != "success" || "$A4_OUTCOME" != "success" || "$B1_OUTCOME" != "success" || "$B2_OUTCOME" != "success" || "$B3_OUTCOME" != "success" || "$B4_OUTCOME" != "success" || "$B5_OUTCOME" != "success" ]]; then
-              ALL_REQUIRED_OK="false"
-            fi
-          fi
-
-          if [[ "$ALL_ENV_OK" == "true" && "$ALL_REQUIRED_OK" == "true" ]]; then
+          if [[ "${{ steps.capture.outputs.outcome }}" == "success" ]]; then
             echo "- ✅ Async orchestration validation passed for provider $PROVIDER." >> "$GITHUB_STEP_SUMMARY"
-          elif [[ "$ALL_ENV_OK" == "false" ]]; then
-            echo "- ❌ Environment bring-up failed; scenario results may be incomplete or misleading." >> "$GITHUB_STEP_SUMMARY"
           else
-            echo "- ❌ Environment bring-up passed, but one or more required provider validation scenarios failed." >> "$GITHUB_STEP_SUMMARY"
+            echo "- ❌ Async orchestration validation failed for provider $PROVIDER." >> "$GITHUB_STEP_SUMMARY"
           fi

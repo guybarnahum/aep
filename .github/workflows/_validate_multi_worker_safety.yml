@@ -1,0 +1,318 @@
+name: _validate_multi_worker_safety
+
+on:
+  workflow_call:
+    inputs:
+      environment_name:
+        required: true
+        type: string
+      deploy_url:
+        required: false
+        type: string
+      operator_agent_base_url:
+        required: false
+        type: string
+      cf_env:
+        required: true
+        type: string
+      git_sha:
+        required: true
+        type: string
+      health_runtime_env:
+        required: false
+        type: string
+        default: dev
+      node_version:
+        required: false
+        type: string
+        default: "20"
+    outputs:
+      enabled:
+        description: "Whether multi-worker safety validation was enabled"
+        value: ${{ jobs.validate-multi-worker-safety.outputs.enabled }}
+      outcome:
+        description: "Overall outcome of the multi-worker safety validation suite"
+        value: ${{ jobs.validate-multi-worker-safety.outputs.outcome }}
+      attention:
+        description: "Whether warning/skip attention signals were present"
+        value: ${{ jobs.validate-multi-worker-safety.outputs.attention }}
+
+permissions:
+  contents: read
+
+jobs:
+  validate-multi-worker-safety:
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ inputs.environment_name }}
+    defaults:
+      run:
+        shell: bash -eo pipefail {0}
+    env:
+      ENVIRONMENT_NAME: ${{ inputs.environment_name }}
+      DEPLOY_URL_INPUT: ${{ inputs.deploy_url }}
+      OPERATOR_AGENT_BASE_URL_INPUT: ${{ inputs.operator_agent_base_url }}
+      CF_ENV: ${{ inputs.cf_env }}
+      GIT_SHA: ${{ inputs.git_sha }}
+      HEALTH_RUNTIME_ENV: ${{ inputs.health_runtime_env }}
+
+      DEPLOY_URL: ${{ vars.DEPLOY_URL }}
+      OPERATOR_AGENT_BASE_URL: ${{ vars.OPERATOR_AGENT_BASE_URL }}
+
+      PREVIEW_BASE_URL: ${{ secrets.PREVIEW_BASE_URL }}
+      PREVIEW_OPERATOR_AGENT_BASE_URL: ${{ secrets.PREVIEW_OPERATOR_AGENT_BASE_URL }}
+      STAGING_BASE_URL: ${{ secrets.STAGING_BASE_URL }}
+      STAGING_OPERATOR_AGENT_BASE_URL: ${{ secrets.STAGING_OPERATOR_AGENT_BASE_URL }}
+      PRODUCTION_BASE_URL: ${{ secrets.PRODUCTION_BASE_URL }}
+      PRODUCTION_OPERATOR_AGENT_BASE_URL: ${{ secrets.PRODUCTION_OPERATOR_AGENT_BASE_URL }}
+      ASYNC_VALIDATION_BASE_URL: ${{ secrets.ASYNC_VALIDATION_BASE_URL }}
+      ASYNC_VALIDATION_OPERATOR_AGENT_BASE_URL: ${{ secrets.ASYNC_VALIDATION_OPERATOR_AGENT_BASE_URL }}
+    outputs:
+      enabled: ${{ steps.capture.outputs.enabled }}
+      outcome: ${{ steps.capture.outputs.outcome }}
+      attention: ${{ steps.capture.outputs.attention }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node_version }}
+          cache: npm
+
+      - run: npm ci
+
+      - name: Resolve effective validation URLs
+        run: |
+          eval "$(bash ./scripts/ci/resolve-environment-urls.sh)"
+          echo "DEPLOY_URL=$RESOLVED_DEPLOY_URL" >> "$GITHUB_ENV"
+          echo "DEPLOY_URL_SOURCE=$RESOLVED_DEPLOY_URL_SOURCE" >> "$GITHUB_ENV"
+          echo "OPERATOR_AGENT_BASE_URL=$RESOLVED_OPERATOR_AGENT_BASE_URL" >> "$GITHUB_ENV"
+          echo "OPERATOR_AGENT_BASE_URL_SOURCE=$RESOLVED_OPERATOR_AGENT_BASE_URL_SOURCE" >> "$GITHUB_ENV"
+
+      - name: Check public base URL configuration
+        id: base_url_config
+        run: |
+          if [[ -n "$DEPLOY_URL" && "$DEPLOY_URL" =~ ^https?://[^[:space:]]+$ ]]; then
+            echo "valid=true" >> "$GITHUB_OUTPUT"
+            echo "reason=configured" >> "$GITHUB_OUTPUT"
+          else
+            echo "valid=false" >> "$GITHUB_OUTPUT"
+            if [[ -z "$DEPLOY_URL" ]]; then
+              echo "reason=missing" >> "$GITHUB_OUTPUT"
+              echo "Missing deploy_url for _validate_multi_worker_safety.yml." >&2
+            else
+              echo "reason=invalid_url" >> "$GITHUB_OUTPUT"
+              echo "Invalid deploy_url for _validate_multi_worker_safety.yml: '$DEPLOY_URL'. Must be absolute." >&2
+            fi
+            exit 1
+          fi
+
+      - name: Health check
+        id: health_check
+        run: |
+          npx tsx scripts/ci/check-health.ts \
+            --url "$DEPLOY_URL/healthz" \
+            --env "$HEALTH_RUNTIME_ENV" \
+            --sha "$GIT_SHA" \
+            --service control-plane | tee health-check.log
+
+      - name: Check operator-agent configuration
+        id: operator_agent_config
+        run: |
+          if [[ -n "$OPERATOR_AGENT_BASE_URL" && "$OPERATOR_AGENT_BASE_URL" =~ ^https?://[^[:space:]]+$ ]]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+            echo "reason=configured" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            if [[ -z "$OPERATOR_AGENT_BASE_URL" ]]; then
+              echo "reason=missing" >> "$GITHUB_OUTPUT"
+            else
+              echo "reason=invalid_url" >> "$GITHUB_OUTPUT"
+            fi
+          fi
+
+      - name: Wait for operator-agent readiness
+        id: wait_operator_agent
+        if: steps.operator_agent_config.outputs.enabled == 'true'
+        run: |
+          npx tsx scripts/ci/wait-for-url.ts \
+            --url "$OPERATOR_AGENT_BASE_URL/healthz" \
+            --attempts 24 \
+            --interval-ms 5000 \
+            --timeout-ms 8000 | tee wait-operator-agent.log
+
+      - name: Multi-worker department safety
+        id: multi_worker_department
+        if: steps.operator_agent_config.outputs.enabled == 'true' && steps.wait_operator_agent.outcome == 'success'
+        run: |
+          npm run ci:multi-worker-department-check 2>&1 | tee multi-worker-department.log
+
+      - name: Agent timeout recovery
+        id: agent_timeout_recovery
+        if: steps.operator_agent_config.outputs.enabled == 'true' && steps.wait_operator_agent.outcome == 'success'
+        run: |
+          npm run ci:agent-timeout-recovery-check 2>&1 | tee agent-timeout-recovery.log
+
+      - name: Capture outputs
+        id: capture
+        if: always()
+        run: |
+          collect_warnings() {
+            local logs=(
+              multi-worker-department.log
+              agent-timeout-recovery.log
+            )
+            local found=""
+            for log_file in "${logs[@]}"; do
+              if [[ -f "$log_file" ]]; then
+                while IFS= read -r line; do
+                  if [[ "$line" =~ ^\[(warn|skip)\] ]]; then
+                    local cleaned="$line"
+                    cleaned="${cleaned#\[warn\] }"
+                    cleaned="${cleaned#\[skip\] }"
+                    found+="$cleaned"
+                    found+=$'\n'
+                  fi
+                done < "$log_file"
+              fi
+            done
+            printf "%s" "$found"
+          }
+
+          ENABLED="${{ steps.operator_agent_config.outputs.enabled }}"
+          WARNINGS="$(collect_warnings)"
+          ATTENTION="false"
+          if [[ -n "$WARNINGS" ]]; then
+            ATTENTION="true"
+          fi
+
+          OUTCOME="success"
+          if [[ "${{ steps.base_url_config.outcome }}" != "success" || "${{ steps.health_check.outcome }}" != "success" ]]; then
+            OUTCOME="failure"
+          elif [[ "$ENABLED" == "true" && "${{ steps.wait_operator_agent.outcome }}" != "success" ]]; then
+            OUTCOME="failure"
+          elif [[ "$ENABLED" == "true" && ( "${{ steps.multi_worker_department.outcome }}" != "success" || "${{ steps.agent_timeout_recovery.outcome }}" != "success" ) ]]; then
+            OUTCOME="failure"
+          fi
+
+          echo "enabled=$ENABLED" >> "$GITHUB_OUTPUT"
+          echo "outcome=$OUTCOME" >> "$GITHUB_OUTPUT"
+          echo "attention=$ATTENTION" >> "$GITHUB_OUTPUT"
+
+      - name: Write summary
+        if: always()
+        run: |
+          collect_operator_warnings() {
+            local logs=(
+              multi-worker-department.log
+              agent-timeout-recovery.log
+            )
+            local found=""
+            for log_file in "${logs[@]}"; do
+              if [[ -f "$log_file" ]]; then
+                while IFS= read -r line; do
+                  if [[ "$line" =~ ^\[(warn|skip)\] ]]; then
+                    local cleaned="$line"
+                    cleaned="${cleaned#\[warn\] }"
+                    cleaned="${cleaned#\[skip\] }"
+                    found+="$cleaned"
+                    found+=$'\n'
+                  fi
+                done < "$log_file"
+              fi
+            done
+            printf "%s" "$found"
+          }
+
+          status_emoji() {
+            case "$1" in
+              success) echo "✅" ;;
+              failure) echo "❌" ;;
+              cancelled) echo "⚪" ;;
+              skipped) echo "⚪" ;;
+              *) echo "❓" ;;
+            esac
+          }
+
+          BASE_URL_CONFIG_OUTCOME="${{ steps.base_url_config.outcome }}"
+          HEALTH_OUTCOME="${{ steps.health_check.outcome }}"
+          OPERATOR_AGENT_READINESS_OUTCOME="${{ steps.wait_operator_agent.outcome }}"
+          MULTI_WORKER_OUTCOME="${{ steps.multi_worker_department.outcome }}"
+          TIMEOUT_RECOVERY_OUTCOME="${{ steps.agent_timeout_recovery.outcome }}"
+          OPERATOR_WARNINGS="$(collect_operator_warnings)"
+          HAS_OPERATOR_WARNINGS="false"
+          if [[ -n "$OPERATOR_WARNINGS" ]]; then
+            HAS_OPERATOR_WARNINGS="true"
+          fi
+
+          echo "## Multi-worker safety validation summary" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Environment: $CF_ENV" >> "$GITHUB_STEP_SUMMARY"
+          echo "- URL source: $DEPLOY_URL_SOURCE" >> "$GITHUB_STEP_SUMMARY"
+          echo "- URL: $DEPLOY_URL" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Operator-agent URL source: $OPERATOR_AGENT_BASE_URL_SOURCE" >> "$GITHUB_STEP_SUMMARY"
+          echo "- SHA: $GIT_SHA" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+
+          echo "### Preflight" >> "$GITHUB_STEP_SUMMARY"
+          echo "- $(status_emoji "$BASE_URL_CONFIG_OUTCOME") Public base URL config: $BASE_URL_CONFIG_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
+          echo "- $(status_emoji "$HEALTH_OUTCOME") Health check: $HEALTH_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
+          echo "- $(status_emoji "$OPERATOR_AGENT_READINESS_OUTCOME") Operator-agent readiness: $OPERATOR_AGENT_READINESS_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+
+          echo "### Cross-worker governance and safety" >> "$GITHUB_STEP_SUMMARY"
+          echo "- $(status_emoji "$MULTI_WORKER_OUTCOME") Multi-worker department safety: $MULTI_WORKER_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
+          echo "  - Validates safe multi-worker supervision" >> "$GITHUB_STEP_SUMMARY"
+          echo "  - Ensures approval gating protects sensitive actions" >> "$GITHUB_STEP_SUMMARY"
+          echo "  - Confirms no unsafe state drift across workers" >> "$GITHUB_STEP_SUMMARY"
+          echo "- $(status_emoji "$TIMEOUT_RECOVERY_OUTCOME") Agent timeout recovery: $TIMEOUT_RECOVERY_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
+          echo "  - Validates safe recovery from agent timeouts" >> "$GITHUB_STEP_SUMMARY"
+          echo "  - Ensures no budget corruption on timeout" >> "$GITHUB_STEP_SUMMARY"
+
+          if [[ "${{ steps.operator_agent_config.outputs.enabled }}" != "true" ]]; then
+            if [[ "${{ steps.operator_agent_config.outputs.reason }}" == "missing" ]]; then
+              echo "- ⚪ Operator-agent checks skipped: operator-agent base URL is not configured." >> "$GITHUB_STEP_SUMMARY"
+            else
+              echo "- ⚪ Operator-agent checks skipped: operator-agent base URL is invalid." >> "$GITHUB_STEP_SUMMARY"
+            fi
+          fi
+
+          if [[ "$HAS_OPERATOR_WARNINGS" == "true" ]]; then
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "### Warning signals" >> "$GITHUB_STEP_SUMMARY"
+            while IFS= read -r warning_line; do
+              [[ -z "$warning_line" ]] && continue
+              echo "- ⚠️ $warning_line" >> "$GITHUB_STEP_SUMMARY"
+            done <<< "$OPERATOR_WARNINGS"
+          fi
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+
+          echo "### Failure triage" >> "$GITHUB_STEP_SUMMARY"
+          if [[ "$BASE_URL_CONFIG_OUTCOME" != "success" ]]; then
+            echo "- Deploy URL resolution failed for multi-worker safety validation." >> "$GITHUB_STEP_SUMMARY"
+          elif [[ "$HEALTH_OUTCOME" != "success" ]]; then
+            echo "- Control-plane preflight failed. Start with /healthz before investigating safety logic." >> "$GITHUB_STEP_SUMMARY"
+          elif [[ "${{ steps.operator_agent_config.outputs.enabled }}" == "true" && "$OPERATOR_AGENT_READINESS_OUTCOME" != "success" ]]; then
+            echo "- Operator-agent readiness failed. Inspect operator-agent /healthz and environment wiring." >> "$GITHUB_STEP_SUMMARY"
+          elif [[ "${{ steps.operator_agent_config.outputs.enabled }}" == "true" && "$MULTI_WORKER_OUTCOME" != "success" ]]; then
+            echo "- Multi-worker department safety failed. Inspect cross-worker coordination, approval gating logic, and state consistency." >> "$GITHUB_STEP_SUMMARY"
+          elif [[ "${{ steps.operator_agent_config.outputs.enabled }}" == "true" && "$TIMEOUT_RECOVERY_OUTCOME" != "success" ]]; then
+            echo "- Agent timeout recovery failed. Inspect timeout handling, budget preservation, and retry/resume logic." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "- Multi-worker safety suite passed." >> "$GITHUB_STEP_SUMMARY"
+          fi
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+
+          echo "### Overall verdict" >> "$GITHUB_STEP_SUMMARY"
+          if [[ "${{ steps.capture.outputs.outcome }}" == "success" ]]; then
+            if [[ "${{ steps.operator_agent_config.outputs.enabled }}" == "true" && "$HAS_OPERATOR_WARNINGS" == "true" ]]; then
+              echo "- ⚠️ Multi-worker safety validation passed with warnings." >> "$GITHUB_STEP_SUMMARY"
+            elif [[ "${{ steps.operator_agent_config.outputs.enabled }}" == "true" ]]; then
+              echo "- ✅ Multi-worker safety validation passed." >> "$GITHUB_STEP_SUMMARY"
+            else
+              echo "- ⚪ Multi-worker safety checks skipped because operator-agent base URL is not available." >> "$GITHUB_STEP_SUMMARY"
+            fi
+          else
+            echo "- ❌ Multi-worker safety validation failed." >> "$GITHUB_STEP_SUMMARY"
+          fi

@@ -1,0 +1,330 @@
+name: _validate_escalation_integrity
+
+on:
+  workflow_call:
+    inputs:
+      environment_name:
+        required: true
+        type: string
+      deploy_url:
+        required: false
+        type: string
+      operator_agent_base_url:
+        required: false
+        type: string
+      cf_env:
+        required: true
+        type: string
+      git_sha:
+        required: true
+        type: string
+      health_runtime_env:
+        required: false
+        type: string
+        default: dev
+      node_version:
+        required: false
+        type: string
+        default: "20"
+    outputs:
+      enabled:
+        description: "Whether escalation integrity validation was enabled"
+        value: ${{ jobs.validate-escalation-integrity.outputs.enabled }}
+      outcome:
+        description: "Overall outcome of the escalation integrity validation suite"
+        value: ${{ jobs.validate-escalation-integrity.outputs.outcome }}
+      attention:
+        description: "Whether warning/skip attention signals were present"
+        value: ${{ jobs.validate-escalation-integrity.outputs.attention }}
+
+permissions:
+  contents: read
+
+jobs:
+  validate-escalation-integrity:
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ inputs.environment_name }}
+    defaults:
+      run:
+        shell: bash -eo pipefail {0}
+    env:
+      ENVIRONMENT_NAME: ${{ inputs.environment_name }}
+      DEPLOY_URL_INPUT: ${{ inputs.deploy_url }}
+      OPERATOR_AGENT_BASE_URL_INPUT: ${{ inputs.operator_agent_base_url }}
+      CF_ENV: ${{ inputs.cf_env }}
+      GIT_SHA: ${{ inputs.git_sha }}
+      HEALTH_RUNTIME_ENV: ${{ inputs.health_runtime_env }}
+
+      DEPLOY_URL: ${{ vars.DEPLOY_URL }}
+      OPERATOR_AGENT_BASE_URL: ${{ vars.OPERATOR_AGENT_BASE_URL }}
+
+      PREVIEW_BASE_URL: ${{ secrets.PREVIEW_BASE_URL }}
+      PREVIEW_OPERATOR_AGENT_BASE_URL: ${{ secrets.PREVIEW_OPERATOR_AGENT_BASE_URL }}
+      STAGING_BASE_URL: ${{ secrets.STAGING_BASE_URL }}
+      STAGING_OPERATOR_AGENT_BASE_URL: ${{ secrets.STAGING_OPERATOR_AGENT_BASE_URL }}
+      PRODUCTION_BASE_URL: ${{ secrets.PRODUCTION_BASE_URL }}
+      PRODUCTION_OPERATOR_AGENT_BASE_URL: ${{ secrets.PRODUCTION_OPERATOR_AGENT_BASE_URL }}
+      ASYNC_VALIDATION_BASE_URL: ${{ secrets.ASYNC_VALIDATION_BASE_URL }}
+      ASYNC_VALIDATION_OPERATOR_AGENT_BASE_URL: ${{ secrets.ASYNC_VALIDATION_OPERATOR_AGENT_BASE_URL }}
+    outputs:
+      enabled: ${{ steps.capture.outputs.enabled }}
+      outcome: ${{ steps.capture.outputs.outcome }}
+      attention: ${{ steps.capture.outputs.attention }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node_version }}
+          cache: npm
+
+      - run: npm ci
+
+      - name: Resolve effective validation URLs
+        run: |
+          eval "$(bash ./scripts/ci/resolve-environment-urls.sh)"
+          echo "DEPLOY_URL=$RESOLVED_DEPLOY_URL" >> "$GITHUB_ENV"
+          echo "DEPLOY_URL_SOURCE=$RESOLVED_DEPLOY_URL_SOURCE" >> "$GITHUB_ENV"
+          echo "OPERATOR_AGENT_BASE_URL=$RESOLVED_OPERATOR_AGENT_BASE_URL" >> "$GITHUB_ENV"
+          echo "OPERATOR_AGENT_BASE_URL_SOURCE=$RESOLVED_OPERATOR_AGENT_BASE_URL_SOURCE" >> "$GITHUB_ENV"
+
+      - name: Check public base URL configuration
+        id: base_url_config
+        run: |
+          if [[ -n "$DEPLOY_URL" && "$DEPLOY_URL" =~ ^https?://[^[:space:]]+$ ]]; then
+            echo "valid=true" >> "$GITHUB_OUTPUT"
+            echo "reason=configured" >> "$GITHUB_OUTPUT"
+          else
+            echo "valid=false" >> "$GITHUB_OUTPUT"
+            if [[ -z "$DEPLOY_URL" ]]; then
+              echo "reason=missing" >> "$GITHUB_OUTPUT"
+              echo "Missing deploy_url for _validate_escalation_integrity.yml." >&2
+            else
+              echo "reason=invalid_url" >> "$GITHUB_OUTPUT"
+              echo "Invalid deploy_url for _validate_escalation_integrity.yml: '$DEPLOY_URL'. Must be absolute." >&2
+            fi
+            exit 1
+          fi
+
+      - name: Health check
+        id: health_check
+        run: |
+          npx tsx scripts/ci/check-health.ts \
+            --url "$DEPLOY_URL/healthz" \
+            --env "$HEALTH_RUNTIME_ENV" \
+            --sha "$GIT_SHA" \
+            --service control-plane | tee health-check.log
+
+      - name: Check operator-agent configuration
+        id: operator_agent_config
+        run: |
+          if [[ -n "$OPERATOR_AGENT_BASE_URL" && "$OPERATOR_AGENT_BASE_URL" =~ ^https?://[^[:space:]]+$ ]]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+            echo "reason=configured" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            if [[ -z "$OPERATOR_AGENT_BASE_URL" ]]; then
+              echo "reason=missing" >> "$GITHUB_OUTPUT"
+            else
+              echo "reason=invalid_url" >> "$GITHUB_OUTPUT"
+            fi
+          fi
+
+      - name: Wait for operator-agent readiness
+        id: wait_operator_agent
+        if: steps.operator_agent_config.outputs.enabled == 'true'
+        run: |
+          npx tsx scripts/ci/wait-for-url.ts \
+            --url "$OPERATOR_AGENT_BASE_URL/healthz" \
+            --attempts 24 \
+            --interval-ms 5000 \
+            --timeout-ms 8000 | tee wait-operator-agent.log
+
+      - name: Escalation lifecycle
+        id: escalation_lifecycle
+        if: steps.operator_agent_config.outputs.enabled == 'true' && steps.wait_operator_agent.outcome == 'success'
+        run: |
+          npm run ci:escalation-lifecycle-check 2>&1 | tee escalation-lifecycle.log
+
+      - name: Escalation audit
+        id: escalation_audit
+        if: steps.operator_agent_config.outputs.enabled == 'true' && steps.wait_operator_agent.outcome == 'success'
+        run: |
+          npm run ci:escalation-audit-check 2>&1 | tee escalation-audit.log
+
+      - name: Manager advisory
+        id: manager_advisory
+        if: steps.operator_agent_config.outputs.enabled == 'true' && steps.wait_operator_agent.outcome == 'success'
+        run: |
+          npm run ci:manager-advisory-check 2>&1 | tee manager-advisory.log
+
+      - name: Capture outputs
+        id: capture
+        if: always()
+        run: |
+          collect_warnings() {
+            local logs=(
+              escalation-lifecycle.log
+              escalation-audit.log
+              manager-advisory.log
+            )
+            local found=""
+            for log_file in "${logs[@]}"; do
+              if [[ -f "$log_file" ]]; then
+                while IFS= read -r line; do
+                  if [[ "$line" =~ ^\[(warn|skip)\] ]]; then
+                    local cleaned="$line"
+                    cleaned="${cleaned#\[warn\] }"
+                    cleaned="${cleaned#\[skip\] }"
+                    found+="$cleaned"
+                    found+=$'\n'
+                  fi
+                done < "$log_file"
+              fi
+            done
+            printf "%s" "$found"
+          }
+
+          ENABLED="${{ steps.operator_agent_config.outputs.enabled }}"
+          WARNINGS="$(collect_warnings)"
+          ATTENTION="false"
+          if [[ -n "$WARNINGS" ]]; then
+            ATTENTION="true"
+          fi
+
+          OUTCOME="success"
+          if [[ "${{ steps.base_url_config.outcome }}" != "success" || "${{ steps.health_check.outcome }}" != "success" ]]; then
+            OUTCOME="failure"
+          elif [[ "$ENABLED" == "true" && "${{ steps.wait_operator_agent.outcome }}" != "success" ]]; then
+            OUTCOME="failure"
+          elif [[ "$ENABLED" == "true" && ( "${{ steps.escalation_lifecycle.outcome }}" != "success" || "${{ steps.escalation_audit.outcome }}" != "success" || "${{ steps.manager_advisory.outcome }}" != "success" ) ]]; then
+            OUTCOME="failure"
+          fi
+
+          echo "enabled=$ENABLED" >> "$GITHUB_OUTPUT"
+          echo "outcome=$OUTCOME" >> "$GITHUB_OUTPUT"
+          echo "attention=$ATTENTION" >> "$GITHUB_OUTPUT"
+
+      - name: Write summary
+        if: always()
+        run: |
+          collect_operator_warnings() {
+            local logs=(
+              escalation-lifecycle.log
+              escalation-audit.log
+              manager-advisory.log
+            )
+            local found=""
+            for log_file in "${logs[@]}"; do
+              if [[ -f "$log_file" ]]; then
+                while IFS= read -r line; do
+                  if [[ "$line" =~ ^\[(warn|skip)\] ]]; then
+                    local cleaned="$line"
+                    cleaned="${cleaned#\[warn\] }"
+                    cleaned="${cleaned#\[skip\] }"
+                    found+="$cleaned"
+                    found+=$'\n'
+                  fi
+                done < "$log_file"
+              fi
+            done
+            printf "%s" "$found"
+          }
+
+          status_emoji() {
+            case "$1" in
+              success) echo "✅" ;;
+              failure) echo "❌" ;;
+              cancelled) echo "⚪" ;;
+              skipped) echo "⚪" ;;
+              *) echo "❓" ;;
+            esac
+          }
+
+          BASE_URL_CONFIG_OUTCOME="${{ steps.base_url_config.outcome }}"
+          HEALTH_OUTCOME="${{ steps.health_check.outcome }}"
+          OPERATOR_AGENT_READINESS_OUTCOME="${{ steps.wait_operator_agent.outcome }}"
+          ESCALATION_LIFECYCLE_OUTCOME="${{ steps.escalation_lifecycle.outcome }}"
+          ESCALATION_AUDIT_OUTCOME="${{ steps.escalation_audit.outcome }}"
+          MANAGER_ADVISORY_OUTCOME="${{ steps.manager_advisory.outcome }}"
+          OPERATOR_WARNINGS="$(collect_operator_warnings)"
+          HAS_OPERATOR_WARNINGS="false"
+          if [[ -n "$OPERATOR_WARNINGS" ]]; then
+            HAS_OPERATOR_WARNINGS="true"
+          fi
+
+          echo "## Escalation integrity validation summary" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Environment: $CF_ENV" >> "$GITHUB_STEP_SUMMARY"
+          echo "- URL source: $DEPLOY_URL_SOURCE" >> "$GITHUB_STEP_SUMMARY"
+          echo "- URL: $DEPLOY_URL" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Operator-agent URL source: $OPERATOR_AGENT_BASE_URL_SOURCE" >> "$GITHUB_STEP_SUMMARY"
+          echo "- SHA: $GIT_SHA" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+
+          echo "### Preflight" >> "$GITHUB_STEP_SUMMARY"
+          echo "- $(status_emoji "$BASE_URL_CONFIG_OUTCOME") Public base URL config: $BASE_URL_CONFIG_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
+          echo "- $(status_emoji "$HEALTH_OUTCOME") Health check: $HEALTH_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
+          echo "- $(status_emoji "$OPERATOR_AGENT_READINESS_OUTCOME") Operator-agent readiness: $OPERATOR_AGENT_READINESS_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+
+          echo "### Escalation semantics and integrity" >> "$GITHUB_STEP_SUMMARY"
+          echo "- $(status_emoji "$ESCALATION_LIFECYCLE_OUTCOME") Escalation lifecycle: $ESCALATION_LIFECYCLE_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
+          echo "  - Validates state transitions and timing guarantees" >> "$GITHUB_STEP_SUMMARY"
+          echo "  - Ensures escalations cannot be mutated after creation" >> "$GITHUB_STEP_SUMMARY"
+          echo "- $(status_emoji "$ESCALATION_AUDIT_OUTCOME") Escalation audit: $ESCALATION_AUDIT_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
+          echo "  - Validates audit trail completeness and immutability" >> "$GITHUB_STEP_SUMMARY"
+          echo "  - Ensures escalation provenance is preserved" >> "$GITHUB_STEP_SUMMARY"
+          echo "- $(status_emoji "$MANAGER_ADVISORY_OUTCOME") Manager advisory: $MANAGER_ADVISORY_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
+          echo "  - Confirms escalations originate from manager reasoning" >> "$GITHUB_STEP_SUMMARY"
+
+          if [[ "${{ steps.operator_agent_config.outputs.enabled }}" != "true" ]]; then
+            if [[ "${{ steps.operator_agent_config.outputs.reason }}" == "missing" ]]; then
+              echo "- ⚪ Operator-agent checks skipped: operator-agent base URL is not configured." >> "$GITHUB_STEP_SUMMARY"
+            else
+              echo "- ⚪ Operator-agent checks skipped: operator-agent base URL is invalid." >> "$GITHUB_STEP_SUMMARY"
+            fi
+          fi
+
+          if [[ "$HAS_OPERATOR_WARNINGS" == "true" ]]; then
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "### Warning signals" >> "$GITHUB_STEP_SUMMARY"
+            while IFS= read -r warning_line; do
+              [[ -z "$warning_line" ]] && continue
+              echo "- ⚠️ $warning_line" >> "$GITHUB_STEP_SUMMARY"
+            done <<< "$OPERATOR_WARNINGS"
+          fi
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+
+          echo "### Failure triage" >> "$GITHUB_STEP_SUMMARY"
+          if [[ "$BASE_URL_CONFIG_OUTCOME" != "success" ]]; then
+            echo "- Deploy URL resolution failed for escalation integrity validation." >> "$GITHUB_STEP_SUMMARY"
+          elif [[ "$HEALTH_OUTCOME" != "success" ]]; then
+            echo "- Control-plane preflight failed. Start with /healthz before investigating escalation logic." >> "$GITHUB_STEP_SUMMARY"
+          elif [[ "${{ steps.operator_agent_config.outputs.enabled }}" == "true" && "$OPERATOR_AGENT_READINESS_OUTCOME" != "success" ]]; then
+            echo "- Operator-agent readiness failed. Inspect operator-agent /healthz and environment wiring." >> "$GITHUB_STEP_SUMMARY"
+          elif [[ "${{ steps.operator_agent_config.outputs.enabled }}" == "true" && "$ESCALATION_LIFECYCLE_OUTCOME" != "success" ]]; then
+            echo "- Escalation lifecycle validation failed. Inspect state machine, timing semantics, and immutability guarantees." >> "$GITHUB_STEP_SUMMARY"
+          elif [[ "${{ steps.operator_agent_config.outputs.enabled }}" == "true" && "$ESCALATION_AUDIT_OUTCOME" != "success" ]]; then
+            echo "- Escalation audit integrity failed. Inspect audit trail recording, linkage to control history, and provenance preservation." >> "$GITHUB_STEP_SUMMARY"
+          elif [[ "${{ steps.operator_agent_config.outputs.enabled }}" == "true" && "$MANAGER_ADVISORY_OUTCOME" != "success" ]]; then
+            echo "- Manager advisory check failed. Escalations may not originate from correct manager reasoning context." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "- Escalation integrity suite passed." >> "$GITHUB_STEP_SUMMARY"
+          fi
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+
+          echo "### Overall verdict" >> "$GITHUB_STEP_SUMMARY"
+          if [[ "${{ steps.capture.outputs.outcome }}" == "success" ]]; then
+            if [[ "${{ steps.operator_agent_config.outputs.enabled }}" == "true" && "$HAS_OPERATOR_WARNINGS" == "true" ]]; then
+              echo "- ⚠️ Escalation integrity validation passed with warnings." >> "$GITHUB_STEP_SUMMARY"
+            elif [[ "${{ steps.operator_agent_config.outputs.enabled }}" == "true" ]]; then
+              echo "- ✅ Escalation integrity validation passed." >> "$GITHUB_STEP_SUMMARY"
+            else
+              echo "- ⚪ Escalation integrity checks skipped because operator-agent base URL is not available." >> "$GITHUB_STEP_SUMMARY"
+            fi
+          else
+            echo "- ❌ Escalation integrity validation failed." >> "$GITHUB_STEP_SUMMARY"
+          fi

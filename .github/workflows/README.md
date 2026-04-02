@@ -15,12 +15,16 @@ Top-level workflows use **hyphenated names**:
 - `deploy-staging.yml`
 - `deploy-production.yml`
 - `validate-async-environment.yml`
+- `validate-async-deep.yml`
 
 Reusable internal workflows use a leading underscore and an action-oriented name:
 
 - `_deploy_environment.yml`
 - `_validate_control_plane_smoke.yml`
 - `_validate_post_deploy.yml`
+- `_validate_async_orchestration.yml`
+- `_validate_escalation_integrity.yml`
+- `_validate_multi_worker_safety.yml`
 - `_validate_operator_surface.yml`
 - `_validate_operator_governance.yml`
 - `_validate_paperclip_handoff.yml`
@@ -87,6 +91,20 @@ Purpose:
 
 This is the right place for deeper stateful validation.
 
+### Async deep validation
+
+`validate-async-deep.yml`
+
+Purpose:
+
+- deeper, longer-running scenario validation against the shared `async_validation` environment
+- async orchestration validation
+- escalation integrity validation
+- multi-worker safety validation
+- future resilience / timeout / retry / soak suites that need their own deep lane
+
+This is the right place for deep orchestration and cross-worker stateful validation.
+
 ## Canonical environment resolution model
 
 The canonical model for deploy and validation workflows is:
@@ -107,11 +125,12 @@ This is the preferred GitHub Actions pattern for this repo. Direct caller-side s
 
 ## Async-validation ownership
 
-The shared `async_validation` environment has one canonical owner for the reusable async validation lane:
+The shared `async_validation` environment has two canonical top-level lanes:
 
-- `validate-async-environment.yml`
+- `validate-async-environment.yml` for `_validate_operator_surface.yml`, `_validate_operator_governance.yml`, and `_validate_paperclip_handoff.yml`
+- `validate-async-deep.yml` for `_validate_async_orchestration.yml`, `_validate_escalation_integrity.yml`, and `_validate_multi_worker_safety.yml`
 
-That workflow is the top-level entrypoint for `_validate_operator_surface.yml`, `_validate_operator_governance.yml`, and `_validate_paperclip_handoff.yml`.
+Each top-level workflow owns a coherent family of reusable async validation suites.
 
 ## Reusable building blocks
 
@@ -192,6 +211,39 @@ Typical scope:
 - scheduler ownership correctness
 - approval-gated first handoff
 
+### `_validate_async_orchestration.yml`
+
+Reusable async-validation scenario suite for orchestration state machine behavior.
+
+Typical scope:
+
+- callback idempotency
+- retry and timeout policy
+- terminal failure propagation
+- teardown failure handling
+
+### `_validate_escalation_integrity.yml`
+
+Reusable async-validation scenario suite for escalation invariants that depend on the deployed operator-agent.
+
+Typical scope:
+
+- escalation lifecycle
+- escalation audit integrity
+- manager advisory provenance
+- operator-agent readiness-gated escalation checks
+
+### `_validate_multi_worker_safety.yml`
+
+Reusable async-validation scenario suite for cross-worker governance and safety behavior.
+
+Typical scope:
+
+- multi-worker department safety
+- agent timeout recovery
+- approval-gated cross-worker coordination
+- unsafe state drift prevention
+
 ## Validation grouping
 
 ### Preview deploy lane
@@ -237,6 +289,15 @@ Should include:
 - operator surface suite
 - operator governance suite
 - Paperclip handoff suite
+- lightweight async-validation suites tied to operator-facing contracts
+
+### Async deep validation lane
+
+Should include:
+
+- async orchestration suite
+- escalation integrity suite
+- multi-worker safety suite
 - future deep validation suites
 
 ## How to extend
@@ -272,7 +333,7 @@ Do not add deeper mutation-heavy or long-running suites directly to preview, sta
 
 ### Keep async suites reusable
 
-New deeper suites should become new `_validate_*` reusable workflows and be called from `validate-async-environment.yml`.
+New deeper suites should become new `_validate_*` reusable workflows and be called from the appropriate async lane, usually `validate-async-deep.yml` for orchestration-heavy suites and `validate-async-environment.yml` for operator-facing suites.
 
 ## Core steady-state workflow set
 
@@ -283,9 +344,13 @@ New deeper suites should become new `_validate_*` reusable workflows and be call
 ├── deploy-staging.yml
 ├── deploy-production.yml
 ├── validate-async-environment.yml
+├── validate-async-deep.yml
 ├── _deploy_environment.yml
 ├── _validate_control_plane_smoke.yml
 ├── _validate_post_deploy.yml
+├── _validate_async_orchestration.yml
+├── _validate_escalation_integrity.yml
+├── _validate_multi_worker_safety.yml
 ├── _validate_operator_surface.yml
 ├── _validate_operator_governance.yml
 └── _validate_paperclip_handoff.yml
@@ -300,7 +365,7 @@ New deeper suites should become new `_validate_*` reusable workflows and be call
    Surface, governance, and handoff each deserve their own suite.
 
 3. **Top-level workflows should represent lanes, not individual checks**
-   Preview, staging, production, and async validation are lanes.
+   Preview, staging, production, async validation, and async deep validation are lanes.
 
 4. **Summaries should be first class**
    Every reusable workflow should emit a clear summary and machine-usable outputs.
