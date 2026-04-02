@@ -96,7 +96,6 @@ type ApprovalEntry = {
   expiresAt?: string;
   approvedAt?: string;
   rejectedAt?: string;
-  expiredAt?: string;
   consumedAt?: string;
   decidedAt?: string;
   executedAt?: string;
@@ -299,8 +298,8 @@ async function main(): Promise<void> {
       );
     }
 
-    if (state === "expired" && !approval.expiredAt) {
-      throw new Error(`Approval ${approvalId} is expired but missing expiredAt timestamp`);
+    if (state === "expired" && !approval.expiresAt) {
+      throw new Error(`Approval ${approvalId} is expired but missing expiresAt timestamp`);
     }
 
     if (state === "already_executed" && !approval.consumedAt && !approval.executedAt) {

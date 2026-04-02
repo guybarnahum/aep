@@ -109,7 +109,6 @@ type ApprovalsListResponse = {
     expiresAt?: string;
     approvedAt?: string;
     rejectedAt?: string;
-    expiredAt?: string;
     consumedAt?: string;
     metadata?: Record<string, unknown>;
   }>;
@@ -122,7 +121,6 @@ type ApprovalsListResponse = {
     expiresAt?: string;
     approvedAt?: string;
     rejectedAt?: string;
-    expiredAt?: string;
     consumedAt?: string;
     metadata?: Record<string, unknown>;
   }>;
