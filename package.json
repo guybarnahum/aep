@@ -14,7 +14,7 @@
     "build": "npm run typecheck && npm run build:ui",
     "typecheck": "tsc -p core/control-plane/tsconfig.json --noEmit",
     "test": "npm run typecheck && npm run build:ui",
-    "dev:control-plane": "wrangler dev --config core/control-plane/wrangler.toml",
+    "dev:control-plane": "wrangler dev --config core/control-plane/wrangler.jsonc",
     "dev:sample-worker": "wrangler dev --config examples/sample-worker/wrangler.toml",
     "dev:deploy": "tsx scripts/dev/test-deploy.ts",
     "dev:stack": "tsx scripts/dev/dev-stack.ts",

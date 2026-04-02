@@ -235,7 +235,7 @@ async function main(): Promise<void> {
     "wrangler",
     "dev",
     "--config",
-    "core/control-plane/wrangler.toml",
+    "core/control-plane/wrangler.jsonc",
     "--port",
     String(controlPlanePort),
     "--inspector-port",

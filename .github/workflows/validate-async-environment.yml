@@ -31,7 +31,7 @@ jobs:
       cf_env: async_validation
       git_sha: ${{ github.sha }}
       health_runtime_env: dev
-      wrangler_config: core/control-plane/wrangler.toml
+      wrangler_config: core/control-plane/wrangler.jsonc
       d1_database_name: aep-async-validation
       deploy_operator_agent: true
       operator_agent_wrangler_config: core/operator-agent/wrangler.jsonc
