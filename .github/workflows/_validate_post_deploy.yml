@@ -54,8 +54,6 @@ jobs:
       DEPLOY_URL: ${{ vars.DEPLOY_URL }}
       OPERATOR_AGENT_BASE_URL: ${{ vars.OPERATOR_AGENT_BASE_URL }}
 
-      PREVIEW_BASE_URL: ${{ secrets.PREVIEW_BASE_URL }}
-      PREVIEW_OPERATOR_AGENT_BASE_URL: ${{ secrets.PREVIEW_OPERATOR_AGENT_BASE_URL }}
       STAGING_BASE_URL: ${{ secrets.STAGING_BASE_URL }}
       STAGING_OPERATOR_AGENT_BASE_URL: ${{ secrets.STAGING_OPERATOR_AGENT_BASE_URL }}
       PRODUCTION_BASE_URL: ${{ secrets.PRODUCTION_BASE_URL }}
@@ -97,7 +95,7 @@ jobs:
             if [[ -z "$OPERATOR_AGENT_BASE_URL" ]]; then
               echo "reason=missing" >> "$GITHUB_OUTPUT"
               echo "Missing OPERATOR_AGENT_BASE_URL in _validate_post_deploy.yml." >&2
-              echo "Resolution order is: input -> vars.OPERATOR_AGENT_BASE_URL -> legacy environment secret." >&2
+              echo "Resolution order is: input -> vars.OPERATOR_AGENT_BASE_URL -> long-lived environment fallback." >&2
             else
               echo "reason=invalid_url" >> "$GITHUB_OUTPUT"
               echo "Invalid OPERATOR_AGENT_BASE_URL in _validate_post_deploy.yml. Must be absolute, e.g. https://... ." >&2

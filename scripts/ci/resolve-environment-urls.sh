@@ -11,8 +11,6 @@ set -euo pipefail
 # Optional environment-backed values:
 #   DEPLOY_URL
 #   OPERATOR_AGENT_BASE_URL
-#   PREVIEW_BASE_URL
-#   PREVIEW_OPERATOR_AGENT_BASE_URL
 #   STAGING_BASE_URL
 #   STAGING_OPERATOR_AGENT_BASE_URL
 #   PRODUCTION_BASE_URL
@@ -45,8 +43,6 @@ resolve_deploy_url_from_environment() {
     preview)
       if is_absolute_url "${DEPLOY_URL:-}"; then
         echo "${DEPLOY_URL}|env.DEPLOY_URL"
-      elif is_absolute_url "${PREVIEW_BASE_URL:-}"; then
-        echo "${PREVIEW_BASE_URL}|env.PREVIEW_BASE_URL"
       else
         echo "|missing"
       fi
@@ -89,8 +85,6 @@ resolve_operator_agent_url_from_environment() {
     preview)
       if is_absolute_url "${OPERATOR_AGENT_BASE_URL:-}"; then
         echo "${OPERATOR_AGENT_BASE_URL}|env.OPERATOR_AGENT_BASE_URL"
-      elif is_absolute_url "${PREVIEW_OPERATOR_AGENT_BASE_URL:-}"; then
-        echo "${PREVIEW_OPERATOR_AGENT_BASE_URL}|env.PREVIEW_OPERATOR_AGENT_BASE_URL"
       else
         echo "|missing"
       fi

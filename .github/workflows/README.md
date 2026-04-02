@@ -43,9 +43,16 @@ Rule of thumb:
 Purpose:
 
 - PR / manual environment bring-up
+- PR-scoped ephemeral preview environment creation
 - fast validation of deploy correctness
 - basic control-plane smoke
 - lightweight post-deploy validation
+
+Preview is dynamic:
+
+- the deploy URL is produced by the preview deploy workflow outputs
+- preview should not rely on `PREVIEW_BASE_URL`
+- preview teardown is handled separately from deploy and validation wiring
 
 This lane should stay fast and representative.
 
@@ -120,6 +127,11 @@ URL resolution order inside reusable workflows is:
 2. environment vars such as `vars.DEPLOY_URL` and `vars.OPERATOR_AGENT_BASE_URL`
 3. environment secrets fallback
 4. fail or skip with summary guidance
+
+Preview is the exception to the long-lived environment-backed fallback model:
+
+- preview receives its deploy URL dynamically from `_deploy_preview_environment.yml` outputs
+- long-lived lanes such as staging, production, and async-validation can still resolve via environment vars/secrets
 
 This is the preferred GitHub Actions pattern for this repo. Direct caller-side secret passing for deploy URLs is no longer the preferred model.
 
