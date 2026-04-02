@@ -103,7 +103,8 @@ jobs:
           if [[ "${{ github.event_name }}" == "pull_request" && -n "${{ github.event.pull_request.number }}" ]]; then
             PREVIEW_KEY="pr-${{ github.event.pull_request.number }}"
           else
-            PREVIEW_KEY="manual-${{ github.run_id }}"
+            echo "Ephemeral preview deploy is only supported for pull_request events." >&2
+            exit 1
           fi
 
           PREVIEW_WORKER_NAME="aep-control-plane-${PREVIEW_KEY}"
@@ -186,6 +187,16 @@ jobs:
             --env "$HEALTH_RUNTIME_ENV" \
             --sha "$GIT_SHA" \
             --service control-plane | tee health-check.log
+
+      - name: Cleanup failed preview resources
+        if: ${{ failure() }}
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          if [[ -n "${PREVIEW_WORKER_NAME:-}" && -n "${PREVIEW_D1_DATABASE_NAME:-}" ]]; then
+            bash ./scripts/ci/destroy-preview-resources.sh | tee cleanup-failed-preview.log
+          fi
 
       - name: Export outputs
         id: export_outputs
