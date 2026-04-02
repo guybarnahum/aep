@@ -19,8 +19,8 @@ extract_database_id_from_info_json() {
   '
 }
 
-echo "Ensuring D1 database exists"
-echo "  database: $D1_DATABASE_NAME"
+echo "Ensuring D1 database exists" >&2
+echo "  database: $D1_DATABASE_NAME" >&2
 
 DATABASE_CREATED="false"
 DATABASE_ID=""
@@ -31,7 +31,7 @@ if [[ -n "$INFO_JSON" ]]; then
 fi
 
 if [[ -z "$DATABASE_ID" ]]; then
-  echo "Database not found; creating"
+  echo "Database not found; creating" >&2
   npx wrangler d1 create "$D1_DATABASE_NAME" >/dev/null
   DATABASE_CREATED="true"
 
@@ -44,10 +44,10 @@ if [[ -z "$DATABASE_ID" ]]; then
   exit 1
 fi
 
-echo "D1 database ready"
-echo "  database: $D1_DATABASE_NAME"
-echo "  database_id: $DATABASE_ID"
-echo "  created: $DATABASE_CREATED"
+echo "D1 database ready" >&2
+echo "  database: $D1_DATABASE_NAME" >&2
+echo "  database_id: $DATABASE_ID" >&2
+echo "  created: $DATABASE_CREATED" >&2
 
 printf 'D1_DATABASE_NAME=%s\n' "$D1_DATABASE_NAME"
 printf 'D1_DATABASE_ID=%s\n' "$DATABASE_ID"
