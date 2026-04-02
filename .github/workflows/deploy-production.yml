@@ -1,0 +1,145 @@
+name: Deploy Production
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_production:
+        description: 'Type "deploy-production" to confirm production deployment'
+        required: true
+        type: string
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  confirm:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash -eo pipefail {0}
+    steps:
+      - name: Confirm production deployment
+        run: |
+          if [[ "${{ github.event.inputs.confirm_production }}" != "deploy-production" ]]; then
+            echo "Production deployment confirmation failed." >&2
+            echo 'You must type exactly: deploy-production' >&2
+            exit 1
+          fi
+
+  test:
+    needs: confirm
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash -eo pipefail {0}
+    env:
+      GIT_SHA: ${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Generate build metadata
+        run: ./scripts/ci/generate-build-meta.sh
+
+      - run: npm test
+
+  deploy-production-env:
+    needs: test
+    uses: ./.github/workflows/_deploy_environment.yml
+    with:
+      environment_name: production
+      cf_env: production
+      git_sha: ${{ github.sha }}
+      health_runtime_env: production
+      wrangler_config: core/control-plane/wrangler.jsonc
+      d1_database_name: aep-production
+      deploy_operator_agent: false
+      operator_agent_wrangler_config: core/operator-agent/wrangler.jsonc
+      operator_agent_d1_database_name: aep-operator-agent-production
+      enable_test_endpoints: "false"
+      insecure_allow_version_mismatch: false
+      node_version: "20"
+      readiness_attempts: "24"
+      readiness_interval_ms: "5000"
+      readiness_timeout_ms: "8000"
+    secrets: inherit
+
+  validate-production-smoke:
+    needs: deploy-production-env
+    uses: ./.github/workflows/_validate_control_plane_smoke.yml
+    with:
+      environment_name: production
+      cf_env: ${{ needs.deploy-production-env.outputs.cf_env }}
+      git_sha: ${{ needs.deploy-production-env.outputs.git_sha }}
+      node_version: "20"
+      smoke_method: "POST"
+      smoke_path: "/workflow/start"
+      smoke_payload: '{"tenant_id":"t_demo","project_id":"p_demo","repo_url":"https://github.com/example/repo","branch":"main","service_name":"sample-worker","teardown_mode":"sync"}'
+      expect_status: "202"
+      expect_json_key: "workflow_run_id"
+      poll_path_template: "/workflow/{id}"
+      poll_id_key: "workflow_run_id"
+      poll_success_key: "run.status"
+      poll_success_values: "completed"
+      poll_failure_values: "failed,cancelled"
+      poll_attempts: "20"
+      poll_interval_ms: "3000"
+    secrets: inherit
+
+  validate-production-post-deploy:
+    needs: deploy-production-env
+    uses: ./.github/workflows/_validate_post_deploy.yml
+    with:
+      environment_name: production
+      cf_env: ${{ needs.deploy-production-env.outputs.cf_env }}
+      git_sha: ${{ needs.deploy-production-env.outputs.git_sha }}
+      node_version: "20"
+    secrets: inherit
+
+  final-summary:
+    needs:
+      - confirm
+      - deploy-production-env
+      - validate-production-smoke
+      - validate-production-post-deploy
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Write aggregate summary
+        run: |
+          echo "## Production aggregate summary" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Confirmation: ${{ needs.confirm.result }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Deploy environment: ${{ needs.deploy-production-env.result }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Control-plane smoke: ${{ needs.validate-production-smoke.outputs.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+
+          if [[ "${{ needs.validate-production-post-deploy.outputs.enabled }}" != "true" ]]; then
+            echo "- Post-deploy validation: skipped (warning: operator-agent base URL not configured for the production environment)" >> "$GITHUB_STEP_SUMMARY"
+          elif [[ "${{ needs.validate-production-post-deploy.outputs.attention }}" == "true" ]]; then
+            echo "- Post-deploy validation: ${{ needs.validate-production-post-deploy.outputs.outcome }} (attention: WARN/SKIP entries present)" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "- Post-deploy validation: ${{ needs.validate-production-post-deploy.outputs.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "### Lane verdict" >> "$GITHUB_STEP_SUMMARY"
+
+          if [[ "${{ needs.confirm.result }}" != "success" ]]; then
+            echo "- ❌ Production deploy was not confirmed." >> "$GITHUB_STEP_SUMMARY"
+          elif [[ "${{ needs.deploy-production-env.result }}" != "success" ]]; then
+            echo "- ❌ Production deploy lane failed during environment bring-up." >> "$GITHUB_STEP_SUMMARY"
+          elif [[ "${{ needs.validate-production-smoke.outputs.outcome }}" != "success" ]]; then
+            echo "- ❌ Production environment deployed, but control-plane smoke validation failed." >> "$GITHUB_STEP_SUMMARY"
+          elif [[ "${{ needs.validate-production-post-deploy.outputs.enabled }}" == "true" && "${{ needs.validate-production-post-deploy.outputs.outcome }}" != "success" ]]; then
+            echo "- ❌ Production environment and smoke passed, but post-deploy validation failed." >> "$GITHUB_STEP_SUMMARY"
+          elif [[ "${{ needs.validate-production-post-deploy.outputs.attention }}" == "true" ]]; then
+            echo "- ⚠️ Production deploy lane passed with post-deploy warning/skip attention." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "- ✅ Production deploy lane passed." >> "$GITHUB_STEP_SUMMARY"

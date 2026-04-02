@@ -1,4 +1,4 @@
-import { BUILD_GIT_SHA } from "../generated/build-meta";
+import { BUILD_GIT_SHA } from "@aep/control-plane/generated/build-meta";
 
 export interface BuildInfoEnv {
   APP_ENV?: string;

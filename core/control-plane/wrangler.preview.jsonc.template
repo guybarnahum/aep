@@ -1,0 +1,37 @@
+{
+  "name": "__WORKER_NAME__",
+  "main": "src/index.ts",
+  "compatibility_date": "2025-01-01",
+  "workers_dev": true,
+
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "__DB_NAME__",
+      "database_id": "__DB_ID__",
+      "migrations_dir": "../../infra/cloudflare/d1/migrations"
+    }
+  ],
+
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "WORKFLOW_COORDINATOR",
+        "class_name": "WorkflowCoordinatorDO"
+      }
+    ]
+  },
+
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["WorkflowCoordinatorDO"]
+    }
+  ],
+
+  "vars": {
+    "APP_ENV": "preview",
+    "SERVICE_NAME": "control-plane",
+    "PREVIEW_KEY": "__PREVIEW_KEY__"
+  }
+}

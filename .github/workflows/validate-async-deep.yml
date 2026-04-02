@@ -1,0 +1,191 @@
+name: Validate Async Deep
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_async_orchestration:
+        description: "Run async orchestration validation"
+        required: false
+        type: boolean
+        default: true
+      run_escalation_integrity:
+        description: "Run escalation integrity validation"
+        required: false
+        type: boolean
+        default: true
+      run_multi_worker_safety:
+        description: "Run multi-worker safety validation"
+        required: false
+        type: boolean
+        default: true
+      provider:
+        description: "Execution provider for async orchestration scenarios"
+        required: false
+        type: string
+        default: cloudflare
+
+concurrency:
+  group: env-async-validation
+  cancel-in-progress: false
+
+jobs:
+  deploy-async-environment:
+    uses: ./.github/workflows/_deploy_environment.yml
+    with:
+      environment_name: async-validation
+      cf_env: async_validation
+      git_sha: ${{ github.sha }}
+      health_runtime_env: dev
+      wrangler_config: core/control-plane/wrangler.jsonc
+      d1_database_name: aep-async-validation
+      deploy_operator_agent: true
+      operator_agent_wrangler_config: core/operator-agent/wrangler.jsonc
+      operator_agent_d1_database_name: aep-operator-agent-async-validation
+      enable_test_endpoints: "true"
+      insecure_allow_version_mismatch: false
+      node_version: "20"
+      readiness_attempts: "24"
+      readiness_interval_ms: "5000"
+      readiness_timeout_ms: "8000"
+    secrets: inherit
+
+  validate-async-orchestration:
+    needs: deploy-async-environment
+    if: ${{ inputs.run_async_orchestration }}
+    uses: ./.github/workflows/_validate_async_orchestration.yml
+    with:
+      environment_name: async-validation
+      deploy_url: ${{ needs.deploy-async-environment.outputs.deploy_url }}
+      cf_env: ${{ needs.deploy-async-environment.outputs.cf_env }}
+      git_sha: ${{ needs.deploy-async-environment.outputs.git_sha }}
+      health_runtime_env: dev
+      provider: ${{ inputs.provider }}
+      node_version: "20"
+    secrets: inherit
+
+  validate-escalation-integrity:
+    needs:
+      - deploy-async-environment
+      - validate-async-orchestration
+    if: ${{ always() && inputs.run_escalation_integrity && needs.deploy-async-environment.result == 'success' && (needs.validate-async-orchestration.result == 'success' || needs.validate-async-orchestration.result == 'skipped') }}
+    uses: ./.github/workflows/_validate_escalation_integrity.yml
+    with:
+      environment_name: async-validation
+      deploy_url: ${{ needs.deploy-async-environment.outputs.deploy_url }}
+      operator_agent_base_url: ${{ needs.deploy-async-environment.outputs.operator_agent_url }}
+      cf_env: ${{ needs.deploy-async-environment.outputs.cf_env }}
+      git_sha: ${{ needs.deploy-async-environment.outputs.git_sha }}
+      health_runtime_env: dev
+      node_version: "20"
+    secrets: inherit
+
+  validate-multi-worker-safety:
+    needs:
+      - deploy-async-environment
+      - validate-escalation-integrity
+    if: ${{ always() && inputs.run_multi_worker_safety && needs.deploy-async-environment.result == 'success' && (needs.validate-escalation-integrity.result == 'success' || needs.validate-escalation-integrity.result == 'skipped') }}
+    uses: ./.github/workflows/_validate_multi_worker_safety.yml
+    with:
+      environment_name: async-validation
+      deploy_url: ${{ needs.deploy-async-environment.outputs.deploy_url }}
+      operator_agent_base_url: ${{ needs.deploy-async-environment.outputs.operator_agent_url }}
+      cf_env: ${{ needs.deploy-async-environment.outputs.cf_env }}
+      git_sha: ${{ needs.deploy-async-environment.outputs.git_sha }}
+      health_runtime_env: dev
+      node_version: "20"
+    secrets: inherit
+
+  final-summary:
+    needs:
+      - deploy-async-environment
+      - validate-async-orchestration
+      - validate-escalation-integrity
+      - validate-multi-worker-safety
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Write aggregate summary
+        run: |
+          echo "## Async deep validation aggregate summary" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Environment deploy: ${{ needs.deploy-async-environment.result }}" >> "$GITHUB_STEP_SUMMARY"
+
+          if [[ "${{ inputs.run_async_orchestration }}" == "true" ]]; then
+            if [[ "${{ needs.validate-async-orchestration.outputs.attention }}" == "true" ]]; then
+              echo "- Async orchestration: ${{ needs.validate-async-orchestration.outputs.outcome }} (attention: warning/skip entries present)" >> "$GITHUB_STEP_SUMMARY"
+            else
+              echo "- Async orchestration: ${{ needs.validate-async-orchestration.outputs.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+            fi
+          else
+            echo "- Async orchestration: skipped by dispatch input" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+          if [[ "${{ inputs.run_escalation_integrity }}" == "true" ]]; then
+            if [[ "${{ needs.validate-escalation-integrity.outputs.enabled }}" != "true" && "${{ needs.validate-escalation-integrity.result }}" == "success" ]]; then
+              echo "- Escalation integrity: ${{ needs.validate-escalation-integrity.outputs.outcome }} (operator-agent-dependent checks skipped by config)" >> "$GITHUB_STEP_SUMMARY"
+            elif [[ "${{ needs.validate-escalation-integrity.outputs.attention }}" == "true" ]]; then
+              echo "- Escalation integrity: ${{ needs.validate-escalation-integrity.outputs.outcome }} (attention: warning/skip entries present)" >> "$GITHUB_STEP_SUMMARY"
+            else
+              echo "- Escalation integrity: ${{ needs.validate-escalation-integrity.outputs.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+            fi
+          else
+            echo "- Escalation integrity: skipped by dispatch input" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+          if [[ "${{ inputs.run_multi_worker_safety }}" == "true" ]]; then
+            if [[ "${{ needs.validate-multi-worker-safety.outputs.enabled }}" != "true" && "${{ needs.validate-multi-worker-safety.result }}" == "success" ]]; then
+              echo "- Multi-worker safety: ${{ needs.validate-multi-worker-safety.outputs.outcome }} (operator-agent-dependent checks skipped by config)" >> "$GITHUB_STEP_SUMMARY"
+            elif [[ "${{ needs.validate-multi-worker-safety.outputs.attention }}" == "true" ]]; then
+              echo "- Multi-worker safety: ${{ needs.validate-multi-worker-safety.outputs.outcome }} (attention: warning/skip entries present)" >> "$GITHUB_STEP_SUMMARY"
+            else
+              echo "- Multi-worker safety: ${{ needs.validate-multi-worker-safety.outputs.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+            fi
+          else
+            echo "- Multi-worker safety: skipped by dispatch input" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "### Lane verdict" >> "$GITHUB_STEP_SUMMARY"
+
+          if [[ "${{ needs.deploy-async-environment.result }}" != "success" ]]; then
+            echo "- ❌ Async deep validation lane failed during environment bring-up." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          FAILED="false"
+          ATTENTION="false"
+
+          if [[ "${{ inputs.run_async_orchestration }}" == "true" ]]; then
+            if [[ "${{ needs.validate-async-orchestration.outputs.outcome }}" != "success" ]]; then
+              FAILED="true"
+            fi
+            if [[ "${{ needs.validate-async-orchestration.outputs.attention }}" == "true" ]]; then
+              ATTENTION="true"
+            fi
+          fi
+
+          if [[ "${{ inputs.run_escalation_integrity }}" == "true" ]]; then
+            if [[ "${{ needs.validate-escalation-integrity.outputs.outcome }}" != "success" ]]; then
+              FAILED="true"
+            fi
+            if [[ "${{ needs.validate-escalation-integrity.outputs.attention }}" == "true" ]]; then
+              ATTENTION="true"
+            fi
+          fi
+
+          if [[ "${{ inputs.run_multi_worker_safety }}" == "true" ]]; then
+            if [[ "${{ needs.validate-multi-worker-safety.outputs.outcome }}" != "success" ]]; then
+              FAILED="true"
+            fi
+            if [[ "${{ needs.validate-multi-worker-safety.outputs.attention }}" == "true" ]]; then
+              ATTENTION="true"
+            fi
+          fi
+
+          if [[ "$FAILED" == "true" ]]; then
+            echo "- ❌ Async deep validation lane failed." >> "$GITHUB_STEP_SUMMARY"
+          elif [[ "$ATTENTION" == "true" ]]; then
+            echo "- ⚠️ Async deep validation lane passed with warning/skip attention." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "- ✅ Async deep validation lane passed." >> "$GITHUB_STEP_SUMMARY"
+          fi

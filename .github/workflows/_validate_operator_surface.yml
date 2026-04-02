@@ -1,0 +1,328 @@
+name: _validate_operator_surface
+
+on:
+  workflow_call:
+    inputs:
+      environment_name:
+        required: true
+        type: string
+      deploy_url:
+        required: false
+        type: string
+      operator_agent_base_url:
+        required: false
+        type: string
+      cf_env:
+        required: true
+        type: string
+      git_sha:
+        required: true
+        type: string
+      health_runtime_env:
+        required: false
+        type: string
+        default: dev
+      node_version:
+        required: false
+        type: string
+        default: "20"
+    outputs:
+      enabled:
+        description: "Whether operator-agent-dependent checks were enabled"
+        value: ${{ jobs.validate-operator-surface.outputs.enabled }}
+      outcome:
+        description: "Overall outcome of the operator surface validation suite"
+        value: ${{ jobs.validate-operator-surface.outputs.outcome }}
+      attention:
+        description: "Whether warning/skip attention signals were present"
+        value: ${{ jobs.validate-operator-surface.outputs.attention }}
+
+permissions:
+  contents: read
+
+jobs:
+  validate-operator-surface:
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ inputs.environment_name }}
+    defaults:
+      run:
+        shell: bash -eo pipefail {0}
+    env:
+      ENVIRONMENT_NAME: ${{ inputs.environment_name }}
+      GIT_SHA: ${{ inputs.git_sha }}
+      DEPLOY_URL_INPUT: ${{ inputs.deploy_url }}
+      OPERATOR_AGENT_BASE_URL_INPUT: ${{ inputs.operator_agent_base_url }}
+      CF_ENV: ${{ inputs.cf_env }}
+      HEALTH_RUNTIME_ENV: ${{ inputs.health_runtime_env }}
+
+      DEPLOY_URL: ${{ vars.DEPLOY_URL }}
+      OPERATOR_AGENT_BASE_URL: ${{ vars.OPERATOR_AGENT_BASE_URL }}
+
+      STAGING_BASE_URL: ${{ secrets.STAGING_BASE_URL }}
+      STAGING_OPERATOR_AGENT_BASE_URL: ${{ secrets.STAGING_OPERATOR_AGENT_BASE_URL }}
+      PRODUCTION_BASE_URL: ${{ secrets.PRODUCTION_BASE_URL }}
+      PRODUCTION_OPERATOR_AGENT_BASE_URL: ${{ secrets.PRODUCTION_OPERATOR_AGENT_BASE_URL }}
+      ASYNC_VALIDATION_BASE_URL: ${{ secrets.ASYNC_VALIDATION_BASE_URL }}
+      ASYNC_VALIDATION_OPERATOR_AGENT_BASE_URL: ${{ secrets.ASYNC_VALIDATION_OPERATOR_AGENT_BASE_URL }}
+    outputs:
+      enabled: ${{ steps.capture.outputs.enabled }}
+      outcome: ${{ steps.capture.outputs.outcome }}
+      attention: ${{ steps.capture.outputs.attention }}
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ inputs.node_version }}
+          cache: npm
+
+      - run: npm ci
+
+      - name: Resolve effective validation URLs
+        run: |
+          eval "$(bash ./scripts/ci/resolve-environment-urls.sh)"
+
+          echo "DEPLOY_URL=$RESOLVED_DEPLOY_URL" >> "$GITHUB_ENV"
+          echo "DEPLOY_URL_SOURCE=$RESOLVED_DEPLOY_URL_SOURCE" >> "$GITHUB_ENV"
+          echo "OPERATOR_AGENT_BASE_URL=$RESOLVED_OPERATOR_AGENT_BASE_URL" >> "$GITHUB_ENV"
+          echo "OPERATOR_AGENT_BASE_URL_SOURCE=$RESOLVED_OPERATOR_AGENT_BASE_URL_SOURCE" >> "$GITHUB_ENV"
+
+      - name: Check control-plane base URL configuration
+        id: base_url_config
+        run: |
+          if [[ -n "$DEPLOY_URL" && "$DEPLOY_URL" =~ ^https?://[^[:space:]]+$ ]]; then
+            echo "valid=true" >> "$GITHUB_OUTPUT"
+            echo "reason=configured" >> "$GITHUB_OUTPUT"
+          else
+            echo "valid=false" >> "$GITHUB_OUTPUT"
+            if [[ -z "$DEPLOY_URL" ]]; then
+              echo "reason=missing" >> "$GITHUB_OUTPUT"
+              echo "Missing DEPLOY_URL in _validate_operator_surface.yml." >&2
+              echo "Resolution order is: input -> vars.DEPLOY_URL -> long-lived environment fallback." >&2
+            else
+              echo "reason=invalid_url" >> "$GITHUB_OUTPUT"
+              echo "Invalid deploy_url input: '$DEPLOY_URL'. Must be absolute." >&2
+            fi
+            exit 1
+          fi
+
+      - name: Control-plane health check
+        id: health_check
+        run: |
+          npx tsx scripts/ci/check-health.ts \
+            --url "$DEPLOY_URL/healthz" \
+            --env "$HEALTH_RUNTIME_ENV" \
+            --sha "$GIT_SHA" \
+            --service control-plane | tee health-check.log
+
+      - name: Check operator-agent configuration
+        id: operator_agent_config
+        run: |
+          if [[ -n "$OPERATOR_AGENT_BASE_URL" && "$OPERATOR_AGENT_BASE_URL" =~ ^https?://[^[:space:]]+$ ]]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+            echo "reason=configured" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            if [[ -z "$OPERATOR_AGENT_BASE_URL" ]]; then
+              echo "reason=missing" >> "$GITHUB_OUTPUT"
+            else
+              echo "reason=invalid_url" >> "$GITHUB_OUTPUT"
+            fi
+          fi
+
+      - name: Wait for operator-agent readiness
+        id: wait_operator_agent
+        if: steps.operator_agent_config.outputs.enabled == 'true'
+        run: |
+          npx tsx scripts/ci/wait-for-url.ts \
+            --url "$OPERATOR_AGENT_BASE_URL/healthz" \
+            --attempts 24 \
+            --interval-ms 5000 \
+            --timeout-ms 8000 | tee wait-operator-agent.log
+
+      - name: Operator surface contract
+        id: operator_surface
+        if: steps.operator_agent_config.outputs.enabled == 'true' && steps.wait_operator_agent.outcome == 'success'
+        run: |
+          npm run ci:operator-surface-check 2>&1 | tee operator-surface.log
+
+      - name: Scheduled routing
+        id: scheduled_routing
+        run: |
+          npm run ci:scheduled-routing-check | tee scheduled-routing.log
+
+      - name: Paperclip first execution
+        id: paperclip_first_execution
+        if: steps.operator_agent_config.outputs.enabled == 'true' && steps.wait_operator_agent.outcome == 'success'
+        run: |
+          npm run ci:paperclip-first-execution-check 2>&1 | tee paperclip-first-execution.log
+
+      - name: Capture outputs
+        id: capture
+        if: always()
+        run: |
+          collect_warnings() {
+            local logs=(
+              operator-surface.log
+              paperclip-first-execution.log
+            )
+            local found=""
+
+            for log_file in "${logs[@]}"; do
+              if [[ -f "$log_file" ]]; then
+                while IFS= read -r line; do
+                  if [[ "$line" =~ ^\[(warn|skip)\] ]]; then
+                    local cleaned="$line"
+                    cleaned="${cleaned#\[warn\] }"
+                    cleaned="${cleaned#\[skip\] }"
+                    found+="$cleaned"
+                    found+=$'\n'
+                  fi
+                done < "$log_file"
+              fi
+            done
+
+            printf "%s" "$found"
+          }
+
+          ENABLED="${{ steps.operator_agent_config.outputs.enabled }}"
+          ATTENTION="false"
+          WARNINGS="$(collect_warnings)"
+
+          if [[ -n "$WARNINGS" ]]; then
+            ATTENTION="true"
+          fi
+
+          OUTCOME="success"
+
+          if [[ "${{ steps.base_url_config.outcome }}" != "success" || "${{ steps.health_check.outcome }}" != "success" || "${{ steps.scheduled_routing.outcome }}" != "success" ]]; then
+            OUTCOME="failure"
+          elif [[ "$ENABLED" == "true" && "${{ steps.wait_operator_agent.outcome }}" != "success" ]]; then
+            OUTCOME="failure"
+          elif [[ "$ENABLED" == "true" && ( "${{ steps.operator_surface.outcome }}" != "success" || "${{ steps.paperclip_first_execution.outcome }}" != "success" ) ]]; then
+            OUTCOME="failure"
+          fi
+
+          echo "enabled=$ENABLED" >> "$GITHUB_OUTPUT"
+          echo "outcome=$OUTCOME" >> "$GITHUB_OUTPUT"
+          echo "attention=$ATTENTION" >> "$GITHUB_OUTPUT"
+
+      - name: Write summary
+        if: always()
+        run: |
+          collect_operator_warnings() {
+            local logs=(
+              operator-surface.log
+              paperclip-first-execution.log
+            )
+            local found=""
+
+            for log_file in "${logs[@]}"; do
+              if [[ -f "$log_file" ]]; then
+                while IFS= read -r line; do
+                  if [[ "$line" =~ ^\[(warn|skip)\] ]]; then
+                    local cleaned="$line"
+                    cleaned="${cleaned#\[warn\] }"
+                    cleaned="${cleaned#\[skip\] }"
+                    found+="$cleaned"
+                    found+=$'\n'
+                  fi
+                done < "$log_file"
+              fi
+            done
+
+            printf "%s" "$found"
+          }
+
+          status_emoji() {
+            case "$1" in
+              success) echo "✅" ;;
+              failure) echo "❌" ;;
+              cancelled) echo "⚪" ;;
+              skipped) echo "⚪" ;;
+              *) echo "❓" ;;
+            esac
+          }
+
+          BASE_URL_CONFIG_OUTCOME="${{ steps.base_url_config.outcome }}"
+          HEALTH_OUTCOME="${{ steps.health_check.outcome }}"
+          OPERATOR_AGENT_READINESS_OUTCOME="${{ steps.wait_operator_agent.outcome }}"
+          OPERATOR_SURFACE_OUTCOME="${{ steps.operator_surface.outcome }}"
+          SCHEDULED_ROUTING_OUTCOME="${{ steps.scheduled_routing.outcome }}"
+          PAPERCLIP_FIRST_EXECUTION_OUTCOME="${{ steps.paperclip_first_execution.outcome }}"
+          OPERATOR_WARNINGS="$(collect_operator_warnings)"
+          HAS_OPERATOR_WARNINGS="false"
+          if [[ -n "$OPERATOR_WARNINGS" ]]; then
+            HAS_OPERATOR_WARNINGS="true"
+          fi
+
+          echo "## Operator surface contract validation summary" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Environment: $CF_ENV" >> "$GITHUB_STEP_SUMMARY"
+          echo "- URL: $DEPLOY_URL" >> "$GITHUB_STEP_SUMMARY"
+          if [[ -n "$OPERATOR_AGENT_BASE_URL" ]]; then
+            echo "- Operator-agent URL: $OPERATOR_AGENT_BASE_URL" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          echo "- SHA: $GIT_SHA" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+
+          echo "### Preflight" >> "$GITHUB_STEP_SUMMARY"
+          echo "- $(status_emoji "$BASE_URL_CONFIG_OUTCOME") Control-plane base URL config: $BASE_URL_CONFIG_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
+          echo "- $(status_emoji "$HEALTH_OUTCOME") Control-plane health check: $HEALTH_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
+          echo "- $(status_emoji "$OPERATOR_AGENT_READINESS_OUTCOME") Operator-agent readiness: $OPERATOR_AGENT_READINESS_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+
+          echo "### Operator-facing API contract" >> "$GITHUB_STEP_SUMMARY"
+          echo "- $(status_emoji "$OPERATOR_SURFACE_OUTCOME") Operator surface contract: $OPERATOR_SURFACE_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
+          echo "  - Validates employees, escalations, approvals, controls, and work logs" >> "$GITHUB_STEP_SUMMARY"
+          echo "  - Ensures approval endpoints and state machine are present" >> "$GITHUB_STEP_SUMMARY"
+          echo "  - Confirms scheduler status and routing availability" >> "$GITHUB_STEP_SUMMARY"
+          echo "- $(status_emoji "$SCHEDULED_ROUTING_OUTCOME") Scheduled routing: $SCHEDULED_ROUTING_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
+          echo "- $(status_emoji "$PAPERCLIP_FIRST_EXECUTION_OUTCOME") Paperclip first execution: $PAPERCLIP_FIRST_EXECUTION_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
+
+          if [[ "${{ steps.operator_agent_config.outputs.enabled }}" != "true" ]]; then
+            if [[ "${{ steps.operator_agent_config.outputs.reason }}" == "missing" ]]; then
+              echo "- ⚪ Operator-agent checks skipped: operator_agent_base_url is not configured." >> "$GITHUB_STEP_SUMMARY"
+            else
+              echo "- ⚪ Operator-agent checks skipped: operator_agent_base_url is invalid (must be absolute, e.g. https://...)." >> "$GITHUB_STEP_SUMMARY"
+            fi
+          fi
+
+          if [[ "$HAS_OPERATOR_WARNINGS" == "true" ]]; then
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "### Warning signals" >> "$GITHUB_STEP_SUMMARY"
+            while IFS= read -r warning_line; do
+              [[ -z "$warning_line" ]] && continue
+              echo "- ⚠️ $warning_line" >> "$GITHUB_STEP_SUMMARY"
+            done <<< "$OPERATOR_WARNINGS"
+          fi
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+
+          echo "### Failure triage" >> "$GITHUB_STEP_SUMMARY"
+          if [[ "$BASE_URL_CONFIG_OUTCOME" != "success" || "$HEALTH_OUTCOME" != "success" ]]; then
+            echo "- Control-plane preflight failed. Start with base URL and /healthz before investigating surface logic." >> "$GITHUB_STEP_SUMMARY"
+          elif [[ "${{ steps.operator_agent_config.outputs.enabled }}" == "true" && "$OPERATOR_AGENT_READINESS_OUTCOME" != "success" ]]; then
+            echo "- Operator-agent readiness failed. Inspect operator-agent /healthz and environment wiring." >> "$GITHUB_STEP_SUMMARY"
+          elif [[ "$OPERATOR_SURFACE_OUTCOME" != "success" ]]; then
+            echo "- Operator surface contract failed. Inspect endpoint availability, response shapes, and approval state machine endpoints." >> "$GITHUB_STEP_SUMMARY"
+          elif [[ "$SCHEDULED_ROUTING_OUTCOME" != "success" ]]; then
+            echo "- Scheduled routing validation failed. Inspect routing contract and scheduler logic." >> "$GITHUB_STEP_SUMMARY"
+          elif [[ "$PAPERCLIP_FIRST_EXECUTION_OUTCOME" != "success" ]]; then
+            echo "- Paperclip first execution failed. Inspect seed/write path, execution provenance flow, and approval-gated execution flow." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "- Operator surface suite passed." >> "$GITHUB_STEP_SUMMARY"
+          fi
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+
+          echo "### Overall verdict" >> "$GITHUB_STEP_SUMMARY"
+          if [[ "${{ steps.capture.outputs.outcome }}" == "success" ]]; then
+            if [[ "$HAS_OPERATOR_WARNINGS" == "true" ]]; then
+              echo "- ⚠️ Operator surface validation passed with warnings." >> "$GITHUB_STEP_SUMMARY"
+            else
+              echo "- ✅ Operator surface validation passed." >> "$GITHUB_STEP_SUMMARY"
+            fi
+          else
+            echo "- ❌ Operator surface validation failed." >> "$GITHUB_STEP_SUMMARY"
+          fi

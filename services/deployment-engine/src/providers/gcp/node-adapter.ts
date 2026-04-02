@@ -1,4 +1,4 @@
-import type { DeploymentAdapter, DeployArgs, DeployResult } from "../../types";
+import type { DeploymentAdapter, DeployArgs, DeployResult } from "@aep/deployment-engine/types";
 
 export class GcpNodeDeploymentAdapter implements DeploymentAdapter {
   async deployPreview(_args: DeployArgs): Promise<DeployResult> {

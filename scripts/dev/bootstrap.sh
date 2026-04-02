@@ -10,6 +10,9 @@ npm -v
 echo "Installing dependencies..."
 npm install
 
+echo "Writing default local service map..."
+npx tsx scripts/dev/write-service-map.ts
+
 echo "Checking Wrangler..."
 npx wrangler --version
 

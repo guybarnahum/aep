@@ -1,4 +1,4 @@
-import type { Provider } from "../../../packages/shared/src";
+import type { Provider } from "@aep/shared";
 
 export type WorkflowStatus =
   | "queued"

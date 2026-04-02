@@ -1,0 +1,386 @@
+name: _deploy_environment
+
+on:
+  workflow_call:
+    inputs:
+      environment_name:
+        required: true
+        type: string
+      deploy_url:
+        required: false
+        type: string
+      operator_agent_base_url_fallback:
+        required: false
+        type: string
+      cf_env:
+        required: true
+        type: string
+      git_sha:
+        required: true
+        type: string
+      health_runtime_env:
+        required: true
+        type: string
+      wrangler_config:
+        required: true
+        type: string
+      d1_database_name:
+        required: true
+        type: string
+      deploy_operator_agent:
+        required: true
+        type: boolean
+      operator_agent_wrangler_config:
+        required: false
+        type: string
+      operator_agent_d1_database_name:
+        required: false
+        type: string
+      enable_test_endpoints:
+        required: false
+        type: string
+        default: "false"
+      insecure_allow_version_mismatch:
+        required: false
+        type: boolean
+        default: false
+      node_version:
+        required: false
+        type: string
+        default: "20"
+      readiness_attempts:
+        required: false
+        type: string
+        default: "24"
+      readiness_interval_ms:
+        required: false
+        type: string
+        default: "5000"
+      readiness_timeout_ms:
+        required: false
+        type: string
+        default: "8000"
+    outputs:
+      deploy_url:
+        description: "Resolved control-plane deploy URL"
+        value: ${{ jobs.deploy-environment.outputs.deploy_url }}
+      operator_agent_url:
+        description: "Resolved operator-agent URL"
+        value: ${{ jobs.deploy-environment.outputs.operator_agent_url }}
+      cf_env:
+        description: "Cloudflare environment name"
+        value: ${{ jobs.deploy-environment.outputs.cf_env }}
+      git_sha:
+        description: "Git SHA used for deploy and validation"
+        value: ${{ jobs.deploy-environment.outputs.git_sha }}
+      control_plane_ready:
+        description: "Whether control-plane readiness succeeded"
+        value: ${{ jobs.deploy-environment.outputs.control_plane_ready }}
+      operator_agent_ready:
+        description: "Whether operator-agent readiness succeeded or was not required"
+        value: ${{ jobs.deploy-environment.outputs.operator_agent_ready }}
+      health_outcome:
+        description: "Outcome of control-plane health check"
+        value: ${{ jobs.deploy-environment.outputs.health_outcome }}
+
+permissions:
+  contents: read
+
+jobs:
+  deploy-environment:
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ inputs.environment_name }}
+    defaults:
+      run:
+        shell: bash -eo pipefail {0}
+    env:
+      ENVIRONMENT_NAME: ${{ inputs.environment_name }}
+      GIT_SHA: ${{ inputs.git_sha }}
+      DEPLOY_URL_INPUT: ${{ inputs.deploy_url }}
+      OPERATOR_AGENT_BASE_URL_INPUT: ${{ inputs.operator_agent_base_url_fallback }}
+      CF_ENV: ${{ inputs.cf_env }}
+      HEALTH_RUNTIME_ENV: ${{ inputs.health_runtime_env }}
+      D1_DATABASE_NAME: ${{ inputs.d1_database_name }}
+      WRANGLER_CONFIG: ${{ inputs.wrangler_config }}
+      OPERATOR_AGENT_WRANGLER_CONFIG: ${{ inputs.operator_agent_wrangler_config }}
+      OPERATOR_AGENT_D1_DATABASE_NAME: ${{ inputs.operator_agent_d1_database_name }}
+      ENABLE_TEST_ENDPOINTS: ${{ inputs.enable_test_endpoints }}
+
+      # Environment-scoped vars/secrets, resolved inside this workflow.
+      DEPLOY_URL: ${{ vars.DEPLOY_URL }}
+      OPERATOR_AGENT_BASE_URL: ${{ vars.OPERATOR_AGENT_BASE_URL }}
+
+      STAGING_BASE_URL: ${{ secrets.STAGING_BASE_URL }}
+      STAGING_OPERATOR_AGENT_BASE_URL: ${{ secrets.STAGING_OPERATOR_AGENT_BASE_URL }}
+      PRODUCTION_BASE_URL: ${{ secrets.PRODUCTION_BASE_URL }}
+      PRODUCTION_OPERATOR_AGENT_BASE_URL: ${{ secrets.PRODUCTION_OPERATOR_AGENT_BASE_URL }}
+      ASYNC_VALIDATION_BASE_URL: ${{ secrets.ASYNC_VALIDATION_BASE_URL }}
+      ASYNC_VALIDATION_OPERATOR_AGENT_BASE_URL: ${{ secrets.ASYNC_VALIDATION_OPERATOR_AGENT_BASE_URL }}
+    outputs:
+      deploy_url: ${{ steps.export_outputs.outputs.deploy_url }}
+      operator_agent_url: ${{ steps.export_outputs.outputs.operator_agent_url }}
+      cf_env: ${{ steps.export_outputs.outputs.cf_env }}
+      git_sha: ${{ steps.export_outputs.outputs.git_sha }}
+      control_plane_ready: ${{ steps.export_outputs.outputs.control_plane_ready }}
+      operator_agent_ready: ${{ steps.export_outputs.outputs.operator_agent_ready }}
+      health_outcome: ${{ steps.export_outputs.outputs.health_outcome }}
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ inputs.node_version }}
+          cache: npm
+
+      - run: npm ci
+
+      - name: Resolve effective deploy URLs
+        run: |
+          eval "$(bash ./scripts/ci/resolve-environment-urls.sh)"
+
+          echo "DEPLOY_URL=$RESOLVED_DEPLOY_URL" >> "$GITHUB_ENV"
+          echo "DEPLOY_URL_SOURCE=$RESOLVED_DEPLOY_URL_SOURCE" >> "$GITHUB_ENV"
+          echo "OPERATOR_AGENT_BASE_URL_FALLBACK=$RESOLVED_OPERATOR_AGENT_BASE_URL" >> "$GITHUB_ENV"
+          echo "OPERATOR_AGENT_BASE_URL_SOURCE=$RESOLVED_OPERATOR_AGENT_BASE_URL_SOURCE" >> "$GITHUB_ENV"
+
+      - name: Check public base URL configuration
+        id: base_url_config
+        run: |
+          if [[ -n "$DEPLOY_URL" && "$DEPLOY_URL" =~ ^https?://[^[:space:]]+$ ]]; then
+            echo "valid=true" >> "$GITHUB_OUTPUT"
+            echo "reason=configured" >> "$GITHUB_OUTPUT"
+          else
+            echo "valid=false" >> "$GITHUB_OUTPUT"
+
+            if [[ -z "$DEPLOY_URL" ]]; then
+              echo "reason=missing" >> "$GITHUB_OUTPUT"
+              echo "Missing DEPLOY_URL in _deploy_environment.yml." >&2
+              echo "" >&2
+              echo "Resolution order is:" >&2
+              echo "  1. explicit deploy_url input" >&2
+              echo "  2. environment vars.DEPLOY_URL" >&2
+              echo "  3. legacy environment secrets" >&2
+              echo "" >&2
+              echo "Check the caller/environment for '${{ inputs.environment_name }}'." >&2
+            else
+              echo "reason=invalid_url" >> "$GITHUB_OUTPUT"
+              echo "Invalid DEPLOY_URL in _deploy_environment.yml: '$DEPLOY_URL'." >&2
+              echo "It must be an absolute URL, for example: https://example.workers.dev" >&2
+            fi
+
+            exit 1
+          fi
+
+      - name: Generate build metadata
+        run: ./scripts/ci/generate-build-meta.sh
+
+      - run: npm run build
+
+      - name: Deploy control plane
+        id: deploy_control_plane
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          npx wrangler deploy \
+            --config "$WRANGLER_CONFIG" \
+            --env "$CF_ENV" | tee deploy-control-plane.log
+
+      - name: Deploy operator-agent
+        id: deploy_operator_agent
+        if: inputs.deploy_operator_agent
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          if [[ -z "$OPERATOR_AGENT_WRANGLER_CONFIG" ]]; then
+            echo "deploy_operator_agent was true but operator_agent_wrangler_config was empty" >&2
+            exit 1
+          fi
+
+          npx wrangler deploy \
+            --config "$OPERATOR_AGENT_WRANGLER_CONFIG" \
+            --env "$CF_ENV" | tee deploy-operator-agent.log
+
+      - name: Resolve operator-agent URL
+        id: operator_agent_url
+        run: |
+          DEPLOYED_URL=""
+          if [[ -f deploy-operator-agent.log ]]; then
+            DEPLOYED_URL="$(grep -Eo 'https://[A-Za-z0-9._-]+\.workers\.dev' deploy-operator-agent.log | tail -n1 || true)"
+          fi
+
+          if [[ -n "$DEPLOYED_URL" ]]; then
+            echo "url=$DEPLOYED_URL" >> "$GITHUB_OUTPUT"
+            echo "source=deploy" >> "$GITHUB_OUTPUT"
+          elif [[ -n "$OPERATOR_AGENT_BASE_URL_FALLBACK" ]]; then
+            echo "url=$OPERATOR_AGENT_BASE_URL_FALLBACK" >> "$GITHUB_OUTPUT"
+            echo "source=fallback:$OPERATOR_AGENT_BASE_URL_SOURCE" >> "$GITHUB_OUTPUT"
+          else
+            echo "url=" >> "$GITHUB_OUTPUT"
+            echo "source=none" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Apply D1 migrations
+        id: d1_migrations
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: ./scripts/ci/apply-d1-migrations.sh | tee migrations.log
+
+      - name: Wait for control-plane readiness
+        id: wait_control_plane
+        run: |
+          npx tsx scripts/ci/wait-for-url.ts \
+            --url "$DEPLOY_URL/healthz" \
+            --attempts "${{ inputs.readiness_attempts }}" \
+            --interval-ms "${{ inputs.readiness_interval_ms }}" \
+            --timeout-ms "${{ inputs.readiness_timeout_ms }}" | tee wait-control-plane.log
+
+      - name: Health check
+        id: health_check
+        run: |
+          VERSION_MISMATCH_FLAG=""
+          if [[ "${{ inputs.insecure_allow_version_mismatch }}" == "true" ]]; then
+            VERSION_MISMATCH_FLAG="--insecure-allow-version-mismatch true"
+          fi
+
+          npx tsx scripts/ci/check-health.ts \
+            --url "$DEPLOY_URL/healthz" \
+            --env "$HEALTH_RUNTIME_ENV" \
+            --sha "$GIT_SHA" \
+            $VERSION_MISMATCH_FLAG \
+            --service control-plane | tee health-check.log
+
+      - name: Check operator-agent configuration
+        id: operator_agent_config
+        run: |
+          if [[ "${{ inputs.deploy_operator_agent }}" != "true" ]]; then
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "reason=disabled" >> "$GITHUB_OUTPUT"
+          elif [[ -n "${{ steps.operator_agent_url.outputs.url }}" && "${{ steps.operator_agent_url.outputs.url }}" =~ ^https?://[^[:space:]]+$ ]]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+            echo "reason=configured" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            if [[ -z "${{ steps.operator_agent_url.outputs.url }}" ]]; then
+              echo "reason=missing" >> "$GITHUB_OUTPUT"
+            else
+              echo "reason=invalid_url" >> "$GITHUB_OUTPUT"
+            fi
+          fi
+
+      - name: Wait for operator-agent readiness
+        id: wait_operator_agent
+        if: steps.operator_agent_config.outputs.enabled == 'true'
+        run: |
+          npx tsx scripts/ci/wait-for-url.ts \
+            --url "${{ steps.operator_agent_url.outputs.url }}/healthz" \
+            --attempts "${{ inputs.readiness_attempts }}" \
+            --interval-ms "${{ inputs.readiness_interval_ms }}" \
+            --timeout-ms "${{ inputs.readiness_timeout_ms }}" | tee wait-operator-agent.log
+
+      - name: Export outputs
+        id: export_outputs
+        if: always()
+        run: |
+          CONTROL_PLANE_READY="false"
+          if [[ "${{ steps.wait_control_plane.outcome }}" == "success" ]]; then
+            CONTROL_PLANE_READY="true"
+          fi
+
+          OPERATOR_AGENT_READY="false"
+          if [[ "${{ inputs.deploy_operator_agent }}" != "true" ]]; then
+            OPERATOR_AGENT_READY="true"
+          elif [[ "${{ steps.operator_agent_config.outputs.enabled }}" == "true" && "${{ steps.wait_operator_agent.outcome }}" == "success" ]]; then
+            OPERATOR_AGENT_READY="true"
+          fi
+
+          echo "deploy_url=$DEPLOY_URL" >> "$GITHUB_OUTPUT"
+          echo "operator_agent_url=${{ steps.operator_agent_url.outputs.url }}" >> "$GITHUB_OUTPUT"
+          echo "cf_env=$CF_ENV" >> "$GITHUB_OUTPUT"
+          echo "git_sha=$GIT_SHA" >> "$GITHUB_OUTPUT"
+          echo "control_plane_ready=$CONTROL_PLANE_READY" >> "$GITHUB_OUTPUT"
+          echo "operator_agent_ready=$OPERATOR_AGENT_READY" >> "$GITHUB_OUTPUT"
+          echo "health_outcome=${{ steps.health_check.outcome }}" >> "$GITHUB_OUTPUT"
+
+      - name: Write summary
+        if: always()
+        run: |
+          status_emoji() {
+            case "$1" in
+              success) echo "✅" ;;
+              failure) echo "❌" ;;
+              cancelled) echo "⚪" ;;
+              skipped) echo "⚪" ;;
+              *) echo "❓" ;;
+            esac
+          }
+
+          BASE_URL_CONFIG_OUTCOME="${{ steps.base_url_config.outcome }}"
+          DEPLOY_CONTROL_PLANE_OUTCOME="${{ steps.deploy_control_plane.outcome }}"
+          DEPLOY_OPERATOR_AGENT_OUTCOME="${{ steps.deploy_operator_agent.outcome }}"
+          MIGRATIONS_OUTCOME="${{ steps.d1_migrations.outcome }}"
+          WAIT_CONTROL_PLANE_OUTCOME="${{ steps.wait_control_plane.outcome }}"
+          HEALTH_OUTCOME="${{ steps.health_check.outcome }}"
+          WAIT_OPERATOR_AGENT_OUTCOME="${{ steps.wait_operator_agent.outcome }}"
+
+          echo "## Environment deploy summary" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Environment: $CF_ENV" >> "$GITHUB_STEP_SUMMARY"
+          echo "- URL: $DEPLOY_URL" >> "$GITHUB_STEP_SUMMARY"
+          echo "- URL source: $DEPLOY_URL_SOURCE" >> "$GITHUB_STEP_SUMMARY"
+          echo "- SHA: $GIT_SHA" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Database: $D1_DATABASE_NAME" >> "$GITHUB_STEP_SUMMARY"
+          if [[ -n "${{ steps.operator_agent_url.outputs.url }}" ]]; then
+            echo "- Operator-agent URL: ${{ steps.operator_agent_url.outputs.url }} (source: ${{ steps.operator_agent_url.outputs.source }})" >> "$GITHUB_STEP_SUMMARY"
+          elif [[ -n "$OPERATOR_AGENT_BASE_URL_FALLBACK" ]]; then
+            echo "- Operator-agent URL fallback source: $OPERATOR_AGENT_BASE_URL_SOURCE" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          if [[ -n "$OPERATOR_AGENT_D1_DATABASE_NAME" ]]; then
+            echo "- Operator-agent database: $OPERATOR_AGENT_D1_DATABASE_NAME" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+
+          echo "### Bring-up steps" >> "$GITHUB_STEP_SUMMARY"
+          echo "- $(status_emoji "$BASE_URL_CONFIG_OUTCOME") Public base URL config: $BASE_URL_CONFIG_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
+          echo "- $(status_emoji "$DEPLOY_CONTROL_PLANE_OUTCOME") Control-plane deploy: $DEPLOY_CONTROL_PLANE_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
+          if [[ "${{ inputs.deploy_operator_agent }}" == "true" ]]; then
+            echo "- $(status_emoji "$DEPLOY_OPERATOR_AGENT_OUTCOME") Operator-agent deploy: $DEPLOY_OPERATOR_AGENT_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "- ⚪ Operator-agent deploy: skipped (deploy_operator_agent=false)" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          echo "- $(status_emoji "$MIGRATIONS_OUTCOME") D1 migrations: $MIGRATIONS_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
+          echo "- $(status_emoji "$WAIT_CONTROL_PLANE_OUTCOME") Control-plane readiness: $WAIT_CONTROL_PLANE_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
+          echo "- $(status_emoji "$HEALTH_OUTCOME") Control-plane health: $HEALTH_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
+          if [[ "${{ inputs.deploy_operator_agent }}" == "true" ]]; then
+            echo "- $(status_emoji "$WAIT_OPERATOR_AGENT_OUTCOME") Operator-agent readiness: $WAIT_OPERATOR_AGENT_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+
+          echo "### Failure triage" >> "$GITHUB_STEP_SUMMARY"
+          if [[ "$BASE_URL_CONFIG_OUTCOME" != "success" ]]; then
+            echo "- Base URL configuration failed. Check deploy URL resolution for '${{ inputs.environment_name }}'." >> "$GITHUB_STEP_SUMMARY"
+          elif [[ "$DEPLOY_CONTROL_PLANE_OUTCOME" != "success" || "$MIGRATIONS_OUTCOME" != "success" || "$WAIT_CONTROL_PLANE_OUTCOME" != "success" || "$HEALTH_OUTCOME" != "success" ]]; then
+            echo "- Control-plane bring-up failed. Start with deploy logs, migrations, readiness, and /healthz." >> "$GITHUB_STEP_SUMMARY"
+          elif [[ "${{ inputs.deploy_operator_agent }}" == "true" && "$DEPLOY_OPERATOR_AGENT_OUTCOME" != "success" ]]; then
+            echo "- Operator-agent deploy failed. Inspect deploy-operator-agent.log and wrangler config." >> "$GITHUB_STEP_SUMMARY"
+          elif [[ "${{ inputs.deploy_operator_agent }}" == "true" && "${{ steps.operator_agent_config.outputs.enabled }}" == "true" && "$WAIT_OPERATOR_AGENT_OUTCOME" != "success" ]]; then
+            echo "- Operator-agent readiness failed. Inspect operator-agent URL resolution and /healthz." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "- Environment bring-up passed." >> "$GITHUB_STEP_SUMMARY"
+          fi
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+
+          echo "### Overall verdict" >> "$GITHUB_STEP_SUMMARY"
+          if [[ "$BASE_URL_CONFIG_OUTCOME" == "success" && "$DEPLOY_CONTROL_PLANE_OUTCOME" == "success" && "$MIGRATIONS_OUTCOME" == "success" && "$WAIT_CONTROL_PLANE_OUTCOME" == "success" && "$HEALTH_OUTCOME" == "success" ]]; then
+            if [[ "${{ inputs.deploy_operator_agent }}" != "true" || "${{ steps.operator_agent_config.outputs.enabled }}" != "true" || "$WAIT_OPERATOR_AGENT_OUTCOME" == "success" ]]; then
+              echo "- ✅ Environment deploy passed." >> "$GITHUB_STEP_SUMMARY"
+            else
+              echo "- ❌ Control-plane bring-up passed, but operator-agent readiness failed." >> "$GITHUB_STEP_SUMMARY"
+            fi
+          else
+            echo "- ❌ Environment deploy failed." >> "$GITHUB_STEP_SUMMARY"
+          fi

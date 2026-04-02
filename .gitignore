@@ -1,9 +1,9 @@
 node_modules/
 dist/
 .wrangler/
+.env.local
+.venv
 .env
-.env.*
-.DS_Store
 
 # Logs
 *.log
@@ -27,7 +27,10 @@ out/
 # Cache and temp
 .cache/
 .temp/
+.tmp/
+.aep/
 
 # OS
+.DS_Store
 Thumbs.db
 ._*

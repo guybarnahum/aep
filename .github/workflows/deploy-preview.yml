@@ -1,25 +1,123 @@
-name: deploy-preview
+name: Deploy Preview
 
 on:
-  workflow_dispatch:
   pull_request:
+    types: [opened, reopened, synchronize]
+
+concurrency:
+  group: deploy-preview
+  cancel-in-progress: false
 
 jobs:
-  deploy-preview:
+  test:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash -eo pipefail {0}
+    env:
+      GIT_SHA: ${{ github.sha }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 20
+          cache: npm
 
-      - name: Install dependencies
-        run: npm install
+      - run: npm ci
 
-      - name: Deploy sample worker preview
+      - name: Generate build metadata
+        run: ./scripts/ci/generate-build-meta.sh
+
+      - run: npm test
+
+  deploy-preview-env:
+    needs: test
+    uses: ./.github/workflows/_deploy_preview_environment.yml
+    with:
+      environment_name: preview
+      git_sha: ${{ github.sha }}
+      health_runtime_env: preview
+      deploy_operator_agent: false
+      node_version: "20"
+      readiness_attempts: "24"
+      readiness_interval_ms: "5000"
+      readiness_timeout_ms: "8000"
+    secrets: inherit
+
+  validate-preview-smoke:
+    needs: deploy-preview-env
+    uses: ./.github/workflows/_validate_control_plane_smoke.yml
+    with:
+      environment_name: preview
+      deploy_url: ${{ needs.deploy-preview-env.outputs.deploy_url }}
+      cf_env: preview
+      git_sha: ${{ needs.deploy-preview-env.outputs.git_sha }}
+      node_version: "20"
+      smoke_method: "POST"
+      smoke_path: "/workflow/start"
+      smoke_payload: '{"tenant_id":"t_demo","project_id":"p_demo","repo_url":"https://github.com/example/repo","branch":"main","service_name":"sample-worker","teardown_mode":"sync"}'
+      expect_status: "202"
+      expect_json_key: "workflow_run_id"
+      poll_path_template: "/workflow/{id}"
+      poll_id_key: "workflow_run_id"
+      poll_success_key: "run.status"
+      poll_success_values: "completed"
+      poll_failure_values: "failed,cancelled"
+      poll_attempts: "20"
+      poll_interval_ms: "3000"
+    secrets: inherit
+
+  validate-preview-post-deploy:
+    needs: deploy-preview-env
+    uses: ./.github/workflows/_validate_post_deploy.yml
+    with:
+      environment_name: preview
+      deploy_url: ${{ needs.deploy-preview-env.outputs.deploy_url }}
+      cf_env: preview
+      git_sha: ${{ needs.deploy-preview-env.outputs.git_sha }}
+      node_version: "20"
+    secrets: inherit
+
+  final-summary:
+    needs:
+      - deploy-preview-env
+      - validate-preview-smoke
+      - validate-preview-post-deploy
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Write aggregate summary
         run: |
-          echo "Replace this with wrangler deploy logic for preview environments"
-          echo "Report deployment metadata back to the control plane"
+          echo "## Preview aggregate summary" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Deploy environment: ${{ needs.deploy-preview-env.result }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Preview key: ${{ needs.deploy-preview-env.outputs.preview_key }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Worker name: ${{ needs.deploy-preview-env.outputs.worker_name }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- D1 database: ${{ needs.deploy-preview-env.outputs.d1_database_name }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- URL: ${{ needs.deploy-preview-env.outputs.deploy_url }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Lifecycle: ephemeral preview; destroyed on PR close via destroy-preview.yml" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Control-plane smoke: ${{ needs.validate-preview-smoke.outputs.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+
+          if [[ "${{ needs.validate-preview-post-deploy.outputs.enabled }}" != "true" ]]; then
+            echo "- Post-deploy validation: skipped (warning: operator-agent base URL not configured for the preview environment)" >> "$GITHUB_STEP_SUMMARY"
+          elif [[ "${{ needs.validate-preview-post-deploy.outputs.attention }}" == "true" ]]; then
+            echo "- Post-deploy validation: ${{ needs.validate-preview-post-deploy.outputs.outcome }} (attention: WARN/SKIP entries present)" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "- Post-deploy validation: ${{ needs.validate-preview-post-deploy.outputs.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "### Lane verdict" >> "$GITHUB_STEP_SUMMARY"
+
+          if [[ "${{ needs.deploy-preview-env.result }}" != "success" ]]; then
+            echo "- ❌ Preview deploy lane failed during environment bring-up." >> "$GITHUB_STEP_SUMMARY"
+          elif [[ "${{ needs.validate-preview-smoke.outputs.outcome }}" != "success" ]]; then
+            echo "- ❌ Preview environment deployed, but control-plane smoke validation failed." >> "$GITHUB_STEP_SUMMARY"
+          elif [[ "${{ needs.validate-preview-post-deploy.outputs.enabled }}" == "true" && "${{ needs.validate-preview-post-deploy.outputs.outcome }}" != "success" ]]; then
+            echo "- ❌ Preview environment and smoke passed, but post-deploy validation failed." >> "$GITHUB_STEP_SUMMARY"
+          elif [[ "${{ needs.validate-preview-post-deploy.outputs.attention }}" == "true" ]]; then
+            echo "- ⚠️ Preview deploy lane passed with post-deploy warning/skip attention." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "- ✅ Preview deploy lane passed." >> "$GITHUB_STEP_SUMMARY"
+          fi

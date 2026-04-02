@@ -47,6 +47,8 @@ type CliOptions = {
   allowRedirects: boolean;
 };
 
+export {};
+
 type AttemptResult = {
   ok: boolean;
   status?: number;
@@ -229,6 +231,18 @@ function truncate(text: string, maxLength = 300): string {
   return `${text.slice(0, maxLength)}...`;
 }
 
+function isCloudflarePlaceholder404(result: AttemptResult): boolean {
+  if (result.status !== 404) {
+    return false;
+  }
+
+  const body = result.bodyText ?? "";
+  return (
+    body.includes("<!DOCTYPE html") &&
+    (body.includes("There is nothing here yet") || body.includes("Powered by"))
+  );
+}
+
 async function main(): Promise<void> {
   const startedAt = Date.now();
   const cli = parseArgs(process.argv.slice(2));
@@ -251,6 +265,7 @@ async function main(): Promise<void> {
   }
 
   let lastFailureReason = "unknown failure";
+  let sawCloudflarePlaceholder404 = false;
 
   for (let attempt = 1; attempt <= cli.attempts; attempt += 1) {
     const result = await requestWithTimeout({
@@ -276,6 +291,12 @@ async function main(): Promise<void> {
 
     lastFailureReason = validation.reason;
 
+    if (isCloudflarePlaceholder404(result)) {
+      sawCloudflarePlaceholder404 = true;
+      lastFailureReason =
+        "received Cloudflare placeholder 404 page; the public base URL/route is likely wrong or not attached to the deployed worker yet";
+    }
+
     const statusText =
       result.status !== undefined
         ? `HTTP ${result.status}${result.statusText ? ` ${result.statusText}` : ""}`
@@ -292,6 +313,13 @@ async function main(): Promise<void> {
     if (attempt < cli.attempts) {
       await sleep(cli.intervalMs);
     }
+  }
+
+  if (sawCloudflarePlaceholder404) {
+    fail(
+      `URL did not become ready after ${cli.attempts} attempts. Last failure: ${lastFailureReason}. ` +
+        "Check the configured public base URL secret and confirm it points at the deployed worker route/workers.dev hostname."
+    );
   }
 
   fail(

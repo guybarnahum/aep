@@ -1,9 +1,10 @@
-import { WorkerDeploymentAdapter } from "../../services/deployment-engine/src/worker-adapter";
+import { WorkerDeploymentAdapter } from "@aep/deployment-engine/worker-adapter";
 
 async function main() {
   const adapter = new WorkerDeploymentAdapter();
 
   const result = await adapter.deployPreview({
+    provider: "cloudflare",
     serviceName: "sample-worker",
     workflowRunId: `local-${Date.now()}`,
   });

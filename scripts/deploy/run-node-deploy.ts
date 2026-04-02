@@ -1,7 +1,10 @@
 #!/usr/bin/env node
 
-import { DEFAULT_PROVIDER, isProvider } from "../../packages/shared/src/index";
-import { getNodeDeploymentAdapter } from "../../services/deployment-engine/src";
+import { DEFAULT_PROVIDER } from "@aep/shared";
+import { getNodeDeploymentAdapter } from "@aep/deployment-engine";
+
+type SupportedProvider = "cloudflare" | "aws";
+type TestFailStage = "before_running" | "after_running";
 
 async function postCallback(args: {
   callbackUrl: string;
@@ -26,13 +29,16 @@ async function postCallback(args: {
 }
 
 function parseArgs(argv: string[]): {
-  provider: typeof DEFAULT_PROVIDER;
+  provider: string;
   serviceName: string;
   workflowRunId: string;
   jobId?: string;
   callbackUrl?: string;
   callbackToken?: string;
-} { 
+  testFailStage?: TestFailStage;
+  testRetryable?: boolean;
+  testSkipTerminalCallback?: boolean;
+} {
   const args = new Map<string, string>();
 
   for (let i = 0; i < argv.length; i += 1) {
@@ -51,16 +57,45 @@ function parseArgs(argv: string[]): {
     i += 1;
   }
 
+  const parseOptionalBoolean = (value: string | undefined): boolean | undefined => {
+    if (value === undefined) {
+      return undefined;
+    }
+
+    if (value === "true") {
+      return true;
+    }
+
+    if (value === "false") {
+      return false;
+    }
+
+    throw new Error(`Expected boolean flag value 'true' or 'false', got '${value}'`);
+  };
+
   const serviceName = args.get("service-name");
   const workflowRunId = args.get("workflow-run-id");
   const rawProvider = args.get("provider");
   const jobId = args.get("job-id");
   const callbackUrl = args.get("callback-url");
   const callbackToken = args.get("callback-token");
+  const rawTestFailStage = args.get("test-fail-stage");
+  const testRetryable = parseOptionalBoolean(args.get("test-retryable"));
+  const testSkipTerminalCallback = parseOptionalBoolean(args.get("test-skip-terminal-callback"));
+
+  if (
+    rawTestFailStage !== undefined &&
+    rawTestFailStage !== "before_running" &&
+    rawTestFailStage !== "after_running"
+  ) {
+    throw new Error(
+      `Invalid --test-fail-stage: ${rawTestFailStage}. Expected before_running or after_running.`,
+    );
+  }
 
   if (!serviceName || !workflowRunId) {
     throw new Error(
-      "Usage: tsx scripts/deploy/run-node-deploy.ts --service-name sample-worker --workflow-run-id run_123 [--provider cloudflare] [--job-id job_123 --callback-url https://... --callback-token token]",
+      "Usage: tsx scripts/deploy/run-node-deploy.ts --service-name sample-worker --workflow-run-id run_123 [--provider cloudflare|aws] [--job-id job_123 --callback-url https://.../internal/deploy-job-attempts/attempt_123/callback --callback-token token] [--test-fail-stage before_running|after_running] [--test-retryable true|false] [--test-skip-terminal-callback true|false]",
     );
   }
 
@@ -70,14 +105,40 @@ function parseArgs(argv: string[]): {
     );
   }
 
+  if ((rawTestFailStage || testSkipTerminalCallback) && (!callbackUrl || !callbackToken)) {
+    throw new Error("Test callback injection flags require callback-url and callback-token");
+  }
+
   return {
-    provider: isProvider(rawProvider) ? rawProvider : DEFAULT_PROVIDER,
+    provider: rawProvider ?? DEFAULT_PROVIDER,
     serviceName,
     workflowRunId,
     jobId,
     callbackUrl,
     callbackToken,
+    testFailStage: rawTestFailStage,
+    testRetryable,
+    testSkipTerminalCallback,
   };
+}
+
+function requireSupportedProvider(provider: string): SupportedProvider {
+  switch (provider) {
+    case "cloudflare":
+    case "aws":
+      return provider;
+    default:
+      throw new Error(`Unsupported provider: ${provider}`);
+  }
+}
+
+function getWorkingDirForProvider(provider: SupportedProvider): string {
+  switch (provider) {
+    case "cloudflare":
+      return "examples/sample-worker";
+    case "aws":
+      return "examples/aws-lambda";
+  }
 }
 
 async function main(): Promise<void> {
@@ -88,13 +149,46 @@ async function main(): Promise<void> {
     jobId,
     callbackUrl,
     callbackToken,
+    testFailStage,
+    testRetryable,
+    testSkipTerminalCallback,
   } = parseArgs(process.argv.slice(2));
 
-  const adapter = getNodeDeploymentAdapter(provider, {
-    workingDir: "examples/sample-worker",
+  const selectedProvider = requireSupportedProvider(provider);
+
+  const adapter = getNodeDeploymentAdapter(selectedProvider, {
+    workingDir: getWorkingDirForProvider(selectedProvider),
   });
 
   try {
+    if (testFailStage === "before_running") {
+      if (callbackUrl && callbackToken) {
+        await postCallback({
+          callbackUrl,
+          callbackToken,
+          body: {
+            status: "failed",
+            retryable: testRetryable,
+            error_message: "Injected test failure before running",
+          },
+        });
+      }
+
+      console.log(
+        JSON.stringify(
+          {
+            ok: true,
+            callback_sent: Boolean(callbackUrl && callbackToken),
+            job_id: jobId ?? null,
+            injected_failure: "before_running",
+          },
+          null,
+          2,
+        ),
+      );
+
+      return;
+    }
 
     if (callbackUrl && callbackToken) {
       await postCallback({
@@ -105,14 +199,81 @@ async function main(): Promise<void> {
         },
       });
     }
+
+    if (testFailStage === "after_running") {
+      if (callbackUrl && callbackToken) {
+        await postCallback({
+          callbackUrl,
+          callbackToken,
+          body: {
+            status: "failed",
+            retryable: testRetryable,
+            error_message: "Injected test failure after running",
+          },
+        });
+      }
+
+      console.log(
+        JSON.stringify(
+          {
+            ok: true,
+            callback_sent: Boolean(callbackUrl && callbackToken),
+            job_id: jobId ?? null,
+            injected_failure: "after_running",
+          },
+          null,
+          2,
+        ),
+      );
+
+      return;
+    }
+
+    if (testSkipTerminalCallback) {
+      console.log(
+        JSON.stringify(
+          {
+            ok: true,
+            callback_sent: Boolean(callbackUrl && callbackToken),
+            job_id: jobId ?? null,
+            skipped_terminal_callback: true,
+          },
+          null,
+          2,
+        ),
+      );
+
+      return;
+    }
     
     const result = await adapter.deployPreview({
-      provider,
+      provider: selectedProvider,
       serviceName,
       workflowRunId,
     });
 
-    console.log(JSON.stringify(result, null, 2));
+    let deploymentRef: string | undefined;
+    let previewUrl: string | undefined;
+
+    if ("deployment_ref" in result) {
+      deploymentRef = result.deployment_ref;
+      previewUrl = result.preview_url;
+    } else {
+      deploymentRef = result.deploymentRef;
+      previewUrl = result.previewUrl;
+    }
+
+    if (!deploymentRef) {
+      throw new Error("Deploy adapter result missing deployment_ref/deploymentRef");
+    }
+
+    const normalizedResult = {
+      provider: result.provider ?? selectedProvider,
+      deployment_ref: deploymentRef,
+      preview_url: previewUrl,
+    };
+
+    console.log(JSON.stringify(normalizedResult, null, 2));
 
     if (callbackUrl && callbackToken) {
         await postCallback({
@@ -121,8 +282,8 @@ async function main(): Promise<void> {
             body: {
             status: "succeeded",
             result: {
-                deployment_ref: result.deploymentRef,
-                preview_url: result.previewUrl,
+                deployment_ref: deploymentRef,
+                preview_url: previewUrl,
             },
             },
         });

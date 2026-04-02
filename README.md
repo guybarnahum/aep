@@ -1,381 +1,536 @@
 # AEP — Agentic Engineering Platform
 
-A control plane for autonomous software systems.
-
-This repository is structured to let the MVP grow into the full AEP platform without reorganizing the repo later.
+A control plane for autonomous infrastructure operations.
 
 ---
 
-# 🚀 Current Status (Commit 3 — Complete)
+## Vision
 
-AEP now supports **fully externalized infrastructure execution** with a clean separation between:
+AEP is the foundation of a **zero-employee infrastructure company**.
 
-- **Control plane (Worker / Durable Objects)** — orchestration only
-- **Execution layer (Node / CI / runners)** — real infrastructure actions
+It is designed to enable systems that can:
 
-This is the first milestone where:
+- deploy software
+- validate it
+- operate it
+- observe and intervene
+- and eventually improve themselves
 
-> orchestration, execution, and observability are cleanly separated and fully functional end-to-end.
+AEP is not just tooling.
 
----
-
-# 🧱 Architecture Overview
-
-## Control Plane (Cloudflare Workers)
-
-- API:
-  - `/workflow/start`
-  - `/workflow/:id`
-  - `/trace/:id`
-- Durable Object:
-  - workflow orchestration engine
-- D1:
-  - persistent state (runs, steps, deployments, jobs, events)
-
-### Responsibilities
-
-- workflow state machine
-- step execution and transitions
-- emitting structured trace events
-- dispatching external jobs
-- resuming workflows after callbacks
+It is the **infra department kernel** of an agentic company.
 
 ---
 
-## Execution Layer (Node Runtime)
+## Conceptual Model
 
-- `scripts/deploy/run-node-deploy.ts`
-- `scripts/deploy/run-node-teardown.ts`
+### AEP as an Infra Department
 
-### Responsibilities
+AEP should be thought of as:
 
-- perform real infrastructure operations
-- call provider adapters
-- report lifecycle via callback:
-  - `running`
-  - `succeeded`
-  - `failed`
+> a self-operating **infrastructure department**
 
----
+Inside a larger agentic organization (e.g. Paperclip-style company).
 
-## Provider Plugins
+It is responsible for:
 
-Located under:
+- deployment lifecycle
+- validation and safety checks
+- teardown and cleanup
+- operational observability
+- safe intervention
 
-```text
-services/deployment-engine/src/providers/
-```
+And it provides these as services to:
 
-### Current
+- internal tenants (dogfooding)
+- external customers (multi-tenant infra platform)
 
-- ✅ Cloudflare (wrangler-based)
+This mirrors how:
 
-### Planned
-
-- AWS
-- GCP
-
-### Design Principle
-
-> No provider-specific logic exists in the control plane.
+> AWS began as Amazon’s internal infra team and became a standalone business.
 
 ---
 
-# 🔄 Workflow Model
+## Architectural Boundary
 
-## Steps
+AEP is **not** the company layer.
 
-```text
-INIT
-→ CREATE_ENV
-→ DEPLOY
-→ HEALTH_CHECK
-→ SMOKE_TEST
-→ TEARDOWN
-→ CLEANUP_AUDIT
-→ COMPLETE
-```
+It integrates into a broader agentic system:
 
----
+### Company layer (e.g. Paperclip)
+Owns:
+- org structure (departments, employees)
+- budgets and cost control
+- governance / approvals
+- heartbeat scheduling
+- multi-company isolation
 
-## Execution Modes
-
-### Sync Mode (CI / smoke)
-
-- execution happens inside the workflow engine
-- no external jobs
-- deterministic and fast
-
-Used in:
-- staging deploy validation
-- smoke tests
+### AEP (infra department)
+Owns:
+- workflow orchestration
+- job/attempt lifecycle
+- operator APIs
+- trace-first observability
+- safe infra mutations
 
 ---
 
-### Async Mode (real system behavior)
+## Core Principles
 
-```text
-STEP (DEPLOY / TEARDOWN)
-→ deploy_job.created
-→ *.job_dispatched
-→ step = waiting
-→ external runner executes
-→ callback (running → succeeded/failed)
-→ workflow resumes
-```
+### 1. Control-plane is orchestration-only
 
-Supports:
-- multiple pauses per workflow
-- full external execution lifecycle
+- no provider logic leakage
+- no direct execution
+- external execution model (deploy/teardown)
 
 ---
 
-# 🔁 External Job Model
+### 2. Trace-first system
 
-Stored in `deploy_jobs`:
-
-### Status lifecycle
-
-```text
-queued → running → succeeded / failed
-```
-
-### Each job includes
-
-- provider
-- request payload
-- callback token (hashed)
-- lifecycle timestamps
+- `/trace/:id` is authoritative
+- all state transitions observable
+- no hidden behavior
 
 ---
 
-## Job Lifecycle Events (trace)
+### 3. Operator APIs are the only mutation path
 
-### Deploy
-
-- `deploy.job_dispatched`
-- `deploy.job_started`
-- `deploy.job_succeeded`
-- `deploy.job_failed`
-
-### Teardown
-
-- `teardown.job_dispatched`
-- `teardown.job_started`
-- `teardown.job_succeeded`
-- `teardown.job_failed`
+- human and agent use the same APIs
+- no privileged backdoors
+- no side-channel mutations
 
 ---
 
-# 🔍 Observability
+## Storage Architecture
 
-## Trace API
-
-```bash
-GET /trace/:id
-```
-
-Returns ordered workflow events:
-
-```json
-{
-  "event_type": "deploy.job_succeeded",
-  "timestamp": "...",
-  "payload": {
-    "job_id": "job_123",
-    "provider": "cloudflare"
-  }
-}
-```
-
-### Key improvements (Stage 4A)
-
-- normalized `payload` (no raw `payload_json`)
-- explicit job lifecycle events
-- full correlation across workflow + jobs
+- control-plane runtime state is persisted in D1
+- operator-agent governance state is persisted in D1 as the sole system of record
+- operator-agent state (governance, budget, cooldown, etc.) is now persisted exclusively in D1
+- operator-agent KV is no longer used for any state persistence
+- all operator-agent APIs and test/seed paths read and write via D1-backed store abstractions
 
 ---
 
-# 🧪 CI / Deployment Flow
+### 4. Logical job abstraction
 
-## Staging Deploy (GitHub Actions)
-
-```text
-npm test
-→ generate build metadata
-→ wrangler deploy
-→ D1 migrations
-→ wait for /healthz
-→ health check (SHA validation)
-→ smoke test (sync teardown)
-```
-
-### Smoke test payload
-
-```json
-{
-  "teardown_mode": "sync"
-}
-```
-
-### Why sync in CI
-
-- deterministic
-- fast
-- no dependency on async runners
+- jobs are the unit of reasoning
+- attempts are implementation detail
+- retries and timeouts are internal mechanics
 
 ---
 
-## Summary Reporting
+### 5. Provider neutrality
 
-GitHub Actions summary now reports **per-step outcome**:
-
-- Worker deploy
-- D1 migrations
-- readiness
-- health check
-- smoke test
-
-Failures (e.g. SHA mismatch) are explicitly surfaced.
+- current: Cloudflare Workers
+- future: AWS / GCP / others
 
 ---
 
-# 🧪 Local Development
-
-## 1. Apply D1 migrations
-
-```bash
-npx wrangler d1 migrations apply aep-db \
-  --local \
-  --cwd core/control-plane \
-  --config wrangler.toml
-```
-
----
-
-## 2. Run control plane
-
-```bash
-npm run dev:control-plane
-```
-
----
-
-## 3. Sync workflow (CI-style)
-
-```bash
-curl -X POST http://127.0.0.1:8787/workflow/start \
-  -H 'content-type: application/json' \
-  -d '{
-    "tenant_id": "t_demo",
-    "project_id": "p_demo",
-    "repo_url": "https://github.com/example/repo",
-    "branch": "main",
-    "service_name": "sample-worker",
-    "teardown_mode": "sync"
-  }'
-```
-
----
-
-## 4. Full async orchestration (recommended)
-
-Use:
-
-```bash
-npx tsx scripts/ci/async-deploy-check.ts \
-  --base-url http://127.0.0.1:8787 \
-  --provider cloudflare \
-  --service-name sample-worker
-```
-
-### This validates:
-
-- async deploy dispatch
-- real deploy execution
-- callback + resume
-- health + smoke
-- async teardown dispatch
-- real teardown execution
-- final cleanup + completion
-
----
-
-# 📁 Repository Layout
+## Repository Layout
 
 ```text
 .
-├── apps/                     # future UI / operator surfaces
+├── apps/                 # operator UI surfaces
+│   ├── ops-console
+│   └── dashboard
 ├── core/
-│   ├── control-plane/       # API + DO + orchestration
-│   ├── workflow-engine/     # workflow state machine
-│   └── types/               # shared env/types
-├── services/
-│   └── deployment-engine/   # provider adapters
-├── infra/
-│   └── cloudflare/          # wrangler + D1 migrations
-├── scripts/
-│   ├── ci/                  # CI validation scripts
-│   └── deploy/              # node runners
-└── packages/
-    └── event-schema/        # shared schema contracts
+│   ├── control-plane     # orchestration engine + APIs
+│   └── operator-agent    # autonomous employees (Commit 8)
+├── infra/                # deployment / CI
+├── scripts/              # validation + CI scripts
 ```
 
 ---
 
-# ⚠️ Known Limitations
+## Current Status — Commit 8 Complete
 
-- CI does not yet validate full async orchestration (sync-only today)
-- job retries / idempotency not yet implemented
-- partial failure recovery paths need deeper validation
-- provider coverage limited to Cloudflare
+AEP is now a:
 
----
-
-# 🔜 Next Steps (Commit 4)
-
-1. async orchestration validation in CI
-2. job retry + idempotency model
-3. failure-path hardening
-4. additional providers (AWS, GCP)
-5. improved operator UI / dashboards
-6. optional workflow engine refactor (per-step handlers)
+> **working control plane + first autonomous operator**
 
 ---
 
-# 🎯 MVP Definition (updated)
+## What is working end-to-end
 
-AEP is functional when:
+### Control-plane
 
-- a repo can be deployed as a preview environment
-- health + smoke checks succeed
-- workflow execution is fully observable via trace
-- environment is fully torn down
-- cleanup audit proves no resources remain
-- execution is externalized and resumable
-
----
-
-# 🧠 Design Principles
-
-- control plane is orchestration only
-- execution is externalized
-- workflows are resumable and observable
-- provider logic is pluggable
-- CI remains deterministic and minimal
+- Durable Object–based orchestration
+- async external execution model
+- deploy + teardown lifecycle
+- logical job + attempt model
+- retries with bounded attempts
+- timeout handling
+- resume after async pause
+- provider-neutral abstraction
 
 ---
 
-# 🧪 Validation Status
+### Operator surface (Commit 6–7)
 
-- ✅ full local async orchestration (deploy + teardown)
-- ✅ real Cloudflare deploy + teardown
-- ✅ callback + resume (multi-step)
-- ✅ trace observability with lifecycle events
-- ✅ staging deploy + smoke test passing
+- `/runs`
+- `/runs/:id`
+- `/runs/:id/jobs`
+- `/tenants`
+- `/services`
+
+Includes:
+- job + attempt visibility
+- derived job status
+- failure classification
 
 ---
 
-# 📌 One-line summary
+### Operator actions (Commit 7)
 
-AEP is now a working control plane for autonomous software systems with fully externalized infrastructure execution, async orchestration, and first-class observability.
+- `POST /operator/jobs/:jobId/advance-timeout`
+
+Properties:
+- reuses existing timeout/retry semantics
+- no new mutation paths
+- safe intervention model
+
+---
+
+### Observability
+
+- `/trace/:id` is authoritative
+- includes:
+  - attempt lifecycle
+  - failure_kind
+  - retry events
+  - operator events:
+    - `operator.action_requested`
+    - `operator.action_applied`
+
+---
+
+## Agentic Operator Layer (Commit 8)
+
+AEP now includes its **first autonomous employee**.
+
+---
+
+### Operator-agent service
+
+New service:
+
+```text
+core/operator-agent
+```
+
+Responsibilities:
+
+- executes agent loops
+- enforces budgets and safety
+- calls control-plane APIs
+- verifies outcomes via trace
+- emits structured work logs
+
+---
+
+### First employee
+
+#### Timeout Recovery Operator
+
+Role:
+- detect stuck / timeout-eligible jobs
+- safely advance them using existing operator API
+- verify outcome through trace
+
+---
+
+### Execution model
+
+#### Manual
+```
+POST /agent/run-once
+```
+
+#### Autonomous (cron)
+- runs every minute
+- same execution path as manual
+- no special behavior
+
+---
+
+### Behavior
+
+For each run:
+
+1. read runs and jobs
+2. detect:
+   - `operator_actions.can_advance_timeout`
+3. enforce:
+   - per-scan budget
+   - per-hour budget
+   - per-tenant budget
+   - cooldown / dedupe
+4. act:
+   - `POST /operator/jobs/:jobId/advance-timeout`
+5. verify:
+   - `/trace/:id`
+   - must include:
+     - `operator.action_requested`
+     - `operator.action_applied`
+
+---
+
+### Safety model
+
+- no direct DB access
+- no DO internal mutation
+- no new mutation semantics
+- trace verification required
+- budgets enforced before action
+- cooldown prevents repeated actions
+- dev/qa scoped (no prod autonomy yet)
+
+---
+
+### Budget model
+
+- max actions per scan
+- max actions per hour
+- max actions per tenant per hour
+
+---
+
+### Cooldown model
+
+- per-job cooldown window
+- prevents rapid re-application
+- stored in KV
+
+---
+
+### Work log (employee record)
+
+Stored in KV.
+
+Each entry includes:
+- employee identity
+- run/job
+- action taken
+- reason
+- budget snapshot
+- result
+- trace evidence
+- error (if any)
+
+---
+
+### Debug route
+
+```
+GET /agent/work-log?limit=20
+```
+
+Returns recent employee activity.
+
+---
+
+### CI validation
+
+Script:
+
+```text
+scripts/ci/agent-timeout-recovery-check.ts
+```
+
+Validates:
+
+1. finds eligible job
+2. runs agent
+3. verifies:
+   - operator action occurred
+   - trace contains expected events
+4. reruns agent
+5. verifies:
+   - cooldown / budget / eligibility prevents duplicate action
+
+---
+
+### Adaptive policy overlays (Commit 10B)
+
+AEP can now persist manager-issued runtime overlays through employee controls.
+
+These overlays can restrict:
+
+- **budget**
+  - `maxActionsPerScan`
+  - `maxActionsPerHour`
+  - `maxActionsPerTenantPerHour`
+
+- **authority**
+  - `allowedTenants`
+  - `allowedServices`
+  - `requireTraceVerification`
+
+Effective execution policy is resolved in one place:
+
+```text
+base employee config
+  → control overlay
+  → request override
+```
+
+This keeps behavior explicit, observable, and reversible without introducing any new mutation path.
+
+#### Key features
+
+- `restricted` state: employee remains runnable but with narrowed scope
+- `/agent/employees`: exposes both base and effective policy
+- Manager can restrict and clear restrictions without full disable
+- All enforcement centralized in executor
+
+#### Control lifecycle states
+
+- `enabled`: fully operational
+- `disabled_pending_review`: blocked, awaiting manager review
+- `disabled_by_manager`: blocked, permanently disabled locally
+- `restricted`: runnable but with persisted overlays
+
+---
+
+## Multi-Worker Department (Commit 10C)
+
+AEP now runs a **real three-employee small department**:
+
+| Employee | Role | Scope |
+|---|---|---|
+| `emp_timeout_recovery_01` | `timeout-recovery-operator` | all tenants |
+| `emp_retry_supervisor_01` | `retry-supervisor` | `qa`, `internal-aep` |
+| `emp_infra_ops_manager_01` | `infra-ops-manager` | supervises both workers |
+
+### Worker cron
+
+Both `timeout-recovery-operator` and `retry-supervisor` run on every cron tick via a team loop. Each result includes a `workerRole` field identifying the responsible worker.
+
+### Manager supervision
+
+The manager now observes **both workers** in a single cron evaluation:
+
+- fetches work logs per employee
+- applies the same per-employee control logic (disable / restrict / clear)
+- detects cross-worker patterns:
+  - `cross_worker_budget_pressure`: combined budget exhaustion ≥ 4 signals → recommend `rebalance_team_capacity`
+  - `cross_worker_failure_pattern_detected`: combined verification + action failures ≥ 2 → recommend `pause_one_worker_keep_one_active`
+- returns `observedEmployeeIds[]`, `scanned.employeesObserved`, `summary.crossWorkerAlerts`, `perEmployee[]`
+
+### Run-once with employee selection
+
+`POST /agent/run-once?employeeId=emp_retry_supervisor_01` selects a specific worker; defaults to `timeout-recovery-operator` if omitted.
+
+### CI validation
+
+Script:
+
+```text
+scripts/ci/multi-worker-department-check.ts
+```
+
+Validates:
+
+1. all three employees present (`count >= 3`)
+2. retry-supervisor run returns correct `workerRole`
+3. manager observes both workers with matching `perEmployee` summaries
+4. `crossWorkerAlerts` field present in manager summary
+
+---
+
+## What we have now (conceptually)
+
+We have built:
+
+> a **human + agent operated infra control plane**
+
+Equivalent to:
+
+- a highly skilled infra operator
+- plus one autonomous junior operator
+- both using the same safe interface
+
+---
+
+## What is next
+
+To reach a true zero-employee infra company:
+
+### Stage 1 (done)
+- first autonomous operator (timeout recovery)
+
+### Stage 2
+- policy layer (natural language → executable rules)
+
+### Stage 3
+- multiple operators:
+  - retry supervisor
+  - teardown safety operator
+  - validation monitor
+  - incident triage
+
+### Stage 4
+- multi-tenant prioritization
+- resource-aware decisions
+
+### Stage 5
+- learning loop from trace history
+
+---
+
+## Integration with Agentic Company (Paperclip)
+
+AEP is designed to plug into a company layer:
+
+### Paperclip owns
+- employee identity
+- budgets
+- governance
+- heartbeat scheduling
+
+### AEP owns
+
+Future integration:
+
+```text
+Paperclip heartbeat
+  → operator-agent run request
+      → AEP APIs
+          → trace verification
+              → structured result back to company layer
+
+### Paperclip-First Execution (Commit 11D)
+
+AEP now treats Paperclip as the primary scheduler and authority source.
+
+Execution provenance is explicit and required on `/agent/run`:
+
+- `x-aep-execution-source: paperclip|operator|test`
+
+Paperclip requests must include:
+
+- `companyId`
+- `taskId`
+- `heartbeatId`
+
+Optional hardening can be enabled with:
+
+- `PAPERCLIP_AUTH_REQUIRED`
+- `PAPERCLIP_SHARED_SECRET`
+
+Cron remains available only as fallback and is marked as `cron_fallback` in
+execution context and logs. Fallback mode can be toggled with:
+
+- `AEP_CRON_FALLBACK_ENABLED`
+
+Operator-facing scheduler mode is available via:
+
+- `GET /agent/scheduler-status`
+
+```
+
+---
+
+## One-line summary
+
+> AEP is the infra department of a zero-employee company — and Commit 8 is its first autonomous employee.

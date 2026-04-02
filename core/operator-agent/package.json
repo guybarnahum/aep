@@ -1,0 +1,9 @@
+{
+  "name": "@aep/operator-agent",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "check": "tsc --noEmit"
+  }
+}

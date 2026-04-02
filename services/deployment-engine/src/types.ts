@@ -1,18 +1,41 @@
-import type { Provider } from "../../../packages/shared/src/index";
+export type DeploymentProvider = string;
 
+export type DeployRequest = {
+  service_name: string;
+  workflow_run_id: string;
+  environment_id?: string | null;
+};
+
+export type DeployResult =
+  | {
+      provider: DeploymentProvider;
+      deployment_ref: string;
+      preview_url?: string;
+    }
+  | {
+      provider: DeploymentProvider;
+      deploymentRef: string;
+      previewUrl: string;
+      metadata?: Record<string, unknown>;
+    };
+
+export type TeardownRequest = {
+  deployment_ref: string;
+};
+
+export type TeardownResult = {
+  provider: DeploymentProvider;
+  deployment_ref: string;
+  status: "destroyed";
+};
+
+// Compatibility interfaces for existing adapters and callers.
 export interface DeployArgs {
-  provider: Provider;
+  provider: DeploymentProvider;
   serviceName: string;
   workflowRunId: string;
   repoUrl?: string;
   branch?: string;
-}
-
-export interface DeployResult {
-  provider: Provider;
-  deploymentRef: string;
-  previewUrl: string;
-  metadata?: Record<string, unknown>;
 }
 
 export interface DeploymentAdapter {

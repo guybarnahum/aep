@@ -1,0 +1,200 @@
+name: _validate_control_plane_smoke
+
+on:
+  workflow_call:
+    inputs:
+      environment_name:
+        required: true
+        type: string
+      deploy_url:
+        required: false
+        type: string
+      cf_env:
+        required: true
+        type: string
+      git_sha:
+        required: true
+        type: string
+      node_version:
+        required: false
+        type: string
+        default: "20"
+      smoke_method:
+        required: false
+        type: string
+        default: "POST"
+      smoke_path:
+        required: false
+        type: string
+        default: "/workflow/start"
+      smoke_payload:
+        required: false
+        type: string
+        default: '{"tenant_id":"t_demo","project_id":"p_demo","repo_url":"https://github.com/example/repo","branch":"main","service_name":"sample-worker","teardown_mode":"sync"}'
+      expect_status:
+        required: false
+        type: string
+        default: "202"
+      expect_json_key:
+        required: false
+        type: string
+        default: "workflow_run_id"
+      poll_path_template:
+        required: false
+        type: string
+        default: "/workflow/{id}"
+      poll_id_key:
+        required: false
+        type: string
+        default: "workflow_run_id"
+      poll_success_key:
+        required: false
+        type: string
+        default: "run.status"
+      poll_success_values:
+        required: false
+        type: string
+        default: "completed"
+      poll_failure_values:
+        required: false
+        type: string
+        default: "failed,cancelled"
+      poll_attempts:
+        required: false
+        type: string
+        default: "20"
+      poll_interval_ms:
+        required: false
+        type: string
+        default: "3000"
+    outputs:
+      outcome:
+        description: "Outcome of the smoke validation job"
+        value: ${{ jobs.validate-control-plane-smoke.outputs.outcome }}
+
+permissions:
+  contents: read
+
+jobs:
+  validate-control-plane-smoke:
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ inputs.environment_name }}
+    defaults:
+      run:
+        shell: bash -eo pipefail {0}
+    outputs:
+      outcome: ${{ steps.capture_outcome.outputs.value }}
+    env:
+      ENVIRONMENT_NAME: ${{ inputs.environment_name }}
+      DEPLOY_URL_INPUT: ${{ inputs.deploy_url }}
+      CF_ENV: ${{ inputs.cf_env }}
+      GIT_SHA: ${{ inputs.git_sha }}
+
+      DEPLOY_URL: ${{ vars.DEPLOY_URL }}
+
+      STAGING_BASE_URL: ${{ secrets.STAGING_BASE_URL }}
+      PRODUCTION_BASE_URL: ${{ secrets.PRODUCTION_BASE_URL }}
+      ASYNC_VALIDATION_BASE_URL: ${{ secrets.ASYNC_VALIDATION_BASE_URL }}
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ inputs.node_version }}
+          cache: npm
+
+      - run: npm ci
+
+      - name: Resolve effective deploy URL
+        run: |
+          eval "$(bash ./scripts/ci/resolve-environment-urls.sh)"
+
+          echo "DEPLOY_URL=$RESOLVED_DEPLOY_URL" >> "$GITHUB_ENV"
+          echo "DEPLOY_URL_SOURCE=$RESOLVED_DEPLOY_URL_SOURCE" >> "$GITHUB_ENV"
+
+      - name: Check control-plane base URL configuration
+        id: base_url_config
+        run: |
+          if [[ -n "$DEPLOY_URL" && "$DEPLOY_URL" =~ ^https?://[^[:space:]]+$ ]]; then
+            echo "valid=true" >> "$GITHUB_OUTPUT"
+            echo "reason=configured" >> "$GITHUB_OUTPUT"
+          else
+            echo "valid=false" >> "$GITHUB_OUTPUT"
+            if [[ -z "$DEPLOY_URL" ]]; then
+              echo "reason=missing" >> "$GITHUB_OUTPUT"
+              echo "Missing deploy_url for _validate_control_plane_smoke.yml." >&2
+              echo "Resolution order is: input -> vars.DEPLOY_URL -> long-lived environment fallback." >&2
+              echo "No environment-backed fallback resolved for '${{ inputs.environment_name }}'." >&2
+            else
+              echo "reason=invalid_url" >> "$GITHUB_OUTPUT"
+              echo "Invalid deploy_url for _validate_control_plane_smoke.yml: '$DEPLOY_URL'. Must be absolute." >&2
+            fi
+            exit 1
+          fi
+
+      - name: Run smoke validation
+        id: smoke_validation
+        run: |
+          npx tsx scripts/ci/smoke-test.ts \
+            --base-url "$DEPLOY_URL" \
+            --env "$CF_ENV" \
+            --method "${{ inputs.smoke_method }}" \
+            --path "${{ inputs.smoke_path }}" \
+            --payload '${{ inputs.smoke_payload }}' \
+            --expect-status "${{ inputs.expect_status }}" \
+            --expect-json-key "${{ inputs.expect_json_key }}" \
+            --poll-path-template "${{ inputs.poll_path_template }}" \
+            --poll-id-key "${{ inputs.poll_id_key }}" \
+            --poll-success-key "${{ inputs.poll_success_key }}" \
+            --poll-success-values "${{ inputs.poll_success_values }}" \
+            --poll-failure-values "${{ inputs.poll_failure_values }}" \
+            --poll-attempts "${{ inputs.poll_attempts }}" \
+            --poll-interval-ms "${{ inputs.poll_interval_ms }}" | tee smoke-validation.log
+
+      - name: Capture outcome
+        id: capture_outcome
+        if: always()
+        run: |
+          echo "value=${{ steps.smoke_validation.outcome }}" >> "$GITHUB_OUTPUT"
+
+      - name: Write summary
+        if: always()
+        run: |
+          status_emoji() {
+            case "$1" in
+              success) echo "✅" ;;
+              failure) echo "❌" ;;
+              cancelled) echo "⚪" ;;
+              skipped) echo "⚪" ;;
+              *) echo "❓" ;;
+            esac
+          }
+
+          OUTCOME="${{ steps.smoke_validation.outcome }}"
+
+          echo "## Control-plane smoke validation" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Environment: $CF_ENV" >> "$GITHUB_STEP_SUMMARY"
+          echo "- URL source: ${DEPLOY_URL_SOURCE:-unknown}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- URL: $DEPLOY_URL" >> "$GITHUB_STEP_SUMMARY"
+          echo "- SHA: $GIT_SHA" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+
+          echo "### Smoke parameters" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Method: ${{ inputs.smoke_method }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Path: ${{ inputs.smoke_path }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Poll path template: ${{ inputs.poll_path_template }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Poll success key: ${{ inputs.poll_success_key }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Poll success values: ${{ inputs.poll_success_values }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+
+          echo "### Result" >> "$GITHUB_STEP_SUMMARY"
+          echo "- $(status_emoji "$OUTCOME") Smoke validation: $OUTCOME" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+
+          if [[ "$OUTCOME" != "success" ]]; then
+            echo "### Failure triage" >> "$GITHUB_STEP_SUMMARY"
+            echo "- Smoke validation failed. Inspect smoke-validation.log in workflow logs." >> "$GITHUB_STEP_SUMMARY"
+          fi

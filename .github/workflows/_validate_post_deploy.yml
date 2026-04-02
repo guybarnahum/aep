@@ -1,0 +1,199 @@
+name: _validate_post_deploy
+
+on:
+  workflow_call:
+    inputs:
+      environment_name:
+        required: true
+        type: string
+      deploy_url:
+        required: false
+        type: string
+      operator_agent_base_url:
+        required: false
+        type: string
+      cf_env:
+        required: true
+        type: string
+      git_sha:
+        required: true
+        type: string
+      node_version:
+        required: false
+        type: string
+        default: "20"
+    outputs:
+      enabled:
+        description: "Whether post-deploy validation was enabled"
+        value: ${{ jobs.validate-post-deploy.outputs.enabled }}
+      outcome:
+        description: "Outcome of post-deploy validation or skipped"
+        value: ${{ jobs.validate-post-deploy.outputs.outcome }}
+      attention:
+        description: "Whether WARN/SKIP attention lines were present"
+        value: ${{ jobs.validate-post-deploy.outputs.attention }}
+
+permissions:
+  contents: read
+
+jobs:
+  validate-post-deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ inputs.environment_name }}
+    defaults:
+      run:
+        shell: bash -eo pipefail {0}
+    env:
+      ENVIRONMENT_NAME: ${{ inputs.environment_name }}
+      DEPLOY_URL_INPUT: ${{ inputs.deploy_url }}
+      OPERATOR_AGENT_BASE_URL_INPUT: ${{ inputs.operator_agent_base_url }}
+      CF_ENV: ${{ inputs.cf_env }}
+      GIT_SHA: ${{ inputs.git_sha }}
+
+      DEPLOY_URL: ${{ vars.DEPLOY_URL }}
+      OPERATOR_AGENT_BASE_URL: ${{ vars.OPERATOR_AGENT_BASE_URL }}
+
+      STAGING_BASE_URL: ${{ secrets.STAGING_BASE_URL }}
+      STAGING_OPERATOR_AGENT_BASE_URL: ${{ secrets.STAGING_OPERATOR_AGENT_BASE_URL }}
+      PRODUCTION_BASE_URL: ${{ secrets.PRODUCTION_BASE_URL }}
+      PRODUCTION_OPERATOR_AGENT_BASE_URL: ${{ secrets.PRODUCTION_OPERATOR_AGENT_BASE_URL }}
+      ASYNC_VALIDATION_BASE_URL: ${{ secrets.ASYNC_VALIDATION_BASE_URL }}
+      ASYNC_VALIDATION_OPERATOR_AGENT_BASE_URL: ${{ secrets.ASYNC_VALIDATION_OPERATOR_AGENT_BASE_URL }}
+    outputs:
+      enabled: ${{ steps.capture.outputs.enabled }}
+      outcome: ${{ steps.capture.outputs.outcome }}
+      attention: ${{ steps.capture.outputs.attention }}
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ inputs.node_version }}
+          cache: npm
+
+      - run: npm ci
+
+      - name: Resolve effective validation URLs
+        run: |
+          eval "$(bash ./scripts/ci/resolve-environment-urls.sh)"
+
+          echo "DEPLOY_URL=$RESOLVED_DEPLOY_URL" >> "$GITHUB_ENV"
+          echo "DEPLOY_URL_SOURCE=$RESOLVED_DEPLOY_URL_SOURCE" >> "$GITHUB_ENV"
+          echo "OPERATOR_AGENT_BASE_URL=$RESOLVED_OPERATOR_AGENT_BASE_URL" >> "$GITHUB_ENV"
+          echo "OPERATOR_AGENT_BASE_URL_SOURCE=$RESOLVED_OPERATOR_AGENT_BASE_URL_SOURCE" >> "$GITHUB_ENV"
+
+      - name: Check validation configuration
+        id: config
+        run: |
+          if [[ -n "$OPERATOR_AGENT_BASE_URL" && "$OPERATOR_AGENT_BASE_URL" =~ ^https?://[^[:space:]]+$ ]]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+            echo "reason=configured" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            if [[ -z "$OPERATOR_AGENT_BASE_URL" ]]; then
+              echo "reason=missing" >> "$GITHUB_OUTPUT"
+              echo "Missing OPERATOR_AGENT_BASE_URL in _validate_post_deploy.yml." >&2
+              echo "Resolution order is: input -> vars.OPERATOR_AGENT_BASE_URL -> long-lived environment fallback." >&2
+            else
+              echo "reason=invalid_url" >> "$GITHUB_OUTPUT"
+              echo "Invalid OPERATOR_AGENT_BASE_URL in _validate_post_deploy.yml. Must be absolute, e.g. https://... ." >&2
+            fi
+          fi
+
+      - name: Run post-deploy validation
+        id: post_deploy_validation
+        if: steps.config.outputs.enabled == 'true'
+        run: npm run ci:post-deploy-validation 2>&1 | tee post-deploy-validation.log
+
+      - name: Capture outputs
+        id: capture
+        if: always()
+        run: |
+          ENABLED="${{ steps.config.outputs.enabled }}"
+          OUTCOME="skipped"
+          ATTENTION="false"
+
+          if [[ "$ENABLED" == "true" ]]; then
+            OUTCOME="${{ steps.post_deploy_validation.outcome }}"
+            if [[ -f post-deploy-validation.log ]] && grep -Eq '^- (WARN|SKIP): ' post-deploy-validation.log; then
+              ATTENTION="true"
+            fi
+          fi
+
+          echo "enabled=$ENABLED" >> "$GITHUB_OUTPUT"
+          echo "outcome=$OUTCOME" >> "$GITHUB_OUTPUT"
+          echo "attention=$ATTENTION" >> "$GITHUB_OUTPUT"
+
+      - name: Write summary
+        if: always()
+        run: |
+          status_emoji() {
+            case "$1" in
+              success) echo "✅" ;;
+              failure) echo "❌" ;;
+              cancelled) echo "⚪" ;;
+              skipped) echo "⚪" ;;
+              *) echo "❓" ;;
+            esac
+          }
+
+          ENABLED="${{ steps.capture.outputs.enabled }}"
+          OUTCOME="${{ steps.capture.outputs.outcome }}"
+          ATTENTION="${{ steps.capture.outputs.attention }}"
+
+          echo "## Post-deploy validation" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Environment: $CF_ENV" >> "$GITHUB_STEP_SUMMARY"
+          echo "- URL: $DEPLOY_URL" >> "$GITHUB_STEP_SUMMARY"
+          echo "- URL source: $DEPLOY_URL_SOURCE" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Operator-agent URL source: $OPERATOR_AGENT_BASE_URL_SOURCE" >> "$GITHUB_STEP_SUMMARY"
+          echo "- SHA: $GIT_SHA" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+
+          if [[ "$ENABLED" != "true" ]]; then
+            echo "### Configuration" >> "$GITHUB_STEP_SUMMARY"
+            if [[ "${{ steps.config.outputs.reason }}" == "missing" ]]; then
+              echo "- ⚪ Post-deploy validation skipped: operator-agent base URL could not be resolved for this environment." >> "$GITHUB_STEP_SUMMARY"
+            else
+              echo "- ⚪ Post-deploy validation skipped: operator-agent base URL was invalid." >> "$GITHUB_STEP_SUMMARY"
+            fi
+            exit 0
+          fi
+
+          echo "### Result" >> "$GITHUB_STEP_SUMMARY"
+          echo "- $(status_emoji "$OUTCOME") Post-deploy validation: $OUTCOME" >> "$GITHUB_STEP_SUMMARY"
+
+          if [[ -f post-deploy-validation.log ]]; then
+            ATTENTION_LINES="$(grep -E '^- (WARN|SKIP): ' post-deploy-validation.log || true)"
+            DETAIL_LINES="$(grep -E '^- (WARN|SKIP|PASS|FAIL): ' post-deploy-validation.log || true)"
+
+            if [[ -n "$ATTENTION_LINES" ]]; then
+              echo "" >> "$GITHUB_STEP_SUMMARY"
+              echo "### Validation attention" >> "$GITHUB_STEP_SUMMARY"
+              while IFS= read -r line; do
+                [[ -z "$line" ]] && continue
+                echo "- **${line}**" >> "$GITHUB_STEP_SUMMARY"
+              done <<< "$ATTENTION_LINES"
+            fi
+
+            if [[ -n "$DETAIL_LINES" ]]; then
+              echo "" >> "$GITHUB_STEP_SUMMARY"
+              echo "### Validation details" >> "$GITHUB_STEP_SUMMARY"
+              while IFS= read -r line; do
+                [[ -z "$line" ]] && continue
+                echo "$line" >> "$GITHUB_STEP_SUMMARY"
+              done <<< "$DETAIL_LINES"
+            fi
+          fi
+
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "### Failure triage" >> "$GITHUB_STEP_SUMMARY"
+          if [[ "$OUTCOME" != "success" ]]; then
+            echo "- Post-deploy validation failed. Inspect post-deploy-validation.log in workflow logs." >> "$GITHUB_STEP_SUMMARY"
+          elif [[ "$ATTENTION" == "true" ]]; then
+            echo "- Post-deploy validation passed with warning/skip attention signals. Review the attention lines above." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "- Post-deploy validation passed." >> "$GITHUB_STEP_SUMMARY"
+          fi
