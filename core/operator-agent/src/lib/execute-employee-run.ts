@@ -62,7 +62,8 @@ function validateRunRequest(
 }
 
 function resolveRunContext(
-  request: EmployeeRunRequest
+  request: EmployeeRunRequest,
+  executionContext?: ExecutionContext,
 ): ResolvedEmployeeRunContext | EmployeeRunErrorResponse {
   const employee = getEmployeeById(request.employeeId);
 
@@ -76,7 +77,8 @@ function resolveRunContext(
 
   if (
     request.companyId != null &&
-    request.companyId !== employee.identity.companyId
+    request.companyId !== employee.identity.companyId &&
+    executionContext?.executionSource !== "paperclip"
   ) {
     return {
       ok: false,
@@ -192,7 +194,7 @@ export async function executeEmployeeRun(
     });
   }
 
-  const resolved = resolveRunContext(request);
+  const resolved = resolveRunContext(request, executionContext);
   if ("ok" in resolved) {
     throw Object.assign(new Error(resolved.error), {
       response: resolved,
