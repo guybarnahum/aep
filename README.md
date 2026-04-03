@@ -148,6 +148,10 @@ AEP is now a:
 
 > **working control plane + first autonomous operator**
 
+## In Progress
+
+- Commit 13.1 begins the org catalog substrate in D1: companies, teams, tenants, environments, services, employees, and scope bindings.
+
 ---
 
 ## What is working end-to-end

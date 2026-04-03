@@ -153,6 +153,17 @@ jobs:
         run: |
           npm run ci:scheduled-routing-check | tee scheduled-routing.log
 
+      - name: Validate org schema seed
+        id: org_schema_seed
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          WRANGLER_CONFIG_PATH: core/control-plane/wrangler.jsonc
+          WRANGLER_D1_EXECUTION_LOCATION: remote
+          CF_ENV: ${{ inputs.cf_env }}
+        run: |
+          npm run ci:org-schema-check | tee org-schema-check.log
+
       - name: Paperclip first execution
         id: paperclip_first_execution
         if: steps.operator_agent_config.outputs.enabled == 'true' && steps.wait_operator_agent.outcome == 'success'
@@ -197,7 +208,7 @@ jobs:
 
           OUTCOME="success"
 
-          if [[ "${{ steps.base_url_config.outcome }}" != "success" || "${{ steps.health_check.outcome }}" != "success" || "${{ steps.scheduled_routing.outcome }}" != "success" ]]; then
+          if [[ "${{ steps.base_url_config.outcome }}" != "success" || "${{ steps.health_check.outcome }}" != "success" || "${{ steps.scheduled_routing.outcome }}" != "success" || "${{ steps.org_schema_seed.outcome }}" != "success" ]]; then
             OUTCOME="failure"
           elif [[ "$ENABLED" == "true" && "${{ steps.wait_operator_agent.outcome }}" != "success" ]]; then
             OUTCOME="failure"
@@ -251,6 +262,7 @@ jobs:
           OPERATOR_AGENT_READINESS_OUTCOME="${{ steps.wait_operator_agent.outcome }}"
           OPERATOR_SURFACE_OUTCOME="${{ steps.operator_surface.outcome }}"
           SCHEDULED_ROUTING_OUTCOME="${{ steps.scheduled_routing.outcome }}"
+          ORG_SCHEMA_OUTCOME="${{ steps.org_schema_seed.outcome }}"
           PAPERCLIP_FIRST_EXECUTION_OUTCOME="${{ steps.paperclip_first_execution.outcome }}"
           OPERATOR_WARNINGS="$(collect_operator_warnings)"
           HAS_OPERATOR_WARNINGS="false"
@@ -280,6 +292,7 @@ jobs:
           echo "  - Ensures approval endpoints and state machine are present" >> "$GITHUB_STEP_SUMMARY"
           echo "  - Confirms scheduler status and routing availability" >> "$GITHUB_STEP_SUMMARY"
           echo "- $(status_emoji "$SCHEDULED_ROUTING_OUTCOME") Scheduled routing: $SCHEDULED_ROUTING_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
+          echo "- $(status_emoji "$ORG_SCHEMA_OUTCOME") Org schema seed: $ORG_SCHEMA_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
           echo "- $(status_emoji "$PAPERCLIP_FIRST_EXECUTION_OUTCOME") Paperclip first execution: $PAPERCLIP_FIRST_EXECUTION_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
 
           if [[ "${{ steps.operator_agent_config.outputs.enabled }}" != "true" ]]; then
@@ -309,6 +322,8 @@ jobs:
             echo "- Operator surface contract failed. Inspect endpoint availability, response shapes, and approval state machine endpoints." >> "$GITHUB_STEP_SUMMARY"
           elif [[ "$SCHEDULED_ROUTING_OUTCOME" != "success" ]]; then
             echo "- Scheduled routing validation failed. Inspect routing contract and scheduler logic." >> "$GITHUB_STEP_SUMMARY"
+          elif [[ "$ORG_SCHEMA_OUTCOME" != "success" ]]; then
+            echo "- Org schema seed validation failed. Inspect D1 migrations, seeded catalog rows, and async_validation database state." >> "$GITHUB_STEP_SUMMARY"
           elif [[ "$PAPERCLIP_FIRST_EXECUTION_OUTCOME" != "success" ]]; then
             echo "- Paperclip first execution failed. Inspect seed/write path, execution provenance flow, and approval-gated execution flow." >> "$GITHUB_STEP_SUMMARY"
           else
