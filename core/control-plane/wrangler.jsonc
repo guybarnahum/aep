@@ -84,7 +84,9 @@
 
       "vars": {
         "APP_ENV": "dev",
-        "SERVICE_NAME": "control-plane"
+        "RUNTIME_READ_FAILURE_INJECTION_ENABLED": "true",
+        "SERVICE_NAME": "control-plane",
+        "VALIDATION_LANE": "async_validation"
       }
     },
 

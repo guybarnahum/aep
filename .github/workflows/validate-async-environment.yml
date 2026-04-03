@@ -3,6 +3,11 @@ name: Validate Async Environment
 on:
   workflow_dispatch:
     inputs:
+      run_runtime_read_safety:
+        description: "Run runtime read safety validation"
+        required: false
+        type: boolean
+        default: true
       run_operator_surface:
         description: "Run operator surface validation"
         required: false
@@ -44,9 +49,24 @@ jobs:
       readiness_timeout_ms: "8000"
     secrets: inherit
 
-  validate-operator-surface:
+  validate-runtime-read-safety:
     needs: deploy-async-environment
-    if: ${{ inputs.run_operator_surface }}
+    if: ${{ inputs.run_runtime_read_safety }}
+    uses: ./.github/workflows/_validate_runtime_read_safety.yml
+    with:
+      environment_name: async-validation
+      deploy_url: ${{ needs.deploy-async-environment.outputs.deploy_url }}
+      cf_env: ${{ needs.deploy-async-environment.outputs.cf_env }}
+      git_sha: ${{ needs.deploy-async-environment.outputs.git_sha }}
+      health_runtime_env: dev
+      node_version: "20"
+    secrets: inherit
+
+  validate-operator-surface:
+    needs:
+      - deploy-async-environment
+      - validate-runtime-read-safety
+    if: ${{ always() && inputs.run_operator_surface && needs.deploy-async-environment.result == 'success' && (needs.validate-runtime-read-safety.result == 'success' || needs.validate-runtime-read-safety.result == 'skipped') }}
     uses: ./.github/workflows/_validate_operator_surface.yml
     with:
       environment_name: async-validation
@@ -61,8 +81,9 @@ jobs:
   validate-operator-governance:
     needs:
       - deploy-async-environment
+      - validate-runtime-read-safety
       - validate-operator-surface
-    if: ${{ always() && inputs.run_operator_governance && needs.deploy-async-environment.result == 'success' && (needs.validate-operator-surface.result == 'success' || needs.validate-operator-surface.result == 'skipped') }}
+    if: ${{ always() && inputs.run_operator_governance && needs.deploy-async-environment.result == 'success' && (needs.validate-runtime-read-safety.result == 'success' || needs.validate-runtime-read-safety.result == 'skipped') && (needs.validate-operator-surface.result == 'success' || needs.validate-operator-surface.result == 'skipped') }}
     uses: ./.github/workflows/_validate_operator_governance.yml
     with:
       environment_name: async-validation
@@ -77,8 +98,9 @@ jobs:
   validate-paperclip-handoff:
     needs:
       - deploy-async-environment
+      - validate-runtime-read-safety
       - validate-operator-governance
-    if: ${{ always() && inputs.run_paperclip_handoff && needs.deploy-async-environment.result == 'success' && (needs.validate-operator-governance.result == 'success' || needs.validate-operator-governance.result == 'skipped') }}
+    if: ${{ always() && inputs.run_paperclip_handoff && needs.deploy-async-environment.result == 'success' && (needs.validate-runtime-read-safety.result == 'success' || needs.validate-runtime-read-safety.result == 'skipped') && (needs.validate-operator-governance.result == 'success' || needs.validate-operator-governance.result == 'skipped') }}
     uses: ./.github/workflows/_validate_paperclip_handoff.yml
     with:
       environment_name: async-validation
@@ -93,6 +115,7 @@ jobs:
   final-summary:
     needs:
       - deploy-async-environment
+      - validate-runtime-read-safety
       - validate-operator-surface
       - validate-operator-governance
       - validate-paperclip-handoff
@@ -104,6 +127,12 @@ jobs:
           echo "## Async validation aggregate summary" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "- Environment deploy: ${{ needs.deploy-async-environment.result }}" >> "$GITHUB_STEP_SUMMARY"
+
+          if [[ "${{ inputs.run_runtime_read_safety }}" == "true" ]]; then
+            echo "- Runtime read safety: ${{ needs.validate-runtime-read-safety.outputs.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "- Runtime read safety: skipped by dispatch input" >> "$GITHUB_STEP_SUMMARY"
+          fi
 
           if [[ "${{ inputs.run_operator_surface }}" == "true" ]]; then
             if [[ "${{ needs.validate-operator-surface.outputs.enabled }}" != "true" && "${{ needs.validate-operator-surface.result }}" == "success" ]]; then
@@ -151,6 +180,12 @@ jobs:
 
           FAILED="false"
           ATTENTION="false"
+
+          if [[ "${{ inputs.run_runtime_read_safety }}" == "true" ]]; then
+            if [[ "${{ needs.validate-runtime-read-safety.outputs.outcome }}" != "success" ]]; then
+              FAILED="true"
+            fi
+          fi
 
           if [[ "${{ inputs.run_operator_surface }}" == "true" ]]; then
             if [[ "${{ needs.validate-operator-surface.outputs.outcome }}" != "success" ]]; then

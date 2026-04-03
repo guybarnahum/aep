@@ -63,6 +63,35 @@ export function normalizeOptionalString(value: unknown): string | null {
   return trimmed === "" ? null : trimmed;
 }
 
+type RuntimeReadFailureInjectionEnv = {
+  APP_ENV?: string;
+  VALIDATION_LANE?: string;
+  RUNTIME_READ_FAILURE_INJECTION_ENABLED?: string;
+};
+
+export function maybeInjectRuntimeReadFailure(
+  request: Request,
+  env: RuntimeReadFailureInjectionEnv,
+): void {
+  if (env.APP_ENV !== "dev") {
+    return;
+  }
+
+  if (env.VALIDATION_LANE !== "async_validation") {
+    return;
+  }
+
+  if (env.RUNTIME_READ_FAILURE_INJECTION_ENABLED !== "true") {
+    return;
+  }
+
+  if (new URL(request.url).searchParams.get("fail") !== "1") {
+    return;
+  }
+
+  throw new Error("forced_runtime_read_failure");
+}
+
 type RuntimeRouteErrorArgs = {
   route: string;
   error: unknown;

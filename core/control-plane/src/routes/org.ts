@@ -1,5 +1,6 @@
 import {
   json,
+  maybeInjectRuntimeReadFailure,
   notFound,
   withRuntimeJsonBoundary,
 } from "@aep/control-plane/lib/http";
@@ -30,6 +31,8 @@ export async function handleCompaniesRoute(
     route: "/companies",
     request,
     handler: async () => {
+      maybeInjectRuntimeReadFailure(request, env);
+
       const companies = await listCompanies(env.DB);
       return json({ companies });
     },

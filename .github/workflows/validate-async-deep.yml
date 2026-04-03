@@ -3,6 +3,11 @@ name: Validate Async Deep
 on:
   workflow_dispatch:
     inputs:
+      run_runtime_read_safety:
+        description: "Run runtime read safety validation"
+        required: false
+        type: boolean
+        default: true
       run_async_orchestration:
         description: "Run async orchestration validation"
         required: false
@@ -49,9 +54,24 @@ jobs:
       readiness_timeout_ms: "8000"
     secrets: inherit
 
-  validate-async-orchestration:
+  validate-runtime-read-safety:
     needs: deploy-async-environment
-    if: ${{ inputs.run_async_orchestration }}
+    if: ${{ inputs.run_runtime_read_safety }}
+    uses: ./.github/workflows/_validate_runtime_read_safety.yml
+    with:
+      environment_name: async-validation
+      deploy_url: ${{ needs.deploy-async-environment.outputs.deploy_url }}
+      cf_env: ${{ needs.deploy-async-environment.outputs.cf_env }}
+      git_sha: ${{ needs.deploy-async-environment.outputs.git_sha }}
+      health_runtime_env: dev
+      node_version: "20"
+    secrets: inherit
+
+  validate-async-orchestration:
+    needs:
+      - deploy-async-environment
+      - validate-runtime-read-safety
+    if: ${{ always() && inputs.run_async_orchestration && needs.deploy-async-environment.result == 'success' && (needs.validate-runtime-read-safety.result == 'success' || needs.validate-runtime-read-safety.result == 'skipped') }}
     uses: ./.github/workflows/_validate_async_orchestration.yml
     with:
       environment_name: async-validation
@@ -66,8 +86,9 @@ jobs:
   validate-escalation-integrity:
     needs:
       - deploy-async-environment
+      - validate-runtime-read-safety
       - validate-async-orchestration
-    if: ${{ always() && inputs.run_escalation_integrity && needs.deploy-async-environment.result == 'success' && (needs.validate-async-orchestration.result == 'success' || needs.validate-async-orchestration.result == 'skipped') }}
+    if: ${{ always() && inputs.run_escalation_integrity && needs.deploy-async-environment.result == 'success' && (needs.validate-runtime-read-safety.result == 'success' || needs.validate-runtime-read-safety.result == 'skipped') && (needs.validate-async-orchestration.result == 'success' || needs.validate-async-orchestration.result == 'skipped') }}
     uses: ./.github/workflows/_validate_escalation_integrity.yml
     with:
       environment_name: async-validation
@@ -82,8 +103,9 @@ jobs:
   validate-multi-worker-safety:
     needs:
       - deploy-async-environment
+      - validate-runtime-read-safety
       - validate-escalation-integrity
-    if: ${{ always() && inputs.run_multi_worker_safety && needs.deploy-async-environment.result == 'success' && (needs.validate-escalation-integrity.result == 'success' || needs.validate-escalation-integrity.result == 'skipped') }}
+    if: ${{ always() && inputs.run_multi_worker_safety && needs.deploy-async-environment.result == 'success' && (needs.validate-runtime-read-safety.result == 'success' || needs.validate-runtime-read-safety.result == 'skipped') && (needs.validate-escalation-integrity.result == 'success' || needs.validate-escalation-integrity.result == 'skipped') }}
     uses: ./.github/workflows/_validate_multi_worker_safety.yml
     with:
       environment_name: async-validation
@@ -98,6 +120,7 @@ jobs:
   final-summary:
     needs:
       - deploy-async-environment
+      - validate-runtime-read-safety
       - validate-async-orchestration
       - validate-escalation-integrity
       - validate-multi-worker-safety
@@ -109,6 +132,12 @@ jobs:
           echo "## Async deep validation aggregate summary" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "- Environment deploy: ${{ needs.deploy-async-environment.result }}" >> "$GITHUB_STEP_SUMMARY"
+
+          if [[ "${{ inputs.run_runtime_read_safety }}" == "true" ]]; then
+            echo "- Runtime read safety: ${{ needs.validate-runtime-read-safety.outputs.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "- Runtime read safety: skipped by dispatch input" >> "$GITHUB_STEP_SUMMARY"
+          fi
 
           if [[ "${{ inputs.run_async_orchestration }}" == "true" ]]; then
             if [[ "${{ needs.validate-async-orchestration.outputs.attention }}" == "true" ]]; then
@@ -154,6 +183,12 @@ jobs:
 
           FAILED="false"
           ATTENTION="false"
+
+          if [[ "${{ inputs.run_runtime_read_safety }}" == "true" ]]; then
+            if [[ "${{ needs.validate-runtime-read-safety.outputs.outcome }}" != "success" ]]; then
+              FAILED="true"
+            fi
+          fi
 
           if [[ "${{ inputs.run_async_orchestration }}" == "true" ]]; then
             if [[ "${{ needs.validate-async-orchestration.outputs.outcome }}" != "success" ]]; then

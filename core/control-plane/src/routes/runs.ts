@@ -1,11 +1,11 @@
 import {
   json,
+  maybeInjectRuntimeReadFailure,
   notFound,
   withRuntimeJsonBoundary,
 } from "@aep/control-plane/lib/http";
 import {
   getRunDetail,
-  getRunFailure,
   getRunJobs,
   getRunSummary,
   listRunSummaries,
@@ -24,6 +24,8 @@ export async function handleRunsRoute(
     route: "/runs",
     request,
     handler: async () => {
+      maybeInjectRuntimeReadFailure(request, env);
+
       const limitParam = url.searchParams.get("limit");
       const parsedLimit = limitParam ? Number(limitParam) : Number.NaN;
       const limit =
