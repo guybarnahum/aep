@@ -2,6 +2,7 @@ import { getConfig } from "@aep/operator-agent/config";
 import { getApprovalPolicy } from "@aep/operator-agent/lib/approval-policy";
 import { createStores } from "@aep/operator-agent/lib/store-factory";
 import { listAgentWorkLogEntries } from "@aep/operator-agent/lib/work-log-reader";
+import { SERVICE_CONTROL_PLANE } from "@aep/operator-agent/org/services";
 import type {
   IApprovalStore,
   IEmployeeControlHistoryStore,
@@ -51,7 +52,7 @@ function buildDecision(args: {
     timestamp: args.nowIso,
     managerEmployeeId: args.manager.employeeId,
     managerEmployeeName: args.manager.employeeName,
-    departmentId: args.manager.departmentId,
+    teamId: args.manager.teamId,
     roleId: args.manager.roleId,
     policyVersion: args.policyVersion,
     employeeId: args.employeeId,
@@ -168,7 +169,7 @@ function buildApprovalRecord(args: {
     companyId: args.companyId,
     taskId: args.taskId,
     heartbeatId: args.heartbeatId,
-    departmentId: args.manager.departmentId,
+    teamId: args.manager.teamId,
     requestedByEmployeeId: args.manager.employeeId,
     requestedByEmployeeName: args.manager.employeeName,
     requestedByRoleId: args.manager.roleId,
@@ -187,14 +188,14 @@ function buildApprovalRecord(args: {
 }
 
 function buildControlHistoryRecord(args: {
-  departmentId: EmployeeControlHistoryRecord["departmentId"];
+  teamId: EmployeeControlHistoryRecord["teamId"];
   controlRecord: EmployeeControlRecord;
 }): EmployeeControlHistoryRecord {
   return {
     historyId: controlHistoryId(args.controlRecord.employeeId, args.controlRecord.updatedAt),
     timestamp: args.controlRecord.updatedAt,
     employeeId: args.controlRecord.employeeId,
-    departmentId: args.departmentId,
+    teamId: args.teamId,
     updatedByEmployeeId: args.controlRecord.updatedByEmployeeId,
     updatedByRoleId: args.controlRecord.updatedByRoleId,
     policyVersion: args.controlRecord.policyVersion,
@@ -334,7 +335,7 @@ async function applyApprovalBackedControl(args: {
   await args.controlStore.put(linkedControlRecord);
   await args.controlHistoryStore.write(
     buildControlHistoryRecord({
-      departmentId: args.manager.departmentId,
+      teamId: args.manager.teamId,
       controlRecord: linkedControlRecord,
     })
   );
@@ -751,8 +752,8 @@ export async function runInfraOpsManager(
           maxActionsPerScan: 0,
         },
         authorityOverride: {
-          allowedTenants: ["dev", "qa", "internal-aep"],
-          allowedServices: ["control-plane"],
+          allowedTenants: ["tenant_internal_aep", "tenant_qa"],
+          allowedServices: [SERVICE_CONTROL_PLANE],
           requireTraceVerification: true,
         },
         reviewAfter: addMillisecondsToIso(nowIso, config.managerReviewWindowMs),
@@ -792,8 +793,8 @@ export async function runInfraOpsManager(
               maxActionsPerScan: 0,
             },
             authorityOverride: {
-              allowedTenants: ["dev", "qa", "internal-aep"],
-              allowedServices: ["control-plane"],
+              allowedTenants: ["tenant_internal_aep", "tenant_qa"],
+              allowedServices: [SERVICE_CONTROL_PLANE],
               requireTraceVerification: true,
             },
             reviewAfter: addMillisecondsToIso(nowIso, config.managerReviewWindowMs),
@@ -1061,7 +1062,7 @@ export async function runInfraOpsManager(
       await controlStore.put(clearedControlRecord);
       await controlHistoryStore.write(
         buildControlHistoryRecord({
-          departmentId: manager.identity.departmentId,
+          teamId: manager.identity.teamId,
           controlRecord: clearedControlRecord,
         })
       );
@@ -1169,7 +1170,7 @@ export async function runInfraOpsManager(
       ),
       timestamp: decision.timestamp,
       companyId: companyIdFromExecutionContext(context.executionContext),
-      departmentId: decision.departmentId,
+      teamId: decision.teamId,
       managerEmployeeId: decision.managerEmployeeId,
       managerEmployeeName: decision.managerEmployeeName,
       policyVersion: decision.policyVersion,

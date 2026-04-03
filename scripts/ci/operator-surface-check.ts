@@ -13,16 +13,59 @@ type EmployeesResponse = {
       employeeId: string;
       roleId: string;
       employeeName: string;
+      companyId: string;
+      teamId: string;
     };
-    authority: Record<string, unknown>;
-    budget: Record<string, unknown>;
-    effectiveAuthority: Record<string, unknown>;
-    effectiveBudget: Record<string, unknown>;
+    catalog: {
+      companyId: string;
+      teamId: string;
+      status: string;
+      schedulerMode: string;
+      implemented: boolean;
+    };
+    authority?: Record<string, unknown>;
+    budget?: Record<string, unknown>;
+    effectiveAuthority?: {
+      allowedTenants?: string[];
+      allowedServices?: string[];
+      allowedEnvironmentNames?: string[];
+      [key: string]: unknown;
+    };
+    effectiveBudget?: Record<string, unknown>;
     effectiveState: {
       state: "enabled" | "disabled_pending_review" | "disabled_by_manager" | "restricted";
       blocked: boolean;
     };
+    scope?: {
+      allowedTenants: string[];
+      allowedServices: string[];
+      allowedEnvironmentNames: string[];
+    };
+    message?: string;
   }>;
+};
+
+type EmployeeScopeResponse = {
+  ok: true;
+  employeeId: string;
+  companyId: string;
+  teamId: string;
+  allowedTenants: string[];
+  allowedServices: string[];
+  allowedEnvironmentNames: string[];
+};
+
+type EmployeeEffectivePolicyResponse = {
+  ok: true;
+  employeeId: string;
+  companyId: string;
+  teamId: string;
+  implemented: boolean;
+  effectiveAuthority?: {
+    allowedTenants?: string[];
+    allowedServices?: string[];
+    allowedEnvironmentNames?: string[];
+  };
 };
 
 type ManagerLogResponse = {
@@ -169,6 +212,86 @@ async function main(): Promise<void> {
     throw new Error("/agent/employees did not return ok=true");
   }
 
+  const plannedEmployees = await readJson<EmployeesResponse>(
+    await fetch(`${agentBaseUrl}/agent/employees?status=planned`)
+  );
+
+  if (!plannedEmployees.ok) {
+    throw new Error("/agent/employees?status=planned did not return ok=true");
+  }
+
+  const plannedEmployeeIds = new Set(
+    plannedEmployees.employees.map((employee) => employee.identity.employeeId)
+  );
+
+  for (const employeeId of [
+    "emp_product_manager_web_01",
+    "emp_frontend_engineer_01",
+    "emp_validation_pm_01",
+    "emp_validation_engineer_01",
+  ]) {
+    if (!plannedEmployeeIds.has(employeeId)) {
+      throw new Error(
+        `Expected planned employee filter to include ${employeeId}`
+      );
+    }
+  }
+
+  for (const employeeId of [
+    "emp_timeout_recovery_01",
+    "emp_retry_supervisor_01",
+    "emp_infra_ops_manager_01",
+  ]) {
+    if (plannedEmployeeIds.has(employeeId)) {
+      throw new Error(
+        `Expected planned employee filter to exclude ${employeeId}`
+      );
+    }
+  }
+
+  const webTeamEmployees = await readJson<EmployeesResponse>(
+    await fetch(`${agentBaseUrl}/agent/employees?teamId=team_web_product`)
+  );
+
+  if (!webTeamEmployees.ok) {
+    throw new Error("/agent/employees?teamId=team_web_product did not return ok=true");
+  }
+
+  const webTeamEmployeeIds = new Set(
+    webTeamEmployees.employees.map((employee) => employee.identity.employeeId)
+  );
+
+  if (webTeamEmployeeIds.size !== 2) {
+    throw new Error(
+      `Expected team_web_product filter to return exactly 2 employees, got ${webTeamEmployeeIds.size}`
+    );
+  }
+
+  for (const employeeId of [
+    "emp_product_manager_web_01",
+    "emp_frontend_engineer_01",
+  ]) {
+    if (!webTeamEmployeeIds.has(employeeId)) {
+      throw new Error(
+        `Expected web team filter to include ${employeeId}`
+      );
+    }
+  }
+
+  for (const employeeId of [
+    "emp_validation_pm_01",
+    "emp_validation_engineer_01",
+    "emp_timeout_recovery_01",
+    "emp_retry_supervisor_01",
+    "emp_infra_ops_manager_01",
+  ]) {
+    if (webTeamEmployeeIds.has(employeeId)) {
+      throw new Error(
+        `Expected web team filter to exclude ${employeeId}`
+      );
+    }
+  }
+
   const employeeIds = new Set(employees.employees.map((e) => e.identity.employeeId));
 
   if (!employeeIds.has("emp_timeout_recovery_01")) {
@@ -183,10 +306,90 @@ async function main(): Promise<void> {
     throw new Error("Expected /agent/employees to include infra ops manager employee");
   }
 
-  if (employees.count < 3) {
+  if (!employeeIds.has("emp_product_manager_web_01")) {
+    throw new Error("Expected /agent/employees to include product manager web employee");
+  }
+
+  if (!employeeIds.has("emp_frontend_engineer_01")) {
+    throw new Error("Expected /agent/employees to include frontend engineer employee");
+  }
+
+  if (!employeeIds.has("emp_validation_pm_01")) {
+    throw new Error("Expected /agent/employees to include validation PM employee");
+  }
+
+  if (!employeeIds.has("emp_validation_engineer_01")) {
+    throw new Error("Expected /agent/employees to include validation engineer employee");
+  }
+
+  if (employees.count < 7) {
     throw new Error(
-      `Expected at least 3 employees, got ${employees.count}`
+      `Expected at least 7 employees, got ${employees.count}`
     );
+  }
+
+  const timeoutRecoveryEmployee = employees.employees.find(
+    (employee) => employee.identity.employeeId === "emp_timeout_recovery_01"
+  );
+
+  if (!timeoutRecoveryEmployee) {
+    throw new Error("Expected timeout recovery employee details in /agent/employees");
+  }
+
+  if (timeoutRecoveryEmployee.identity.companyId !== "company_internal_aep") {
+    throw new Error("Expected timeout recovery employee companyId=company_internal_aep");
+  }
+
+  if (timeoutRecoveryEmployee.identity.teamId !== "team_infra") {
+    throw new Error("Expected timeout recovery employee teamId=team_infra");
+  }
+
+  const productManagerWeb = employees.employees.find(
+    (employee) => employee.identity.employeeId === "emp_product_manager_web_01"
+  );
+
+  if (!productManagerWeb) {
+    throw new Error("Expected product manager web employee details in /agent/employees");
+  }
+
+  if (productManagerWeb.catalog.implemented !== false) {
+    throw new Error("Expected product manager web employee to be catalog-only");
+  }
+
+  if (productManagerWeb.catalog.teamId !== "team_web_product") {
+    throw new Error("Expected product manager web teamId=team_web_product");
+  }
+
+  const timeoutScope = await readJson<EmployeeScopeResponse>(
+    await fetch(`${agentBaseUrl}/agent/employees/emp_timeout_recovery_01/scope`)
+  );
+
+  if (timeoutScope.companyId !== "company_internal_aep") {
+    throw new Error("Expected timeout scope companyId=company_internal_aep");
+  }
+
+  if (timeoutScope.teamId !== "team_infra") {
+    throw new Error("Expected timeout scope teamId=team_infra");
+  }
+
+  const timeoutEffectivePolicy = await readJson<EmployeeEffectivePolicyResponse>(
+    await fetch(
+      `${agentBaseUrl}/agent/employees/emp_timeout_recovery_01/effective-policy`
+    )
+  );
+
+  if (!timeoutEffectivePolicy.implemented) {
+    throw new Error("Expected timeout recovery effective policy to be implemented");
+  }
+
+  const productManagerPolicy = await readJson<EmployeeEffectivePolicyResponse>(
+    await fetch(
+      `${agentBaseUrl}/agent/employees/emp_product_manager_web_01/effective-policy`
+    )
+  );
+
+  if (productManagerPolicy.implemented !== false) {
+    throw new Error("Expected product manager web effective policy to report implemented=false");
   }
 
   const managerLog = await readJson<ManagerLogResponse>(

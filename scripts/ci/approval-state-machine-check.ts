@@ -13,7 +13,7 @@ type ApprovalEntry = {
   companyId?: string;
   taskId?: string;
   heartbeatId?: string;
-  departmentId: string;
+  teamId: string;
   requestedByEmployeeId: string;
   requestedByEmployeeName?: string;
   requestedByRoleId: string;
@@ -128,8 +128,8 @@ async function runApprovalStateMachineChecks(): Promise<void> {
       );
     }
 
-    if (!approval.departmentId) {
-      throw new Error(`Approval ${approval.approvalId} missing departmentId`);
+    if (!approval.teamId) {
+      throw new Error(`Approval ${approval.approvalId} missing teamId`);
     }
 
     if (!approval.requestedByEmployeeId) {

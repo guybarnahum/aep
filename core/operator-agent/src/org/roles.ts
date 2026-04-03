@@ -21,4 +21,20 @@ export const roles: Record<AgentRoleId, { id: AgentRoleId; name: string }> = {
     id: "incident-triage-operator",
     name: "Incident Triage Operator",
   },
+  "product-manager-web": {
+    id: "product-manager-web",
+    name: "Product Manager Web",
+  },
+  "frontend-engineer": {
+    id: "frontend-engineer",
+    name: "Frontend Engineer",
+  },
+  "validation-pm": {
+    id: "validation-pm",
+    name: "Validation PM",
+  },
+  "validation-engineer": {
+    id: "validation-engineer",
+    name: "Validation Engineer",
+  },
 };

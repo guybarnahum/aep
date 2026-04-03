@@ -1,17 +1,21 @@
+import { COMPANY_INTERNAL_AEP } from "@aep/operator-agent/org/company";
+import { SERVICE_CONTROL_PLANE } from "@aep/operator-agent/org/services";
+import { TEAM_INFRA } from "@aep/operator-agent/org/teams";
 import type { AgentEmployeeDefinition, AgentRoleId } from "@aep/operator-agent/types";
 
 export const timeoutRecoveryEmployee: AgentEmployeeDefinition = {
   identity: {
     employeeId: "emp_timeout_recovery_01",
     employeeName: "Timeout Recovery Operator",
-    departmentId: "aep-infra-ops",
+    companyId: COMPANY_INTERNAL_AEP,
+    teamId: TEAM_INFRA,
     roleId: "timeout-recovery-operator",
     managerRoleId: "infra-ops-manager",
   },
   authority: {
     allowedOperatorActions: ["advance-timeout"],
-    allowedTenants: ["dev", "qa", "internal-aep"],
-    allowedServices: ["control-plane"],
+    allowedTenants: ["tenant_internal_aep", "tenant_qa"],
+    allowedServices: [SERVICE_CONTROL_PLANE],
     requireTraceVerification: true,
   },
   budget: {
@@ -33,14 +37,15 @@ export const retrySupervisorEmployee: AgentEmployeeDefinition = {
   identity: {
     employeeId: "emp_retry_supervisor_01",
     employeeName: "Retry Supervisor",
-    departmentId: "aep-infra-ops",
+    companyId: COMPANY_INTERNAL_AEP,
+    teamId: TEAM_INFRA,
     roleId: "retry-supervisor",
     managerRoleId: "infra-ops-manager",
   },
   authority: {
     allowedOperatorActions: ["advance-timeout"],
-    allowedTenants: ["qa", "internal-aep"],
-    allowedServices: ["control-plane"],
+    allowedTenants: ["tenant_qa", "tenant_internal_aep"],
+    allowedServices: [SERVICE_CONTROL_PLANE],
     requireTraceVerification: true,
   },
   budget: {
@@ -62,13 +67,14 @@ export const infraOpsManagerEmployee: AgentEmployeeDefinition = {
   identity: {
     employeeId: "emp_infra_ops_manager_01",
     employeeName: "Infra Ops Manager",
-    departmentId: "aep-infra-ops",
+    companyId: COMPANY_INTERNAL_AEP,
+    teamId: TEAM_INFRA,
     roleId: "infra-ops-manager",
   },
   authority: {
     allowedOperatorActions: ["advance-timeout"],
-    allowedTenants: ["dev", "qa", "internal-aep"],
-    allowedServices: ["control-plane"],
+    allowedTenants: ["tenant_internal_aep", "tenant_qa"],
+    allowedServices: [SERVICE_CONTROL_PLANE],
     requireTraceVerification: false,
   },
   budget: {

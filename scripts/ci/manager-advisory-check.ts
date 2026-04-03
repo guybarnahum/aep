@@ -11,7 +11,7 @@ type ManagerDecision = {
   timestamp: string;
   managerEmployeeId: string;
   managerEmployeeName: string;
-  departmentId: string;
+  teamId: string;
   roleId: string;
   policyVersion: string;
   employeeId: string;
@@ -125,7 +125,7 @@ async function runManager(
       "x-actor": "ci-manager-advisory-check",
     },
     body: JSON.stringify({
-      departmentId: "aep-infra-ops",
+      teamId: "team_infra",
       employeeId: "emp_infra_ops_manager_01",
       roleId: "infra-ops-manager",
       trigger: "manual",

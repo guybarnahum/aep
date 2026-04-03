@@ -1,5 +1,6 @@
 import { fromJson, toJson } from "@aep/operator-agent/lib/d1-json";
 import type { IAgentWorkLogStore } from "@aep/operator-agent/lib/store-types";
+import { COMPANY_INTERNAL_AEP } from "@aep/operator-agent/org/company";
 import type {
   AgentWorkLogEntry,
   OperatorAgentEnv,
@@ -45,7 +46,8 @@ function rowToEntry(row: AgentWorkLogRow): AgentWorkLogEntry {
     timestamp: row.timestamp,
     employeeId: row.employee_id,
     employeeName: row.employee_name,
-    departmentId: row.department_id as AgentWorkLogEntry["departmentId"],
+    companyId: COMPANY_INTERNAL_AEP,
+    teamId: row.department_id as AgentWorkLogEntry["teamId"],
     roleId: row.role_id as AgentWorkLogEntry["roleId"],
     policyVersion: row.policy_version,
     trigger: row.trigger as AgentWorkLogEntry["trigger"],
@@ -131,7 +133,7 @@ export class D1AgentWorkLogStore implements IAgentWorkLogStore {
         entry.timestamp,
         entry.employeeId,
         entry.employeeName,
-        entry.departmentId,
+        entry.teamId,
         entry.roleId,
         entry.policyVersion,
         entry.trigger,

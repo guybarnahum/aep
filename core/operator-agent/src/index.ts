@@ -8,7 +8,9 @@ import { handleAcknowledgeEscalation } from "./routes/escalations-acknowledge";
 import { handleResolveEscalation } from "./routes/escalations-resolve";
 import { handleHealthz } from "./routes/healthz";
 import { handleEmployeeControls } from "./routes/employee-controls";
+import { handleEmployeeEffectivePolicy } from "./routes/employee-effective-policy";
 import { handleEmployees } from "./routes/employees";
+import { handleEmployeeScope } from "./routes/employee-scope";
 import { handleManagerLog } from "./routes/manager-log";
 import { handleRun } from "./routes/run";
 import { handleRunOnce } from "./routes/run-once";
@@ -73,6 +75,26 @@ async function dispatch(request: Request, env: OperatorAgentEnv): Promise<Respon
 
   if (url.pathname === "/agent/employee-controls") {
     return handleEmployeeControls(request, env);
+  }
+
+  const employeeScopeMatch = url.pathname.match(/^\/agent\/employees\/([^/]+)\/scope$/);
+  if (employeeScopeMatch) {
+    return handleEmployeeScope(
+      request,
+      env,
+      decodeURIComponent(employeeScopeMatch[1]),
+    );
+  }
+
+  const employeePolicyMatch = url.pathname.match(
+    /^\/agent\/employees\/([^/]+)\/effective-policy$/,
+  );
+  if (employeePolicyMatch) {
+    return handleEmployeeEffectivePolicy(
+      request,
+      env,
+      decodeURIComponent(employeePolicyMatch[1]),
+    );
   }
 
   if (url.pathname === "/agent/employees") {

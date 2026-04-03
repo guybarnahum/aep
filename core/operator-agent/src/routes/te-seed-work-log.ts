@@ -1,3 +1,5 @@
+import { COMPANY_INTERNAL_AEP } from "@aep/operator-agent/org/company";
+import { TEAM_INFRA } from "@aep/operator-agent/org/teams";
 import { DecisionLog } from "@aep/operator-agent/lib/decision-log";
 import type {
   AgentWorkLogEntry,
@@ -54,7 +56,8 @@ export async function handleSeedWorkLog(
         timestamp: ts,
         employeeId: body.employeeId,
         employeeName: "Seeded Test Entry",
-        departmentId: "aep-infra-ops",
+        companyId: COMPANY_INTERNAL_AEP,
+        teamId: TEAM_INFRA,
         roleId: "timeout-recovery-operator",
         policyVersion: "commit10-stageD",
         trigger: "manual",

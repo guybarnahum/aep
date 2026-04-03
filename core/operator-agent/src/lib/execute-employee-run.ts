@@ -22,14 +22,6 @@ import type {
 function validateRunRequest(
   request: EmployeeRunRequest
 ): EmployeeRunErrorResponse | undefined {
-  if (!request.departmentId) {
-    return {
-      ok: false,
-      status: "invalid_request",
-      error: "Missing required field: departmentId",
-    };
-  }
-
   if (!request.employeeId) {
     return {
       ok: false,
@@ -62,6 +54,10 @@ function validateRunRequest(
     };
   }
 
+  if (request.companyId == null && request.teamId == null) {
+    return undefined;
+  }
+
   return undefined;
 }
 
@@ -78,11 +74,22 @@ function resolveRunContext(
     };
   }
 
-  if (request.departmentId !== employee.identity.departmentId) {
+  if (
+    request.companyId != null &&
+    request.companyId !== employee.identity.companyId
+  ) {
     return {
       ok: false,
       status: "role_mismatch",
-      error: `departmentId mismatch for employee ${request.employeeId}`,
+      error: `companyId mismatch for employee ${request.employeeId}`,
+    };
+  }
+
+  if (request.teamId != null && request.teamId !== employee.identity.teamId) {
+    return {
+      ok: false,
+      status: "role_mismatch",
+      error: `teamId mismatch for employee ${request.employeeId}`,
     };
   }
 

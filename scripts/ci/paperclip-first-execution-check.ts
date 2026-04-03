@@ -391,7 +391,7 @@ async function main(): Promise<void> {
   }
 
   const validBody = {
-    departmentId: "aep-infra-ops",
+    teamId: "team_infra",
     employeeId: "emp_infra_ops_manager_01",
     roleId: "infra-ops-manager",
     trigger: "paperclip",
@@ -492,7 +492,7 @@ async function main(): Promise<void> {
   const workerPaperclip = await postRunUntilStatus({
     agentBaseUrl,
     body: {
-      departmentId: "aep-infra-ops",
+      teamId: "team_infra",
       employeeId: "emp_timeout_recovery_01",
       roleId: "timeout-recovery-operator",
       trigger: "paperclip",
@@ -561,7 +561,7 @@ async function main(): Promise<void> {
   const missingSource = await postRun(
     agentBaseUrl,
     {
-      departmentId: "aep-infra-ops",
+      teamId: "team_infra",
       employeeId: "emp_infra_ops_manager_01",
       roleId: "infra-ops-manager",
       trigger: "manual",
@@ -583,7 +583,7 @@ async function main(): Promise<void> {
   const operatorRun = await postRun(
     agentBaseUrl,
     {
-      departmentId: "aep-infra-ops",
+      teamId: "team_infra",
       employeeId: "emp_infra_ops_manager_01",
       roleId: "infra-ops-manager",
       trigger: "manual",

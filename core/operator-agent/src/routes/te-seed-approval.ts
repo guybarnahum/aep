@@ -1,3 +1,4 @@
+import { TEAM_INFRA } from "@aep/operator-agent/org/teams";
 import { createStores } from "@aep/operator-agent/lib/store-factory";
 import type {
   AgentRoleId,
@@ -96,7 +97,7 @@ export async function handleSeedApproval(
     companyId: body.companyId,
     taskId: body.taskId,
     heartbeatId: body.heartbeatId,
-    departmentId: "aep-infra-ops",
+    teamId: TEAM_INFRA,
     requestedByEmployeeId: body.requestedByEmployeeId,
     requestedByEmployeeName: body.requestedByEmployeeName,
     requestedByRoleId: body.requestedByRoleId,

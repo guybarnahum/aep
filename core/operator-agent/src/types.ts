@@ -1,4 +1,6 @@
 import type { ExecutionContext } from "@aep/operator-agent/types/execution-provenance";
+import type { CompanyId } from "@aep/operator-agent/org/company";
+import type { TeamId } from "@aep/operator-agent/org/teams";
 
 export type EmployeeTrigger = "manual" | "cron" | "paperclip";
 
@@ -21,19 +23,22 @@ export type EscalationReason =
   | "cross_worker_budget_pressure"
   | "cross_worker_failure_pattern_detected";
 
-export type DepartmentId = "aep-infra-ops";
-
 export type AgentRoleId =
   | "timeout-recovery-operator"
   | "infra-ops-manager"
   | "retry-supervisor"
   | "teardown-safety-operator"
-  | "incident-triage-operator";
+  | "incident-triage-operator"
+  | "product-manager-web"
+  | "frontend-engineer"
+  | "validation-pm"
+  | "validation-engineer";
 
 export interface AgentIdentity {
   employeeId: string;
   employeeName: string;
-  departmentId: DepartmentId;
+  companyId: CompanyId;
+  teamId: TeamId;
   roleId: AgentRoleId;
   managerRoleId?: AgentRoleId;
 }
@@ -42,6 +47,7 @@ export interface AgentAuthority {
   allowedOperatorActions: Array<"advance-timeout">;
   allowedTenants?: string[];
   allowedServices?: string[];
+  allowedEnvironmentNames?: string[];
   requireTraceVerification: boolean;
 }
 
@@ -69,7 +75,10 @@ export interface AgentEmployeeDefinition {
 
 export interface EmployeeRunRequest {
   companyId?: string;
-  departmentId: DepartmentId;
+  teamId?: TeamId;
+  tenantId?: string;
+  serviceId?: string;
+  environmentName?: string;
   employeeId: string;
   roleId: AgentRoleId;
   trigger: EmployeeTrigger;
@@ -94,7 +103,7 @@ export interface ResolvedEmployeeRunContext {
 
 export interface PaperclipRunRequest {
   companyId: string;
-  departmentId: DepartmentId;
+  teamId?: TeamId;
   employeeId: string;
   roleId: AgentRoleId;
   policyVersion?: string;
@@ -181,7 +190,7 @@ export interface ManagerDecision {
   timestamp: string;
   managerEmployeeId: string;
   managerEmployeeName: string;
-  departmentId: DepartmentId;
+  teamId: TeamId;
   roleId: AgentRoleId;
   policyVersion: string;
   employeeId: string;
@@ -266,7 +275,7 @@ export interface EscalationRecord {
   escalationId: string;
   timestamp: string;
   companyId?: string;
-  departmentId: DepartmentId;
+  teamId: TeamId;
   managerEmployeeId: string;
   managerEmployeeName: string;
   policyVersion: string;
@@ -329,7 +338,7 @@ export interface ApprovalRecord {
   taskId?: string;
   heartbeatId?: string;
 
-  departmentId: DepartmentId;
+  teamId: TeamId;
 
   requestedByEmployeeId: string;
   requestedByEmployeeName?: string;
@@ -360,7 +369,7 @@ export interface EmployeeControlHistoryRecord {
   historyId: string;
   timestamp: string;
   employeeId: string;
-  departmentId: DepartmentId;
+  teamId: TeamId;
   updatedByEmployeeId: string;
   updatedByRoleId: AgentRoleId;
   policyVersion: string;
@@ -494,12 +503,16 @@ export interface AgentWorkLogEntry {
   timestamp: string;
   employeeId: string;
   employeeName: string;
-  departmentId: DepartmentId;
+  companyId: CompanyId;
+  teamId: TeamId;
   roleId: AgentRoleId;
   policyVersion: string;
   trigger: EmployeeTrigger;
   runId: string;
   jobId: string;
+  tenantId?: string;
+  serviceId?: string;
+  environmentName?: string;
   tenant?: string;
   service?: string;
   action: "advance-timeout";

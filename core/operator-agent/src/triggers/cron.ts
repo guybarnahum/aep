@@ -23,7 +23,8 @@ export async function handleWorkerCron(
     const executionContext = makeCronFallbackContext(employee.identity.employeeId);
 
     const runRequest: EmployeeRunRequest = {
-      departmentId: employee.identity.departmentId,
+      companyId: employee.identity.companyId,
+      teamId: employee.identity.teamId,
       employeeId: employee.identity.employeeId,
       roleId: employee.identity.roleId,
       trigger: "cron",
