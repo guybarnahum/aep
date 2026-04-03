@@ -139,6 +139,22 @@ function safeJsonParse(text: string): unknown | undefined {
   }
 }
 
+function isRetryableStartFailure(result: RequestResult): boolean {
+  if ([408, 425, 429, 500, 502, 503, 504].includes(result.status)) {
+    return true;
+  }
+
+  const body = result.bodyText.toLowerCase();
+
+  return (
+    body.includes("d1_error") ||
+    body.includes("storage operation exceeded timeout") ||
+    body.includes("object to be reset") ||
+    body.includes("cloudflare") ||
+    body.includes("temporarily unavailable")
+  );
+}
+
 function joinUrl(baseUrl: string, path: string): string {
   const base = baseUrl.endsWith("/") ? baseUrl.slice(0, -1) : baseUrl;
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
@@ -892,13 +908,29 @@ async function main(): Promise<void> {
 
   for (let attempt = 1; attempt <= 3; attempt += 1) {
     try {
-      startResult = await requestJson({
+      const result = await requestJson({
         url: startUrl,
         method: "POST",
         timeoutMs: startTimeoutMs,
         headers,
         body: cli.payload,
       });
+
+      if (result.status === 202) {
+        startResult = result;
+        break;
+      }
+
+      if (isRetryableStartFailure(result) && attempt < 3) {
+        console.warn(
+          `⚠️  Initial async deploy request attempt ${attempt}/3 returned retryable ${result.status} ${result.statusText}; retrying...`,
+        );
+        console.warn(`   Body: ${result.bodyText}`);
+        await sleep(2000);
+        continue;
+      }
+
+      startResult = result;
       break;
     } catch (error) {
       startError = error;
