@@ -8,7 +8,7 @@ import {
 import {
   mergeServiceSummaries,
   mergeTenantSummaries,
-  resolveEnvironmentNames,
+  resolveEnvironmentViews,
 } from "@aep/control-plane/operator/runtime-projection";
 import { listRunSummaries } from "@aep/control-plane/operator/runs";
 import type { TenantSummary } from "@aep/control-plane/operator/types";
@@ -44,7 +44,7 @@ export async function getTenantOverview(db: D1Like, tenantId: string) {
           service.service_id,
         );
 
-        const environmentNames = resolveEnvironmentNames(
+        const environmentViews = resolveEnvironmentViews(
           service.service_name,
           [...new Set(seededEnvironments.map((env) => env.environment_name))],
           runs,
@@ -52,7 +52,7 @@ export async function getTenantOverview(db: D1Like, tenantId: string) {
 
         return {
           ...service,
-          environments: environmentNames.map((environment_name) => {
+          environments: environmentViews.map(({ environment_name, source }) => {
             const latestRun =
               runs.find(
                 (run) =>
@@ -63,6 +63,7 @@ export async function getTenantOverview(db: D1Like, tenantId: string) {
             return {
               environment_name,
               latest_run: latestRun,
+              source,
             };
           }),
         };
@@ -96,6 +97,7 @@ export async function getServiceOverview(
           service_name: serviceId,
           provider: runs[0]?.provider ?? null,
           environments: [...new Set(runs.map((run) => run.environment_name))],
+          source: "observed" as const,
         }
       : null);
 
@@ -106,7 +108,7 @@ export async function getServiceOverview(
     tenantId,
     serviceId,
   );
-  const environmentNames = resolveEnvironmentNames(
+  const environmentViews = resolveEnvironmentViews(
     service.service_name,
     [...new Set(seededEnvironments.map((env) => env.environment_name))],
     runs,
@@ -115,7 +117,7 @@ export async function getServiceOverview(
   return {
     tenant,
     service,
-    environments: environmentNames.map((environment_name) => {
+    environments: environmentViews.map(({ environment_name, source }) => {
       const matchingRuns = runs.filter(
         (run) => run.environment_name === environment_name,
       );
@@ -124,6 +126,7 @@ export async function getServiceOverview(
         environment_name,
         latest_run: matchingRuns[0] ?? null,
         recent_runs: matchingRuns.slice(0, 10),
+        source,
       };
     }),
   };

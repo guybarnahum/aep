@@ -18,6 +18,7 @@ export interface ObservedServiceProjection {
   service_name: string;
   provider: string | null;
   environments: string[];
+  source: "observed";
 }
 
 export function buildObservedTenantProjection(
@@ -80,7 +81,17 @@ export function buildObservedServiceProjection(
         matchingRuns.map((run) => run.environment_name).filter(Boolean),
       ),
     ],
+    source: "observed",
   };
+}
+
+export function markCatalogServices(
+  services: ServiceSummary[],
+): ServiceSummary[] {
+  return services.map((service) => ({
+    ...service,
+    source: service.source ?? "catalog",
+  }));
 }
 
 export function mergeServiceSummaries(
@@ -106,14 +117,17 @@ export function mergeServiceSummaries(
       buildObservedServiceProjection(tenantId, serviceName, observedRuns),
     );
 
-  return [...catalogServices, ...observedOnly];
+  return [...markCatalogServices(catalogServices), ...observedOnly];
 }
 
-export function resolveEnvironmentNames(
+export function resolveEnvironmentViews(
   serviceName: string,
   catalogEnvironmentNames: string[],
   observedRuns: RunSummary[],
-): string[] {
+): Array<{
+  environment_name: string;
+  source: "catalog" | "observed";
+}> {
   const discoveredEnvironmentNames = [
     ...new Set(
       observedRuns
@@ -123,9 +137,29 @@ export function resolveEnvironmentNames(
     ),
   ];
 
-  return catalogEnvironmentNames.length > 0
-    ? [...new Set(catalogEnvironmentNames)]
-    : discoveredEnvironmentNames;
+  if (catalogEnvironmentNames.length > 0) {
+    return [...new Set(catalogEnvironmentNames)].map((environment_name) => ({
+      environment_name,
+      source: "catalog" as const,
+    }));
+  }
+
+  return discoveredEnvironmentNames.map((environment_name) => ({
+    environment_name,
+    source: "observed" as const,
+  }));
+}
+
+export function resolveEnvironmentNames(
+  serviceName: string,
+  catalogEnvironmentNames: string[],
+  observedRuns: RunSummary[],
+): string[] {
+  return resolveEnvironmentViews(
+    serviceName,
+    catalogEnvironmentNames,
+    observedRuns,
+  ).map((environment) => environment.environment_name);
 }
 
 function titleizeTenantId(tenantId: string): string {

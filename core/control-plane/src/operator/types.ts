@@ -102,6 +102,7 @@ export type ServiceSummary = {
   service_name: string;
   provider: string | null;
   environments: string[];
+  source?: "catalog" | "observed" | "catalog_enriched";
 };
 
 export type EnvironmentSummary = {
@@ -109,3 +110,10 @@ export type EnvironmentSummary = {
   service_id: string;
   environment_name: string;
 };
+
+export interface ServiceEnvironmentView {
+  environment_name: string;
+  latest_run: RunSummary | null;
+  recent_runs?: RunSummary[];
+  source?: "catalog" | "observed" | "catalog_enriched";
+}

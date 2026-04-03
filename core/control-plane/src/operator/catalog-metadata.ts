@@ -136,6 +136,7 @@ export async function listCatalogServicesForTenant(
     service_name: row.slug,
     provider: row.provider ?? inferProvider(row.kind, row.slug),
     environments: environmentNames,
+    source: "catalog" as const,
   }));
 }
 
@@ -178,6 +179,7 @@ export async function getCatalogService(
         (environmentRows.results ?? []).map((env) => env.environment_name),
       ),
     ],
+    source: "catalog" as const,
   };
 }
 
