@@ -1,3 +1,7 @@
+// Legacy runtime/operator tenant routes.
+// Commit 13.2 adds separate org catalog routes under /org/tenants.
+// Keep these handlers stable for existing operator/dashboard behavior.
+
 import { json, notFound } from "@aep/control-plane/lib/http";
 import {
   getServiceOverview,

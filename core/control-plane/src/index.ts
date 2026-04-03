@@ -14,6 +14,20 @@ import { corsPreflight } from "@aep/control-plane/lib/http";
 import { handleHealthz } from "@aep/control-plane/routes/healthz";
 import { handleOperatorRoute } from "@aep/control-plane/routes/operator";
 import {
+  handleCompaniesRoute,
+  handleCompanyDetailRoute,
+  handleTeamsRoute,
+  handleTeamDetailRoute,
+  handleOrgTenantsRoute,
+  handleOrgTenantDetailRoute,
+  handleTenantEnvironmentsRoute,
+  handleServicesRoute,
+  handleServiceDetailRoute,
+  handleEmployeesCatalogRoute,
+  handleEmployeeCatalogDetailRoute,
+  handleEmployeeScopeRoute,
+} from "@aep/control-plane/routes/org";
+import {
   handleRunDetailRoute,
   handleRunFailureRoute,
   handleRunJobsRoute,
@@ -463,6 +477,73 @@ export default {
     match = pathname.match(/^\/runs\/([^/]+)$/);
     if (request.method === "GET" && match) {
       return handleRunDetailRoute(request, env, decodeURIComponent(match[1]));
+    }
+
+    if (request.method === "GET" && pathname === "/companies") {
+      return handleCompaniesRoute(request, env);
+    }
+
+    match = pathname.match(/^\/companies\/([^/]+)$/);
+    if (request.method === "GET" && match) {
+      return handleCompanyDetailRoute(request, env, decodeURIComponent(match[1]));
+    }
+
+    if (request.method === "GET" && pathname === "/teams") {
+      return handleTeamsRoute(request, env);
+    }
+
+    match = pathname.match(/^\/teams\/([^/]+)$/);
+    if (request.method === "GET" && match) {
+      return handleTeamDetailRoute(request, env, decodeURIComponent(match[1]));
+    }
+
+    if (request.method === "GET" && pathname === "/org/tenants") {
+      return handleOrgTenantsRoute(request, env);
+    }
+
+    match = pathname.match(/^\/org\/tenants\/([^/]+)\/environments$/);
+    if (request.method === "GET" && match) {
+      return handleTenantEnvironmentsRoute(
+        request,
+        env,
+        decodeURIComponent(match[1]),
+      );
+    }
+
+    match = pathname.match(/^\/org\/tenants\/([^/]+)$/);
+    if (request.method === "GET" && match) {
+      return handleOrgTenantDetailRoute(
+        request,
+        env,
+        decodeURIComponent(match[1]),
+      );
+    }
+
+    if (request.method === "GET" && pathname === "/services") {
+      return handleServicesRoute(request, env);
+    }
+
+    match = pathname.match(/^\/services\/([^/]+)$/);
+    if (request.method === "GET" && match) {
+      return handleServiceDetailRoute(request, env, decodeURIComponent(match[1]));
+    }
+
+    if (request.method === "GET" && pathname === "/employees") {
+      return handleEmployeesCatalogRoute(request, env);
+    }
+
+    match = pathname.match(/^\/employees\/([^/]+)\/scope$/);
+    if (request.method === "GET" && match) {
+      return handleEmployeeScopeRoute(request, env, decodeURIComponent(match[1]));
+    }
+
+    match = pathname.match(/^\/employees\/([^/]+)$/);
+    if (request.method === "GET" && match) {
+      return handleEmployeeCatalogDetailRoute(
+        request,
+        env,
+        decodeURIComponent(match[1]),
+      );
     }
 
     if (request.method === "GET" && pathname === "/tenants") {
