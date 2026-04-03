@@ -111,12 +111,12 @@ export async function handleRunFailureRoute(
     runId,
     resourceId: runId,
     handler: async () => {
-      const failure = await getRunFailure(env.DB, runId);
-      if (failure === undefined) {
+      const detail = await getRunDetail(env.DB, runId);
+      if (!detail) {
         return notFound(`run not found: ${runId}`);
       }
 
-      return json({ run_id: runId, failure });
+      return json({ run_id: runId, failure: detail.failure });
     },
   });
 }
