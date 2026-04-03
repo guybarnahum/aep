@@ -10,7 +10,7 @@ import {
   mergeTenantSummaries,
   resolveEnvironmentViews,
 } from "@aep/control-plane/operator/runtime-projection";
-import { listRunSummaries } from "@aep/control-plane/operator/runs";
+import { listProjectionRunSummaries } from "@aep/control-plane/operator/runs";
 import type { TenantSummary } from "@aep/control-plane/operator/types";
 
 type D1Like = D1Database;
@@ -24,7 +24,7 @@ async function listObservedRuns(
   limit = 200,
 ) {
   try {
-    return await listRunSummaries(db, limit);
+    return await listProjectionRunSummaries(db, limit);
   } catch (error) {
     console.error("operator dashboard observed-run fallback", error);
     return [];

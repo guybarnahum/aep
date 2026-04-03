@@ -139,6 +139,42 @@ export async function listRunSummaries(
   return summaries;
 }
 
+export async function listProjectionRunSummaries(
+  db: D1Like,
+  limit = 200,
+): Promise<RunSummary[]> {
+  const runs = await fetchRecentRuns(db, limit);
+
+  return runs.map((run) => ({
+    run_id: run.run_id,
+    tenant_id: run.tenant_id,
+    project_id: run.project_id,
+    service_name: coerceServiceName(run.service_name, run.repo_url),
+    environment_name: deriveEnvironmentName(run.branch),
+    repo_url: run.repo_url,
+    branch: run.branch,
+    provider: null,
+    status: deriveRunStatus({
+      run: {
+        status: run.workflow_status,
+        completed_at: run.completed_at,
+      },
+      jobs: [],
+      attempts: [],
+    }),
+    current_step: null,
+    logical_job_type: null,
+    logical_job_status: null,
+    active_attempt: null,
+    latest_failure_kind: run.workflow_status === "failed" ? "workflow_failed" : null,
+    created_at: run.created_at,
+    updated_at: run.completed_at ?? run.created_at,
+    completed_at: run.completed_at,
+    trace_id: run.trace_id,
+    trace_path: buildTracePath(run.trace_id),
+  }));
+}
+
 export async function getRunDetail(
   db: D1Like,
   runId: string,
