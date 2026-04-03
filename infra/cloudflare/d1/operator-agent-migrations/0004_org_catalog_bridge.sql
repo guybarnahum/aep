@@ -69,6 +69,7 @@ CREATE TABLE IF NOT EXISTS services_catalog (
   slug TEXT NOT NULL,
   name TEXT NOT NULL,
   kind TEXT NOT NULL,
+  provider TEXT,
   status TEXT NOT NULL,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
@@ -162,11 +163,11 @@ INSERT OR IGNORE INTO tenant_environments (id, tenant_id, environment_name, kind
 ('env_internal_aep_production', 'tenant_internal_aep', 'production', 'production', 'active', NULL, NULL, '2026-04-02T00:00:00.000Z', '2026-04-02T00:00:00.000Z'),
 ('env_async_validation', 'tenant_async_validation', 'async_validation', 'validation', 'active', NULL, NULL, '2026-04-02T00:00:00.000Z', '2026-04-02T00:00:00.000Z');
 
-INSERT OR IGNORE INTO services_catalog (id, company_id, tenant_id, team_id, slug, name, kind, status, created_at, updated_at) VALUES
-('service_control_plane', 'company_internal_aep', 'tenant_internal_aep', 'team_infra', 'control-plane', 'Control Plane', 'backend', 'active', '2026-04-02T00:00:00.000Z', '2026-04-02T00:00:00.000Z'),
-('service_operator_agent', 'company_internal_aep', 'tenant_internal_aep', 'team_infra', 'operator-agent', 'Operator Agent', 'backend', 'active', '2026-04-02T00:00:00.000Z', '2026-04-02T00:00:00.000Z'),
-('service_dashboard', 'company_internal_aep', 'tenant_internal_aep', 'team_web_product', 'dashboard', 'Dashboard', 'frontend', 'active', '2026-04-02T00:00:00.000Z', '2026-04-02T00:00:00.000Z'),
-('service_ops_console', 'company_internal_aep', 'tenant_internal_aep', 'team_web_product', 'ops-console', 'Ops Console', 'frontend', 'active', '2026-04-02T00:00:00.000Z', '2026-04-02T00:00:00.000Z');
+INSERT OR IGNORE INTO services_catalog (id, company_id, tenant_id, team_id, slug, name, kind, provider, status, created_at, updated_at) VALUES
+('service_control_plane', 'company_internal_aep', 'tenant_internal_aep', 'team_infra', 'control-plane', 'Control Plane', 'backend', 'cloudflare', 'active', '2026-04-02T00:00:00.000Z', '2026-04-02T00:00:00.000Z'),
+('service_operator_agent', 'company_internal_aep', 'tenant_internal_aep', 'team_infra', 'operator-agent', 'Operator Agent', 'backend', 'cloudflare', 'active', '2026-04-02T00:00:00.000Z', '2026-04-02T00:00:00.000Z'),
+('service_dashboard', 'company_internal_aep', 'tenant_internal_aep', 'team_web_product', 'dashboard', 'Dashboard', 'frontend', 'cloudflare', 'active', '2026-04-02T00:00:00.000Z', '2026-04-02T00:00:00.000Z'),
+('service_ops_console', 'company_internal_aep', 'tenant_internal_aep', 'team_web_product', 'ops-console', 'Ops Console', 'frontend', 'cloudflare', 'active', '2026-04-02T00:00:00.000Z', '2026-04-02T00:00:00.000Z');
 
 INSERT OR IGNORE INTO employees_catalog (id, company_id, team_id, employee_name, role_id, status, scheduler_mode, created_at, updated_at) VALUES
 ('emp_timeout_recovery_01', 'company_internal_aep', 'team_infra', 'Timeout Recovery Operator', 'timeout-recovery-operator', 'active', 'cron_and_manual', '2026-04-02T00:00:00.000Z', '2026-04-02T00:00:00.000Z'),

@@ -17,6 +17,7 @@ type ServiceCatalogRow = {
   slug: string;
   name: string;
   kind: string;
+  provider: string | null;
 };
 
 type TenantEnvironmentRow = {
@@ -105,7 +106,7 @@ export async function listCatalogServicesForTenant(
 ): Promise<ServiceSummary[]> {
   const serviceRows = await db
     .prepare(
-      `SELECT id, tenant_id, slug, name, kind
+      `SELECT id, tenant_id, slug, name, kind, provider
        FROM services_catalog
        WHERE tenant_id = ?
        ORDER BY id`,
@@ -133,7 +134,7 @@ export async function listCatalogServicesForTenant(
     tenant_id: row.tenant_id ?? tenantId,
     service_id: row.id,
     service_name: row.slug,
-    provider: inferProvider(row.kind, row.slug),
+    provider: row.provider ?? inferProvider(row.kind, row.slug),
     environments: environmentNames,
   }));
 }
@@ -145,7 +146,7 @@ export async function getCatalogService(
 ): Promise<ServiceSummary | null> {
   const row = await db
     .prepare(
-      `SELECT id, tenant_id, slug, name, kind
+      `SELECT id, tenant_id, slug, name, kind, provider
        FROM services_catalog
        WHERE tenant_id = ? AND id = ?
        LIMIT 1`,
@@ -171,7 +172,7 @@ export async function getCatalogService(
     tenant_id: row.tenant_id ?? tenantId,
     service_id: row.id,
     service_name: row.slug,
-    provider: inferProvider(row.kind, row.slug),
+    provider: row.provider ?? inferProvider(row.kind, row.slug),
     environments: [
       ...new Set(
         (environmentRows.results ?? []).map((env) => env.environment_name),

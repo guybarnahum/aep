@@ -197,6 +197,13 @@ jobs:
         run: |
           npm run ci:runtime-projection-check | tee runtime-projection-check.log
 
+      - name: Validate service provider metadata
+        id: service_provider_metadata
+        env:
+          CONTROL_PLANE_BASE_URL: ${{ env.DEPLOY_URL }}
+        run: |
+          npm run ci:service-provider-check | tee service-provider-check.log
+
       - name: Employee scope contract
         id: employee_scope_contract
         if: steps.operator_agent_config.outputs.enabled == 'true' && steps.wait_operator_agent.outcome == 'success'
@@ -249,7 +256,7 @@ jobs:
 
           OUTCOME="success"
 
-          if [[ "${{ steps.base_url_config.outcome }}" != "success" || "${{ steps.health_check.outcome }}" != "success" || "${{ steps.scheduled_routing.outcome }}" != "success" || "${{ steps.org_schema_seed.outcome }}" != "success" || "${{ steps.org_inventory_routes.outcome }}" != "success" || "${{ steps.runtime_tenant_catalog.outcome }}" != "success" || "${{ steps.runtime_projection.outcome }}" != "success" ]]; then
+          if [[ "${{ steps.base_url_config.outcome }}" != "success" || "${{ steps.health_check.outcome }}" != "success" || "${{ steps.scheduled_routing.outcome }}" != "success" || "${{ steps.org_schema_seed.outcome }}" != "success" || "${{ steps.org_inventory_routes.outcome }}" != "success" || "${{ steps.runtime_tenant_catalog.outcome }}" != "success" || "${{ steps.runtime_projection.outcome }}" != "success" || "${{ steps.service_provider_metadata.outcome }}" != "success" ]]; then
             OUTCOME="failure"
           elif [[ "$ENABLED" == "true" && "${{ steps.wait_operator_agent.outcome }}" != "success" ]]; then
             OUTCOME="failure"
@@ -308,6 +315,7 @@ jobs:
           ORG_INVENTORY_OUTCOME="${{ steps.org_inventory_routes.outcome }}"
           RUNTIME_TENANT_CATALOG_OUTCOME="${{ steps.runtime_tenant_catalog.outcome }}"
           RUNTIME_PROJECTION_OUTCOME="${{ steps.runtime_projection.outcome }}"
+          SERVICE_PROVIDER_METADATA_OUTCOME="${{ steps.service_provider_metadata.outcome }}"
           EMPLOYEE_SCOPE_OUTCOME="${{ steps.employee_scope_contract.outcome }}"
           PAPERCLIP_FIRST_EXECUTION_OUTCOME="${{ steps.paperclip_first_execution.outcome }}"
           OPERATOR_WARNINGS="$(collect_operator_warnings)"
@@ -343,6 +351,7 @@ jobs:
           echo "- $(status_emoji "$ORG_INVENTORY_OUTCOME") Org inventory routes: $ORG_INVENTORY_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
           echo "- $(status_emoji "$RUNTIME_TENANT_CATALOG_OUTCOME") Runtime tenant catalog projection: $RUNTIME_TENANT_CATALOG_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
           echo "- $(status_emoji "$RUNTIME_PROJECTION_OUTCOME") Runtime projection behavior: $RUNTIME_PROJECTION_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
+          echo "- $(status_emoji "$SERVICE_PROVIDER_METADATA_OUTCOME") Service provider metadata: $SERVICE_PROVIDER_METADATA_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
           echo "- $(status_emoji "$EMPLOYEE_SCOPE_OUTCOME") Employee scope contract: $EMPLOYEE_SCOPE_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
           echo "- $(status_emoji "$PAPERCLIP_FIRST_EXECUTION_OUTCOME") Paperclip first execution: $PAPERCLIP_FIRST_EXECUTION_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
 
@@ -383,6 +392,8 @@ jobs:
             echo "- Runtime tenant catalog projection failed. Inspect control-plane operator metadata, dashboard composition, and D1-backed tenant/service/environment mapping." >> "$GITHUB_STEP_SUMMARY"
           elif [[ "$RUNTIME_PROJECTION_OUTCOME" != "success" ]]; then
             echo "- Runtime projection validation failed. Inspect dashboard projection logic, observed-run merge behavior, and environment resolution precedence." >> "$GITHUB_STEP_SUMMARY"
+          elif [[ "$SERVICE_PROVIDER_METADATA_OUTCOME" != "success" ]]; then
+            echo "- Service provider metadata validation failed. Inspect services_catalog provider values and catalog-backed service mapping." >> "$GITHUB_STEP_SUMMARY"
           elif [[ "$EMPLOYEE_SCOPE_OUTCOME" != "success" ]]; then
             echo "- Employee scope validation failed. Inspect operator-agent employee catalog bridge, scope resolver, and effective policy route." >> "$GITHUB_STEP_SUMMARY"
           elif [[ "$PAPERCLIP_FIRST_EXECUTION_OUTCOME" != "success" ]]; then

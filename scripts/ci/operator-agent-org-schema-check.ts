@@ -167,6 +167,30 @@ function main(): void {
     throw new Error(`Expected at least 10 employee scope bindings, got ${scopeBindingCount}`);
   }
 
+  const providerRows = execSql(
+    "SELECT id, provider FROM services_catalog ORDER BY id",
+  );
+
+  const providerById = new Map(
+    providerRows.map((row) => [
+      String(row.id ?? ""),
+      String(row.provider ?? ""),
+    ]),
+  );
+
+  for (const serviceId of [
+    "service_control_plane",
+    "service_operator_agent",
+    "service_dashboard",
+    "service_ops_console",
+  ]) {
+    if (providerById.get(serviceId) !== "cloudflare") {
+      throw new Error(
+        `Expected provider=cloudflare for ${serviceId}, got ${providerById.get(serviceId)}`,
+      );
+    }
+  }
+
   console.log("operator-agent-org-schema-check passed", {
     tablesValidated: expectedTables.length,
     employeeCatalogCount,
