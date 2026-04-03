@@ -1,6 +1,8 @@
 // Legacy runtime/operator tenant routes.
 // Commit 13.2 adds separate org catalog routes under /org/tenants.
 // Keep these handlers stable for existing operator/dashboard behavior.
+// Commit 13.5: these legacy runtime/operator routes are now catalog-backed
+// through D1 org metadata rather than hardcoded seeded arrays.
 
 import { json, notFound } from "@aep/control-plane/lib/http";
 import {
@@ -37,10 +39,10 @@ export async function handleTenantOverviewRoute(
 
 export async function handleTenantServicesRoute(
   _request: Request,
-  _env: EnvLike,
+  env: EnvLike,
   tenantId: string,
 ): Promise<Response> {
-  const services = listServicesForTenant(tenantId);
+  const services = await listServicesForTenant(env.DB, tenantId);
   return json({ tenant_id: tenantId, services });
 }
 

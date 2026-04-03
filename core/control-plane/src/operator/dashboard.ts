@@ -18,7 +18,7 @@ function titleizeTenantId(tenantId: string): string {
 }
 
 export async function listTenantSummaries(db: D1Like): Promise<TenantSummary[]> {
-  const seeded = listSeededTenants();
+  const seeded = await listSeededTenants(db);
   const runs = await listRunSummaries(db, 200);
 
   const observedIds = [...new Set(runs.map((run) => run.tenant_id))].filter(Boolean);
@@ -47,7 +47,7 @@ export async function getTenantOverview(db: D1Like, tenantId: string) {
   const tenant = allTenants.find((entry) => entry.tenant_id === tenantId) ?? null;
   if (!tenant) return null;
 
-  const services = listServicesForTenant(tenantId);
+  const services = await listServicesForTenant(db, tenantId);
   const runs = (await listRunSummaries(db, 200)).filter(
     (run) => run.tenant_id === tenantId,
   );
@@ -79,8 +79,13 @@ export async function getTenantOverview(db: D1Like, tenantId: string) {
 
   return {
     tenant,
-    services: allServices.map((service) => {
-      const seededEnvironments = listEnvironmentsForService(tenantId, service.service_id);
+    services: await Promise.all(
+      allServices.map(async (service) => {
+      const seededEnvironments = await listEnvironmentsForService(
+        db,
+        tenantId,
+        service.service_id,
+      );
       const discoveredEnvironmentNames = [
         ...new Set(
           runs
@@ -111,6 +116,7 @@ export async function getTenantOverview(db: D1Like, tenantId: string) {
         }),
       };
     }),
+    ),
   };
 }
 
@@ -123,7 +129,7 @@ export async function getServiceOverview(
   const tenant = allTenants.find((entry) => entry.tenant_id === tenantId) ?? null;
   if (!tenant) return null;
 
-  const seededService = getService(tenantId, serviceId);
+  const seededService = await getService(db, tenantId, serviceId);
   const runs = (await listRunSummaries(db, 200)).filter(
     (run) =>
       run.tenant_id === tenantId &&
@@ -144,7 +150,11 @@ export async function getServiceOverview(
 
   if (!service) return null;
 
-  const seededEnvironments = listEnvironmentsForService(tenantId, serviceId);
+  const seededEnvironments = await listEnvironmentsForService(
+    db,
+    tenantId,
+    serviceId,
+  );
   const environmentNames =
     seededEnvironments.length > 0
       ? [...new Set(seededEnvironments.map((env) => env.environment_name))]
