@@ -1,17 +1,7 @@
 /* eslint-disable no-console */
 
 import assert from "node:assert/strict";
-
-async function getJson(baseUrl: string, path: string): Promise<unknown> {
-  const response = await fetch(`${baseUrl}${path}`);
-  const text = await response.text();
-
-  if (!response.ok) {
-    throw new Error(`GET ${path} failed: ${response.status} ${text}`);
-  }
-
-  return JSON.parse(text);
-}
+import { fetchJson } from "../lib/http-json";
 
 function expectTenantIds(
   tenants: Array<Record<string, unknown>>,
@@ -41,7 +31,7 @@ async function main(): Promise<void> {
     throw new Error("Missing CONTROL_PLANE_BASE_URL");
   }
 
-  const tenantsPayload = (await getJson(baseUrl, "/tenants")) as {
+  const tenantsPayload = (await fetchJson(baseUrl, "/tenants")) as {
     tenants: Array<Record<string, unknown>>;
   };
 
@@ -51,7 +41,7 @@ async function main(): Promise<void> {
     "tenant_async_validation",
   ]);
 
-  const tenantOverview = (await getJson(
+  const tenantOverview = (await fetchJson(
     baseUrl,
     "/tenants/tenant_internal_aep",
   )) as {
@@ -67,7 +57,7 @@ async function main(): Promise<void> {
     "service_ops_console",
   ]);
 
-  const tenantServices = (await getJson(
+  const tenantServices = (await fetchJson(
     baseUrl,
     "/tenants/tenant_internal_aep/services",
   )) as {
@@ -83,7 +73,7 @@ async function main(): Promise<void> {
     "service_ops_console",
   ]);
 
-  const serviceOverview = (await getJson(
+  const serviceOverview = (await fetchJson(
     baseUrl,
     "/tenants/tenant_internal_aep/services/service_dashboard",
   )) as {

@@ -1,6 +1,7 @@
 /* eslint-disable no-console */
 
 import assert from "node:assert/strict";
+import { fetchJson } from "../lib/http-json";
 
 function assertProjectionSource(
   value: unknown,
@@ -14,24 +15,13 @@ function assertProjectionSource(
   );
 }
 
-async function getJson(baseUrl: string, path: string): Promise<unknown> {
-  const response = await fetch(`${baseUrl}${path}`);
-  const text = await response.text();
-
-  if (!response.ok) {
-    throw new Error(`GET ${path} failed: ${response.status} ${text}`);
-  }
-
-  return JSON.parse(text);
-}
-
 async function main(): Promise<void> {
   const baseUrl = process.env.CONTROL_PLANE_BASE_URL;
   if (!baseUrl) {
     throw new Error("Missing CONTROL_PLANE_BASE_URL");
   }
 
-  const tenantsPayload = (await getJson(baseUrl, "/tenants")) as {
+  const tenantsPayload = (await fetchJson(baseUrl, "/tenants")) as {
     tenants: Array<Record<string, unknown>>;
   };
 
@@ -41,7 +31,7 @@ async function main(): Promise<void> {
   assert(tenant, "Expected tenant_internal_aep in /tenants");
   assert.equal(tenant.source, "seeded");
 
-  const tenantOverview = (await getJson(
+  const tenantOverview = (await fetchJson(
     baseUrl,
     "/tenants/tenant_internal_aep",
   )) as {
@@ -94,7 +84,7 @@ async function main(): Promise<void> {
     );
   }
 
-  const serviceOverview = (await getJson(
+  const serviceOverview = (await fetchJson(
     baseUrl,
     "/tenants/tenant_internal_aep/services/service_dashboard",
   )) as {

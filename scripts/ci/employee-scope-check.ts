@@ -1,17 +1,7 @@
 /* eslint-disable no-console */
 
 import assert from "node:assert/strict";
-
-async function getJson(baseUrl: string, path: string): Promise<unknown> {
-  const response = await fetch(`${baseUrl}${path}`);
-  const text = await response.text();
-
-  if (!response.ok) {
-    throw new Error(`GET ${path} failed: ${response.status} ${text}`);
-  }
-
-  return JSON.parse(text);
-}
+import { fetchJson } from "../lib/http-json";
 
 async function main(): Promise<void> {
   const baseUrl = process.env.OPERATOR_AGENT_BASE_URL;
@@ -19,7 +9,7 @@ async function main(): Promise<void> {
     throw new Error("Missing OPERATOR_AGENT_BASE_URL");
   }
 
-  const timeoutScope = (await getJson(
+  const timeoutScope = (await fetchJson(
     baseUrl,
     "/agent/employees/emp_timeout_recovery_01/scope",
   )) as {
@@ -34,7 +24,7 @@ async function main(): Promise<void> {
   assert(timeoutScope.allowedTenants.includes("tenant_internal_aep"));
   assert(timeoutScope.allowedServices.includes("service_control_plane"));
 
-  const webScope = (await getJson(
+  const webScope = (await fetchJson(
     baseUrl,
     "/agent/employees/emp_product_manager_web_01/scope",
   )) as {
@@ -47,7 +37,7 @@ async function main(): Promise<void> {
   assert(webScope.allowedServices.includes("service_dashboard"));
   assert(webScope.allowedEnvironmentNames.includes("preview"));
 
-  const validationScope = (await getJson(
+  const validationScope = (await fetchJson(
     baseUrl,
     "/agent/employees/emp_validation_engineer_01/scope",
   )) as {
@@ -58,7 +48,7 @@ async function main(): Promise<void> {
   assert.equal(validationScope.teamId, "team_validation");
   assert(validationScope.allowedEnvironmentNames.includes("async_validation"));
 
-  const effectivePolicy = (await getJson(
+  const effectivePolicy = (await fetchJson(
     baseUrl,
     "/agent/employees/emp_timeout_recovery_01/effective-policy",
   )) as {
@@ -81,7 +71,7 @@ async function main(): Promise<void> {
     ),
   );
 
-  const plannedPolicy = (await getJson(
+  const plannedPolicy = (await fetchJson(
     baseUrl,
     "/agent/employees/emp_product_manager_web_01/effective-policy",
   )) as {

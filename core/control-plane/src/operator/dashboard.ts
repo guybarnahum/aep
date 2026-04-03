@@ -15,9 +15,21 @@ import type { TenantSummary } from "@aep/control-plane/operator/types";
 
 type D1Like = D1Database;
 
+async function listObservedRuns(
+  db: D1Like,
+  limit = 200,
+) {
+  try {
+    return await listRunSummaries(db, limit);
+  } catch (error) {
+    console.error("operator dashboard observed-run fallback", error);
+    return [];
+  }
+}
+
 export async function listTenantSummaries(db: D1Like): Promise<TenantSummary[]> {
   const seeded = await listSeededTenants(db);
-  const runs = await listRunSummaries(db, 200);
+  const runs = await listObservedRuns(db, 200);
 
   return mergeTenantSummaries(seeded, runs);
 }
@@ -28,7 +40,7 @@ export async function getTenantOverview(db: D1Like, tenantId: string) {
   if (!tenant) return null;
 
   const services = await listServicesForTenant(db, tenantId);
-  const runs = (await listRunSummaries(db, 200)).filter(
+  const runs = (await listObservedRuns(db, 200)).filter(
     (run) => run.tenant_id === tenantId,
   );
 
@@ -82,7 +94,7 @@ export async function getServiceOverview(
   if (!tenant) return null;
 
   const seededService = await getService(db, tenantId, serviceId);
-  const runs = (await listRunSummaries(db, 200)).filter(
+  const runs = (await listObservedRuns(db, 200)).filter(
     (run) =>
       run.tenant_id === tenantId &&
       run.service_name === serviceId,

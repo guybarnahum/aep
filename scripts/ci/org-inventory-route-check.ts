@@ -1,6 +1,7 @@
 /* eslint-disable no-console */
 
 import assert from "node:assert/strict";
+import { fetchJson } from "../lib/http-json";
 
 type JsonValue = unknown;
 
@@ -10,14 +11,7 @@ async function getJson(path: string): Promise<JsonValue> {
     throw new Error("Missing CONTROL_PLANE_BASE_URL");
   }
 
-  const response = await fetch(`${baseUrl}${path}`);
-  const text = await response.text();
-
-  if (!response.ok) {
-    throw new Error(`GET ${path} failed: ${response.status} ${text}`);
-  }
-
-  return JSON.parse(text);
+  return fetchJson(baseUrl, path);
 }
 
 function expectIds(
