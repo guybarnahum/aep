@@ -6,14 +6,19 @@ import { resolveServiceBaseUrl } from "../lib/service-map";
 export {};
 
 const POLICY_VERSION = "commit10-stageD";
+const TEAM_ID = "team_infra";
+const EXECUTION_COMPANY_ID = "company_internal_aep";
 
 type ApprovalEntry = {
-  id: string;
-  employeeId: string;
+  approvalId: string;
+  requestedByEmployeeId: string;
   reason: string;
-  state: "pending_review" | "approved" | "rejected" | "expired" | "already_executed";
-  requestedAt: string;
-  metadata?: {
+  status: "pending" | "approved" | "rejected" | "expired";
+  timestamp: string;
+  companyId?: string;
+  taskId?: string;
+  heartbeatId?: string;
+  executionContext?: {
     companyId?: string;
     taskId?: string;
     heartbeatId?: string;
@@ -33,6 +38,8 @@ type PaperclipRunResponse = {
     trigger: string;
     employeeId: string;
     roleId: string;
+    companyId?: string;
+    teamId?: string;
   };
   result: unknown;
   executionSource: "paperclip";
@@ -63,22 +70,11 @@ type ControlHistoryResponse = {
     historyId: string;
     timestamp: string;
     employeeId: string;
-    previousState?: {
-      state: string;
-      blocked: boolean;
-    };
-    nextState?: {
-      state: string;
-      blocked: boolean;
-    };
+    previousState?: string;
+    nextState?: string;
     transition: string;
     reason: string;
-    metadata?: {
-      companyId?: string;
-      taskId?: string;
-      approvalId?: string;
-      [key: string]: unknown;
-    };
+    approvalId?: string;
   }>;
 };
 
@@ -111,7 +107,7 @@ async function main(): Promise<void> {
       "x-aep-execution-source": "paperclip",
     },
     body: JSON.stringify({
-      departmentId: "aep-infra-ops",
+      teamId: TEAM_ID,
       employeeId: "emp_infra_ops_manager_01",
       roleId: "infra-ops-manager",
       trigger: "paperclip",
@@ -120,7 +116,7 @@ async function main(): Promise<void> {
         "emp_timeout_recovery_01",
         "emp_retry_supervisor_01",
       ],
-      companyId: "company-12345",
+      companyId: EXECUTION_COMPANY_ID,
       heartbeatId: "hb-" + Date.now(),
       taskId: "task-" + Date.now(),
     }),
@@ -142,8 +138,10 @@ async function main(): Promise<void> {
     throw new Error("Expected executionContext.executionSource=paperclip");
   }
 
-  if (result.executionContext?.companyId !== "company-12345") {
-    throw new Error("Expected executionContext.companyId=company-12345");
+  if (result.executionContext?.companyId !== EXECUTION_COMPANY_ID) {
+    throw new Error(
+      `Expected executionContext.companyId=${EXECUTION_COMPANY_ID}`
+    );
   }
 
   if (result.cronFallbackRecommended !== false) {
@@ -170,6 +168,10 @@ async function main(): Promise<void> {
     );
   }
 
+  if (result.request.teamId !== TEAM_ID) {
+    throw new Error(`Expected request.teamId=${TEAM_ID}, got ${result.request.teamId}`);
+  }
+
   // Additional validation: approval-linked governance artifact provenance preservation
   // When executed under paperclip origin, any approvals created should preserve company provenance
 
@@ -193,30 +195,28 @@ async function main(): Promise<void> {
   }
 
   // Check that any approvals related to this execution have company metadata
-  const executionCompanyId = result.executionContext?.companyId || "company-12345";
+  const executionCompanyId = result.executionContext?.companyId || EXECUTION_COMPANY_ID;
   const executionTaskId = result.executionContext?.taskId || result.taskId;
   const executionSource = result.executionContext?.executionSource || "paperclip";
 
   let approvalsWithCompanyProvenance = 0;
 
   for (const approval of approvalEntries) {
-    if (approval.metadata) {
-      // Approvals that came from this execution should have company metadata
-      if (
-        approval.metadata.companyId === executionCompanyId &&
-        approval.metadata.taskId === executionTaskId
-      ) {
-        // Validate execution source is preserved
-        if (approval.metadata.executionSource !== executionSource) {
-          console.warn(
-            `Warning: Approval ${approval.id} has company provenance but ` +
-              `executionSource mismatch. Expected "${executionSource}", ` +
-              `got "${approval.metadata.executionSource}"`
-          );
-        }
+    const approvalExecutionContext = approval.executionContext;
 
-        approvalsWithCompanyProvenance++;
+    if (
+      approval.companyId === executionCompanyId &&
+      approval.taskId === executionTaskId
+    ) {
+      if (approvalExecutionContext?.executionSource !== executionSource) {
+        console.warn(
+          `Warning: Approval ${approval.approvalId} has company provenance but ` +
+            `executionSource mismatch. Expected "${executionSource}", ` +
+            `got "${approvalExecutionContext?.executionSource}"`
+        );
       }
+
+      approvalsWithCompanyProvenance++;
     }
   }
 
@@ -233,23 +233,21 @@ async function main(): Promise<void> {
   let controlEntriesWithApprovalProvenance = 0;
 
   for (const entry of controlHistory.entries) {
-    if (entry.metadata?.approvalId) {
-      // Control history entries linked to approvals should have company context
-      if (entry.metadata.companyId === executionCompanyId) {
+    if (entry.approvalId) {
+      const relatedApproval = approvalEntries.find(
+        (approval) => approval.approvalId === entry.approvalId
+      );
+
+      if (relatedApproval?.companyId === executionCompanyId) {
         controlEntriesWithApprovalProvenance++;
+      }
 
-        // Additional check: approval-based control changes should link to the approval
-        const relatedApproval = approvalEntries.find(
-          (a) => a.id === entry.metadata?.approvalId
+      if (!relatedApproval) {
+        console.warn(
+          `Warning: Control history entry ${entry.historyId} references ` +
+            `approval ${entry.approvalId} that does not exist. ` +
+            `This may indicate orphaned approval linkage.`
         );
-
-        if (!relatedApproval) {
-          console.warn(
-            `Warning: Control history entry ${entry.historyId} references ` +
-              `approval ${entry.metadata.approvalId} that does not exist. ` +
-              `This may indicate orphaned approval linkage.`
-          );
-        }
       }
     }
   }

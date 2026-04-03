@@ -15,6 +15,14 @@ import type { TenantSummary } from "@aep/control-plane/operator/types";
 
 type D1Like = D1Database;
 
+function serviceMatchesRunServiceName(
+  serviceId: string,
+  serviceName: string,
+  runServiceName: string,
+): boolean {
+  return runServiceName === serviceId || runServiceName === serviceName;
+}
+
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
@@ -58,7 +66,11 @@ async function buildTenantServiceOverviewEntry(args: {
         const latestRun =
           runs.find(
             (run) =>
-              run.service_name === service.service_name &&
+              serviceMatchesRunServiceName(
+                service.service_id,
+                service.service_name,
+                run.service_name,
+              ) &&
               run.environment_name === environment_name,
           ) ?? null;
 
@@ -130,7 +142,8 @@ export async function getServiceOverview(
   const runs = (await listObservedRuns(db, 200)).filter(
     (run) =>
       run.tenant_id === tenantId &&
-      run.service_name === serviceId,
+      (run.service_name === serviceId ||
+        run.service_name === seededService?.service_name),
   );
 
   const service =

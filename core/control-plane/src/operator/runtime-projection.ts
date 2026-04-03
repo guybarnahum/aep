@@ -4,6 +4,16 @@ import type {
   TenantSummary,
 } from "@aep/control-plane/operator/types";
 
+function serviceMatchesObservedName(
+  service: ServiceSummary,
+  observedServiceName: string,
+): boolean {
+  return (
+    service.service_id === observedServiceName ||
+    service.service_name === observedServiceName
+  );
+}
+
 export interface ObservedTenantProjection {
   tenant_id: string;
   name: string;
@@ -105,7 +115,7 @@ export function enrichCatalogServicesWithObservedState(
     const matchingRuns = observedRuns.filter(
       (run) =>
         run.tenant_id === tenantId &&
-        run.service_name === service.service_name,
+        serviceMatchesObservedName(service, run.service_name),
     );
 
     if (matchingRuns.length === 0) {
@@ -139,7 +149,9 @@ export function mergeServiceSummaries(
   const observedOnly = discoveredServiceNames
     .filter(
       (serviceName) =>
-        !catalogServices.some((service) => service.service_name === serviceName),
+        !catalogServices.some((service) =>
+          serviceMatchesObservedName(service, serviceName),
+        ),
     )
     .map((serviceName) =>
       buildObservedServiceProjection(tenantId, serviceName, observedRuns),
