@@ -142,6 +142,18 @@ jobs:
             --interval-ms 5000 \
             --timeout-ms 8000 | tee wait-operator-agent.log
 
+      - name: Validate operator-agent org schema seed
+        id: operator_agent_org_schema
+        if: steps.operator_agent_config.outputs.enabled == 'true' && steps.wait_operator_agent.outcome == 'success'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          WRANGLER_CONFIG_PATH: core/operator-agent/wrangler.jsonc
+          WRANGLER_D1_EXECUTION_LOCATION: remote
+          CF_ENV: ${{ inputs.cf_env }}
+        run: |
+          npm run ci:operator-agent-org-schema-check | tee operator-agent-org-schema-check.log
+
       - name: Operator surface contract
         id: operator_surface
         if: steps.operator_agent_config.outputs.enabled == 'true' && steps.wait_operator_agent.outcome == 'success'
@@ -227,7 +239,7 @@ jobs:
             OUTCOME="failure"
           elif [[ "$ENABLED" == "true" && "${{ steps.wait_operator_agent.outcome }}" != "success" ]]; then
             OUTCOME="failure"
-          elif [[ "$ENABLED" == "true" && ( "${{ steps.operator_surface.outcome }}" != "success" || "${{ steps.employee_scope_contract.outcome }}" != "success" || "${{ steps.paperclip_first_execution.outcome }}" != "success" ) ]]; then
+          elif [[ "$ENABLED" == "true" && ( "${{ steps.operator_agent_org_schema.outcome }}" != "success" || "${{ steps.operator_surface.outcome }}" != "success" || "${{ steps.employee_scope_contract.outcome }}" != "success" || "${{ steps.paperclip_first_execution.outcome }}" != "success" ) ]]; then
             OUTCOME="failure"
           fi
 
@@ -275,6 +287,7 @@ jobs:
           BASE_URL_CONFIG_OUTCOME="${{ steps.base_url_config.outcome }}"
           HEALTH_OUTCOME="${{ steps.health_check.outcome }}"
           OPERATOR_AGENT_READINESS_OUTCOME="${{ steps.wait_operator_agent.outcome }}"
+          OPERATOR_AGENT_ORG_SCHEMA_OUTCOME="${{ steps.operator_agent_org_schema.outcome }}"
           OPERATOR_SURFACE_OUTCOME="${{ steps.operator_surface.outcome }}"
           SCHEDULED_ROUTING_OUTCOME="${{ steps.scheduled_routing.outcome }}"
           ORG_SCHEMA_OUTCOME="${{ steps.org_schema_seed.outcome }}"
@@ -304,6 +317,7 @@ jobs:
           echo "" >> "$GITHUB_STEP_SUMMARY"
 
           echo "### Operator-facing API contract" >> "$GITHUB_STEP_SUMMARY"
+          echo "- $(status_emoji "$OPERATOR_AGENT_ORG_SCHEMA_OUTCOME") Operator-agent org schema: $OPERATOR_AGENT_ORG_SCHEMA_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
           echo "- $(status_emoji "$OPERATOR_SURFACE_OUTCOME") Operator surface contract: $OPERATOR_SURFACE_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
           echo "  - Validates employees, escalations, approvals, controls, and work logs" >> "$GITHUB_STEP_SUMMARY"
           echo "  - Ensures approval endpoints and state machine are present" >> "$GITHUB_STEP_SUMMARY"
@@ -337,6 +351,8 @@ jobs:
             echo "- Control-plane preflight failed. Start with base URL and /healthz before investigating surface logic." >> "$GITHUB_STEP_SUMMARY"
           elif [[ "${{ steps.operator_agent_config.outputs.enabled }}" == "true" && "$OPERATOR_AGENT_READINESS_OUTCOME" != "success" ]]; then
             echo "- Operator-agent readiness failed. Inspect operator-agent /healthz and environment wiring." >> "$GITHUB_STEP_SUMMARY"
+          elif [[ "$OPERATOR_AGENT_ORG_SCHEMA_OUTCOME" != "success" ]]; then
+            echo "- Operator-agent org schema validation failed. Inspect operator-agent D1 migrations and seeded org catalog rows in OPERATOR_AGENT_DB." >> "$GITHUB_STEP_SUMMARY"
           elif [[ "$OPERATOR_SURFACE_OUTCOME" != "success" ]]; then
             echo "- Operator surface contract failed. Inspect endpoint availability, response shapes, and approval state machine endpoints." >> "$GITHUB_STEP_SUMMARY"
           elif [[ "$SCHEDULED_ROUTING_OUTCOME" != "success" ]]; then

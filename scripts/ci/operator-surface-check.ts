@@ -32,7 +32,7 @@ type EmployeesResponse = {
       [key: string]: unknown;
     };
     effectiveBudget?: Record<string, unknown>;
-    effectiveState: {
+    effectiveState?: {
       state: "enabled" | "disabled_pending_review" | "disabled_by_manager" | "restricted";
       blocked: boolean;
     };
@@ -588,6 +588,22 @@ async function main(): Promise<void> {
   }
 
   for (const employee of employees.employees) {
+    if (employee.catalog.implemented === false) {
+      if (!employee.scope) {
+        throw new Error(
+          `Catalog-only employee ${employee.identity.employeeId} missing scope`
+        );
+      }
+
+      if (!employee.message) {
+        throw new Error(
+          `Catalog-only employee ${employee.identity.employeeId} missing placeholder message`
+        );
+      }
+
+      continue;
+    }
+
     if (!employee.effectiveAuthority) {
       throw new Error(
         `Employee ${employee.identity.employeeId} missing effectiveAuthority`
@@ -597,6 +613,12 @@ async function main(): Promise<void> {
     if (!employee.effectiveBudget) {
       throw new Error(
         `Employee ${employee.identity.employeeId} missing effectiveBudget`
+      );
+    }
+
+    if (!employee.effectiveState) {
+      throw new Error(
+        `Employee ${employee.identity.employeeId} missing effectiveState`
       );
     }
 

@@ -37,6 +37,7 @@
     "ci:manager-advisory-check": "tsx scripts/ci/manager-advisory-check.ts",
     "ci:operator-surface-check": "tsx scripts/ci/operator-surface-check.ts",
     "ci:employee-scope-check": "tsx scripts/ci/employee-scope-check.ts",
+    "ci:operator-agent-org-schema-check": "tsx scripts/ci/operator-agent-org-schema-check.ts",
     "ci:org-schema-check": "tsx scripts/ci/org-schema-check.ts",
     "ci:org-inventory-route-check": "tsx scripts/ci/org-inventory-route-check.ts",
     "ci:post-deploy-validation": "tsx scripts/ci/post-deploy-validation.ts",

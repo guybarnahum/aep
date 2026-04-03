@@ -8,6 +8,9 @@
       "binding": "OPERATOR_AGENT_DB",
       "database_name": "aep-operator-agent-dev",
       "database_id": "f0708506-25cd-422c-8010-e941d0eb426f",
+      // Operator-agent keeps its own migration track.
+      // Commit 13.4 mirrors the shared org catalog schema here so D1-backed
+      // employee catalog and scope reads work against OPERATOR_AGENT_DB.
       "migrations_dir": "../../infra/cloudflare/d1/operator-agent-migrations"
     }
   ],
@@ -19,6 +22,9 @@
           "binding": "OPERATOR_AGENT_DB",
           "database_name": "aep-operator-agent-async-validation",
           "database_id": "5ce46bde-911f-45fd-bab2-8d919be9c7b4",
+          // Operator-agent keeps its own migration track.
+          // Commit 13.4 mirrors the shared org catalog schema here so D1-backed
+          // employee catalog and scope reads work against OPERATOR_AGENT_DB.
           "migrations_dir": "../../infra/cloudflare/d1/operator-agent-migrations"
         }
       ],
@@ -43,6 +49,9 @@
           "binding": "OPERATOR_AGENT_DB",
           "database_name": "aep-operator-agent-staging",
           "database_id": "b88946bb-4a09-40e1-8327-6ece1152e13e",
+          // Operator-agent keeps its own migration track.
+          // Commit 13.4 mirrors the shared org catalog schema here so D1-backed
+          // employee catalog and scope reads work against OPERATOR_AGENT_DB.
           "migrations_dir": "../../infra/cloudflare/d1/operator-agent-migrations"
         }
       ],
@@ -66,6 +75,9 @@
           "binding": "OPERATOR_AGENT_DB",
           "database_name": "aep-operator-agent-production",
           "database_id": "e342828c-4fa0-4091-90f5-0dc8f77d4df6",
+          // Operator-agent keeps its own migration track.
+          // Commit 13.4 mirrors the shared org catalog schema here so D1-backed
+          // employee catalog and scope reads work against OPERATOR_AGENT_DB.
           "migrations_dir": "../../infra/cloudflare/d1/operator-agent-migrations"
         }
       ],
