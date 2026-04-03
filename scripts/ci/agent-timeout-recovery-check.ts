@@ -6,8 +6,10 @@ import { resolveServiceBaseUrl } from "../lib/service-map";
 export {};
 
 const STAGE6_POLICY_VERSION = "commit9-stage6";
-const ALLOWED_TENANTS = new Set(["dev", "qa", "internal-aep"]);
-const ALLOWED_SERVICE = "control-plane";
+const COMPANY_ID = "company_internal_aep";
+const TEAM_ID = "team_infra";
+const ALLOWED_TENANTS = new Set(["tenant_internal_aep", "tenant_qa"]);
+const ALLOWED_SERVICE = "service_control_plane";
 const SEEDED_WORKFLOW_PROJECT_ID = "ci-agent-timeout-recovery";
 type WorkflowStartResponse = {
   workflow_run_id: string;
@@ -32,7 +34,7 @@ async function startSeededAllowedWorkflow(
       "content-type": "application/json",
     },
     body: JSON.stringify({
-      tenant_id: "dev",
+      tenant_id: "tenant_internal_aep",
       project_id: SEEDED_WORKFLOW_PROJECT_ID,
       repo_url: "https://github.com/example/repo",
       branch: "main",
@@ -181,7 +183,8 @@ type PaperclipAgentRunResponse = {
   taskId?: string;
   heartbeatId?: string;
   request: {
-    departmentId: string;
+    companyId?: string;
+    teamId?: string;
     employeeId: string;
     roleId: string;
     trigger: string;
@@ -196,7 +199,7 @@ type ManagerDecision = {
   timestamp: string;
   managerEmployeeId: string;
   managerEmployeeName: string;
-  departmentId: string;
+  teamId: string;
   roleId: string;
   policyVersion: string;
   employeeId: string;
@@ -411,7 +414,8 @@ async function runAgent(
       "x-actor": "ci-agent-timeout-recovery-check",
     },
     body: JSON.stringify({
-      departmentId: "aep-infra-ops",
+      companyId: COMPANY_ID,
+      teamId: TEAM_ID,
       employeeId: "emp_timeout_recovery_01",
       roleId: "timeout-recovery-operator",
       trigger: "manual",
@@ -433,8 +437,8 @@ async function runAgentViaPaperclip(
       "x-aep-execution-source": "paperclip",
     },
     body: JSON.stringify({
-      companyId: "paperclip-dev",
-      departmentId: "aep-infra-ops",
+      companyId: COMPANY_ID,
+      teamId: TEAM_ID,
       employeeId: "emp_timeout_recovery_01",
       roleId: "timeout-recovery-operator",
       policyVersion: STAGE6_POLICY_VERSION,
@@ -466,7 +470,8 @@ async function runManager(agentBaseUrl: string): Promise<ManagerRunResponse> {
       "x-actor": "ci-agent-timeout-recovery-check",
     },
     body: JSON.stringify({
-      departmentId: "aep-infra-ops",
+      companyId: COMPANY_ID,
+      teamId: TEAM_ID,
       employeeId: "emp_infra_ops_manager_01",
       roleId: "infra-ops-manager",
       trigger: "manual",
@@ -520,7 +525,8 @@ async function runWorkerAfterManagerDisable(
       "x-actor": "ci-agent-timeout-recovery-check",
     },
     body: JSON.stringify({
-      departmentId: "aep-infra-ops",
+      companyId: COMPANY_ID,
+      teamId: TEAM_ID,
       employeeId: "emp_timeout_recovery_01",
       roleId: "timeout-recovery-operator",
       trigger: "manual",
@@ -648,7 +654,7 @@ async function main(): Promise<void> {
 
       eligibleRun = {
         id: seeded.workflow_run_id,
-        tenant: "dev",
+        tenant: "tenant_internal_aep",
         service: ALLOWED_SERVICE,
       };
       eligibleJob = seededJob;
