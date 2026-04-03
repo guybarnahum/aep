@@ -142,15 +142,24 @@ Owns:
 
 ---
 
-## Current Status — Commit 8 Complete
+## Current Status — Commit 13.2
 
 AEP is now a:
 
-> **working control plane + first autonomous operator**
+> **working control plane + autonomous operator department + org catalog substrate**
 
 ## In Progress
 
-- Commit 13.1 begins the org catalog substrate in D1: companies, teams, tenants, environments, services, employees, and scope bindings.
+- Commit 13.1 added the D1-backed org catalog substrate: companies, teams, org tenants, tenant environments, services, employees, and scope bindings.
+- Commit 13.2 added read-only control-plane inventory APIs backed by that catalog.
+- Preview environments are now PR-scoped, destroyed on PR close, and backstopped by a scheduled reaper.
+
+## Current Platform Snapshot
+
+- control-plane runtime state is persisted in D1 and now exposes both legacy runtime routes and new org inventory routes
+- operator-agent governance and control state is persisted in D1; KV is no longer the system of record
+- async-validation now verifies org schema seed state and org inventory route availability
+- preview deploys are PR-only and use ephemeral Worker + D1 resources with automated teardown and backstop garbage collection
 
 ---
 
@@ -171,16 +180,24 @@ AEP is now a:
 
 ### Operator surface (Commit 6–7)
 
+- Legacy runtime/operator routes:
 - `/runs`
 - `/runs/:id`
 - `/runs/:id/jobs`
 - `/tenants`
+
+- Org inventory routes (Commit 13.2):
+- `/companies`
+- `/teams`
+- `/org/tenants`
 - `/services`
+- `/employees`
 
 Includes:
 - job + attempt visibility
 - derived job status
 - failure classification
+- read-only org catalog inventory backed by seeded D1 catalog rows
 
 ---
 
@@ -303,13 +320,13 @@ For each run:
 
 - per-job cooldown window
 - prevents rapid re-application
-- stored in KV
+- persisted through the operator-agent D1-backed governance layer
 
 ---
 
 ### Work log (employee record)
 
-Stored in KV.
+Stored through the operator-agent persistence layer.
 
 Each entry includes:
 - employee identity
@@ -351,6 +368,11 @@ Validates:
 4. reruns agent
 5. verifies:
    - cooldown / budget / eligibility prevents duplicate action
+
+Additional current validation includes:
+
+- org schema seed validation against the control-plane D1 catalog
+- org inventory route validation against `/companies`, `/teams`, `/org/tenants`, `/services`, and `/employees`
 
 ---
 
@@ -464,21 +486,16 @@ To reach a true zero-employee infra company:
 - first autonomous operator (timeout recovery)
 
 ### Stage 2
-- policy layer (natural language → executable rules)
+- policy overlays and governance controls
 
 ### Stage 3
-- multiple operators:
-  - retry supervisor
-  - teardown safety operator
-  - validation monitor
-  - incident triage
+- expanded autonomous operator department and Paperclip-first execution
 
 ### Stage 4
-- multi-tenant prioritization
-- resource-aware decisions
+- org catalog-backed inventory APIs and company/org substrate
 
 ### Stage 5
-- learning loop from trace history
+- catalog-authoritative execution and richer company integration
 
 ---
 

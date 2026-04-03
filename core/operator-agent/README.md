@@ -2,6 +2,12 @@
 
 The operator-agent is a network of autonomous workers that implement AEP's infra department capabilities.
 
+Current repo state:
+
+- operator-agent governance and control state is persisted in D1
+- the control-plane now exposes separate org inventory APIs backed by the Commit 13 catalog substrate
+- that org catalog is still additive; operator-agent execution remains source-configured until later catalog-authoritative commits land
+
 ---
 
 ## Architecture Layers
@@ -374,6 +380,7 @@ Validates the employee/capability surface:
 - 3+ employees registered
 - routes respond with expected structures
 - escalations and control-history routes exist
+- async-validation can also verify the separate control-plane org schema and org inventory APIs that now sit beside the operator-agent surface
 
 ### manager-advisory-check
 
@@ -410,7 +417,7 @@ The operator-agent **does not call external services**. It only:
 
 - Accepts requests from the company (`/agent/run`)
 - Returns decisions and audit trails
-- Stores immutable logs in KV
+- Stores immutable governance and audit state through the D1-backed persistence layer
 
 All escalations must be fetched by the company via explicit API calls.
 

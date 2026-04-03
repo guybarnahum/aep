@@ -7,6 +7,12 @@ This directory is structured around a clear separation between:
 
 The goal is to make deployment and validation first class, composable, and easy to extend without duplicating environment bring-up logic across multiple workflows.
 
+Current state:
+
+- preview deploy is PR-only and ephemeral
+- preview teardown is split across PR-close destroy and scheduled backstop reaping
+- async-validation now verifies both org schema seed state and org inventory route availability
+
 ## Naming convention
 
 Top-level workflows use **hyphenated names**:
@@ -45,7 +51,7 @@ Rule of thumb:
 
 Purpose:
 
-- PR / manual environment bring-up
+- PR environment bring-up
 - PR-scoped ephemeral preview environment creation
 - fast validation of deploy correctness
 - basic control-plane smoke
@@ -213,6 +219,8 @@ Typical scope:
 - operator-facing contract
 - scheduled routing
 - operator surface checks
+- org schema seed validation
+- org inventory route validation
 
 ### `_validate_operator_governance.yml`
 
@@ -316,6 +324,7 @@ Should include:
 - operator governance suite
 - Paperclip handoff suite
 - lightweight async-validation suites tied to operator-facing contracts
+- org catalog schema and inventory validation tied to the shared async_validation environment
 
 ### Async deep validation lane
 
