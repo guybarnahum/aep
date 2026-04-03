@@ -96,6 +96,7 @@ export async function getServiceOverview(
           service_id: serviceId,
           service_name: serviceId,
           provider: runs[0]?.provider ?? null,
+          provider_source: runs[0]?.provider ? "observed" as const : undefined,
           environments: [...new Set(runs.map((run) => run.environment_name))],
           source: "observed" as const,
         }

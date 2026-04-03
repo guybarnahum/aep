@@ -130,14 +130,21 @@ export async function listCatalogServicesForTenant(
     ),
   ];
 
-  return (serviceRows.results ?? []).map((row) => ({
-    tenant_id: row.tenant_id ?? tenantId,
-    service_id: row.id,
-    service_name: row.slug,
-    provider: row.provider ?? inferProvider(row.kind, row.slug),
-    environments: environmentNames,
-    source: "catalog" as const,
-  }));
+  return (serviceRows.results ?? []).map((row) => {
+    const resolvedProvider = row.provider ?? inferProvider(row.kind, row.slug);
+    const providerSource =
+      row.provider != null && row.provider !== "" ? "catalog" : "inferred";
+
+    return {
+      tenant_id: row.tenant_id ?? tenantId,
+      service_id: row.id,
+      service_name: row.slug,
+      provider: resolvedProvider,
+      provider_source: providerSource,
+      environments: environmentNames,
+      source: "catalog" as const,
+    };
+  });
 }
 
 export async function getCatalogService(
@@ -169,11 +176,16 @@ export async function getCatalogService(
     .bind(tenantId)
     .all<TenantEnvironmentRow>();
 
+  const resolvedProvider = row.provider ?? inferProvider(row.kind, row.slug);
+  const providerSource =
+    row.provider != null && row.provider !== "" ? "catalog" : "inferred";
+
   return {
     tenant_id: row.tenant_id ?? tenantId,
     service_id: row.id,
     service_name: row.slug,
-    provider: row.provider ?? inferProvider(row.kind, row.slug),
+    provider: resolvedProvider,
+    provider_source: providerSource,
     environments: [
       ...new Set(
         (environmentRows.results ?? []).map((env) => env.environment_name),

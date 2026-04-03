@@ -1,6 +1,16 @@
 export type RunStatus = "running" | "waiting" | "completed" | "failed";
 export type JobStatus = "waiting" | "running" | "completed" | "failed" | null;
 
+export type RuntimeProjectionSource =
+  | "catalog"
+  | "observed"
+  | "catalog_enriched";
+
+export type ProviderSource =
+  | "catalog"
+  | "inferred"
+  | "observed";
+
 export type AdvanceTimeoutReason =
   | "job_not_found"
   | "job_terminal"
@@ -102,7 +112,8 @@ export type ServiceSummary = {
   service_name: string;
   provider: string | null;
   environments: string[];
-  source?: "catalog" | "observed" | "catalog_enriched";
+  source?: RuntimeProjectionSource;
+  provider_source?: ProviderSource;
 };
 
 export type EnvironmentSummary = {
@@ -115,5 +126,5 @@ export interface ServiceEnvironmentView {
   environment_name: string;
   latest_run: RunSummary | null;
   recent_runs?: RunSummary[];
-  source?: "catalog" | "observed" | "catalog_enriched";
+  source?: RuntimeProjectionSource;
 }

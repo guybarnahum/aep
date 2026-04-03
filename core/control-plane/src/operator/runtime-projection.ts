@@ -18,6 +18,7 @@ export interface ObservedServiceProjection {
   service_name: string;
   provider: string | null;
   environments: string[];
+  provider_source?: "observed";
   source: "observed";
 }
 
@@ -76,6 +77,7 @@ export function buildObservedServiceProjection(
     service_id: serviceName,
     service_name: serviceName,
     provider: matchingRuns[0]?.provider ?? null,
+    provider_source: matchingRuns[0]?.provider ? "observed" : undefined,
     environments: [
       ...new Set(
         matchingRuns.map((run) => run.environment_name).filter(Boolean),
@@ -92,6 +94,32 @@ export function markCatalogServices(
     ...service,
     source: service.source ?? "catalog",
   }));
+}
+
+export function enrichCatalogServicesWithObservedState(
+  tenantId: string,
+  catalogServices: ServiceSummary[],
+  observedRuns: RunSummary[],
+): ServiceSummary[] {
+  return catalogServices.map((service) => {
+    const matchingRuns = observedRuns.filter(
+      (run) =>
+        run.tenant_id === tenantId &&
+        run.service_name === service.service_name,
+    );
+
+    if (matchingRuns.length === 0) {
+      return {
+        ...service,
+        source: service.source ?? "catalog",
+      };
+    }
+
+    return {
+      ...service,
+      source: "catalog_enriched" as const,
+    };
+  });
 }
 
 export function mergeServiceSummaries(
@@ -117,7 +145,13 @@ export function mergeServiceSummaries(
       buildObservedServiceProjection(tenantId, serviceName, observedRuns),
     );
 
-  return [...markCatalogServices(catalogServices), ...observedOnly];
+  const catalogWithRuntimeState = enrichCatalogServicesWithObservedState(
+    tenantId,
+    markCatalogServices(catalogServices),
+    observedRuns,
+  );
+
+  return [...catalogWithRuntimeState, ...observedOnly];
 }
 
 export function resolveEnvironmentViews(
@@ -126,7 +160,7 @@ export function resolveEnvironmentViews(
   observedRuns: RunSummary[],
 ): Array<{
   environment_name: string;
-  source: "catalog" | "observed";
+  source: "catalog" | "observed" | "catalog_enriched";
 }> {
   const discoveredEnvironmentNames = [
     ...new Set(
@@ -140,7 +174,9 @@ export function resolveEnvironmentViews(
   if (catalogEnvironmentNames.length > 0) {
     return [...new Set(catalogEnvironmentNames)].map((environment_name) => ({
       environment_name,
-      source: "catalog" as const,
+      source: discoveredEnvironmentNames.includes(environment_name)
+        ? "catalog_enriched" as const
+        : "catalog" as const,
     }));
   }
 

@@ -2,6 +2,18 @@
 
 import assert from "node:assert/strict";
 
+function assertProjectionSource(
+  value: unknown,
+  allowed: string[],
+  label: string,
+): void {
+  assert.equal(typeof value, "string", `${label} should be a string`);
+  assert(
+    allowed.includes(String(value)),
+    `${label} should be one of ${allowed.join(", ")}, got ${String(value)}`,
+  );
+}
+
 async function getJson(baseUrl: string, path: string): Promise<unknown> {
   const response = await fetch(`${baseUrl}${path}`);
   const text = await response.text();
@@ -56,7 +68,11 @@ async function main(): Promise<void> {
     (service) => service.service_id === "service_dashboard",
   );
   assert(dashboardService, "Expected service_dashboard in tenant overview");
-  assert.equal(dashboardService.source, "catalog");
+  assertProjectionSource(
+    dashboardService.source,
+    ["catalog", "catalog_enriched"],
+    "dashboard service source",
+  );
 
   const environments = Array.isArray(dashboardService.environments)
     ? dashboardService.environments
@@ -71,7 +87,11 @@ async function main(): Promise<void> {
   }
 
   for (const env of environments) {
-    assert.equal(env.source, "catalog");
+    assertProjectionSource(
+      env.source,
+      ["catalog", "catalog_enriched"],
+      "tenant overview environment source",
+    );
   }
 
   const serviceOverview = (await getJson(
@@ -83,10 +103,18 @@ async function main(): Promise<void> {
   };
 
   assert.equal(serviceOverview.service.service_id, "service_dashboard");
-  assert.equal(serviceOverview.service.source, "catalog");
+  assertProjectionSource(
+    serviceOverview.service.source,
+    ["catalog", "catalog_enriched"],
+    "service overview source",
+  );
 
   for (const env of serviceOverview.environments) {
-    assert.equal(env.source, "catalog");
+    assertProjectionSource(
+      env.source,
+      ["catalog", "catalog_enriched"],
+      "service overview environment source",
+    );
   }
 
   console.log("runtime-projection-check passed", {
