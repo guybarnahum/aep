@@ -16,12 +16,48 @@ type EnvLike = {
   DB: D1Database;
 };
 
+function runtimeRouteError(args: {
+  route: string;
+  error: unknown;
+  tenantId?: string;
+  serviceId?: string;
+}): Response {
+  const message = args.error instanceof Error
+    ? args.error.message
+    : String(args.error);
+
+  console.error("tenant route failure", {
+    route: args.route,
+    tenantId: args.tenantId,
+    serviceId: args.serviceId,
+    message,
+  });
+
+  return json(
+    {
+      error: "runtime_projection_failed",
+      route: args.route,
+      tenant_id: args.tenantId ?? null,
+      service_id: args.serviceId ?? null,
+      message,
+    },
+    { status: 500 },
+  );
+}
+
 export async function handleTenantsRoute(
   _request: Request,
   env: EnvLike,
 ): Promise<Response> {
-  const tenants = await listTenantSummaries(env.DB);
-  return json({ tenants });
+  try {
+    const tenants = await listTenantSummaries(env.DB);
+    return json({ tenants });
+  } catch (error) {
+    return runtimeRouteError({
+      route: "/tenants",
+      error,
+    });
+  }
 }
 
 export async function handleTenantOverviewRoute(
@@ -29,12 +65,20 @@ export async function handleTenantOverviewRoute(
   env: EnvLike,
   tenantId: string,
 ): Promise<Response> {
-  const overview = await getTenantOverview(env.DB, tenantId);
-  if (!overview) {
-    return notFound(`tenant not found: ${tenantId}`);
-  }
+  try {
+    const overview = await getTenantOverview(env.DB, tenantId);
+    if (!overview) {
+      return notFound(`tenant not found: ${tenantId}`);
+    }
 
-  return json(overview);
+    return json(overview);
+  } catch (error) {
+    return runtimeRouteError({
+      route: "/tenants/:tenantId",
+      error,
+      tenantId,
+    });
+  }
 }
 
 export async function handleTenantServicesRoute(
@@ -42,8 +86,16 @@ export async function handleTenantServicesRoute(
   env: EnvLike,
   tenantId: string,
 ): Promise<Response> {
-  const services = await listServicesForTenant(env.DB, tenantId);
-  return json({ tenant_id: tenantId, services });
+  try {
+    const services = await listServicesForTenant(env.DB, tenantId);
+    return json({ tenant_id: tenantId, services });
+  } catch (error) {
+    return runtimeRouteError({
+      route: "/tenants/:tenantId/services",
+      error,
+      tenantId,
+    });
+  }
 }
 
 export async function handleServiceOverviewRoute(
@@ -52,12 +104,21 @@ export async function handleServiceOverviewRoute(
   tenantId: string,
   serviceId: string,
 ): Promise<Response> {
-  const overview = await getServiceOverview(env.DB, tenantId, serviceId);
-  if (!overview) {
-    return notFound(
-      `service not found: tenant=${tenantId} service=${serviceId}`,
-    );
-  }
+  try {
+    const overview = await getServiceOverview(env.DB, tenantId, serviceId);
+    if (!overview) {
+      return notFound(
+        `service not found: tenant=${tenantId} service=${serviceId}`,
+      );
+    }
 
-  return json(overview);
+    return json(overview);
+  } catch (error) {
+    return runtimeRouteError({
+      route: "/tenants/:tenantId/services/:serviceId",
+      error,
+      tenantId,
+      serviceId,
+    });
+  }
 }

@@ -15,6 +15,10 @@ import type { TenantSummary } from "@aep/control-plane/operator/types";
 
 type D1Like = D1Database;
 
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
 async function listObservedRuns(
   db: D1Like,
   limit = 200,
@@ -24,6 +28,58 @@ async function listObservedRuns(
   } catch (error) {
     console.error("operator dashboard observed-run fallback", error);
     return [];
+  }
+}
+
+async function buildTenantServiceOverviewEntry(args: {
+  db: D1Like;
+  tenantId: string;
+  service: Awaited<ReturnType<typeof mergeServiceSummaries>>[number];
+  runs: Awaited<ReturnType<typeof listObservedRuns>>;
+}) {
+  const { db, tenantId, service, runs } = args;
+
+  try {
+    const seededEnvironments = await listEnvironmentsForService(
+      db,
+      tenantId,
+      service.service_id,
+    );
+
+    const environmentViews = resolveEnvironmentViews(
+      service.service_name,
+      [...new Set(seededEnvironments.map((env) => env.environment_name))],
+      runs,
+    );
+
+    return {
+      ...service,
+      environments: environmentViews.map(({ environment_name, source }) => {
+        const latestRun =
+          runs.find(
+            (run) =>
+              run.service_name === service.service_name &&
+              run.environment_name === environment_name,
+          ) ?? null;
+
+        return {
+          environment_name,
+          latest_run: latestRun,
+          source,
+        };
+      }),
+    };
+  } catch (error) {
+    console.error("operator dashboard tenant service projection fallback", {
+      tenantId,
+      serviceId: service.service_id,
+      message: errorMessage(error),
+    });
+
+    return {
+      ...service,
+      environments: [],
+    };
   }
 }
 
@@ -49,37 +105,14 @@ export async function getTenantOverview(db: D1Like, tenantId: string) {
   return {
     tenant,
     services: await Promise.all(
-      allServices.map(async (service) => {
-        const seededEnvironments = await listEnvironmentsForService(
+      allServices.map((service) =>
+        buildTenantServiceOverviewEntry({
           db,
           tenantId,
-          service.service_id,
-        );
-
-        const environmentViews = resolveEnvironmentViews(
-          service.service_name,
-          [...new Set(seededEnvironments.map((env) => env.environment_name))],
+          service,
           runs,
-        );
-
-        return {
-          ...service,
-          environments: environmentViews.map(({ environment_name, source }) => {
-            const latestRun =
-              runs.find(
-                (run) =>
-                  run.service_name === service.service_name &&
-                  run.environment_name === environment_name,
-              ) ?? null;
-
-            return {
-              environment_name,
-              latest_run: latestRun,
-              source,
-            };
-          }),
-        };
-      }),
+        }),
+      ),
     ),
   };
 }
@@ -116,31 +149,45 @@ export async function getServiceOverview(
 
   if (!service) return null;
 
-  const seededEnvironments = await listEnvironmentsForService(
-    db,
-    tenantId,
-    serviceId,
-  );
-  const environmentViews = resolveEnvironmentViews(
-    service.service_name,
-    [...new Set(seededEnvironments.map((env) => env.environment_name))],
-    runs,
-  );
+  try {
+    const seededEnvironments = await listEnvironmentsForService(
+      db,
+      tenantId,
+      serviceId,
+    );
+    const environmentViews = resolveEnvironmentViews(
+      service.service_name,
+      [...new Set(seededEnvironments.map((env) => env.environment_name))],
+      runs,
+    );
 
-  return {
-    tenant,
-    service,
-    environments: environmentViews.map(({ environment_name, source }) => {
-      const matchingRuns = runs.filter(
-        (run) => run.environment_name === environment_name,
-      );
+    return {
+      tenant,
+      service,
+      environments: environmentViews.map(({ environment_name, source }) => {
+        const matchingRuns = runs.filter(
+          (run) => run.environment_name === environment_name,
+        );
 
-      return {
-        environment_name,
-        latest_run: matchingRuns[0] ?? null,
-        recent_runs: matchingRuns.slice(0, 10),
-        source,
-      };
-    }),
-  };
+        return {
+          environment_name,
+          latest_run: matchingRuns[0] ?? null,
+          recent_runs: matchingRuns.slice(0, 10),
+          source,
+        };
+      }),
+    };
+  } catch (error) {
+    console.error("operator dashboard service overview environment fallback", {
+      tenantId,
+      serviceId,
+      message: errorMessage(error),
+    });
+
+    return {
+      tenant,
+      service,
+      environments: [],
+    };
+  }
 }
