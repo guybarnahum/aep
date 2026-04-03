@@ -1,0 +1,82 @@
+/* eslint-disable no-console */
+
+import assert from "node:assert/strict";
+
+async function getJson(baseUrl: string, path: string): Promise<unknown> {
+  const response = await fetch(`${baseUrl}${path}`);
+  const text = await response.text();
+
+  if (!response.ok) {
+    throw new Error(`GET ${path} failed: ${response.status} ${text}`);
+  }
+
+  return JSON.parse(text);
+}
+
+async function main(): Promise<void> {
+  const baseUrl = process.env.CONTROL_PLANE_BASE_URL;
+  if (!baseUrl) {
+    throw new Error("Missing CONTROL_PLANE_BASE_URL");
+  }
+
+  const tenantsPayload = (await getJson(baseUrl, "/tenants")) as {
+    tenants: Array<Record<string, unknown>>;
+  };
+
+  const tenant = tenantsPayload.tenants.find(
+    (entry) => entry.tenant_id === "tenant_internal_aep",
+  );
+  assert(tenant, "Expected tenant_internal_aep in /tenants");
+  assert.equal(tenant.source, "seeded");
+
+  const tenantOverview = (await getJson(
+    baseUrl,
+    "/tenants/tenant_internal_aep",
+  )) as {
+    tenant: Record<string, unknown>;
+    services: Array<Record<string, unknown>>;
+  };
+
+  assert.equal(tenantOverview.tenant.tenant_id, "tenant_internal_aep");
+
+  const serviceIds = new Set(
+    tenantOverview.services.map((service) => String(service.service_id ?? "")),
+  );
+
+  for (const expectedServiceId of [
+    "service_control_plane",
+    "service_operator_agent",
+    "service_dashboard",
+    "service_ops_console",
+  ]) {
+    assert(serviceIds.has(expectedServiceId), `Missing service: ${expectedServiceId}`);
+  }
+
+  const dashboardService = tenantOverview.services.find(
+    (service) => service.service_id === "service_dashboard",
+  );
+  assert(dashboardService, "Expected service_dashboard in tenant overview");
+
+  const environments = Array.isArray(dashboardService.environments)
+    ? dashboardService.environments
+    : [];
+
+  const envNames = new Set(
+    environments.map((env) => String(env.environment_name ?? "")),
+  );
+
+  for (const environmentName of ["preview", "staging", "production"]) {
+    assert(envNames.has(environmentName), `Missing environment: ${environmentName}`);
+  }
+
+  console.log("runtime-projection-check passed", {
+    tenantCount: tenantsPayload.tenants.length,
+    serviceCount: tenantOverview.services.length,
+    environmentCount: environments.length,
+  });
+}
+
+main().catch((error) => {
+  console.error(error);
+  process.exit(1);
+});

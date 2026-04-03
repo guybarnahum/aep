@@ -41,6 +41,7 @@
     "ci:org-schema-check": "tsx scripts/ci/org-schema-check.ts",
     "ci:org-inventory-route-check": "tsx scripts/ci/org-inventory-route-check.ts",
     "ci:runtime-tenant-catalog-check": "tsx scripts/ci/runtime-tenant-catalog-check.ts",
+    "ci:runtime-projection-check": "tsx scripts/ci/runtime-projection-check.ts",
     "ci:post-deploy-validation": "tsx scripts/ci/post-deploy-validation.ts",
     "ci:manager-policy-overlay-check": "tsx scripts/ci/manager-policy-overlay-check.ts",
     "ci:multi-worker-department-check": "tsx scripts/ci/multi-worker-department-check.ts",
