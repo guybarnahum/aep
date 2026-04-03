@@ -10,7 +10,10 @@ import {
   resolveEnvironmentViews,
 } from "@aep/control-plane/operator/runtime-projection";
 import { listProjectionRunSummaries } from "@aep/control-plane/operator/runs";
-import type { TenantSummary } from "@aep/control-plane/operator/types";
+import type {
+  ServiceSummary,
+  TenantSummary,
+} from "@aep/control-plane/operator/types";
 
 type D1Like = D1Database;
 
@@ -139,7 +142,7 @@ export async function getTenantOverview(db: D1Like, tenantId: string) {
   const tenant = allTenants.find((entry) => entry.tenant_id === tenantId) ?? null;
   if (!tenant) return null;
 
-  let services = [];
+  let services: ServiceSummary[] = [];
   try {
     services = await listServicesForTenant(db, tenantId);
   } catch (error) {

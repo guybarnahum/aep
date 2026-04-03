@@ -19,6 +19,9 @@ import { listServicesForTenant } from "@aep/control-plane/operator/metadata";
 
 type EnvLike = {
   DB: D1Database;
+  APP_ENV?: string;
+  VALIDATION_LANE?: string;
+  RUNTIME_READ_FAILURE_INJECTION_ENABLED?: string;
 };
 
 export async function handleTenantsRoute(

@@ -193,23 +193,25 @@ export async function listCatalogServicesForTenant(
   const services = (serviceRows.results ?? [])
     .filter((row) => isNonEmptyString(row.id))
     .map((row) => {
-    const serviceId = row.id.trim();
-    const serviceName = normalizeSlug(row.slug, serviceId);
-    const resolvedProvider =
-      normalizeProvider(row.provider) ?? inferProvider(row.kind, serviceName);
-    const providerSource =
-      normalizeProvider(row.provider) != null ? "catalog" : "inferred";
+      const serviceId = row.id.trim();
+      const serviceName = normalizeSlug(row.slug, serviceId);
+      const resolvedProvider =
+        normalizeProvider(row.provider) ?? inferProvider(row.kind, serviceName);
+      const providerSource =
+        normalizeProvider(row.provider) != null
+          ? ("catalog" as const)
+          : ("inferred" as const);
 
-    return {
-      tenant_id: normalizeString(row.tenant_id, tenantId),
-      service_id: serviceId,
-      service_name: serviceName,
-      provider: resolvedProvider,
-      provider_source: providerSource,
-      environments: environmentNames,
-      source: "catalog" as const,
-    };
-  });
+      return {
+        tenant_id: normalizeString(row.tenant_id, tenantId),
+        service_id: serviceId,
+        service_name: serviceName,
+        provider: resolvedProvider,
+        provider_source: providerSource,
+        environments: environmentNames,
+        source: "catalog" as const,
+      } satisfies ServiceSummary;
+    });
 
   return services.sort(sortByServiceId);
 }
