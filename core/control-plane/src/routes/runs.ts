@@ -1,4 +1,8 @@
-import { json, notFound } from "@aep/control-plane/lib/http";
+import {
+  json,
+  notFound,
+  withRuntimeJsonBoundary,
+} from "@aep/control-plane/lib/http";
 import {
   getRunDetail,
   getRunFailure,
@@ -12,68 +16,107 @@ type EnvLike = {
 };
 
 export async function handleRunsRoute(
-  _request: Request,
+  request: Request,
   env: EnvLike,
   url: URL,
 ): Promise<Response> {
-  const limitParam = url.searchParams.get("limit");
-  const limit =
-    limitParam && Number.isFinite(Number(limitParam))
-      ? Number(limitParam)
-      : 25;
+  return withRuntimeJsonBoundary({
+    route: "/runs",
+    request,
+    handler: async () => {
+      const limitParam = url.searchParams.get("limit");
+      const parsedLimit = limitParam ? Number(limitParam) : Number.NaN;
+      const limit =
+        Number.isFinite(parsedLimit) && parsedLimit > 0
+          ? Math.min(Math.trunc(parsedLimit), 200)
+          : 25;
 
-  const runs = await listRunSummaries(env.DB, limit);
-  return json({ runs });
+      const runs = await listRunSummaries(env.DB, limit);
+      return json({ runs });
+    },
+  });
 }
 
 export async function handleRunSummaryRoute(
-  _request: Request,
+  request: Request,
   env: EnvLike,
   runId: string,
 ): Promise<Response> {
-  const summary = await getRunSummary(env.DB, runId);
-  if (!summary) {
-    return notFound(`run not found: ${runId}`);
-  }
+  return withRuntimeJsonBoundary({
+    route: "/runs/:id/summary",
+    request,
+    runId,
+    resourceId: runId,
+    handler: async () => {
+      const summary = await getRunSummary(env.DB, runId);
+      if (!summary) {
+        return notFound(`run not found: ${runId}`);
+      }
 
-  return json(summary);
+      return json(summary);
+    },
+  });
 }
 
 export async function handleRunDetailRoute(
-  _request: Request,
+  request: Request,
   env: EnvLike,
   runId: string,
 ): Promise<Response> {
-  const detail = await getRunDetail(env.DB, runId);
-  if (!detail) {
-    return notFound(`run not found: ${runId}`);
-  }
+  return withRuntimeJsonBoundary({
+    route: "/runs/:id",
+    request,
+    runId,
+    resourceId: runId,
+    handler: async () => {
+      const detail = await getRunDetail(env.DB, runId);
+      if (!detail) {
+        return notFound(`run not found: ${runId}`);
+      }
 
-  return json(detail);
+      return json(detail);
+    },
+  });
 }
 
 export async function handleRunJobsRoute(
-  _request: Request,
+  request: Request,
   env: EnvLike,
   runId: string,
 ): Promise<Response> {
-  const jobs = await getRunJobs(env.DB, runId);
-  if (!jobs) {
-    return notFound(`run not found: ${runId}`);
-  }
+  return withRuntimeJsonBoundary({
+    route: "/runs/:id/jobs",
+    request,
+    runId,
+    resourceId: runId,
+    handler: async () => {
+      const jobs = await getRunJobs(env.DB, runId);
+      if (!jobs) {
+        return notFound(`run not found: ${runId}`);
+      }
 
-  return json({ run_id: runId, jobs });
+      return json({ run_id: runId, jobs });
+    },
+  });
 }
 
 export async function handleRunFailureRoute(
-  _request: Request,
+  request: Request,
   env: EnvLike,
   runId: string,
 ): Promise<Response> {
-  const detail = await getRunDetail(env.DB, runId);
-  if (!detail) {
-    return notFound(`run not found: ${runId}`);
-  }
+  return withRuntimeJsonBoundary({
+    route: "/runs/:id/failure",
+    request,
+    runId,
+    resourceId: runId,
+    handler: async () => {
+      const failure = await getRunFailure(env.DB, runId);
+      if (failure === undefined) {
+        return notFound(`run not found: ${runId}`);
+      }
 
-  return json({ run_id: runId, failure: detail.failure });
+      return json({ run_id: runId, failure });
+    },
+  });
 }

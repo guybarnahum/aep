@@ -53,3 +53,94 @@ export function corsPreflight(): Response {
     headers: withCors(),
   });
 }
+
+export function normalizeOptionalString(value: unknown): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  return trimmed === "" ? null : trimmed;
+}
+
+type RuntimeRouteErrorArgs = {
+  route: string;
+  error: unknown;
+  method?: string | null;
+  tenantId?: string | null;
+  serviceId?: string | null;
+  runId?: string | null;
+  resourceId?: string | null;
+  companyId?: string | null;
+  teamId?: string | null;
+  employeeId?: string | null;
+};
+
+export function runtimeRouteError(args: RuntimeRouteErrorArgs): Response {
+  const message =
+    args.error instanceof Error ? args.error.message : String(args.error);
+
+  return json(
+    {
+      error: "runtime_projection_failed",
+      route: args.route,
+      method: args.method ?? null,
+      tenant_id: args.tenantId ?? null,
+      service_id: args.serviceId ?? null,
+      run_id: args.runId ?? null,
+      resource_id: args.resourceId ?? null,
+      company_id: args.companyId ?? null,
+      team_id: args.teamId ?? null,
+      employee_id: args.employeeId ?? null,
+      message,
+    },
+    { status: 500 },
+  );
+}
+
+type RuntimeBoundaryArgs = {
+  route: string;
+  request?: Request;
+  handler: () => Promise<Response>;
+  tenantId?: string | null;
+  serviceId?: string | null;
+  runId?: string | null;
+  resourceId?: string | null;
+  companyId?: string | null;
+  teamId?: string | null;
+  employeeId?: string | null;
+};
+
+export async function withRuntimeJsonBoundary(
+  args: RuntimeBoundaryArgs,
+): Promise<Response> {
+  try {
+    return await args.handler();
+  } catch (error) {
+    console.error("runtime route failure", {
+      route: args.route,
+      method: args.request?.method ?? null,
+      tenantId: args.tenantId ?? null,
+      serviceId: args.serviceId ?? null,
+      runId: args.runId ?? null,
+      resourceId: args.resourceId ?? null,
+      companyId: args.companyId ?? null,
+      teamId: args.teamId ?? null,
+      employeeId: args.employeeId ?? null,
+      message: error instanceof Error ? error.message : String(error),
+    });
+
+    return runtimeRouteError({
+      route: args.route,
+      error,
+      method: args.request?.method ?? null,
+      tenantId: args.tenantId ?? null,
+      serviceId: args.serviceId ?? null,
+      runId: args.runId ?? null,
+      resourceId: args.resourceId ?? null,
+      companyId: args.companyId ?? null,
+      teamId: args.teamId ?? null,
+      employeeId: args.employeeId ?? null,
+    });
+  }
+}

@@ -4,14 +4,54 @@ import type {
   TenantSummary,
 } from "@aep/control-plane/operator/types";
 
+function isNonEmptyString(value: unknown): value is string {
+  return typeof value === "string" && value.trim() !== "";
+}
+
+function normalizeIdLike(value: unknown, fallback = "unknown"): string {
+  if (!isNonEmptyString(value)) {
+    return fallback;
+  }
+
+  return value.trim();
+}
+
+function safeArray<T>(value: T[] | null | undefined): T[] {
+  return Array.isArray(value) ? value : [];
+}
+
+function uniqueStrings(values: Array<string | null | undefined>): string[] {
+  return [
+    ...new Set(values.filter(isNonEmptyString).map((value) => value.trim())),
+  ];
+}
+
 function serviceMatchesObservedName(
   service: ServiceSummary,
   observedServiceName: string,
 ): boolean {
+  if (!isNonEmptyString(observedServiceName)) {
+    return false;
+  }
+
+  const normalizedObserved = observedServiceName.trim();
+
   return (
-    service.service_id === observedServiceName ||
-    service.service_name === observedServiceName
+    normalizeIdLike(service.service_id) === normalizedObserved ||
+    normalizeIdLike(service.service_name) === normalizedObserved
   );
+}
+
+function sortByTenantId(a: TenantSummary, b: TenantSummary): number {
+  return a.tenant_id.localeCompare(b.tenant_id);
+}
+
+function sortByServiceId(a: ServiceSummary, b: ServiceSummary): number {
+  return a.service_id.localeCompare(b.service_id);
+}
+
+function sortStrings(a: string, b: string): number {
+  return a.localeCompare(b);
 }
 
 export interface ObservedTenantProjection {
@@ -36,19 +76,18 @@ export function buildObservedTenantProjection(
   tenantId: string,
   runs: RunSummary[],
 ): TenantSummary {
-  const tenantRuns = runs.filter((run) => run.tenant_id === tenantId);
-  const services = [
-    ...new Set(tenantRuns.map((run) => run.service_name).filter(Boolean)),
-  ];
-  const environments = [
-    ...new Set(
-      tenantRuns.map((run) => run.environment_name).filter(Boolean),
-    ),
-  ];
+  const normalizedTenantId = normalizeIdLike(tenantId);
+  const tenantRuns = safeArray(runs).filter(
+    (run) => normalizeIdLike(run.tenant_id) === normalizedTenantId,
+  );
+  const services = uniqueStrings(tenantRuns.map((run) => run.service_name));
+  const environments = uniqueStrings(
+    tenantRuns.map((run) => run.environment_name),
+  );
 
   return {
-    tenant_id: tenantId,
-    name: titleizeTenantId(tenantId),
+    tenant_id: normalizedTenantId,
+    name: titleizeTenantId(normalizedTenantId),
     service_count: services.length,
     environment_count: environments.length,
     source: "observed",
@@ -59,18 +98,25 @@ export function mergeTenantSummaries(
   catalogTenants: TenantSummary[],
   observedRuns: RunSummary[],
 ): TenantSummary[] {
-  const observedIds = [
-    ...new Set(observedRuns.map((run) => run.tenant_id).filter(Boolean)),
-  ];
+  const catalog = safeArray(catalogTenants)
+    .filter((tenant) => isNonEmptyString(tenant.tenant_id))
+    .map((tenant) => ({
+      ...tenant,
+      tenant_id: tenant.tenant_id.trim(),
+    }));
+
+  const observedIds = uniqueStrings(
+    safeArray(observedRuns).map((run) => run.tenant_id),
+  );
 
   const observedOnly = observedIds
     .filter(
       (tenantId) =>
-        !catalogTenants.some((tenant) => tenant.tenant_id === tenantId),
+        !catalog.some((tenant) => tenant.tenant_id === tenantId),
     )
     .map((tenantId) => buildObservedTenantProjection(tenantId, observedRuns));
 
-  return [...catalogTenants, ...observedOnly];
+  return [...catalog, ...observedOnly].sort(sortByTenantId);
 }
 
 export function buildObservedServiceProjection(
@@ -78,21 +124,28 @@ export function buildObservedServiceProjection(
   serviceName: string,
   runs: RunSummary[],
 ): ServiceSummary {
-  const matchingRuns = runs.filter(
-    (run) => run.tenant_id === tenantId && run.service_name === serviceName,
+  const normalizedTenantId = normalizeIdLike(tenantId);
+  const normalizedServiceName = normalizeIdLike(serviceName);
+  const matchingRuns = safeArray(runs).filter(
+    (run) =>
+      normalizeIdLike(run.tenant_id) === normalizedTenantId &&
+      normalizeIdLike(run.service_name) === normalizedServiceName,
   );
 
+  const environments = uniqueStrings(
+    matchingRuns.map((run) => run.environment_name),
+  ).sort(sortStrings);
+
+  const firstProvider =
+    matchingRuns.find((run) => isNonEmptyString(run.provider))?.provider ?? null;
+
   return {
-    tenant_id: tenantId,
-    service_id: serviceName,
-    service_name: serviceName,
-    provider: matchingRuns[0]?.provider ?? null,
-    provider_source: matchingRuns[0]?.provider ? "observed" : undefined,
-    environments: [
-      ...new Set(
-        matchingRuns.map((run) => run.environment_name).filter(Boolean),
-      ),
-    ],
+    tenant_id: normalizedTenantId,
+    service_id: normalizedServiceName,
+    service_name: normalizedServiceName,
+    provider: firstProvider,
+    provider_source: firstProvider ? "observed" : undefined,
+    environments,
     source: "observed",
   };
 }
@@ -100,8 +153,14 @@ export function buildObservedServiceProjection(
 export function markCatalogServices(
   services: ServiceSummary[],
 ): ServiceSummary[] {
-  return services.map((service) => ({
+  return safeArray(services).map((service) => ({
     ...service,
+    service_id: normalizeIdLike(service.service_id),
+    service_name: normalizeIdLike(
+      service.service_name,
+      normalizeIdLike(service.service_id),
+    ),
+    environments: uniqueStrings(service.environments).sort(sortStrings),
     source: service.source ?? "catalog",
   }));
 }
@@ -111,10 +170,12 @@ export function enrichCatalogServicesWithObservedState(
   catalogServices: ServiceSummary[],
   observedRuns: RunSummary[],
 ): ServiceSummary[] {
-  return catalogServices.map((service) => {
-    const matchingRuns = observedRuns.filter(
+  const normalizedTenantId = normalizeIdLike(tenantId);
+
+  return safeArray(catalogServices).map((service) => {
+    const matchingRuns = safeArray(observedRuns).filter(
       (run) =>
-        run.tenant_id === tenantId &&
+        normalizeIdLike(run.tenant_id) === normalizedTenantId &&
         serviceMatchesObservedName(service, run.service_name),
     );
 
@@ -137,33 +198,38 @@ export function mergeServiceSummaries(
   catalogServices: ServiceSummary[],
   observedRuns: RunSummary[],
 ): ServiceSummary[] {
-  const discoveredServiceNames = [
-    ...new Set(
-      observedRuns
-        .filter((run) => run.tenant_id === tenantId)
-        .map((run) => run.service_name)
-        .filter(Boolean),
-    ),
-  ];
+  const normalizedTenantId = normalizeIdLike(tenantId);
+
+  const discoveredServiceNames = uniqueStrings(
+    safeArray(observedRuns)
+      .filter((run) => normalizeIdLike(run.tenant_id) === normalizedTenantId)
+      .map((run) => run.service_name),
+  );
+
+  const normalizedCatalogServices = markCatalogServices(catalogServices);
 
   const observedOnly = discoveredServiceNames
     .filter(
       (serviceName) =>
-        !catalogServices.some((service) =>
+        !normalizedCatalogServices.some((service) =>
           serviceMatchesObservedName(service, serviceName),
         ),
     )
     .map((serviceName) =>
-      buildObservedServiceProjection(tenantId, serviceName, observedRuns),
+      buildObservedServiceProjection(
+        normalizedTenantId,
+        serviceName,
+        observedRuns,
+      ),
     );
 
   const catalogWithRuntimeState = enrichCatalogServicesWithObservedState(
-    tenantId,
-    markCatalogServices(catalogServices),
+    normalizedTenantId,
+    normalizedCatalogServices,
     observedRuns,
   );
 
-  return [...catalogWithRuntimeState, ...observedOnly];
+  return [...catalogWithRuntimeState, ...observedOnly].sort(sortByServiceId);
 }
 
 export function resolveEnvironmentViews(
@@ -174,17 +240,22 @@ export function resolveEnvironmentViews(
   environment_name: string;
   source: "catalog" | "observed" | "catalog_enriched";
 }> {
-  const discoveredEnvironmentNames = [
-    ...new Set(
-      observedRuns
-        .filter((run) => run.service_name === serviceName)
-        .map((run) => run.environment_name)
-        .filter(Boolean),
-    ),
-  ];
+  const normalizedServiceName = normalizeIdLike(serviceName);
 
-  if (catalogEnvironmentNames.length > 0) {
-    return [...new Set(catalogEnvironmentNames)].map((environment_name) => ({
+  const discoveredEnvironmentNames = uniqueStrings(
+    safeArray(observedRuns)
+      .filter(
+        (run) => normalizeIdLike(run.service_name) === normalizedServiceName,
+      )
+      .map((run) => run.environment_name),
+  ).sort(sortStrings);
+
+  const normalizedCatalogEnvironmentNames = uniqueStrings(
+    safeArray(catalogEnvironmentNames),
+  ).sort(sortStrings);
+
+  if (normalizedCatalogEnvironmentNames.length > 0) {
+    return normalizedCatalogEnvironmentNames.map((environment_name) => ({
       environment_name,
       source: discoveredEnvironmentNames.includes(environment_name)
         ? "catalog_enriched" as const
@@ -211,7 +282,7 @@ export function resolveEnvironmentNames(
 }
 
 function titleizeTenantId(tenantId: string): string {
-  return tenantId
+  return normalizeIdLike(tenantId)
     .replace(/^t_/, "")
     .replace(/[_-]+/g, " ")
     .replace(/\b\w/g, (c) => c.toUpperCase());

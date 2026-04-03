@@ -27,6 +27,74 @@ type TenantEnvironmentRow = {
   kind: string;
 };
 
+function isNonEmptyString(value: unknown): value is string {
+  return typeof value === "string" && value.trim() !== "";
+}
+
+function normalizeString(value: unknown, fallback = ""): string {
+  if (!isNonEmptyString(value)) {
+    return fallback;
+  }
+
+  return value.trim();
+}
+
+function normalizeOptionalString(value: unknown): string | null {
+  if (!isNonEmptyString(value)) {
+    return null;
+  }
+
+  return value.trim();
+}
+
+function uniqueStrings(values: Array<string | null | undefined>): string[] {
+  return [
+    ...new Set(values.filter(isNonEmptyString).map((value) => value.trim())),
+  ];
+}
+
+function parseCount(value: unknown): number {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return Math.max(0, Math.trunc(value));
+  }
+
+  if (typeof value === "string" && value.trim() !== "") {
+    const parsed = Number.parseInt(value.trim(), 10);
+    return Number.isFinite(parsed) ? Math.max(0, parsed) : 0;
+  }
+
+  return 0;
+}
+
+function normalizeProvider(value: unknown): string | null {
+  return normalizeOptionalString(value);
+}
+
+function normalizeSlug(value: unknown, fallback: string): string {
+  const normalized = normalizeString(value, fallback);
+  return normalized === "" ? fallback : normalized;
+}
+
+function normalizeName(value: unknown, fallback: string): string {
+  const normalized = normalizeString(value, fallback);
+  return normalized === "" ? fallback : normalized;
+}
+
+function sortByTenantId(a: TenantSummary, b: TenantSummary): number {
+  return a.tenant_id.localeCompare(b.tenant_id);
+}
+
+function sortByServiceId(a: ServiceSummary, b: ServiceSummary): number {
+  return a.service_id.localeCompare(b.service_id);
+}
+
+function sortByEnvironmentName(
+  a: EnvironmentSummary,
+  b: EnvironmentSummary,
+): number {
+  return a.environment_name.localeCompare(b.environment_name);
+}
+
 export async function listCatalogTenants(db: D1Like): Promise<TenantSummary[]> {
   const rows = await db
     .prepare(
@@ -36,13 +104,17 @@ export async function listCatalogTenants(db: D1Like): Promise<TenantSummary[]> {
     )
     .all<OrgTenantRow>();
 
-  return (rows.results ?? []).map((row) => ({
-    tenant_id: row.id,
-    name: row.name,
-    service_count: 0,
-    environment_count: 0,
-    source: "seeded" as const,
-  }));
+  const tenants = (rows.results ?? [])
+    .filter((row) => isNonEmptyString(row.id))
+    .map((row) => ({
+      tenant_id: row.id.trim(),
+      name: normalizeName(row.name, row.id.trim()),
+      service_count: 0,
+      environment_count: 0,
+      source: "seeded" as const,
+    }));
+
+  return tenants.sort(sortByTenantId);
 }
 
 export async function getCatalogTenant(
@@ -59,7 +131,7 @@ export async function getCatalogTenant(
     .bind(tenantId)
     .first<OrgTenantRow>();
 
-  if (!row) {
+  if (!row || !isNonEmptyString(row.id)) {
     return null;
   }
 
@@ -81,21 +153,11 @@ export async function getCatalogTenant(
     .bind(tenantId)
     .first<{ count: number | string }>();
 
-  const serviceCount =
-    typeof serviceCountRow?.count === "number"
-      ? serviceCountRow.count
-      : Number.parseInt(String(serviceCountRow?.count ?? "0"), 10);
-
-  const environmentCount =
-    typeof environmentCountRow?.count === "number"
-      ? environmentCountRow.count
-      : Number.parseInt(String(environmentCountRow?.count ?? "0"), 10);
-
   return {
-    tenant_id: row.id,
-    name: row.name,
-    service_count: serviceCount,
-    environment_count: environmentCount,
+    tenant_id: row.id.trim(),
+    name: normalizeName(row.name, row.id.trim()),
+    service_count: parseCount(serviceCountRow?.count),
+    environment_count: parseCount(environmentCountRow?.count),
     source: "seeded",
   };
 }
@@ -124,27 +186,32 @@ export async function listCatalogServicesForTenant(
     .bind(tenantId)
     .all<TenantEnvironmentRow>();
 
-  const environmentNames = [
-    ...new Set(
-      (environmentRows.results ?? []).map((row) => row.environment_name),
-    ),
-  ];
+  const environmentNames = uniqueStrings(
+    (environmentRows.results ?? []).map((row) => row.environment_name),
+  ).sort((a, b) => a.localeCompare(b));
 
-  return (serviceRows.results ?? []).map((row) => {
-    const resolvedProvider = row.provider ?? inferProvider(row.kind, row.slug);
+  const services = (serviceRows.results ?? [])
+    .filter((row) => isNonEmptyString(row.id))
+    .map((row) => {
+    const serviceId = row.id.trim();
+    const serviceName = normalizeSlug(row.slug, serviceId);
+    const resolvedProvider =
+      normalizeProvider(row.provider) ?? inferProvider(row.kind, serviceName);
     const providerSource =
-      row.provider != null && row.provider !== "" ? "catalog" : "inferred";
+      normalizeProvider(row.provider) != null ? "catalog" : "inferred";
 
     return {
-      tenant_id: row.tenant_id ?? tenantId,
-      service_id: row.id,
-      service_name: row.slug,
+      tenant_id: normalizeString(row.tenant_id, tenantId),
+      service_id: serviceId,
+      service_name: serviceName,
       provider: resolvedProvider,
       provider_source: providerSource,
       environments: environmentNames,
       source: "catalog" as const,
     };
   });
+
+  return services.sort(sortByServiceId);
 }
 
 export async function getCatalogService(
@@ -162,7 +229,7 @@ export async function getCatalogService(
     .bind(tenantId, serviceId)
     .first<ServiceCatalogRow>();
 
-  if (!row) {
+  if (!row || !isNonEmptyString(row.id)) {
     return null;
   }
 
@@ -176,21 +243,21 @@ export async function getCatalogService(
     .bind(tenantId)
     .all<TenantEnvironmentRow>();
 
-  const resolvedProvider = row.provider ?? inferProvider(row.kind, row.slug);
-  const providerSource =
-    row.provider != null && row.provider !== "" ? "catalog" : "inferred";
+  const normalizedServiceId = row.id.trim();
+  const normalizedServiceName = normalizeSlug(row.slug, normalizedServiceId);
+  const explicitProvider = normalizeProvider(row.provider);
+  const resolvedProvider =
+    explicitProvider ?? inferProvider(row.kind, normalizedServiceName);
 
   return {
-    tenant_id: row.tenant_id ?? tenantId,
-    service_id: row.id,
-    service_name: row.slug,
+    tenant_id: normalizeString(row.tenant_id, tenantId),
+    service_id: normalizedServiceId,
+    service_name: normalizedServiceName,
     provider: resolvedProvider,
-    provider_source: providerSource,
-    environments: [
-      ...new Set(
-        (environmentRows.results ?? []).map((env) => env.environment_name),
-      ),
-    ],
+    provider_source: explicitProvider ? "catalog" : "inferred",
+    environments: uniqueStrings(
+      (environmentRows.results ?? []).map((env) => env.environment_name),
+    ).sort((a, b) => a.localeCompare(b)),
     source: "catalog" as const,
   };
 }
@@ -215,23 +282,34 @@ export async function listCatalogEnvironmentsForService(
     .bind(tenantId)
     .all<TenantEnvironmentRow>();
 
-  return (rows.results ?? []).map((row) => ({
-    tenant_id: row.tenant_id,
-    service_id: serviceId,
-    environment_name: row.environment_name,
-  }));
+  return uniqueStrings((rows.results ?? []).map((row) => row.environment_name))
+    .map((environment_name) => ({
+      tenant_id: tenantId,
+      service_id: serviceId,
+      environment_name,
+    }))
+    .sort(sortByEnvironmentName);
 }
 
 function inferProvider(kind: string, slug: string): string | null {
-  if (slug.includes("control-plane") || slug.includes("operator-agent")) {
+  const normalizedKind = normalizeString(kind).toLowerCase();
+  const normalizedSlug = normalizeString(slug).toLowerCase();
+
+  if (
+    normalizedSlug.includes("control-plane") ||
+    normalizedSlug.includes("operator-agent")
+  ) {
     return "cloudflare";
   }
 
-  if (slug.includes("dashboard") || slug.includes("ops-console")) {
+  if (
+    normalizedSlug.includes("dashboard") ||
+    normalizedSlug.includes("ops-console")
+  ) {
     return "cloudflare";
   }
 
-  if (kind === "frontend" || kind === "backend") {
+  if (normalizedKind === "frontend" || normalizedKind === "backend") {
     return "cloudflare";
   }
 

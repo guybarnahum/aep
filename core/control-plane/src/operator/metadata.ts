@@ -13,24 +13,51 @@ import type {
 
 type D1Like = D1Database;
 
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
 export async function listSeededTenants(
   db: D1Like,
 ): Promise<TenantSummary[]> {
-  return listCatalogTenants(db);
+  try {
+    return await listCatalogTenants(db);
+  } catch (error) {
+    console.error("metadata.listSeededTenants failed", {
+      message: errorMessage(error),
+    });
+    return [];
+  }
 }
 
 export async function getSeededTenant(
   db: D1Like,
   tenantId: string,
 ): Promise<TenantSummary | null> {
-  return getCatalogTenant(db, tenantId);
+  try {
+    return await getCatalogTenant(db, tenantId);
+  } catch (error) {
+    console.error("metadata.getSeededTenant failed", {
+      tenantId,
+      message: errorMessage(error),
+    });
+    return null;
+  }
 }
 
 export async function listServicesForTenant(
   db: D1Like,
   tenantId: string,
 ): Promise<ServiceSummary[]> {
-  return listCatalogServicesForTenant(db, tenantId);
+  try {
+    return await listCatalogServicesForTenant(db, tenantId);
+  } catch (error) {
+    console.error("metadata.listServicesForTenant failed", {
+      tenantId,
+      message: errorMessage(error),
+    });
+    return [];
+  }
 }
 
 export async function getService(
@@ -38,7 +65,16 @@ export async function getService(
   tenantId: string,
   serviceId: string,
 ): Promise<ServiceSummary | null> {
-  return getCatalogService(db, tenantId, serviceId);
+  try {
+    return await getCatalogService(db, tenantId, serviceId);
+  } catch (error) {
+    console.error("metadata.getService failed", {
+      tenantId,
+      serviceId,
+      message: errorMessage(error),
+    });
+    return null;
+  }
 }
 
 export async function listEnvironmentsForService(
@@ -46,5 +82,14 @@ export async function listEnvironmentsForService(
   tenantId: string,
   serviceId: string,
 ): Promise<EnvironmentSummary[]> {
-  return listCatalogEnvironmentsForService(db, tenantId, serviceId);
+  try {
+    return await listCatalogEnvironmentsForService(db, tenantId, serviceId);
+  } catch (error) {
+    console.error("metadata.listEnvironmentsForService failed", {
+      tenantId,
+      serviceId,
+      message: errorMessage(error),
+    });
+    return [];
+  }
 }

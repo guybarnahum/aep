@@ -10,7 +10,10 @@ import {
   sha256Hex,
   timingSafeEqual,
 } from "@aep/shared/index";
-import { corsPreflight } from "@aep/control-plane/lib/http";
+import {
+  corsPreflight,
+  runtimeRouteError,
+} from "@aep/control-plane/lib/http";
 import { handleHealthz } from "@aep/control-plane/routes/healthz";
 import { handleOperatorRoute } from "@aep/control-plane/routes/operator";
 import {
@@ -44,6 +47,25 @@ import { advanceTimeoutForJob } from "@aep/control-plane/operator/advance-timeou
 
 async function json(request: Request): Promise<unknown> {
   return request.json();
+}
+
+function isRuntimeReadRoute(pathname: string): boolean {
+  return (
+    pathname === "/runs" ||
+    pathname.startsWith("/runs/") ||
+    pathname === "/companies" ||
+    pathname.startsWith("/companies/") ||
+    pathname === "/teams" ||
+    pathname.startsWith("/teams/") ||
+    pathname === "/org/tenants" ||
+    pathname.startsWith("/org/tenants/") ||
+    pathname === "/services" ||
+    pathname.startsWith("/services/") ||
+    pathname === "/employees" ||
+    pathname.startsWith("/employees/") ||
+    pathname === "/tenants" ||
+    pathname.startsWith("/tenants/")
+  );
 }
 
 function badRequest(message: string): Response {
@@ -454,6 +476,8 @@ export default {
     }
 
     const pathname = url.pathname;
+
+    try {
 
     if (request.method === "GET" && pathname === "/runs") {
       return handleRunsRoute(request, env, url);
@@ -1506,6 +1530,24 @@ export default {
     }
 
     return new Response("Not found", { status: 404 });
+    } catch (error) {
+      if (request.method === "GET" && isRuntimeReadRoute(pathname)) {
+        console.error("top-level runtime read route failure", {
+          route: pathname,
+          method: request.method,
+          message: error instanceof Error ? error.message : String(error),
+        });
+
+        return runtimeRouteError({
+          route: pathname,
+          error,
+          method: request.method,
+          resourceId: pathname,
+        });
+      }
+
+      throw error;
+    }
   },
 } satisfies ExportedHandler<Env>;
 

@@ -1,5 +1,4 @@
 import {
-  getSeededTenant,
   getService,
   listEnvironmentsForService,
   listSeededTenants,
@@ -15,26 +14,48 @@ import type { TenantSummary } from "@aep/control-plane/operator/types";
 
 type D1Like = D1Database;
 
+function isNonEmptyString(value: unknown): value is string {
+  return typeof value === "string" && value.trim() !== "";
+}
+
+function normalizeString(value: unknown, fallback = ""): string {
+  if (!isNonEmptyString(value)) {
+    return fallback;
+  }
+
+  return value.trim();
+}
+
 function serviceMatchesRunServiceName(
   serviceId: string,
   serviceName: string,
   runServiceName: string,
 ): boolean {
-  return runServiceName === serviceId || runServiceName === serviceName;
+  const normalizedRunServiceName = normalizeString(runServiceName);
+  if (normalizedRunServiceName === "") {
+    return false;
+  }
+
+  return (
+    normalizedRunServiceName === normalizeString(serviceId) ||
+    normalizedRunServiceName === normalizeString(serviceName)
+  );
 }
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-async function listObservedRuns(
+async function safeListObservedRuns(
   db: D1Like,
   limit = 200,
 ) {
   try {
     return await listProjectionRunSummaries(db, limit);
   } catch (error) {
-    console.error("operator dashboard observed-run fallback", error);
+    console.error("operator dashboard observed-run fallback", {
+      message: errorMessage(error),
+    });
     return [];
   }
 }
@@ -43,7 +64,7 @@ async function buildTenantServiceOverviewEntry(args: {
   db: D1Like;
   tenantId: string;
   service: Awaited<ReturnType<typeof mergeServiceSummaries>>[number];
-  runs: Awaited<ReturnType<typeof listObservedRuns>>;
+  runs: Awaited<ReturnType<typeof safeListObservedRuns>>;
 }) {
   const { db, tenantId, service, runs } = args;
 
@@ -54,21 +75,31 @@ async function buildTenantServiceOverviewEntry(args: {
       service.service_id,
     );
 
+    const effectiveServiceName =
+      normalizeString(service.service_name, service.service_id);
+
     const environmentViews = resolveEnvironmentViews(
-      service.service_name,
-      [...new Set(seededEnvironments.map((env) => env.environment_name))],
+      effectiveServiceName,
+      [
+        ...new Set(
+          seededEnvironments
+            .map((env) => normalizeString(env.environment_name))
+            .filter((value) => value !== ""),
+        ),
+      ],
       runs,
     );
 
     return {
       ...service,
+      service_name: effectiveServiceName,
       environments: environmentViews.map(({ environment_name, source }) => {
         const latestRun =
           runs.find(
             (run) =>
               serviceMatchesRunServiceName(
                 service.service_id,
-                service.service_name,
+                effectiveServiceName,
                 run.service_name,
               ) &&
               run.environment_name === environment_name,
@@ -90,6 +121,7 @@ async function buildTenantServiceOverviewEntry(args: {
 
     return {
       ...service,
+      service_name: normalizeString(service.service_name, service.service_id),
       environments: [],
     };
   }
@@ -97,7 +129,7 @@ async function buildTenantServiceOverviewEntry(args: {
 
 export async function listTenantSummaries(db: D1Like): Promise<TenantSummary[]> {
   const seeded = await listSeededTenants(db);
-  const runs = await listObservedRuns(db, 200);
+  const runs = await safeListObservedRuns(db, 200);
 
   return mergeTenantSummaries(seeded, runs);
 }
@@ -107,8 +139,18 @@ export async function getTenantOverview(db: D1Like, tenantId: string) {
   const tenant = allTenants.find((entry) => entry.tenant_id === tenantId) ?? null;
   if (!tenant) return null;
 
-  const services = await listServicesForTenant(db, tenantId);
-  const runs = (await listObservedRuns(db, 200)).filter(
+  let services = [];
+  try {
+    services = await listServicesForTenant(db, tenantId);
+  } catch (error) {
+    console.error("operator dashboard tenant services fallback", {
+      tenantId,
+      message: errorMessage(error),
+    });
+    services = [];
+  }
+
+  const runs = (await safeListObservedRuns(db, 200)).filter(
     (run) => run.tenant_id === tenantId,
   );
 
@@ -139,7 +181,7 @@ export async function getServiceOverview(
   if (!tenant) return null;
 
   const seededService = await getService(db, tenantId, serviceId);
-  const runs = (await listObservedRuns(db, 200)).filter(
+  const runs = (await safeListObservedRuns(db, 200)).filter(
     (run) =>
       run.tenant_id === tenantId &&
       (run.service_name === serviceId ||
@@ -168,15 +210,27 @@ export async function getServiceOverview(
       tenantId,
       serviceId,
     );
+    const effectiveServiceName =
+      normalizeString(service.service_name, service.service_id);
+
     const environmentViews = resolveEnvironmentViews(
-      service.service_name,
-      [...new Set(seededEnvironments.map((env) => env.environment_name))],
+      effectiveServiceName,
+      [
+        ...new Set(
+          seededEnvironments
+            .map((env) => normalizeString(env.environment_name))
+            .filter((value) => value !== ""),
+        ),
+      ],
       runs,
     );
 
     return {
       tenant,
-      service,
+      service: {
+        ...service,
+        service_name: effectiveServiceName,
+      },
       environments: environmentViews.map(({ environment_name, source }) => {
         const matchingRuns = runs.filter(
           (run) => run.environment_name === environment_name,
@@ -199,7 +253,10 @@ export async function getServiceOverview(
 
     return {
       tenant,
-      service,
+      service: {
+        ...service,
+        service_name: normalizeString(service.service_name, service.service_id),
+      },
       environments: [],
     };
   }
