@@ -506,3 +506,189 @@ export async function handleValidationResultDetailRoute(
     },
   });
 }
+
+async function listLatestValidationResultsByType(
+  db: D1Database,
+): Promise<ValidationResultRow[]> {
+  const result = await db
+    .prepare(
+      `SELECT vr.id, vr.team_id, vr.validation_type, vr.status, vr.executed_by, vr.summary,
+              vr.created_at, vr.owner_team, vr.severity, vr.escalation_state
+       FROM validation_results vr
+       INNER JOIN (
+         SELECT validation_type, MAX(created_at) AS max_created_at
+         FROM validation_results
+         GROUP BY validation_type
+       ) latest
+         ON vr.validation_type = latest.validation_type
+        AND vr.created_at = latest.max_created_at
+       ORDER BY vr.validation_type ASC`,
+    )
+    .all<ValidationResultRow>();
+
+  return result.results ?? [];
+}
+
+export async function handleLatestValidationResultRoute(
+  request: Request,
+  env: EnvLike,
+): Promise<Response> {
+  return withRuntimeJsonBoundary({
+    route: "/validation/results/latest",
+    request,
+    handler: async () => {
+      const url = new URL(request.url);
+      const validationType = url.searchParams.get("validation_type");
+
+      if (validationType) {
+        const row = await env.DB
+          .prepare(
+            `SELECT
+               id,
+               team_id,
+               validation_type,
+               status,
+               executed_by,
+               summary,
+               created_at,
+               owner_team,
+               severity,
+               escalation_state
+             FROM validation_results
+             WHERE validation_type = ?
+             ORDER BY created_at DESC
+             LIMIT 1`,
+          )
+          .bind(validationType)
+          .first<ValidationResultRow>();
+
+        if (!row) {
+          return notFound(`validation result not found for type: ${validationType}`);
+        }
+
+        const ownerTeam =
+          row.owner_team ?? deriveOwnerTeamForValidationType(row.validation_type);
+
+        const severity =
+          row.severity ??
+          classifyValidationSeverity({
+            status: row.status,
+            validationType: row.validation_type,
+          });
+
+        const escalationState =
+          row.escalation_state ??
+          deriveEscalationState({
+            severity,
+            ownerTeam,
+          });
+
+        return json({
+          validation_id: row.id,
+          team_id: row.team_id,
+          validation_type: row.validation_type,
+          status: row.status,
+          executed_by: row.executed_by,
+          summary: row.summary,
+          created_at: row.created_at,
+          owner_team: ownerTeam,
+          severity,
+          escalation_state: escalationState,
+          _owner: getOwnerForRoute("/validation/results/latest"),
+        });
+      }
+
+      const latest = await listLatestValidationResultsByType(env.DB);
+
+      return json({
+        results: latest.map((row) => {
+          const ownerTeam =
+            row.owner_team ?? deriveOwnerTeamForValidationType(row.validation_type);
+
+          const severity =
+            row.severity ??
+            classifyValidationSeverity({
+              status: row.status,
+              validationType: row.validation_type,
+            });
+
+          const escalationState =
+            row.escalation_state ??
+            deriveEscalationState({
+              severity,
+              ownerTeam,
+            });
+
+          return {
+            validation_id: row.id,
+            team_id: row.team_id,
+            validation_type: row.validation_type,
+            status: row.status,
+            executed_by: row.executed_by,
+            summary: row.summary,
+            created_at: row.created_at,
+            owner_team: ownerTeam,
+            severity,
+            escalation_state: escalationState,
+          };
+        }),
+        _owner: getOwnerForRoute("/validation/results/latest"),
+      });
+    },
+  });
+}
+
+export async function handleValidationVerdictRoute(
+  request: Request,
+  env: EnvLike,
+): Promise<Response> {
+  return withRuntimeJsonBoundary({
+    route: "/validation/verdict",
+    request,
+    handler: async () => {
+      const latest = await listLatestValidationResultsByType(env.DB);
+
+      const checks = latest.map((row) => {
+        const ownerTeam =
+          row.owner_team ?? deriveOwnerTeamForValidationType(row.validation_type);
+
+        const severity =
+          row.severity ??
+          classifyValidationSeverity({
+            status: row.status,
+            validationType: row.validation_type,
+          });
+
+        const escalationState =
+          row.escalation_state ??
+          deriveEscalationState({
+            severity,
+            ownerTeam,
+          });
+
+        return {
+          validation_id: row.id,
+          validation_type: row.validation_type,
+          status: row.status,
+          owner_team: ownerTeam,
+          severity,
+          escalation_state: escalationState,
+        };
+      });
+
+      const overallFailed = checks.some(
+        (check) =>
+          check.status === "failed" ||
+          check.severity === "failed" ||
+          check.severity === "critical",
+      );
+
+      return json({
+        team_id: "team_validation",
+        status: overallFailed ? "failed" : "passed",
+        checks,
+        _owner: getOwnerForRoute("/validation/verdict"),
+      });
+    },
+  });
+}

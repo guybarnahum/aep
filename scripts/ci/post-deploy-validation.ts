@@ -8,6 +8,7 @@ type ValidationCheck = {
   id: string;
   label: string;
   scriptPath: string;
+  args?: string[];
 };
 
 type CheckStatus = "pass" | "fail" | "skip" | "warn";
@@ -36,6 +37,11 @@ const CHECKS: ValidationCheck[] = [
     label: "Scheduled routing check",
     scriptPath: "scripts/ci/scheduled-routing-check.ts",
   },
+  {
+    id: "validation-verdict",
+    label: "Validation verdict check",
+    scriptPath: "scripts/ci/check-validation-verdict.ts",
+  },
 ];
 
 function hasArg(flag: string): boolean {
@@ -57,6 +63,17 @@ function resolveTsxBin(): string {
   }
 
   return localBin;
+}
+
+function requireBaseUrl(): string {
+  const baseUrl = process.env.DEPLOY_URL;
+  if (!baseUrl) {
+    throw new Error(
+      "DEPLOY_URL is required for post-deploy validation checks that call the deployed control-plane.",
+    );
+  }
+
+  return baseUrl;
 }
 
 function extractSkipReason(output: string): string | undefined {
@@ -83,7 +100,7 @@ function runCheck(tsxBin: string, check: ValidationCheck): CheckResult {
   console.log(`\n==> ${check.label}`);
   console.log(`Running ${check.scriptPath}`);
 
-  const result = spawnSync(tsxBin, [check.scriptPath], {
+  const result = spawnSync(tsxBin, [check.scriptPath, ...(check.args ?? [])], {
     cwd: process.cwd(),
     env: process.env,
     stdio: "pipe",
@@ -128,16 +145,29 @@ function runCheck(tsxBin: string, check: ValidationCheck): CheckResult {
 }
 
 function main(): void {
+  const baseUrl = requireBaseUrl();
+  const checks = CHECKS.map((check) => {
+    if (check.id !== "validation-verdict") {
+      return check;
+    }
+
+    return {
+      ...check,
+      args: ["--base-url", baseUrl],
+    };
+  });
+
   if (hasArg("--dry-run")) {
     console.log("post-deploy-validation dry run");
-    for (const check of CHECKS) {
-      console.log(`- ${check.id}: ${check.scriptPath}`);
+    for (const check of checks) {
+      const args = check.args?.join(" ") ?? "";
+      console.log(`- ${check.id}: ${check.scriptPath}${args ? ` ${args}` : ""}`);
     }
     return;
   }
 
   const tsxBin = resolveTsxBin();
-  const results = CHECKS.map((check) => runCheck(tsxBin, check));
+  const results = checks.map((check) => runCheck(tsxBin, check));
 
   const failed = results.filter((result) => result.status === "fail");
 

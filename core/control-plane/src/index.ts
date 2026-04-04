@@ -25,8 +25,10 @@ import {
   handleValidationRoute,
   handleValidationEmployeesRoute,
   handleValidationEmployeeDetailRoute,
+  handleLatestValidationResultRoute,
   handleValidationResultsRoute,
   handleValidationResultDetailRoute,
+  handleValidationVerdictRoute,
   handleOrgTenantsRoute,
   handleOrgTenantDetailRoute,
   handleTenantEnvironmentsRoute,
@@ -74,8 +76,10 @@ function isRuntimeReadRoute(pathname: string): boolean {
     pathname === "/validation" ||
     pathname === "/validation/employees" ||
     pathname.startsWith("/validation/employees/") ||
+    pathname === "/validation/results/latest" ||
     pathname === "/validation/results" ||
-    pathname.startsWith("/validation/results/")
+    pathname.startsWith("/validation/results/") ||
+    pathname === "/validation/verdict"
   );
 }
 
@@ -545,6 +549,14 @@ export default {
 
     if (request.method === "GET" && pathname === "/validation/results") {
       return handleValidationResultsRoute(request, env);
+    }
+
+    if (request.method === "GET" && pathname === "/validation/results/latest") {
+      return handleLatestValidationResultRoute(request, env);
+    }
+
+    if (request.method === "GET" && pathname === "/validation/verdict") {
+      return handleValidationVerdictRoute(request, env);
     }
 
     match = pathname.match(/^\/validation\/results\/([^/]+)$/);

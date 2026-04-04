@@ -44,6 +44,8 @@ const VALIDATION_SURFACE_ROUTES = [
   "/validation/employees/:employeeId",
   "/validation/results",
   "/validation/results/:validationId",
+  "/validation/results/latest",
+  "/validation/verdict",
 ];
 
 const VALIDATION_EMPLOYEES: ValidationEmployee[] = [
@@ -123,6 +125,8 @@ export function getOwnerForRoute(pathname: string): string | null {
     pathname.startsWith("/validation/employees/") ||
     pathname === "/validation/results" ||
     pathname.startsWith("/validation/results/") ||
+    pathname === "/validation/results/latest" ||
+    pathname === "/validation/verdict" ||
     pathname === "/teams/team_validation/ownership"
   ) {
     return TEAM_VALIDATION_ID;
