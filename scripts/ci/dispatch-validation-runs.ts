@@ -65,10 +65,17 @@ async function main() {
     );
   }
 
-  const body = await response.json();
+  const body = (await response.json()) as {
+    dispatch_batch_id?: string;
+  };
+
+  if (!body.dispatch_batch_id) {
+    throw new Error("Dispatch response did not include dispatch_batch_id");
+  }
 
   console.log("Validation runs dispatched");
   console.log(JSON.stringify(body, null, 2));
+  console.log(`DISPATCH_BATCH_ID=${body.dispatch_batch_id}`);
 }
 
 void main().catch((error) => {

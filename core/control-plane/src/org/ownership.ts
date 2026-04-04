@@ -13,6 +13,7 @@ export type ValidationEmployee = {
 
 export type ValidationResult = {
   validation_id: string;
+  dispatch_batch_id?: string | null;
   team_id: string;
   status: "passed" | "failed" | "warn";
   validation_type:
@@ -32,6 +33,7 @@ export type ValidationResult = {
 
 export type ValidationRun = {
   validation_run_id: string;
+  dispatch_batch_id?: string | null;
   validation_type:
     | "runtime_read_safety"
     | "contract_surface"

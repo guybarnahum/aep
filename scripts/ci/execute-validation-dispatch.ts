@@ -30,16 +30,20 @@ function parseArgs(argv: string[]) {
   }
 
   const requestedBy = args.get("requested-by") ?? "post_deploy_validation";
+  const dispatchBatchId = args.get("dispatch-batch-id");
 
   return {
     baseUrl: baseUrl.replace(/\/+$/, ""),
     mode,
     requestedBy,
+    dispatchBatchId,
   } as const;
 }
 
 async function main() {
-  const { baseUrl, mode, requestedBy } = parseArgs(process.argv.slice(2));
+  const { baseUrl, mode, requestedBy, dispatchBatchId } = parseArgs(
+    process.argv.slice(2),
+  );
 
   const response = await fetch(
     `${baseUrl}/internal/validation/execute-dispatch`,
@@ -51,6 +55,7 @@ async function main() {
         "user-agent": "aep-ci-execute-validation-dispatch/1.0",
       },
       body: JSON.stringify({
+        dispatch_batch_id: dispatchBatchId ?? undefined,
         requested_by: requestedBy,
         target_base_url: baseUrl,
         mode,

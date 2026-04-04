@@ -19,6 +19,7 @@ type CheckResult = {
   status: CheckStatus;
   skipReason?: string;
   warnReason?: string;
+  dispatchBatchId?: string;
 };
 
 const CHECKS: ValidationCheck[] = [
@@ -106,6 +107,16 @@ function extractWarnReason(output: string): string | undefined {
   return undefined;
 }
 
+function extractDispatchBatchId(output: string): string | undefined {
+  for (const line of output.split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (trimmed.startsWith("DISPATCH_BATCH_ID=")) {
+      return trimmed.slice("DISPATCH_BATCH_ID=".length).trim();
+    }
+  }
+  return undefined;
+}
+
 function runCheck(tsxBin: string, check: ValidationCheck): CheckResult {
   console.log(`\n==> ${check.label}`);
   console.log(`Running ${check.scriptPath}`);
@@ -128,21 +139,35 @@ function runCheck(tsxBin: string, check: ValidationCheck): CheckResult {
 
   if (typeof result.status === "number") {
     const combinedOutput = `${stdout}\n${stderr}`;
+    const dispatchBatchId = extractDispatchBatchId(combinedOutput);
     const skipReason = extractSkipReason(combinedOutput);
     const warnReason = extractWarnReason(combinedOutput);
 
     if (result.status === 0 && skipReason) {
-      return { check, exitCode: result.status, status: "skip", skipReason };
+      return {
+        check,
+        exitCode: result.status,
+        status: "skip",
+        skipReason,
+        dispatchBatchId,
+      };
     }
 
     if (result.status === 0 && warnReason) {
-      return { check, exitCode: result.status, status: "warn", warnReason };
+      return {
+        check,
+        exitCode: result.status,
+        status: "warn",
+        warnReason,
+        dispatchBatchId,
+      };
     }
 
     return {
       check,
       exitCode: result.status,
       status: result.status === 0 ? "pass" : "fail",
+      dispatchBatchId,
     };
   }
 
@@ -205,7 +230,49 @@ function main(): void {
   }
 
   const tsxBin = resolveTsxBin();
-  const results = checks.map((check) => runCheck(tsxBin, check));
+  const results: CheckResult[] = [];
+  let dispatchBatchId: string | undefined;
+
+  for (const check of checks) {
+    let effectiveCheck = check;
+
+    if (check.id === "execute-validation-dispatch" && dispatchBatchId) {
+      effectiveCheck = {
+        ...check,
+        args: [
+          "--base-url",
+          baseUrl,
+          "--mode",
+          "full",
+          "--requested-by",
+          "post_deploy_validation",
+          "--dispatch-batch-id",
+          dispatchBatchId,
+        ],
+      };
+    }
+
+    if (check.id === "validation-verdict" && dispatchBatchId) {
+      effectiveCheck = {
+        ...check,
+        args: [
+          "--base-url",
+          baseUrl,
+          "--freshness-minutes",
+          "30",
+          "--dispatch-batch-id",
+          dispatchBatchId,
+        ],
+      };
+    }
+
+    const result = runCheck(tsxBin, effectiveCheck);
+    results.push(result);
+
+    if (check.id === "dispatch-validation-runs" && result.dispatchBatchId) {
+      dispatchBatchId = result.dispatchBatchId;
+    }
+  }
 
   const failed = results.filter((result) => result.status === "fail");
 

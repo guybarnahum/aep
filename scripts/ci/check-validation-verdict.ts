@@ -8,6 +8,7 @@ type VerdictCheck = {
   audit_status?: string | null;
   freshness?: string | null;
   message?: string | null;
+  dispatch_batch_id?: string | null;
 };
 
 function parseArgs(argv: string[]) {
@@ -39,20 +40,27 @@ function parseArgs(argv: string[]) {
   return {
     baseUrl: baseUrl.replace(/\/+$/, ""),
     freshnessMinutes: Math.trunc(freshnessMinutes),
+    dispatchBatchId: args.get("dispatch-batch-id") ?? null,
   };
 }
 
 async function main() {
-  const { baseUrl, freshnessMinutes } = parseArgs(process.argv.slice(2));
-  const response = await fetch(
-    `${baseUrl}/validation/verdict?freshness_minutes=${freshnessMinutes}`,
-    {
-      headers: {
-        accept: "application/json",
-        "user-agent": "aep-ci-validation-verdict/1.0",
-      },
-    },
+  const { baseUrl, freshnessMinutes, dispatchBatchId } = parseArgs(
+    process.argv.slice(2),
   );
+
+  const verdictUrl = new URL(`${baseUrl}/validation/verdict`);
+  verdictUrl.searchParams.set("freshness_minutes", String(freshnessMinutes));
+  if (dispatchBatchId) {
+    verdictUrl.searchParams.set("dispatch_batch_id", dispatchBatchId);
+  }
+
+  const response = await fetch(verdictUrl.toString(), {
+    headers: {
+      accept: "application/json",
+      "user-agent": "aep-ci-validation-verdict/1.0",
+    },
+  });
 
   if (!response.ok) {
     throw new Error(`Validation verdict request failed with HTTP ${response.status}`);
@@ -62,6 +70,7 @@ async function main() {
     team_id?: string;
     status?: string;
     freshness_minutes?: number;
+    dispatch_batch_id?: string | null;
     checks?: VerdictCheck[];
   };
 

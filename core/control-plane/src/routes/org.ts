@@ -49,6 +49,7 @@ type EnvLike = {
 
 type ValidationResultRow = {
   id: string;
+  dispatch_batch_id: string | null;
   team_id: string;
   validation_type: "runtime_read_safety" | "contract_surface" | "ownership_surface";
   status: "passed" | "failed" | "warn";
@@ -65,6 +66,7 @@ type ValidationResultRow = {
 
 type ValidationRunRow = {
   id: string;
+  dispatch_batch_id: string | null;
   validation_type: "runtime_read_safety" | "contract_surface" | "ownership_surface";
   requested_by: string;
   assigned_to: string;
@@ -95,6 +97,7 @@ type SchedulePostDeployValidationBody = {
 };
 
 type ExecuteValidationDispatchBody = {
+  dispatch_batch_id?: string;
   requested_by?: string;
   target_base_url?: string;
   mode?: "full" | "runtime_only";
@@ -430,6 +433,7 @@ async function listPersistedValidationResults(
     .prepare(
       `SELECT
          id,
+         dispatch_batch_id,
          team_id,
          validation_type,
          status,
@@ -458,6 +462,7 @@ async function getPersistedValidationResult(
     .prepare(
       `SELECT
          id,
+         dispatch_batch_id,
          team_id,
          validation_type,
          status,
@@ -487,6 +492,7 @@ async function listPersistedValidationRuns(
     .prepare(
       `SELECT
          id,
+         dispatch_batch_id,
          validation_type,
          requested_by,
          assigned_to,
@@ -512,6 +518,7 @@ async function getPersistedValidationRun(
     .prepare(
       `SELECT
          id,
+         dispatch_batch_id,
          validation_type,
          requested_by,
          assigned_to,
@@ -533,18 +540,51 @@ async function getPersistedValidationRun(
 
 async function listQueuedValidationRunsForDispatch(args: {
   db: D1Database;
-  requestedBy: string;
-  targetBaseUrl: string;
+  dispatchBatchId?: string;
+  requestedBy?: string;
+  targetBaseUrl?: string;
   validationTypes: ReadonlyArray<
     "runtime_read_safety" | "contract_surface" | "ownership_surface"
   >;
 }): Promise<ValidationRunRow[]> {
   const placeholders = args.validationTypes.map(() => "?").join(", ");
 
+  if (args.dispatchBatchId) {
+    const result = await args.db
+      .prepare(
+        `SELECT
+           id,
+           dispatch_batch_id,
+           validation_type,
+           requested_by,
+           assigned_to,
+           status,
+           target_base_url,
+           result_id,
+           created_at,
+           started_at,
+           completed_at
+         FROM validation_runs
+         WHERE dispatch_batch_id = ?
+           AND status = 'queued'
+           AND validation_type IN (${placeholders})
+         ORDER BY created_at DESC`,
+      )
+      .bind(args.dispatchBatchId, ...args.validationTypes)
+      .all<ValidationRunRow>();
+
+    return result.results ?? [];
+  }
+
+  if (!args.requestedBy || !args.targetBaseUrl) {
+    return [];
+  }
+
   const result = await args.db
     .prepare(
       `SELECT
          id,
+         dispatch_batch_id,
          validation_type,
          requested_by,
          assigned_to,
@@ -567,8 +607,17 @@ async function listQueuedValidationRunsForDispatch(args: {
   return result.results ?? [];
 }
 
+function createDispatchBatchId(): string {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return `dispatch_batch_${crypto.randomUUID()}`;
+  }
+
+  return `dispatch_batch_${Date.now()}`;
+}
+
 async function createValidationRunRecord(args: {
   db: D1Database;
+  dispatchBatchId: string;
   validationType: "runtime_read_safety" | "contract_surface" | "ownership_surface";
   requestedBy: string;
   targetBaseUrl: string;
@@ -585,6 +634,7 @@ async function createValidationRunRecord(args: {
     .prepare(
       `INSERT INTO validation_runs (
          id,
+         dispatch_batch_id,
          validation_type,
          requested_by,
          assigned_to,
@@ -594,10 +644,11 @@ async function createValidationRunRecord(args: {
          created_at,
          started_at,
          completed_at
-       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .bind(
       validationRunId,
+      args.dispatchBatchId,
       args.validationType,
       args.requestedBy,
       assignedTo,
@@ -612,6 +663,7 @@ async function createValidationRunRecord(args: {
 
   return {
     id: validationRunId,
+    dispatch_batch_id: args.dispatchBatchId,
     validation_type: args.validationType,
     requested_by: args.requestedBy,
     assigned_to: assignedTo,
@@ -626,10 +678,15 @@ async function createValidationRunRecord(args: {
 
 async function dispatchValidationRuns(args: {
   db: D1Database;
+  dispatchBatchId?: string;
   requestedBy: string;
   targetBaseUrl: string;
   mode: "full" | "runtime_only";
-}): Promise<ValidationRunRow[]> {
+}): Promise<{
+  dispatchBatchId: string;
+  runs: ValidationRunRow[];
+}> {
+  const dispatchBatchId = args.dispatchBatchId ?? createDispatchBatchId();
   const validationTypes =
     args.mode === "runtime_only"
       ? (["runtime_read_safety"] as const)
@@ -639,6 +696,7 @@ async function dispatchValidationRuns(args: {
   for (const validationType of validationTypes) {
     const run = await createValidationRunRecord({
       db: args.db,
+      dispatchBatchId,
       validationType,
       requestedBy: args.requestedBy,
       targetBaseUrl: args.targetBaseUrl,
@@ -646,7 +704,10 @@ async function dispatchValidationRuns(args: {
     createdRuns.push(run);
   }
 
-  return createdRuns;
+  return {
+    dispatchBatchId,
+    runs: createdRuns,
+  };
 }
 
 async function markValidationRunRunning(
@@ -734,6 +795,7 @@ async function persistValidationResultFromRun(args: {
     .prepare(
       `INSERT INTO validation_results (
          id,
+         dispatch_batch_id,
          team_id,
          validation_type,
          status,
@@ -746,10 +808,11 @@ async function persistValidationResultFromRun(args: {
          audit_status,
          audited_by,
          audited_at
-       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .bind(
       resultId,
+      args.run.dispatch_batch_id ?? null,
       "team_validation",
       args.execution.validation_type,
       args.execution.status,
@@ -902,6 +965,7 @@ export async function handleValidationResultsRoute(
       return json({
         results: results.map((result) => ({
           validation_id: result.id,
+          dispatch_batch_id: result.dispatch_batch_id,
           team_id: result.team_id,
           validation_type: result.validation_type,
           status: result.status,
@@ -975,6 +1039,7 @@ export async function handleValidationResultDetailRoute(
 
       return json({
         validation_id: result.id,
+        dispatch_batch_id: result.dispatch_batch_id,
         team_id: result.team_id,
         validation_type: result.validation_type,
         status: result.status,
@@ -1045,7 +1110,7 @@ async function listLatestValidationResultsByType(
 ): Promise<ValidationResultRow[]> {
   const result = await db
     .prepare(
-      `SELECT vr.id, vr.team_id, vr.validation_type, vr.status, vr.executed_by, vr.summary,
+      `SELECT vr.id, vr.dispatch_batch_id, vr.team_id, vr.validation_type, vr.status, vr.executed_by, vr.summary,
               vr.created_at, vr.owner_team, vr.severity, vr.escalation_state,
               vr.audit_status, vr.audited_by, vr.audited_at
        FROM validation_results vr
@@ -1092,6 +1157,7 @@ export async function handleLatestValidationResultRoute(
           .prepare(
             `SELECT
                id,
+               dispatch_batch_id,
                team_id,
                validation_type,
                status,
@@ -1135,6 +1201,7 @@ export async function handleLatestValidationResultRoute(
 
         return json({
           validation_id: row.id,
+          dispatch_batch_id: row.dispatch_batch_id,
           team_id: row.team_id,
           validation_type: row.validation_type,
           status: row.status,
@@ -1174,6 +1241,7 @@ export async function handleLatestValidationResultRoute(
 
           return {
             validation_id: row.id,
+            dispatch_batch_id: row.dispatch_batch_id,
             team_id: row.team_id,
             validation_type: row.validation_type,
             status: row.status,
@@ -1204,6 +1272,8 @@ export async function handleValidationVerdictRoute(
     handler: async () => {
       const url = new URL(request.url);
       const freshnessMinutesParam = url.searchParams.get("freshness_minutes");
+      const dispatchBatchIdParam = url.searchParams.get("dispatch_batch_id");
+
       const parsedFreshnessMinutes = freshnessMinutesParam
         ? Number(freshnessMinutesParam)
         : Number.NaN;
@@ -1217,8 +1287,15 @@ export async function handleValidationVerdictRoute(
       const now = new Date();
 
       const latest = await listLatestValidationResultsByType(env.DB);
+      const filteredLatest =
+        typeof dispatchBatchIdParam === "string" && dispatchBatchIdParam.trim() !== ""
+          ? latest.filter(
+              (row) => row.dispatch_batch_id === dispatchBatchIdParam.trim(),
+            )
+          : latest;
+
       const latestByType = new Map(
-        latest.map((row) => [row.validation_type, row] as const),
+        filteredLatest.map((row) => [row.validation_type, row] as const),
       );
 
       const requiredTypes = listRequiredValidationTypesForVerdict();
@@ -1236,8 +1313,12 @@ export async function handleValidationVerdictRoute(
             audit_status: "pending" as const,
             audited_by: null,
             audited_at: null,
+            dispatch_batch_id:
+              typeof dispatchBatchIdParam === "string" && dispatchBatchIdParam.trim() !== ""
+                ? dispatchBatchIdParam.trim()
+                : null,
             freshness: "missing" as const,
-            message: "No validation result found for required validation type.",
+            message: "No validation result found for required validation type in the requested verdict scope.",
           };
         }
 
@@ -1277,6 +1358,7 @@ export async function handleValidationVerdictRoute(
             audit_status: row.audit_status ?? "pending",
             audited_by: row.audited_by,
             audited_at: row.audited_at,
+            dispatch_batch_id: row.dispatch_batch_id,
             freshness: fresh ? "fresh" : "stale",
             message: "Latest validation result is not reviewed.",
           };
@@ -1293,6 +1375,7 @@ export async function handleValidationVerdictRoute(
             audit_status: row.audit_status ?? "pending",
             audited_by: row.audited_by,
             audited_at: row.audited_at,
+            dispatch_batch_id: row.dispatch_batch_id,
             freshness: "stale" as const,
             message: `Latest reviewed validation result is older than ${freshnessMinutes} minutes.`,
           };
@@ -1308,6 +1391,7 @@ export async function handleValidationVerdictRoute(
           audit_status: row.audit_status ?? "pending",
           audited_by: row.audited_by,
           audited_at: row.audited_at,
+          dispatch_batch_id: row.dispatch_batch_id,
           freshness: "fresh" as const,
           message: "Fresh reviewed validation result available.",
         };
@@ -1325,6 +1409,10 @@ export async function handleValidationVerdictRoute(
       return json({
         team_id: "team_validation",
         status: overallFailed ? "failed" : "passed",
+        dispatch_batch_id:
+          typeof dispatchBatchIdParam === "string" && dispatchBatchIdParam.trim() !== ""
+            ? dispatchBatchIdParam.trim()
+            : null,
         freshness_minutes: freshnessMinutes,
         checked_at: now.toISOString(),
         checks,
@@ -1347,6 +1435,7 @@ export async function handleValidationRunsRoute(
       return json({
         runs: runs.map((run) => ({
           validation_run_id: run.id,
+          dispatch_batch_id: run.dispatch_batch_id,
           validation_type: run.validation_type,
           requested_by: run.requested_by,
           assigned_to: run.assigned_to,
@@ -1380,6 +1469,7 @@ export async function handleValidationRunDetailRoute(
 
       return json({
         validation_run_id: run.id,
+        dispatch_batch_id: run.dispatch_batch_id,
         validation_type: run.validation_type,
         requested_by: run.requested_by,
         assigned_to: run.assigned_to,
@@ -1448,6 +1538,7 @@ export async function handleCreateValidationRunRoute(
 
       const run = await createValidationRunRecord({
         db: env.DB,
+        dispatchBatchId: createDispatchBatchId(),
         validationType: body.validation_type,
         requestedBy: body.requested_by.trim(),
         targetBaseUrl: body.target_base_url.trim(),
@@ -1456,6 +1547,7 @@ export async function handleCreateValidationRunRoute(
       return json(
         {
           validation_run_id: run.id,
+          dispatch_batch_id: run.dispatch_batch_id,
           validation_type: run.validation_type,
           requested_by: run.requested_by,
           assigned_to: run.assigned_to,
@@ -1517,7 +1609,7 @@ export async function handleCreateValidationDispatchRoute(
         );
       }
 
-      const createdRuns = await dispatchValidationRuns({
+      const dispatched = await dispatchValidationRuns({
         db: env.DB,
         requestedBy: body.requested_by.trim(),
         targetBaseUrl: body.target_base_url.trim(),
@@ -1527,10 +1619,12 @@ export async function handleCreateValidationDispatchRoute(
       return json(
         {
           team_id: "team_validation",
+          dispatch_batch_id: dispatched.dispatchBatchId,
           mode,
-          dispatched: createdRuns.length,
-          runs: createdRuns.map((run) => ({
+          dispatched: dispatched.runs.length,
+          runs: dispatched.runs.map((run) => ({
             validation_run_id: run.id,
+            dispatch_batch_id: run.dispatch_batch_id,
             validation_type: run.validation_type,
             requested_by: run.requested_by,
             assigned_to: run.assigned_to,
@@ -1593,7 +1687,7 @@ export async function handleSchedulePostDeployValidationRoute(
         );
       }
 
-      const createdRuns = await dispatchValidationRuns({
+      const dispatched = await dispatchValidationRuns({
         db: env.DB,
         requestedBy: body.requested_by.trim(),
         targetBaseUrl: body.target_base_url.trim(),
@@ -1605,10 +1699,12 @@ export async function handleSchedulePostDeployValidationRoute(
           team_id: "team_validation",
           scheduler: "employee_validation_scheduler",
           trigger: "post_deploy",
+          dispatch_batch_id: dispatched.dispatchBatchId,
           mode,
-          dispatched: createdRuns.length,
-          runs: createdRuns.map((run) => ({
+          dispatched: dispatched.runs.length,
+          runs: dispatched.runs.map((run) => ({
             validation_run_id: run.id,
+            dispatch_batch_id: run.dispatch_batch_id,
             validation_type: run.validation_type,
             requested_by: run.requested_by,
             assigned_to: run.assigned_to,
@@ -1678,8 +1774,13 @@ export async function handleExecuteValidationDispatchRoute(
 
       const queuedRuns = await listQueuedValidationRunsForDispatch({
         db: env.DB,
-        requestedBy: body.requested_by.trim(),
-        targetBaseUrl: body.target_base_url.trim(),
+        dispatchBatchId:
+          typeof body.dispatch_batch_id === "string" &&
+          body.dispatch_batch_id.trim() !== ""
+            ? body.dispatch_batch_id.trim()
+            : undefined,
+        requestedBy: body.requested_by?.trim(),
+        targetBaseUrl: body.target_base_url?.trim(),
         validationTypes,
       });
 
@@ -1697,10 +1798,14 @@ export async function handleExecuteValidationDispatchRoute(
         runner: "employee_validation_runner",
         auditor: "employee_validation_auditor",
         trigger: "post_deploy_execution",
+        dispatch_batch_id:
+          queuedRuns.length > 0 ? queuedRuns[0].dispatch_batch_id : body.dispatch_batch_id ?? null,
         mode,
         executed: executed.length,
         runs: executed.map((item) => ({
           validation_run_id: item.validationRunId,
+          dispatch_batch_id:
+            queuedRuns.find((run) => run.id === item.validationRunId)?.dispatch_batch_id ?? null,
           status: item.status,
           result_id: item.resultId,
           executed_by: item.executedBy,
