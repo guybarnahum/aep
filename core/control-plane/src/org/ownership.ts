@@ -4,19 +4,44 @@ export type TeamOwnership = {
 };
 
 export const TEAM_WEBSITE_ID = "team_website";
+export const TEAM_VALIDATION_ID = "team_validation";
 
-const READ_SURFACE_ROUTES = [
+const WEBSITE_READ_SURFACE_ROUTES = [
   "/tenants",
   "/companies",
   "/teams",
   "/services",
 ];
 
+const VALIDATION_SURFACE_ROUTES = [
+  "/teams/team_validation/ownership",
+  "/validation",
+];
+
 export function getWebsiteTeamOwnership(): TeamOwnership {
   return {
     team_id: TEAM_WEBSITE_ID,
-    owns_routes: READ_SURFACE_ROUTES,
+    owns_routes: WEBSITE_READ_SURFACE_ROUTES,
   };
+}
+
+export function getValidationTeamOwnership(): TeamOwnership {
+  return {
+    team_id: TEAM_VALIDATION_ID,
+    owns_routes: VALIDATION_SURFACE_ROUTES,
+  };
+}
+
+export function getTeamOwnership(teamId: string): TeamOwnership | null {
+  if (teamId === TEAM_WEBSITE_ID) {
+    return getWebsiteTeamOwnership();
+  }
+
+  if (teamId === TEAM_VALIDATION_ID) {
+    return getValidationTeamOwnership();
+  }
+
+  return null;
 }
 
 export function getOwnerForRoute(pathname: string): string | null {
@@ -27,6 +52,13 @@ export function getOwnerForRoute(pathname: string): string | null {
     pathname === "/services"
   ) {
     return TEAM_WEBSITE_ID;
+  }
+
+  if (
+    pathname === "/validation" ||
+    pathname === "/teams/team_validation/ownership"
+  ) {
+    return TEAM_VALIDATION_ID;
   }
 
   return null;

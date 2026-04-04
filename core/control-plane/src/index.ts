@@ -22,6 +22,7 @@ import {
   handleTeamsRoute,
   handleTeamDetailRoute,
   handleTeamOwnershipRoute,
+  handleValidationRoute,
   handleOrgTenantsRoute,
   handleOrgTenantDetailRoute,
   handleTenantEnvironmentsRoute,
@@ -515,6 +516,10 @@ export default {
 
     if (request.method === "GET" && pathname === "/teams") {
       return handleTeamsRoute(request, env);
+    }
+
+    if (request.method === "GET" && pathname === "/validation") {
+      return handleValidationRoute(request);
     }
 
     match = pathname.match(/^\/teams\/([^/]+)\/ownership$/);

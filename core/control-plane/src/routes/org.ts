@@ -14,7 +14,7 @@ import {
 } from "@aep/runtime-contract/runtime_contract";
 import {
   getOwnerForRoute,
-  getWebsiteTeamOwnership,
+  getTeamOwnership,
 } from "@aep/control-plane/org/ownership";
 import {
   getCompany,
@@ -293,9 +293,25 @@ export async function handleTeamOwnershipRoute(
   request: Request,
   teamId: string,
 ): Promise<Response> {
-  if (teamId !== "team_website") {
+  const ownership = getTeamOwnership(teamId);
+  if (!ownership) {
     return notFound(`team not found: ${teamId}`);
   }
 
-  return json(getWebsiteTeamOwnership());
+  return json(ownership);
+}
+
+export async function handleValidationRoute(
+  request: Request,
+): Promise<Response> {
+  return json({
+    team_id: "team_validation",
+    status: "active",
+    capabilities: [
+      "runtime_read_safety_validation",
+      "contract_surface_validation",
+      "ownership_surface_validation",
+    ],
+    _owner: getOwnerForRoute("/validation"),
+  });
 }
