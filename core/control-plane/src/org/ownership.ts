@@ -27,6 +27,22 @@ export type ValidationResult = {
   escalation_state?: "none" | "assigned" | "escalated" | null;
 };
 
+export type ValidationRun = {
+  validation_run_id: string;
+  validation_type:
+    | "runtime_read_safety"
+    | "contract_surface"
+    | "ownership_surface";
+  requested_by: string;
+  assigned_to: string;
+  status: "queued" | "running" | "completed" | "failed";
+  target_base_url: string;
+  result_id?: string | null;
+  created_at: string;
+  started_at?: string | null;
+  completed_at?: string | null;
+};
+
 export const TEAM_WEBSITE_ID = "team_website";
 export const TEAM_VALIDATION_ID = "team_validation";
 
@@ -46,6 +62,8 @@ const VALIDATION_SURFACE_ROUTES = [
   "/validation/results/:validationId",
   "/validation/results/latest",
   "/validation/verdict",
+  "/validation/runs",
+  "/validation/runs/:runId",
 ];
 
 const VALIDATION_EMPLOYEES: ValidationEmployee[] = [
@@ -127,6 +145,8 @@ export function getOwnerForRoute(pathname: string): string | null {
     pathname.startsWith("/validation/results/") ||
     pathname === "/validation/results/latest" ||
     pathname === "/validation/verdict" ||
+    pathname === "/validation/runs" ||
+    pathname.startsWith("/validation/runs/") ||
     pathname === "/teams/team_validation/ownership"
   ) {
     return TEAM_VALIDATION_ID;
@@ -201,4 +221,20 @@ export function deriveOwnerTeamForValidationType(
   }
 
   return null;
+}
+
+export function assignValidationEmployeeForType(
+  validationType:
+    | "runtime_read_safety"
+    | "contract_surface"
+    | "ownership_surface",
+): string {
+  if (
+    validationType === "runtime_read_safety" ||
+    validationType === "contract_surface"
+  ) {
+    return "employee_validation_runner";
+  }
+
+  return "employee_validation_auditor";
 }

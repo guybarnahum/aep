@@ -13,6 +13,7 @@ import {
   normalizeTeam,
 } from "@aep/runtime-contract/runtime_contract";
 import {
+  assignValidationEmployeeForType,
   classifyValidationSeverity,
   deriveEscalationState,
   deriveOwnerTeamForValidationType,
@@ -54,6 +55,25 @@ type ValidationResultRow = {
   owner_team: string | null;
   severity: "info" | "warn" | "failed" | "critical" | null;
   escalation_state: "none" | "assigned" | "escalated" | null;
+};
+
+type ValidationRunRow = {
+  id: string;
+  validation_type: "runtime_read_safety" | "contract_surface" | "ownership_surface";
+  requested_by: string;
+  assigned_to: string;
+  status: "queued" | "running" | "completed" | "failed";
+  target_base_url: string;
+  result_id: string | null;
+  created_at: string;
+  started_at: string | null;
+  completed_at: string | null;
+};
+
+type CreateValidationRunBody = {
+  validation_type?: "runtime_read_safety" | "contract_surface" | "ownership_surface";
+  requested_by?: string;
+  target_base_url?: string;
 };
 
 export async function handleCompaniesRoute(
@@ -409,6 +429,57 @@ async function getPersistedValidationResult(
   return row ?? null;
 }
 
+async function listPersistedValidationRuns(
+  db: D1Database,
+): Promise<ValidationRunRow[]> {
+  const result = await db
+    .prepare(
+      `SELECT
+         id,
+         validation_type,
+         requested_by,
+         assigned_to,
+         status,
+         target_base_url,
+         result_id,
+         created_at,
+         started_at,
+         completed_at
+       FROM validation_runs
+       ORDER BY created_at DESC`,
+    )
+    .all<ValidationRunRow>();
+
+  return result.results ?? [];
+}
+
+async function getPersistedValidationRun(
+  db: D1Database,
+  runId: string,
+): Promise<ValidationRunRow | null> {
+  const row = await db
+    .prepare(
+      `SELECT
+         id,
+         validation_type,
+         requested_by,
+         assigned_to,
+         status,
+         target_base_url,
+         result_id,
+         created_at,
+         started_at,
+         completed_at
+       FROM validation_runs
+       WHERE id = ?
+       LIMIT 1`,
+    )
+    .bind(runId)
+    .first<ValidationRunRow>();
+
+  return row ?? null;
+}
+
 export async function handleValidationResultsRoute(
   request: Request,
   env: EnvLike,
@@ -689,6 +760,172 @@ export async function handleValidationVerdictRoute(
         checks,
         _owner: getOwnerForRoute("/validation/verdict"),
       });
+    },
+  });
+}
+
+export async function handleValidationRunsRoute(
+  request: Request,
+  env: EnvLike,
+): Promise<Response> {
+  return withRuntimeJsonBoundary({
+    route: "/validation/runs",
+    request,
+    handler: async () => {
+      const runs = await listPersistedValidationRuns(env.DB);
+
+      return json({
+        runs: runs.map((run) => ({
+          validation_run_id: run.id,
+          validation_type: run.validation_type,
+          requested_by: run.requested_by,
+          assigned_to: run.assigned_to,
+          status: run.status,
+          target_base_url: run.target_base_url,
+          result_id: run.result_id,
+          created_at: run.created_at,
+          started_at: run.started_at,
+          completed_at: run.completed_at,
+        })),
+        _owner: getOwnerForRoute("/validation/runs"),
+      });
+    },
+  });
+}
+
+export async function handleValidationRunDetailRoute(
+  request: Request,
+  env: EnvLike,
+  runId: string,
+): Promise<Response> {
+  return withRuntimeJsonBoundary({
+    route: "/validation/runs/:runId",
+    request,
+    resourceId: runId,
+    handler: async () => {
+      const run = await getPersistedValidationRun(env.DB, runId);
+      if (!run) {
+        return notFound(`validation run not found: ${runId}`);
+      }
+
+      return json({
+        validation_run_id: run.id,
+        validation_type: run.validation_type,
+        requested_by: run.requested_by,
+        assigned_to: run.assigned_to,
+        status: run.status,
+        target_base_url: run.target_base_url,
+        result_id: run.result_id,
+        created_at: run.created_at,
+        started_at: run.started_at,
+        completed_at: run.completed_at,
+        _owner: getOwnerForRoute(`/validation/runs/${runId}`),
+      });
+    },
+  });
+}
+
+export async function handleCreateValidationRunRoute(
+  request: Request,
+  env: EnvLike,
+): Promise<Response> {
+  return withRuntimeJsonBoundary({
+    route: "/validation/runs",
+    request,
+    handler: async () => {
+      const body = (await request.json()) as CreateValidationRunBody;
+
+      if (
+        body.validation_type !== "runtime_read_safety" &&
+        body.validation_type !== "contract_surface" &&
+        body.validation_type !== "ownership_surface"
+      ) {
+        return json(
+          {
+            error: "invalid_validation_type",
+            message:
+              "validation_type must be runtime_read_safety, contract_surface, or ownership_surface",
+          },
+          { status: 400 },
+        );
+      }
+
+      if (
+        typeof body.requested_by !== "string" ||
+        body.requested_by.trim() === ""
+      ) {
+        return json(
+          {
+            error: "invalid_requested_by",
+            message: "requested_by must be a non-empty string",
+          },
+          { status: 400 },
+        );
+      }
+
+      if (
+        typeof body.target_base_url !== "string" ||
+        body.target_base_url.trim() === ""
+      ) {
+        return json(
+          {
+            error: "invalid_target_base_url",
+            message: "target_base_url must be a non-empty string",
+          },
+          { status: 400 },
+        );
+      }
+
+      const validationRunId =
+        typeof crypto !== "undefined" && "randomUUID" in crypto
+          ? `validation_run_${crypto.randomUUID()}`
+          : `validation_run_${Date.now()}`;
+
+      const assignedTo = assignValidationEmployeeForType(body.validation_type);
+      const createdAt = new Date().toISOString();
+
+      await env.DB
+        .prepare(
+          `INSERT INTO validation_runs (
+             id,
+             validation_type,
+             requested_by,
+             assigned_to,
+             status,
+             target_base_url,
+             result_id,
+             created_at,
+             started_at,
+             completed_at
+           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        )
+        .bind(
+          validationRunId,
+          body.validation_type,
+          body.requested_by.trim(),
+          assignedTo,
+          "queued",
+          body.target_base_url.trim(),
+          null,
+          createdAt,
+          null,
+          null,
+        )
+        .run();
+
+      return json(
+        {
+          validation_run_id: validationRunId,
+          validation_type: body.validation_type,
+          requested_by: body.requested_by.trim(),
+          assigned_to: assignedTo,
+          status: "queued",
+          target_base_url: body.target_base_url.trim(),
+          created_at: createdAt,
+          _owner: getOwnerForRoute("/validation/runs"),
+        },
+        { status: 202 },
+      );
     },
   });
 }

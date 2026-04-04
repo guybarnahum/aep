@@ -29,6 +29,9 @@ import {
   handleValidationResultsRoute,
   handleValidationResultDetailRoute,
   handleValidationVerdictRoute,
+  handleValidationRunsRoute,
+  handleValidationRunDetailRoute,
+  handleCreateValidationRunRoute,
   handleOrgTenantsRoute,
   handleOrgTenantDetailRoute,
   handleTenantEnvironmentsRoute,
@@ -76,6 +79,8 @@ function isRuntimeReadRoute(pathname: string): boolean {
     pathname === "/validation" ||
     pathname === "/validation/employees" ||
     pathname.startsWith("/validation/employees/") ||
+    pathname === "/validation/runs" ||
+    pathname.startsWith("/validation/runs/") ||
     pathname === "/validation/results/latest" ||
     pathname === "/validation/results" ||
     pathname.startsWith("/validation/results/") ||
@@ -551,12 +556,25 @@ export default {
       return handleValidationResultsRoute(request, env);
     }
 
+    if (request.method === "GET" && pathname === "/validation/runs") {
+      return handleValidationRunsRoute(request, env);
+    }
+
     if (request.method === "GET" && pathname === "/validation/results/latest") {
       return handleLatestValidationResultRoute(request, env);
     }
 
     if (request.method === "GET" && pathname === "/validation/verdict") {
       return handleValidationVerdictRoute(request, env);
+    }
+
+    match = pathname.match(/^\/validation\/runs\/([^/]+)$/);
+    if (request.method === "GET" && match) {
+      return handleValidationRunDetailRoute(
+        request,
+        env,
+        decodeURIComponent(match[1]),
+      );
     }
 
     match = pathname.match(/^\/validation\/results\/([^/]+)$/);
@@ -635,6 +653,40 @@ export default {
         env.DB.prepare(
           `CREATE INDEX IF NOT EXISTS idx_validation_results_escalation_state
              ON validation_results(escalation_state)`,
+        ),
+      ]);
+
+      await env.DB.prepare(
+        `CREATE TABLE IF NOT EXISTS validation_runs (
+           id TEXT PRIMARY KEY,
+           validation_type TEXT NOT NULL,
+           requested_by TEXT NOT NULL,
+           assigned_to TEXT NOT NULL,
+           status TEXT NOT NULL,
+           target_base_url TEXT NOT NULL,
+           result_id TEXT,
+           created_at TEXT NOT NULL,
+           started_at TEXT,
+           completed_at TEXT
+         )`,
+      ).run();
+
+      await env.DB.batch([
+        env.DB.prepare(
+          `CREATE INDEX IF NOT EXISTS idx_validation_runs_created_at
+             ON validation_runs(created_at DESC)`,
+        ),
+        env.DB.prepare(
+          `CREATE INDEX IF NOT EXISTS idx_validation_runs_status
+             ON validation_runs(status)`,
+        ),
+        env.DB.prepare(
+          `CREATE INDEX IF NOT EXISTS idx_validation_runs_validation_type
+             ON validation_runs(validation_type)`,
+        ),
+        env.DB.prepare(
+          `CREATE INDEX IF NOT EXISTS idx_validation_runs_assigned_to
+             ON validation_runs(assigned_to)`,
         ),
       ]);
 
@@ -726,6 +778,10 @@ export default {
         ok: true,
         seeded: 3,
       });
+    }
+
+    if (request.method === "POST" && pathname === "/validation/runs") {
+      return handleCreateValidationRunRoute(request, env);
     }
 
     match = pathname.match(/^\/teams\/([^/]+)\/ownership$/);
