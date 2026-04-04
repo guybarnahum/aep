@@ -64,6 +64,7 @@ const VALIDATION_SURFACE_ROUTES = [
   "/validation/verdict",
   "/validation/runs",
   "/validation/runs/:runId",
+  "/validation/runs/:runId/execute",
 ];
 
 const VALIDATION_EMPLOYEES: ValidationEmployee[] = [
@@ -75,6 +76,8 @@ const VALIDATION_EMPLOYEES: ValidationEmployee[] = [
     capabilities: [
       "runtime_read_safety_validation",
       "contract_surface_validation",
+      "validation_run_execution",
+      "validation_result_persistence",
     ],
   },
   {

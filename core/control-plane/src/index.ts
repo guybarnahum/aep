@@ -32,6 +32,7 @@ import {
   handleValidationRunsRoute,
   handleValidationRunDetailRoute,
   handleCreateValidationRunRoute,
+  handleExecuteValidationRunRoute,
   handleOrgTenantsRoute,
   handleOrgTenantDetailRoute,
   handleTenantEnvironmentsRoute,
@@ -566,6 +567,15 @@ export default {
 
     if (request.method === "GET" && pathname === "/validation/verdict") {
       return handleValidationVerdictRoute(request, env);
+    }
+
+    match = pathname.match(/^\/validation\/runs\/([^/]+)\/execute$/);
+    if (request.method === "POST" && match) {
+      return handleExecuteValidationRunRoute(
+        request,
+        env,
+        decodeURIComponent(match[1]),
+      );
     }
 
     match = pathname.match(/^\/validation\/runs\/([^/]+)$/);
