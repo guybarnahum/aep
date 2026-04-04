@@ -13,6 +13,10 @@ import {
   normalizeTeam,
 } from "@aep/runtime-contract/runtime_contract";
 import {
+  getOwnerForRoute,
+  getWebsiteTeamOwnership,
+} from "@aep/control-plane/org/ownership";
+import {
   getCompany,
   getEmployeeCatalogEntry,
   getOrgTenant,
@@ -47,7 +51,10 @@ export async function handleCompaniesRoute(
       const companies = (await listCompanies(env.DB))
         .map(normalizeCompany)
         .map(assertRuntimeCompany);
-      return json({ companies });
+      return json({
+        companies,
+        _owner: getOwnerForRoute("/companies"),
+      });
     },
   });
 }
@@ -85,7 +92,10 @@ export async function handleTeamsRoute(
       const teams = (await listTeams(env.DB, companyId))
         .map(normalizeTeam)
         .map(assertRuntimeTeam);
-      return json({ teams });
+      return json({
+        teams,
+        _owner: getOwnerForRoute("/teams"),
+      });
     },
   });
 }
@@ -187,7 +197,10 @@ export async function handleServicesRoute(
       }))
         .map(normalizeService)
         .map(assertRuntimeService);
-      return json({ services });
+      return json({
+        services,
+        _owner: getOwnerForRoute("/services"),
+      });
     },
   });
 }
@@ -274,4 +287,15 @@ export async function handleEmployeeScopeRoute(
       });
     },
   });
+}
+
+export async function handleTeamOwnershipRoute(
+  request: Request,
+  teamId: string,
+): Promise<Response> {
+  if (teamId !== "team_website") {
+    return notFound(`team not found: ${teamId}`);
+  }
+
+  return json(getWebsiteTeamOwnership());
 }

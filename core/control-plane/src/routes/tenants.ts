@@ -14,6 +14,7 @@ import {
   assertRuntimeTenant,
   normalizeTenant,
 } from "@aep/runtime-contract/runtime_contract";
+import { getOwnerForRoute } from "@aep/control-plane/org/ownership";
 import {
   getServiceOverview,
   getTenantOverview,
@@ -41,7 +42,10 @@ export async function handleTenantsRoute(
       const tenants = (await listTenantSummaries(env.DB))
         .map(normalizeTenant)
         .map(assertRuntimeTenant);
-      return json({ tenants });
+      return json({
+        tenants,
+        _owner: getOwnerForRoute("/tenants"),
+      });
     },
   });
 }

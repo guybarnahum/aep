@@ -5,6 +5,11 @@ export type RuntimeTenant = {
   environment_count: number;
 };
 
+export type RuntimeEnvelope<T> = {
+  data: T;
+  _owner?: string;
+};
+
 export function normalizeTenant(input: any): RuntimeTenant {
   return {
     tenant_id: String(input?.tenant_id ?? ""),

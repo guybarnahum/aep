@@ -21,6 +21,7 @@ import {
   handleCompanyDetailRoute,
   handleTeamsRoute,
   handleTeamDetailRoute,
+  handleTeamOwnershipRoute,
   handleOrgTenantsRoute,
   handleOrgTenantDetailRoute,
   handleTenantEnvironmentsRoute,
@@ -514,6 +515,11 @@ export default {
 
     if (request.method === "GET" && pathname === "/teams") {
       return handleTeamsRoute(request, env);
+    }
+
+    match = pathname.match(/^\/teams\/([^/]+)\/ownership$/);
+    if (request.method === "GET" && match) {
+      return handleTeamOwnershipRoute(request, decodeURIComponent(match[1]));
     }
 
     match = pathname.match(/^\/teams\/([^/]+)$/);
