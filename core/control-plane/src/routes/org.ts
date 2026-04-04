@@ -5,6 +5,14 @@ import {
   withRuntimeJsonBoundary,
 } from "@aep/control-plane/lib/http";
 import {
+  assertRuntimeCompany,
+  assertRuntimeService,
+  assertRuntimeTeam,
+  normalizeCompany,
+  normalizeService,
+  normalizeTeam,
+} from "@aep/runtime-contract/runtime_contract";
+import {
   getCompany,
   getEmployeeCatalogEntry,
   getOrgTenant,
@@ -36,7 +44,9 @@ export async function handleCompaniesRoute(
     handler: async () => {
       maybeInjectRuntimeReadFailure(request, env);
 
-      const companies = await listCompanies(env.DB);
+      const companies = (await listCompanies(env.DB))
+        .map(normalizeCompany)
+        .map(assertRuntimeCompany);
       return json({ companies });
     },
   });
@@ -72,7 +82,9 @@ export async function handleTeamsRoute(
     handler: async () => {
       const url = new URL(request.url);
       const companyId = url.searchParams.get("companyId") ?? undefined;
-      const teams = await listTeams(env.DB, companyId);
+      const teams = (await listTeams(env.DB, companyId))
+        .map(normalizeTeam)
+        .map(assertRuntimeTeam);
       return json({ teams });
     },
   });
@@ -168,11 +180,13 @@ export async function handleServicesRoute(
     request,
     handler: async () => {
       const url = new URL(request.url);
-      const services = await listServicesCatalog(env.DB, {
+      const services = (await listServicesCatalog(env.DB, {
         companyId: url.searchParams.get("companyId") ?? undefined,
         tenantId: url.searchParams.get("tenantId") ?? undefined,
         teamId: url.searchParams.get("teamId") ?? undefined,
-      });
+      }))
+        .map(normalizeService)
+        .map(assertRuntimeService);
       return json({ services });
     },
   });
