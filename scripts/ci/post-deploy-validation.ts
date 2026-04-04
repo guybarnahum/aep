@@ -53,6 +53,11 @@ const CHECKS: ValidationCheck[] = [
     label: "Validation verdict check",
     scriptPath: "scripts/ci/check-validation-verdict.ts",
   },
+  {
+    id: "validation-policy",
+    label: "Validation policy check",
+    scriptPath: "scripts/ci/check-validation-policy.ts",
+  },
 ];
 
 function hasArg(flag: string): boolean {
@@ -189,6 +194,13 @@ function main(): void {
       };
     }
 
+    if (check.id === "validation-policy") {
+      return {
+        ...check,
+        args: ["--base-url", baseUrl, "--freshness-minutes", "30"],
+      };
+    }
+
     if (check.id === "dispatch-validation-runs") {
       return {
         ...check,
@@ -253,6 +265,20 @@ function main(): void {
     }
 
     if (check.id === "validation-verdict" && dispatchBatchId) {
+      effectiveCheck = {
+        ...check,
+        args: [
+          "--base-url",
+          baseUrl,
+          "--freshness-minutes",
+          "30",
+          "--dispatch-batch-id",
+          dispatchBatchId,
+        ],
+      };
+    }
+
+    if (check.id === "validation-policy" && dispatchBatchId) {
       effectiveCheck = {
         ...check,
         args: [

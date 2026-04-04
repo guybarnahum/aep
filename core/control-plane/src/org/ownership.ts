@@ -68,6 +68,7 @@ const VALIDATION_SURFACE_ROUTES = [
   "/validation/results/:validationId/audit",
   "/validation/results/latest",
   "/validation/verdict",
+  "/validation/policy",
   "/validation/runs",
   "/validation/runs/:runId",
   "/validation/runs/:runId/execute",
@@ -163,6 +164,7 @@ export function getOwnerForRoute(pathname: string): string | null {
     pathname.startsWith("/validation/results/") ||
     pathname === "/validation/results/latest" ||
     pathname === "/validation/verdict" ||
+    pathname === "/validation/policy" ||
     pathname === "/validation/runs" ||
     pathname.startsWith("/validation/runs/") ||
     pathname === "/validation/dispatch" ||

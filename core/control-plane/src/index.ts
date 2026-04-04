@@ -34,6 +34,7 @@ import {
   handleValidationResultsRoute,
   handleValidationResultDetailRoute,
   handleValidationVerdictRoute,
+  handleValidationPolicyRoute,
   handleValidationRunsRoute,
   handleValidationRunDetailRoute,
   handleCreateValidationRunRoute,
@@ -91,7 +92,8 @@ function isRuntimeReadRoute(pathname: string): boolean {
     pathname === "/validation/results/latest" ||
     pathname === "/validation/results" ||
     pathname.startsWith("/validation/results/") ||
-    pathname === "/validation/verdict"
+    pathname === "/validation/verdict" ||
+    pathname === "/validation/policy"
   );
 }
 
@@ -577,6 +579,10 @@ export default {
 
     if (request.method === "GET" && pathname === "/validation/verdict") {
       return handleValidationVerdictRoute(request, env);
+    }
+
+    if (request.method === "GET" && pathname === "/validation/policy") {
+      return handleValidationPolicyRoute(request, env);
     }
 
     if (request.method === "POST" && pathname === "/validation/dispatch") {

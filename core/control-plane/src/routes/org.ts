@@ -110,6 +110,23 @@ type ExecuteValidationRunResult = {
   executed_by: string;
 };
 
+type ValidationPolicyDecision = "allow" | "warn" | "block" | "escalate";
+
+type ValidationPolicyCheck = {
+  validation_id?: string;
+  validation_type: "runtime_read_safety" | "contract_surface" | "ownership_surface";
+  status: string;
+  owner_team: string | null;
+  severity: "info" | "warn" | "failed" | "critical";
+  escalation_state: "none" | "assigned" | "escalated";
+  audit_status: "pending" | "reviewed";
+  audited_by: string | null;
+  audited_at: string | null;
+  dispatch_batch_id: string | null;
+  freshness: "fresh" | "stale" | "missing";
+  message: string;
+};
+
 export async function handleCompaniesRoute(
   request: Request,
   env: EnvLike,
@@ -1141,6 +1158,197 @@ function isValidationResultFresh(args: {
   return args.now.getTime() - createdAtMs <= args.maxAgeMs;
 }
 
+async function buildValidationVerdictChecks(args: {
+  db: D1Database;
+  dispatchBatchId: string | null;
+  freshnessMinutes: number;
+}): Promise<{
+  checkedAt: string;
+  checks: ValidationPolicyCheck[];
+}> {
+  const maxAgeMs = args.freshnessMinutes * 60 * 1000;
+  const now = new Date();
+
+  const latest = await listLatestValidationResultsByType(args.db);
+
+  const filteredLatest =
+    typeof args.dispatchBatchId === "string" && args.dispatchBatchId.trim() !== ""
+      ? latest.filter(
+          (row) => row.dispatch_batch_id === args.dispatchBatchId,
+        )
+      : latest;
+
+  const latestByType = new Map(
+    filteredLatest.map((row) => [row.validation_type, row] as const),
+  );
+
+  const requiredTypes = listRequiredValidationTypesForVerdict();
+
+  const checks: ValidationPolicyCheck[] = requiredTypes.map((validationType) => {
+    const row = latestByType.get(validationType);
+
+    if (!row) {
+      return {
+        validation_type: validationType,
+        status: "failed",
+        owner_team: deriveOwnerTeamForValidationType(validationType),
+        severity: "critical",
+        escalation_state: "escalated",
+        audit_status: "pending",
+        audited_by: null,
+        audited_at: null,
+        dispatch_batch_id: args.dispatchBatchId,
+        freshness: "missing",
+        message:
+          "No validation result found for required validation type in the requested verdict scope.",
+      };
+    }
+
+    const ownerTeam =
+      row.owner_team ?? deriveOwnerTeamForValidationType(row.validation_type);
+
+    const severity =
+      row.severity ??
+      classifyValidationSeverity({
+        status: row.status,
+        validationType: row.validation_type,
+      });
+
+    const escalationState =
+      row.escalation_state ??
+      deriveEscalationState({
+        severity,
+        ownerTeam,
+      });
+
+    const fresh = isValidationResultFresh({
+      createdAt: row.created_at,
+      now,
+      maxAgeMs,
+    });
+
+    const reviewed = (row.audit_status ?? "pending") === "reviewed";
+
+    if (!reviewed) {
+      return {
+        validation_id: row.id,
+        validation_type: row.validation_type,
+        status: "failed",
+        owner_team: ownerTeam,
+        severity: "critical",
+        escalation_state: "escalated",
+        audit_status: row.audit_status ?? "pending",
+        audited_by: row.audited_by,
+        audited_at: row.audited_at,
+        dispatch_batch_id: row.dispatch_batch_id,
+        freshness: fresh ? "fresh" : "stale",
+        message: "Latest validation result is not reviewed.",
+      };
+    }
+
+    if (!fresh) {
+      return {
+        validation_id: row.id,
+        validation_type: row.validation_type,
+        status: "failed",
+        owner_team: ownerTeam,
+        severity: "critical",
+        escalation_state: "escalated",
+        audit_status: row.audit_status ?? "pending",
+        audited_by: row.audited_by,
+        audited_at: row.audited_at,
+        dispatch_batch_id: row.dispatch_batch_id,
+        freshness: "stale",
+        message: `Latest reviewed validation result is older than ${args.freshnessMinutes} minutes.`,
+      };
+    }
+
+    return {
+      validation_id: row.id,
+      validation_type: row.validation_type,
+      status: row.status,
+      owner_team: ownerTeam,
+      severity,
+      escalation_state: escalationState,
+      audit_status: row.audit_status ?? "pending",
+      audited_by: row.audited_by,
+      audited_at: row.audited_at,
+      dispatch_batch_id: row.dispatch_batch_id,
+      freshness: "fresh",
+      message: "Fresh reviewed validation result available.",
+    };
+  });
+
+  return {
+    checkedAt: now.toISOString(),
+    checks,
+  };
+}
+
+function deriveValidationPolicyDecision(
+  checks: ValidationPolicyCheck[],
+): {
+  decision: ValidationPolicyDecision;
+  reason: string;
+  blockingChecks: ValidationPolicyCheck[];
+  escalations: ValidationPolicyCheck[];
+} {
+  const escalations = checks.filter(
+    (check) =>
+      check.escalation_state === "escalated" ||
+      check.severity === "critical",
+  );
+
+  const blockingChecks = checks.filter(
+    (check) =>
+      check.status === "failed" ||
+      check.severity === "failed" ||
+      check.severity === "critical" ||
+      check.audit_status !== "reviewed" ||
+      check.freshness !== "fresh",
+  );
+
+  if (escalations.length > 0) {
+    return {
+      decision: "escalate",
+      reason: "One or more validation checks require escalation.",
+      blockingChecks,
+      escalations,
+    };
+  }
+
+  if (blockingChecks.length > 0) {
+    return {
+      decision: "block",
+      reason: "One or more validation checks block release.",
+      blockingChecks,
+      escalations,
+    };
+  }
+
+  const warnings = checks.filter(
+    (check) =>
+      check.status === "warn" ||
+      check.severity === "warn",
+  );
+
+  if (warnings.length > 0) {
+    return {
+      decision: "warn",
+      reason: "Validation completed with warnings.",
+      blockingChecks: [],
+      escalations: [],
+    };
+  }
+
+  return {
+    decision: "allow",
+    reason: "All required validation checks are fresh, reviewed, and passing.",
+    blockingChecks: [],
+    escalations: [],
+  };
+}
+
 export async function handleLatestValidationResultRoute(
   request: Request,
   env: EnvLike,
@@ -1283,118 +1491,15 @@ export async function handleValidationVerdictRoute(
           ? Math.trunc(parsedFreshnessMinutes)
           : 30;
 
-      const maxAgeMs = freshnessMinutes * 60 * 1000;
-      const now = new Date();
-
-      const latest = await listLatestValidationResultsByType(env.DB);
-      const filteredLatest =
+      const dispatchBatchId =
         typeof dispatchBatchIdParam === "string" && dispatchBatchIdParam.trim() !== ""
-          ? latest.filter(
-              (row) => row.dispatch_batch_id === dispatchBatchIdParam.trim(),
-            )
-          : latest;
+          ? dispatchBatchIdParam.trim()
+          : null;
 
-      const latestByType = new Map(
-        filteredLatest.map((row) => [row.validation_type, row] as const),
-      );
-
-      const requiredTypes = listRequiredValidationTypesForVerdict();
-
-      const checks = requiredTypes.map((validationType) => {
-        const row = latestByType.get(validationType);
-
-        if (!row) {
-          return {
-            validation_type: validationType,
-            status: "failed",
-            owner_team: deriveOwnerTeamForValidationType(validationType),
-            severity: "critical" as const,
-            escalation_state: "escalated" as const,
-            audit_status: "pending" as const,
-            audited_by: null,
-            audited_at: null,
-            dispatch_batch_id:
-              typeof dispatchBatchIdParam === "string" && dispatchBatchIdParam.trim() !== ""
-                ? dispatchBatchIdParam.trim()
-                : null,
-            freshness: "missing" as const,
-            message: "No validation result found for required validation type in the requested verdict scope.",
-          };
-        }
-
-        const ownerTeam =
-          row.owner_team ?? deriveOwnerTeamForValidationType(row.validation_type);
-
-        const severity =
-          row.severity ??
-          classifyValidationSeverity({
-            status: row.status,
-            validationType: row.validation_type,
-          });
-
-        const escalationState =
-          row.escalation_state ??
-          deriveEscalationState({
-            severity,
-            ownerTeam,
-          });
-
-        const fresh = isValidationResultFresh({
-          createdAt: row.created_at,
-          now,
-          maxAgeMs,
-        });
-
-        const reviewed = (row.audit_status ?? "pending") === "reviewed";
-
-        if (!reviewed) {
-          return {
-            validation_id: row.id,
-            validation_type: row.validation_type,
-            status: "failed",
-            owner_team: ownerTeam,
-            severity: "critical" as const,
-            escalation_state: "escalated" as const,
-            audit_status: row.audit_status ?? "pending",
-            audited_by: row.audited_by,
-            audited_at: row.audited_at,
-            dispatch_batch_id: row.dispatch_batch_id,
-            freshness: fresh ? "fresh" : "stale",
-            message: "Latest validation result is not reviewed.",
-          };
-        }
-
-        if (!fresh) {
-          return {
-            validation_id: row.id,
-            validation_type: row.validation_type,
-            status: "failed",
-            owner_team: ownerTeam,
-            severity: "critical" as const,
-            escalation_state: "escalated" as const,
-            audit_status: row.audit_status ?? "pending",
-            audited_by: row.audited_by,
-            audited_at: row.audited_at,
-            dispatch_batch_id: row.dispatch_batch_id,
-            freshness: "stale" as const,
-            message: `Latest reviewed validation result is older than ${freshnessMinutes} minutes.`,
-          };
-        }
-
-        return {
-          validation_id: row.id,
-          validation_type: row.validation_type,
-          status: row.status,
-          owner_team: ownerTeam,
-          severity,
-          escalation_state: escalationState,
-          audit_status: row.audit_status ?? "pending",
-          audited_by: row.audited_by,
-          audited_at: row.audited_at,
-          dispatch_batch_id: row.dispatch_batch_id,
-          freshness: "fresh" as const,
-          message: "Fresh reviewed validation result available.",
-        };
+      const { checkedAt, checks } = await buildValidationVerdictChecks({
+        db: env.DB,
+        dispatchBatchId,
+        freshnessMinutes,
       });
 
       const overallFailed = checks.some(
@@ -1409,14 +1514,61 @@ export async function handleValidationVerdictRoute(
       return json({
         team_id: "team_validation",
         status: overallFailed ? "failed" : "passed",
-        dispatch_batch_id:
-          typeof dispatchBatchIdParam === "string" && dispatchBatchIdParam.trim() !== ""
-            ? dispatchBatchIdParam.trim()
-            : null,
+        dispatch_batch_id: dispatchBatchId,
         freshness_minutes: freshnessMinutes,
-        checked_at: now.toISOString(),
+        checked_at: checkedAt,
         checks,
         _owner: getOwnerForRoute("/validation/verdict"),
+      });
+    },
+  });
+}
+
+export async function handleValidationPolicyRoute(
+  request: Request,
+  env: EnvLike,
+): Promise<Response> {
+  return withRuntimeJsonBoundary({
+    route: "/validation/policy",
+    request,
+    handler: async () => {
+      const url = new URL(request.url);
+      const freshnessMinutesParam = url.searchParams.get("freshness_minutes");
+      const dispatchBatchIdParam = url.searchParams.get("dispatch_batch_id");
+
+      const parsedFreshnessMinutes = freshnessMinutesParam
+        ? Number(freshnessMinutesParam)
+        : Number.NaN;
+
+      const freshnessMinutes =
+        Number.isFinite(parsedFreshnessMinutes) && parsedFreshnessMinutes > 0
+          ? Math.trunc(parsedFreshnessMinutes)
+          : 30;
+
+      const dispatchBatchId =
+        typeof dispatchBatchIdParam === "string" && dispatchBatchIdParam.trim() !== ""
+          ? dispatchBatchIdParam.trim()
+          : null;
+
+      const { checkedAt, checks } = await buildValidationVerdictChecks({
+        db: env.DB,
+        dispatchBatchId,
+        freshnessMinutes,
+      });
+
+      const policy = deriveValidationPolicyDecision(checks);
+
+      return json({
+        team_id: "team_validation",
+        decision: policy.decision,
+        reason: policy.reason,
+        dispatch_batch_id: dispatchBatchId,
+        freshness_minutes: freshnessMinutes,
+        checked_at: checkedAt,
+        blocking_checks: policy.blockingChecks,
+        escalations: policy.escalations,
+        checks,
+        _owner: getOwnerForRoute("/validation/policy"),
       });
     },
   });
