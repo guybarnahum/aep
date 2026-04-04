@@ -25,6 +25,8 @@ import {
   handleValidationRoute,
   handleValidationEmployeesRoute,
   handleValidationEmployeeDetailRoute,
+  handleValidationResultsRoute,
+  handleValidationResultDetailRoute,
   handleOrgTenantsRoute,
   handleOrgTenantDetailRoute,
   handleTenantEnvironmentsRoute,
@@ -71,7 +73,9 @@ function isRuntimeReadRoute(pathname: string): boolean {
     pathname.startsWith("/tenants/") ||
     pathname === "/validation" ||
     pathname === "/validation/employees" ||
-    pathname.startsWith("/validation/employees/")
+    pathname.startsWith("/validation/employees/") ||
+    pathname === "/validation/results" ||
+    pathname.startsWith("/validation/results/")
   );
 }
 
@@ -534,6 +538,18 @@ export default {
     match = pathname.match(/^\/validation\/employees\/([^/]+)$/);
     if (request.method === "GET" && match) {
       return handleValidationEmployeeDetailRoute(
+        request,
+        decodeURIComponent(match[1]),
+      );
+    }
+
+    if (request.method === "GET" && pathname === "/validation/results") {
+      return handleValidationResultsRoute(request);
+    }
+
+    match = pathname.match(/^\/validation\/results\/([^/]+)$/);
+    if (request.method === "GET" && match) {
+      return handleValidationResultDetailRoute(
         request,
         decodeURIComponent(match[1]),
       );

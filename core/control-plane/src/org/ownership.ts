@@ -11,6 +11,18 @@ export type ValidationEmployee = {
   capabilities: string[];
 };
 
+export type ValidationResult = {
+  validation_id: string;
+  team_id: string;
+  status: "passed" | "failed" | "warn";
+  validation_type:
+    | "runtime_read_safety"
+    | "contract_surface"
+    | "ownership_surface";
+  executed_by: string;
+  summary: string;
+};
+
 export const TEAM_WEBSITE_ID = "team_website";
 export const TEAM_VALIDATION_ID = "team_validation";
 
@@ -26,6 +38,8 @@ const VALIDATION_SURFACE_ROUTES = [
   "/validation",
   "/validation/employees",
   "/validation/employees/:employeeId",
+  "/validation/results",
+  "/validation/results/:validationId",
 ];
 
 const VALIDATION_EMPLOYEES: ValidationEmployee[] = [
@@ -58,6 +72,35 @@ const VALIDATION_EMPLOYEES: ValidationEmployee[] = [
       "validation_dispatch_planning",
       "validation_lane_scheduling",
     ],
+  },
+];
+
+const VALIDATION_RESULTS: ValidationResult[] = [
+  {
+    validation_id: "validation_runtime_read_safety",
+    team_id: TEAM_VALIDATION_ID,
+    status: "passed",
+    validation_type: "runtime_read_safety",
+    executed_by: "employee_validation_runner",
+    summary: "Runtime read surface returned stable JSON responses.",
+  },
+  {
+    validation_id: "validation_contract_surface",
+    team_id: TEAM_VALIDATION_ID,
+    status: "passed",
+    validation_type: "contract_surface",
+    executed_by: "employee_validation_runner",
+    summary:
+      "Contract-governed list surfaces normalized and asserted successfully.",
+  },
+  {
+    validation_id: "validation_ownership_surface",
+    team_id: TEAM_VALIDATION_ID,
+    status: "passed",
+    validation_type: "ownership_surface",
+    executed_by: "employee_validation_auditor",
+    summary:
+      "Owned route discovery and validation team ownership surfaces resolved correctly.",
   },
 ];
 
@@ -101,6 +144,8 @@ export function getOwnerForRoute(pathname: string): string | null {
     pathname === "/validation" ||
     pathname === "/validation/employees" ||
     pathname.startsWith("/validation/employees/") ||
+    pathname === "/validation/results" ||
+    pathname.startsWith("/validation/results/") ||
     pathname === "/teams/team_validation/ownership"
   ) {
     return TEAM_VALIDATION_ID;
@@ -119,6 +164,20 @@ export function getValidationEmployee(
   return (
     VALIDATION_EMPLOYEES.find(
       (employee) => employee.employee_id === employeeId,
+    ) ?? null
+  );
+}
+
+export function listValidationResults(): ValidationResult[] {
+  return VALIDATION_RESULTS.map((result) => ({ ...result }));
+}
+
+export function getValidationResult(
+  validationId: string,
+): ValidationResult | null {
+  return (
+    VALIDATION_RESULTS.find(
+      (result) => result.validation_id === validationId,
     ) ?? null
   );
 }
