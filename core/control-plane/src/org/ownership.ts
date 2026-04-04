@@ -25,6 +25,9 @@ export type ValidationResult = {
   owner_team?: string | null;
   severity?: "info" | "warn" | "failed" | "critical" | null;
   escalation_state?: "none" | "assigned" | "escalated" | null;
+  audit_status?: "pending" | "reviewed" | null;
+  audited_by?: string | null;
+  audited_at?: string | null;
 };
 
 export type ValidationRun = {
@@ -60,6 +63,7 @@ const VALIDATION_SURFACE_ROUTES = [
   "/validation/employees/:employeeId",
   "/validation/results",
   "/validation/results/:validationId",
+  "/validation/results/:validationId/audit",
   "/validation/results/latest",
   "/validation/verdict",
   "/validation/runs",
@@ -90,6 +94,7 @@ const VALIDATION_EMPLOYEES: ValidationEmployee[] = [
       "validation_result_auditing",
       "severity_classification",
       "owner_team_assignment",
+      "validation_result_review",
     ],
   },
   {
@@ -240,4 +245,8 @@ export function assignValidationEmployeeForType(
   }
 
   return "employee_validation_auditor";
+}
+
+export function defaultAuditStatus(): "pending" {
+  return "pending";
 }

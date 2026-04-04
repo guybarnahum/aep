@@ -15,6 +15,7 @@ import {
 import {
   assignValidationEmployeeForType,
   classifyValidationSeverity,
+  defaultAuditStatus,
   deriveEscalationState,
   deriveOwnerTeamForValidationType,
   getOwnerForRoute,
@@ -55,6 +56,9 @@ type ValidationResultRow = {
   owner_team: string | null;
   severity: "info" | "warn" | "failed" | "critical" | null;
   escalation_state: "none" | "assigned" | "escalated" | null;
+  audit_status: "pending" | "reviewed" | null;
+  audited_by: string | null;
+  audited_at: string | null;
 };
 
 type ValidationRunRow = {
@@ -358,6 +362,7 @@ export async function handleValidationRoute(
       "ownership_surface_validation",
       "validation_run_execution",
       "validation_result_persistence",
+      "validation_result_review",
     ],
     _owner: getOwnerForRoute("/validation"),
   });
@@ -402,7 +407,10 @@ async function listPersistedValidationResults(
          created_at,
          owner_team,
          severity,
-         escalation_state
+        escalation_state,
+        audit_status,
+        audited_by,
+        audited_at
        FROM validation_results
        ORDER BY created_at DESC`,
     )
@@ -427,7 +435,10 @@ async function getPersistedValidationResult(
          created_at,
          owner_team,
          severity,
-         escalation_state
+        escalation_state,
+        audit_status,
+        audited_by,
+        audited_at
        FROM validation_results
        WHERE id = ?
        LIMIT 1`,
@@ -582,8 +593,11 @@ async function persistValidationResultFromRun(args: {
          created_at,
          owner_team,
          severity,
-         escalation_state
-       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         escalation_state,
+         audit_status,
+         audited_by,
+         audited_at
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .bind(
       resultId,
@@ -596,10 +610,66 @@ async function persistValidationResultFromRun(args: {
       ownerTeam,
       severity,
       escalationState,
+      defaultAuditStatus(),
+      null,
+      null,
     )
     .run();
 
   return resultId;
+}
+
+async function auditValidationResult(args: {
+  db: D1Database;
+  result: ValidationResultRow;
+}): Promise<{
+  ownerTeam: string | null;
+  severity: "info" | "warn" | "failed" | "critical";
+  escalationState: "none" | "assigned" | "escalated";
+  auditedBy: string;
+  auditedAt: string;
+}> {
+  const ownerTeam =
+    args.result.owner_team ??
+    deriveOwnerTeamForValidationType(args.result.validation_type);
+
+  const severity = classifyValidationSeverity({
+    status: args.result.status,
+    validationType: args.result.validation_type,
+  });
+
+  const escalationState = deriveEscalationState({
+    severity,
+    ownerTeam,
+  });
+
+  const auditedBy = "employee_validation_auditor";
+  const auditedAt = new Date().toISOString();
+
+  await args.db
+    .prepare(
+      `UPDATE validation_results
+       SET owner_team = ?, severity = ?, escalation_state = ?, audit_status = ?, audited_by = ?, audited_at = ?
+       WHERE id = ?`,
+    )
+    .bind(
+      ownerTeam,
+      severity,
+      escalationState,
+      "reviewed",
+      auditedBy,
+      auditedAt,
+      args.result.id,
+    )
+    .run();
+
+  return {
+    ownerTeam,
+    severity,
+    escalationState,
+    auditedBy,
+    auditedAt,
+  };
 }
 
 export async function handleValidationResultsRoute(
@@ -643,6 +713,9 @@ export async function handleValidationResultsRoute(
                 result.owner_team ??
                 deriveOwnerTeamForValidationType(result.validation_type),
             }),
+          audit_status: result.audit_status ?? "pending",
+          audited_by: result.audited_by,
+          audited_at: result.audited_at,
         })),
         _owner: getOwnerForRoute("/validation/results"),
       });
@@ -694,7 +767,57 @@ export async function handleValidationResultDetailRoute(
         owner_team: ownerTeam,
         severity,
         escalation_state: escalationState,
+        audit_status: result.audit_status ?? "pending",
+        audited_by: result.audited_by,
+        audited_at: result.audited_at,
         _owner: getOwnerForRoute(`/validation/results/${validationId}`),
+      });
+    },
+  });
+}
+
+export async function handleAuditValidationResultRoute(
+  request: Request,
+  env: EnvLike,
+  validationId: string,
+): Promise<Response> {
+  return withRuntimeJsonBoundary({
+    route: "/validation/results/:validationId/audit",
+    request,
+    resourceId: validationId,
+    handler: async () => {
+      const result = await getPersistedValidationResult(env.DB, validationId);
+      if (!result) {
+        return notFound(`validation result not found: ${validationId}`);
+      }
+
+      if (result.audit_status === "reviewed") {
+        return json({
+          validation_id: result.id,
+          audit_status: result.audit_status,
+          audited_by: result.audited_by,
+          audited_at: result.audited_at,
+          owner_team: result.owner_team,
+          severity: result.severity,
+          escalation_state: result.escalation_state,
+          _owner: getOwnerForRoute(`/validation/results/${validationId}/audit`),
+        });
+      }
+
+      const audited = await auditValidationResult({
+        db: env.DB,
+        result,
+      });
+
+      return json({
+        validation_id: result.id,
+        audit_status: "reviewed",
+        audited_by: audited.auditedBy,
+        audited_at: audited.auditedAt,
+        owner_team: audited.ownerTeam,
+        severity: audited.severity,
+        escalation_state: audited.escalationState,
+        _owner: getOwnerForRoute(`/validation/results/${validationId}/audit`),
       });
     },
   });
@@ -706,7 +829,8 @@ async function listLatestValidationResultsByType(
   const result = await db
     .prepare(
       `SELECT vr.id, vr.team_id, vr.validation_type, vr.status, vr.executed_by, vr.summary,
-              vr.created_at, vr.owner_team, vr.severity, vr.escalation_state
+              vr.created_at, vr.owner_team, vr.severity, vr.escalation_state,
+              vr.audit_status, vr.audited_by, vr.audited_at
        FROM validation_results vr
        INNER JOIN (
          SELECT validation_type, MAX(created_at) AS max_created_at
@@ -746,7 +870,10 @@ export async function handleLatestValidationResultRoute(
                created_at,
                owner_team,
                severity,
-               escalation_state
+              escalation_state,
+              audit_status,
+              audited_by,
+              audited_at
              FROM validation_results
              WHERE validation_type = ?
              ORDER BY created_at DESC
@@ -787,6 +914,9 @@ export async function handleLatestValidationResultRoute(
           owner_team: ownerTeam,
           severity,
           escalation_state: escalationState,
+          audit_status: row.audit_status ?? "pending",
+          audited_by: row.audited_by,
+          audited_at: row.audited_at,
           _owner: getOwnerForRoute("/validation/results/latest"),
         });
       }
@@ -823,6 +953,9 @@ export async function handleLatestValidationResultRoute(
             owner_team: ownerTeam,
             severity,
             escalation_state: escalationState,
+            audit_status: row.audit_status ?? "pending",
+            audited_by: row.audited_by,
+            audited_at: row.audited_at,
           };
         }),
         _owner: getOwnerForRoute("/validation/results/latest"),
@@ -866,6 +999,9 @@ export async function handleValidationVerdictRoute(
           owner_team: ownerTeam,
           severity,
           escalation_state: escalationState,
+          audit_status: row.audit_status ?? "pending",
+          audited_by: row.audited_by,
+          audited_at: row.audited_at,
         };
       });
 

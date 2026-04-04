@@ -25,6 +25,7 @@ import {
   handleValidationRoute,
   handleValidationEmployeesRoute,
   handleValidationEmployeeDetailRoute,
+  handleAuditValidationResultRoute,
   handleLatestValidationResultRoute,
   handleValidationResultsRoute,
   handleValidationResultDetailRoute,
@@ -569,6 +570,15 @@ export default {
       return handleValidationVerdictRoute(request, env);
     }
 
+    match = pathname.match(/^\/validation\/results\/([^/]+)\/audit$/);
+    if (request.method === "POST" && match) {
+      return handleAuditValidationResultRoute(
+        request,
+        env,
+        decodeURIComponent(match[1]),
+      );
+    }
+
     match = pathname.match(/^\/validation\/runs\/([^/]+)\/execute$/);
     if (request.method === "POST" && match) {
       return handleExecuteValidationRunRoute(
@@ -650,6 +660,21 @@ export default {
           `ALTER TABLE validation_results ADD COLUMN escalation_state TEXT`,
         ).run();
       } catch {}
+      try {
+        await env.DB.prepare(
+          `ALTER TABLE validation_results ADD COLUMN audit_status TEXT`,
+        ).run();
+      } catch {}
+      try {
+        await env.DB.prepare(
+          `ALTER TABLE validation_results ADD COLUMN audited_by TEXT`,
+        ).run();
+      } catch {}
+      try {
+        await env.DB.prepare(
+          `ALTER TABLE validation_results ADD COLUMN audited_at TEXT`,
+        ).run();
+      } catch {}
 
       await env.DB.batch([
         env.DB.prepare(
@@ -663,6 +688,14 @@ export default {
         env.DB.prepare(
           `CREATE INDEX IF NOT EXISTS idx_validation_results_escalation_state
              ON validation_results(escalation_state)`,
+        ),
+        env.DB.prepare(
+          `CREATE INDEX IF NOT EXISTS idx_validation_results_audit_status
+             ON validation_results(audit_status)`,
+        ),
+        env.DB.prepare(
+          `CREATE INDEX IF NOT EXISTS idx_validation_results_audited_by
+             ON validation_results(audited_by)`,
         ),
       ]);
 
@@ -713,9 +746,12 @@ export default {
                created_at,
                owner_team,
                severity,
-               escalation_state
+               escalation_state,
+               audit_status,
+               audited_by,
+               audited_at
              )
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         ).bind(
           "validation_runtime_read_safety",
           "team_validation",
@@ -727,6 +763,9 @@ export default {
           "team_website",
           "info",
           "none",
+          "reviewed",
+          "employee_validation_auditor",
+          now,
         ),
         env.DB.prepare(
           `INSERT OR REPLACE INTO validation_results
@@ -740,9 +779,12 @@ export default {
                created_at,
                owner_team,
                severity,
-               escalation_state
+               escalation_state,
+               audit_status,
+               audited_by,
+               audited_at
              )
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         ).bind(
           "validation_contract_surface",
           "team_validation",
@@ -754,6 +796,9 @@ export default {
           "team_website",
           "info",
           "none",
+          "reviewed",
+          "employee_validation_auditor",
+          now,
         ),
         env.DB.prepare(
           `INSERT OR REPLACE INTO validation_results
@@ -767,9 +812,12 @@ export default {
                created_at,
                owner_team,
                severity,
-               escalation_state
+               escalation_state,
+               audit_status,
+               audited_by,
+               audited_at
              )
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         ).bind(
           "validation_ownership_surface",
           "team_validation",
@@ -781,6 +829,9 @@ export default {
           "team_website",
           "info",
           "none",
+          "reviewed",
+          "employee_validation_auditor",
+          now,
         ),
       ]);
 
