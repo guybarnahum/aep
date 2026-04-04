@@ -1,0 +1,23 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "baseUrl": ".",
+    "paths": {
+      "@aep/control-plane/*": ["core/control-plane/src/*"],
+      "@aep/runtime-contract/*": ["core/runtime-contract/*"],
+      "@aep/workflow-engine/*": ["core/workflow-engine/src/*"],
+      "@aep/types/*": ["core/types/src/*"],
+      "@aep/observability/*": ["core/observability/src/*"],
+      "@aep/operator-agent/*": ["core/operator-agent/src/*"],
+      "@aep/shared/*": ["packages/shared/src/*"],
+      "@aep/event-schema/*": ["packages/event-schema/src/*"],
+      "@aep/deployment-engine/*": ["services/deployment-engine/src/*"],
+      "@aep/proving-ground/*": ["services/proving-ground/src/*"]
+    }
+  }
+}

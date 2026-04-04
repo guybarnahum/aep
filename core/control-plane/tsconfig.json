@@ -1,26 +1,11 @@
 {
+  "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "target": "ES2022",
-    "module": "ESNext",
-    "moduleResolution": "Bundler",
-    "strict": true,
-    "noEmit": true,
-    "types": ["@cloudflare/workers-types", "node"],
-    "skipLibCheck": true,
-    "baseUrl": ".",
-    "paths": {
-      "@aep/control-plane/*": ["src/*"],
-      "@aep/workflow-engine/*": ["../workflow-engine/src/*"],
-      "@aep/types/*": ["../types/src/*"],
-      "@aep/observability/*": ["../observability/src/*"],
-      "@aep/shared/*": ["../../packages/shared/src/*"],
-      "@aep/event-schema/*": ["../../packages/event-schema/src/*"],
-      "@aep/deployment-engine/*": ["../../services/deployment-engine/src/*"],
-      "@aep/proving-ground/*": ["../../services/proving-ground/src/*"]
-    }
+    "types": ["@cloudflare/workers-types", "node"]
   },
   "include": [
     "src/**/*.ts",
+    "../runtime-contract/**/*.ts",
     "../workflow-engine/src/**/*.ts",
     "../types/src/**/*.ts",
     "../../packages/**/*.ts",

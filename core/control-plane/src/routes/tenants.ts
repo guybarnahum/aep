@@ -11,6 +11,10 @@ import {
   withRuntimeJsonBoundary,
 } from "@aep/control-plane/lib/http";
 import {
+  assertRuntimeTenant,
+  normalizeTenant,
+} from "@aep/runtime-contract/runtime_contract";
+import {
   getServiceOverview,
   getTenantOverview,
   listTenantSummaries,
@@ -34,7 +38,9 @@ export async function handleTenantsRoute(
     handler: async () => {
       maybeInjectRuntimeReadFailure(request, env);
 
-      const tenants = await listTenantSummaries(env.DB);
+      const tenants = (await listTenantSummaries(env.DB))
+        .map(normalizeTenant)
+        .map(assertRuntimeTenant);
       return json({ tenants });
     },
   });
