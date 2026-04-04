@@ -22,6 +22,7 @@ import {
   getTeamOwnership,
   getValidationEmployee,
   listDispatchableValidationTypes,
+  listRequiredValidationTypesForVerdict,
   listValidationEmployees,
 } from "@aep/control-plane/org/ownership";
 import {
@@ -1062,6 +1063,19 @@ async function listLatestValidationResultsByType(
   return result.results ?? [];
 }
 
+function isValidationResultFresh(args: {
+  createdAt: string;
+  now: Date;
+  maxAgeMs: number;
+}): boolean {
+  const createdAtMs = Date.parse(args.createdAt);
+  if (!Number.isFinite(createdAtMs)) {
+    return false;
+  }
+
+  return args.now.getTime() - createdAtMs <= args.maxAgeMs;
+}
+
 export async function handleLatestValidationResultRoute(
   request: Request,
   env: EnvLike,
@@ -1188,9 +1202,45 @@ export async function handleValidationVerdictRoute(
     route: "/validation/verdict",
     request,
     handler: async () => {
-      const latest = await listLatestValidationResultsByType(env.DB);
+      const url = new URL(request.url);
+      const freshnessMinutesParam = url.searchParams.get("freshness_minutes");
+      const parsedFreshnessMinutes = freshnessMinutesParam
+        ? Number(freshnessMinutesParam)
+        : Number.NaN;
 
-      const checks = latest.map((row) => {
+      const freshnessMinutes =
+        Number.isFinite(parsedFreshnessMinutes) && parsedFreshnessMinutes > 0
+          ? Math.trunc(parsedFreshnessMinutes)
+          : 30;
+
+      const maxAgeMs = freshnessMinutes * 60 * 1000;
+      const now = new Date();
+
+      const latest = await listLatestValidationResultsByType(env.DB);
+      const latestByType = new Map(
+        latest.map((row) => [row.validation_type, row] as const),
+      );
+
+      const requiredTypes = listRequiredValidationTypesForVerdict();
+
+      const checks = requiredTypes.map((validationType) => {
+        const row = latestByType.get(validationType);
+
+        if (!row) {
+          return {
+            validation_type: validationType,
+            status: "failed",
+            owner_team: deriveOwnerTeamForValidationType(validationType),
+            severity: "critical" as const,
+            escalation_state: "escalated" as const,
+            audit_status: "pending" as const,
+            audited_by: null,
+            audited_at: null,
+            freshness: "missing" as const,
+            message: "No validation result found for required validation type.",
+          };
+        }
+
         const ownerTeam =
           row.owner_team ?? deriveOwnerTeamForValidationType(row.validation_type);
 
@@ -1208,6 +1258,46 @@ export async function handleValidationVerdictRoute(
             ownerTeam,
           });
 
+        const fresh = isValidationResultFresh({
+          createdAt: row.created_at,
+          now,
+          maxAgeMs,
+        });
+
+        const reviewed = (row.audit_status ?? "pending") === "reviewed";
+
+        if (!reviewed) {
+          return {
+            validation_id: row.id,
+            validation_type: row.validation_type,
+            status: "failed",
+            owner_team: ownerTeam,
+            severity: "critical" as const,
+            escalation_state: "escalated" as const,
+            audit_status: row.audit_status ?? "pending",
+            audited_by: row.audited_by,
+            audited_at: row.audited_at,
+            freshness: fresh ? "fresh" : "stale",
+            message: "Latest validation result is not reviewed.",
+          };
+        }
+
+        if (!fresh) {
+          return {
+            validation_id: row.id,
+            validation_type: row.validation_type,
+            status: "failed",
+            owner_team: ownerTeam,
+            severity: "critical" as const,
+            escalation_state: "escalated" as const,
+            audit_status: row.audit_status ?? "pending",
+            audited_by: row.audited_by,
+            audited_at: row.audited_at,
+            freshness: "stale" as const,
+            message: `Latest reviewed validation result is older than ${freshnessMinutes} minutes.`,
+          };
+        }
+
         return {
           validation_id: row.id,
           validation_type: row.validation_type,
@@ -1218,6 +1308,8 @@ export async function handleValidationVerdictRoute(
           audit_status: row.audit_status ?? "pending",
           audited_by: row.audited_by,
           audited_at: row.audited_at,
+          freshness: "fresh" as const,
+          message: "Fresh reviewed validation result available.",
         };
       });
 
@@ -1225,12 +1317,16 @@ export async function handleValidationVerdictRoute(
         (check) =>
           check.status === "failed" ||
           check.severity === "failed" ||
-          check.severity === "critical",
+          check.severity === "critical" ||
+          check.audit_status !== "reviewed" ||
+          check.freshness !== "fresh",
       );
 
       return json({
         team_id: "team_validation",
         status: overallFailed ? "failed" : "passed",
+        freshness_minutes: freshnessMinutes,
+        checked_at: now.toISOString(),
         checks,
         _owner: getOwnerForRoute("/validation/verdict"),
       });

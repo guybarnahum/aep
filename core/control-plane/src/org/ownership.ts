@@ -271,3 +271,13 @@ export function listDispatchableValidationTypes(): Array<
     "ownership_surface",
   ];
 }
+
+export function listRequiredValidationTypesForVerdict(): Array<
+  "runtime_read_safety" | "contract_surface" | "ownership_surface"
+> {
+  return [
+    "runtime_read_safety",
+    "contract_surface",
+    "ownership_surface",
+  ];
+}

@@ -160,7 +160,7 @@ function main(): void {
     if (check.id === "validation-verdict") {
       return {
         ...check,
-        args: ["--base-url", baseUrl],
+        args: ["--base-url", baseUrl, "--freshness-minutes", "30"],
       };
     }
 

@@ -5,6 +5,9 @@ type VerdictCheck = {
   status: string;
   severity?: string | null;
   owner_team?: string | null;
+  audit_status?: string | null;
+  freshness?: string | null;
+  message?: string | null;
 };
 
 function parseArgs(argv: string[]) {
@@ -27,19 +30,29 @@ function parseArgs(argv: string[]) {
     throw new Error("Missing required --base-url");
   }
 
+  const freshnessMinutesRaw = args.get("freshness-minutes") ?? "30";
+  const freshnessMinutes = Number(freshnessMinutesRaw);
+  if (!Number.isFinite(freshnessMinutes) || freshnessMinutes <= 0) {
+    throw new Error("Invalid --freshness-minutes, must be a positive number");
+  }
+
   return {
     baseUrl: baseUrl.replace(/\/+$/, ""),
+    freshnessMinutes: Math.trunc(freshnessMinutes),
   };
 }
 
 async function main() {
-  const { baseUrl } = parseArgs(process.argv.slice(2));
-  const response = await fetch(`${baseUrl}/validation/verdict`, {
-    headers: {
-      accept: "application/json",
-      "user-agent": "aep-ci-validation-verdict/1.0",
+  const { baseUrl, freshnessMinutes } = parseArgs(process.argv.slice(2));
+  const response = await fetch(
+    `${baseUrl}/validation/verdict?freshness_minutes=${freshnessMinutes}`,
+    {
+      headers: {
+        accept: "application/json",
+        "user-agent": "aep-ci-validation-verdict/1.0",
+      },
     },
-  });
+  );
 
   if (!response.ok) {
     throw new Error(`Validation verdict request failed with HTTP ${response.status}`);
@@ -48,6 +61,7 @@ async function main() {
   const body = (await response.json()) as {
     team_id?: string;
     status?: string;
+    freshness_minutes?: number;
     checks?: VerdictCheck[];
   };
 

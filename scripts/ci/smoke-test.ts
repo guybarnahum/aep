@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 
+export {};
+
 /**
  * scripts/ci/smoke-test.ts
  * A generic smoke test script for testing deployed HTTP endpoints.
@@ -395,7 +397,7 @@ function resolvePollUrl(result: RequestResult, cli: CliOptions): string {
   }
 
   const id = encodeURIComponent(String(idValue));
-  const path = cli.pollPathTemplate.replaceAll("{id}", id);
+  const path = cli.pollPathTemplate.split("{id}").join(id);
   return joinUrl(cli.baseUrl, path);
 }
 
