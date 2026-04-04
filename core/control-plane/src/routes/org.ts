@@ -13,6 +13,9 @@ import {
   normalizeTeam,
 } from "@aep/runtime-contract/runtime_contract";
 import {
+  classifyValidationSeverity,
+  deriveEscalationState,
+  deriveOwnerTeamForValidationType,
   getOwnerForRoute,
   getTeamOwnership,
   getValidationEmployee,
@@ -48,6 +51,9 @@ type ValidationResultRow = {
   executed_by: string;
   summary: string;
   created_at: string;
+  owner_team: string | null;
+  severity: "info" | "warn" | "failed" | "critical" | null;
+  escalation_state: "none" | "assigned" | "escalated" | null;
 };
 
 export async function handleCompaniesRoute(
@@ -357,7 +363,17 @@ async function listPersistedValidationResults(
 ): Promise<ValidationResultRow[]> {
   const result = await db
     .prepare(
-      `SELECT id, team_id, validation_type, status, executed_by, summary, created_at
+      `SELECT
+         id,
+         team_id,
+         validation_type,
+         status,
+         executed_by,
+         summary,
+         created_at,
+         owner_team,
+         severity,
+         escalation_state
        FROM validation_results
        ORDER BY created_at DESC`,
     )
@@ -372,7 +388,17 @@ async function getPersistedValidationResult(
 ): Promise<ValidationResultRow | null> {
   const row = await db
     .prepare(
-      `SELECT id, team_id, validation_type, status, executed_by, summary, created_at
+      `SELECT
+         id,
+         team_id,
+         validation_type,
+         status,
+         executed_by,
+         summary,
+         created_at,
+         owner_team,
+         severity,
+         escalation_state
        FROM validation_results
        WHERE id = ?
        LIMIT 1`,
@@ -402,6 +428,28 @@ export async function handleValidationResultsRoute(
           executed_by: result.executed_by,
           summary: result.summary,
           created_at: result.created_at,
+          owner_team:
+            result.owner_team ??
+            deriveOwnerTeamForValidationType(result.validation_type),
+          severity:
+            result.severity ??
+            classifyValidationSeverity({
+              status: result.status,
+              validationType: result.validation_type,
+            }),
+          escalation_state:
+            result.escalation_state ??
+            deriveEscalationState({
+              severity:
+                result.severity ??
+                classifyValidationSeverity({
+                  status: result.status,
+                  validationType: result.validation_type,
+                }),
+              ownerTeam:
+                result.owner_team ??
+                deriveOwnerTeamForValidationType(result.validation_type),
+            }),
         })),
         _owner: getOwnerForRoute("/validation/results"),
       });
@@ -424,6 +472,24 @@ export async function handleValidationResultDetailRoute(
         return notFound(`validation result not found: ${validationId}`);
       }
 
+      const ownerTeam =
+        result.owner_team ??
+        deriveOwnerTeamForValidationType(result.validation_type);
+
+      const severity =
+        result.severity ??
+        classifyValidationSeverity({
+          status: result.status,
+          validationType: result.validation_type,
+        });
+
+      const escalationState =
+        result.escalation_state ??
+        deriveEscalationState({
+          severity,
+          ownerTeam,
+        });
+
       return json({
         validation_id: result.id,
         team_id: result.team_id,
@@ -432,6 +498,9 @@ export async function handleValidationResultDetailRoute(
         executed_by: result.executed_by,
         summary: result.summary,
         created_at: result.created_at,
+        owner_team: ownerTeam,
+        severity,
+        escalation_state: escalationState,
         _owner: getOwnerForRoute(`/validation/results/${validationId}`),
       });
     },

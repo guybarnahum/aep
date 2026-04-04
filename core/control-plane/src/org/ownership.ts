@@ -22,6 +22,9 @@ export type ValidationResult = {
   executed_by: string;
   summary: string;
   created_at?: string;
+  owner_team?: string | null;
+  severity?: "info" | "warn" | "failed" | "critical" | null;
+  escalation_state?: "none" | "assigned" | "escalated" | null;
 };
 
 export const TEAM_WEBSITE_ID = "team_website";
@@ -62,6 +65,8 @@ const VALIDATION_EMPLOYEES: ValidationEmployee[] = [
     capabilities: [
       "ownership_surface_validation",
       "validation_result_auditing",
+      "severity_classification",
+      "owner_team_assignment",
     ],
   },
   {
@@ -138,4 +143,58 @@ export function getValidationEmployee(
       (employee) => employee.employee_id === employeeId,
     ) ?? null
   );
+}
+
+export function classifyValidationSeverity(args: {
+  status: "passed" | "failed" | "warn";
+  validationType:
+    | "runtime_read_safety"
+    | "contract_surface"
+    | "ownership_surface";
+}): "info" | "warn" | "failed" | "critical" {
+  if (args.status === "passed") {
+    return "info";
+  }
+
+  if (args.status === "warn") {
+    return "warn";
+  }
+
+  if (args.validationType === "runtime_read_safety") {
+    return "critical";
+  }
+
+  return "failed";
+}
+
+export function deriveEscalationState(args: {
+  severity: "info" | "warn" | "failed" | "critical";
+  ownerTeam: string | null;
+}): "none" | "assigned" | "escalated" {
+  if (args.severity === "info" || args.severity === "warn") {
+    return "none";
+  }
+
+  if (args.severity === "critical") {
+    return "escalated";
+  }
+
+  return args.ownerTeam ? "assigned" : "none";
+}
+
+export function deriveOwnerTeamForValidationType(
+  validationType:
+    | "runtime_read_safety"
+    | "contract_surface"
+    | "ownership_surface",
+): string | null {
+  if (
+    validationType === "runtime_read_safety" ||
+    validationType === "contract_surface" ||
+    validationType === "ownership_surface"
+  ) {
+    return TEAM_WEBSITE_ID;
+  }
+
+  return null;
 }

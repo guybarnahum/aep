@@ -575,7 +575,10 @@ export default {
              status TEXT NOT NULL,
              executed_by TEXT NOT NULL,
              summary TEXT NOT NULL,
-             created_at TEXT NOT NULL
+             created_at TEXT NOT NULL,
+             owner_team TEXT,
+             severity TEXT,
+             escalation_state TEXT
            )`,
         ),
         env.DB.prepare(
@@ -592,11 +595,53 @@ export default {
         ),
       ]);
 
+      try {
+        await env.DB.prepare(
+          `ALTER TABLE validation_results ADD COLUMN owner_team TEXT`,
+        ).run();
+      } catch {}
+      try {
+        await env.DB.prepare(
+          `ALTER TABLE validation_results ADD COLUMN severity TEXT`,
+        ).run();
+      } catch {}
+      try {
+        await env.DB.prepare(
+          `ALTER TABLE validation_results ADD COLUMN escalation_state TEXT`,
+        ).run();
+      } catch {}
+
+      await env.DB.batch([
+        env.DB.prepare(
+          `CREATE INDEX IF NOT EXISTS idx_validation_results_owner_team
+             ON validation_results(owner_team)`,
+        ),
+        env.DB.prepare(
+          `CREATE INDEX IF NOT EXISTS idx_validation_results_severity
+             ON validation_results(severity)`,
+        ),
+        env.DB.prepare(
+          `CREATE INDEX IF NOT EXISTS idx_validation_results_escalation_state
+             ON validation_results(escalation_state)`,
+        ),
+      ]);
+
       await env.DB.batch([
         env.DB.prepare(
           `INSERT OR REPLACE INTO validation_results
-             (id, team_id, validation_type, status, executed_by, summary, created_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+             (
+               id,
+               team_id,
+               validation_type,
+               status,
+               executed_by,
+               summary,
+               created_at,
+               owner_team,
+               severity,
+               escalation_state
+             )
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         ).bind(
           "validation_runtime_read_safety",
           "team_validation",
@@ -605,11 +650,25 @@ export default {
           "employee_validation_runner",
           "Runtime read surface returned stable JSON responses.",
           now,
+          "team_website",
+          "info",
+          "none",
         ),
         env.DB.prepare(
           `INSERT OR REPLACE INTO validation_results
-             (id, team_id, validation_type, status, executed_by, summary, created_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+             (
+               id,
+               team_id,
+               validation_type,
+               status,
+               executed_by,
+               summary,
+               created_at,
+               owner_team,
+               severity,
+               escalation_state
+             )
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         ).bind(
           "validation_contract_surface",
           "team_validation",
@@ -618,11 +677,25 @@ export default {
           "employee_validation_runner",
           "Contract-governed list surfaces normalized and asserted successfully.",
           now,
+          "team_website",
+          "info",
+          "none",
         ),
         env.DB.prepare(
           `INSERT OR REPLACE INTO validation_results
-             (id, team_id, validation_type, status, executed_by, summary, created_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+             (
+               id,
+               team_id,
+               validation_type,
+               status,
+               executed_by,
+               summary,
+               created_at,
+               owner_team,
+               severity,
+               escalation_state
+             )
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         ).bind(
           "validation_ownership_surface",
           "team_validation",
@@ -631,6 +704,9 @@ export default {
           "employee_validation_auditor",
           "Owned route discovery and validation team ownership surfaces resolved correctly.",
           now,
+          "team_website",
+          "info",
+          "none",
         ),
       ]);
 
