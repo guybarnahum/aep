@@ -21,6 +21,7 @@ export type ValidationResult = {
     | "ownership_surface";
   executed_by: string;
   summary: string;
+  created_at?: string;
 };
 
 export const TEAM_WEBSITE_ID = "team_website";
@@ -72,35 +73,6 @@ const VALIDATION_EMPLOYEES: ValidationEmployee[] = [
       "validation_dispatch_planning",
       "validation_lane_scheduling",
     ],
-  },
-];
-
-const VALIDATION_RESULTS: ValidationResult[] = [
-  {
-    validation_id: "validation_runtime_read_safety",
-    team_id: TEAM_VALIDATION_ID,
-    status: "passed",
-    validation_type: "runtime_read_safety",
-    executed_by: "employee_validation_runner",
-    summary: "Runtime read surface returned stable JSON responses.",
-  },
-  {
-    validation_id: "validation_contract_surface",
-    team_id: TEAM_VALIDATION_ID,
-    status: "passed",
-    validation_type: "contract_surface",
-    executed_by: "employee_validation_runner",
-    summary:
-      "Contract-governed list surfaces normalized and asserted successfully.",
-  },
-  {
-    validation_id: "validation_ownership_surface",
-    team_id: TEAM_VALIDATION_ID,
-    status: "passed",
-    validation_type: "ownership_surface",
-    executed_by: "employee_validation_auditor",
-    summary:
-      "Owned route discovery and validation team ownership surfaces resolved correctly.",
   },
 ];
 
@@ -164,20 +136,6 @@ export function getValidationEmployee(
   return (
     VALIDATION_EMPLOYEES.find(
       (employee) => employee.employee_id === employeeId,
-    ) ?? null
-  );
-}
-
-export function listValidationResults(): ValidationResult[] {
-  return VALIDATION_RESULTS.map((result) => ({ ...result }));
-}
-
-export function getValidationResult(
-  validationId: string,
-): ValidationResult | null {
-  return (
-    VALIDATION_RESULTS.find(
-      (result) => result.validation_id === validationId,
     ) ?? null
   );
 }

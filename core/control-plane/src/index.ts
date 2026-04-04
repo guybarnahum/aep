@@ -544,15 +544,100 @@ export default {
     }
 
     if (request.method === "GET" && pathname === "/validation/results") {
-      return handleValidationResultsRoute(request);
+      return handleValidationResultsRoute(request, env);
     }
 
     match = pathname.match(/^\/validation\/results\/([^/]+)$/);
     if (request.method === "GET" && match) {
       return handleValidationResultDetailRoute(
         request,
+        env,
         decodeURIComponent(match[1]),
       );
+    }
+
+    if (
+      request.method === "POST" &&
+      pathname === "/internal/test/validation-results/seed"
+    ) {
+      if (env.APP_ENV !== "dev") {
+        return Response.json({ error: "Not found" }, { status: 404 });
+      }
+
+      const now = nowIso();
+
+      await env.DB.batch([
+        env.DB.prepare(
+          `CREATE TABLE IF NOT EXISTS validation_results (
+             id TEXT PRIMARY KEY,
+             team_id TEXT NOT NULL,
+             validation_type TEXT NOT NULL,
+             status TEXT NOT NULL,
+             executed_by TEXT NOT NULL,
+             summary TEXT NOT NULL,
+             created_at TEXT NOT NULL
+           )`,
+        ),
+        env.DB.prepare(
+          `CREATE INDEX IF NOT EXISTS idx_validation_results_created_at
+             ON validation_results(created_at DESC)`,
+        ),
+        env.DB.prepare(
+          `CREATE INDEX IF NOT EXISTS idx_validation_results_type
+             ON validation_results(validation_type)`,
+        ),
+        env.DB.prepare(
+          `CREATE INDEX IF NOT EXISTS idx_validation_results_status
+             ON validation_results(status)`,
+        ),
+      ]);
+
+      await env.DB.batch([
+        env.DB.prepare(
+          `INSERT OR REPLACE INTO validation_results
+             (id, team_id, validation_type, status, executed_by, summary, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        ).bind(
+          "validation_runtime_read_safety",
+          "team_validation",
+          "runtime_read_safety",
+          "passed",
+          "employee_validation_runner",
+          "Runtime read surface returned stable JSON responses.",
+          now,
+        ),
+        env.DB.prepare(
+          `INSERT OR REPLACE INTO validation_results
+             (id, team_id, validation_type, status, executed_by, summary, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        ).bind(
+          "validation_contract_surface",
+          "team_validation",
+          "contract_surface",
+          "passed",
+          "employee_validation_runner",
+          "Contract-governed list surfaces normalized and asserted successfully.",
+          now,
+        ),
+        env.DB.prepare(
+          `INSERT OR REPLACE INTO validation_results
+             (id, team_id, validation_type, status, executed_by, summary, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        ).bind(
+          "validation_ownership_surface",
+          "team_validation",
+          "ownership_surface",
+          "passed",
+          "employee_validation_auditor",
+          "Owned route discovery and validation team ownership surfaces resolved correctly.",
+          now,
+        ),
+      ]);
+
+      return Response.json({
+        ok: true,
+        seeded: 3,
+      });
     }
 
     match = pathname.match(/^\/teams\/([^/]+)\/ownership$/);

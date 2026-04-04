@@ -16,9 +16,7 @@ import {
   getOwnerForRoute,
   getTeamOwnership,
   getValidationEmployee,
-  getValidationResult,
   listValidationEmployees,
-  listValidationResults,
 } from "@aep/control-plane/org/ownership";
 import {
   getCompany,
@@ -40,6 +38,16 @@ type EnvLike = {
   APP_ENV?: string;
   VALIDATION_LANE?: string;
   RUNTIME_READ_FAILURE_INJECTION_ENABLED?: string;
+};
+
+type ValidationResultRow = {
+  id: string;
+  team_id: string;
+  validation_type: "runtime_read_safety" | "contract_surface" | "ownership_surface";
+  status: "passed" | "failed" | "warn";
+  executed_by: string;
+  summary: string;
+  created_at: string;
 };
 
 export async function handleCompaniesRoute(
@@ -344,26 +352,88 @@ export async function handleValidationEmployeeDetailRoute(
   });
 }
 
+async function listPersistedValidationResults(
+  db: D1Database,
+): Promise<ValidationResultRow[]> {
+  const result = await db
+    .prepare(
+      `SELECT id, team_id, validation_type, status, executed_by, summary, created_at
+       FROM validation_results
+       ORDER BY created_at DESC`,
+    )
+    .all<ValidationResultRow>();
+
+  return result.results ?? [];
+}
+
+async function getPersistedValidationResult(
+  db: D1Database,
+  validationId: string,
+): Promise<ValidationResultRow | null> {
+  const row = await db
+    .prepare(
+      `SELECT id, team_id, validation_type, status, executed_by, summary, created_at
+       FROM validation_results
+       WHERE id = ?
+       LIMIT 1`,
+    )
+    .bind(validationId)
+    .first<ValidationResultRow>();
+
+  return row ?? null;
+}
+
 export async function handleValidationResultsRoute(
   request: Request,
+  env: EnvLike,
 ): Promise<Response> {
-  return json({
-    results: listValidationResults(),
-    _owner: getOwnerForRoute("/validation/results"),
+  return withRuntimeJsonBoundary({
+    route: "/validation/results",
+    request,
+    handler: async () => {
+      const results = await listPersistedValidationResults(env.DB);
+
+      return json({
+        results: results.map((result) => ({
+          validation_id: result.id,
+          team_id: result.team_id,
+          validation_type: result.validation_type,
+          status: result.status,
+          executed_by: result.executed_by,
+          summary: result.summary,
+          created_at: result.created_at,
+        })),
+        _owner: getOwnerForRoute("/validation/results"),
+      });
+    },
   });
 }
 
 export async function handleValidationResultDetailRoute(
   request: Request,
+  env: EnvLike,
   validationId: string,
 ): Promise<Response> {
-  const result = getValidationResult(validationId);
-  if (!result) {
-    return notFound(`validation result not found: ${validationId}`);
-  }
+  return withRuntimeJsonBoundary({
+    route: "/validation/results/:validationId",
+    request,
+    resourceId: validationId,
+    handler: async () => {
+      const result = await getPersistedValidationResult(env.DB, validationId);
+      if (!result) {
+        return notFound(`validation result not found: ${validationId}`);
+      }
 
-  return json({
-    ...result,
-    _owner: getOwnerForRoute(`/validation/results/${validationId}`),
+      return json({
+        validation_id: result.id,
+        team_id: result.team_id,
+        validation_type: result.validation_type,
+        status: result.status,
+        executed_by: result.executed_by,
+        summary: result.summary,
+        created_at: result.created_at,
+        _owner: getOwnerForRoute(`/validation/results/${validationId}`),
+      });
+    },
   });
 }
