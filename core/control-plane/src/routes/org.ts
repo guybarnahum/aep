@@ -87,6 +87,12 @@ type DispatchValidationRunsBody = {
   mode?: "full" | "runtime_only";
 };
 
+type SchedulePostDeployValidationBody = {
+  target_base_url?: string;
+  requested_by?: string;
+  mode?: "full" | "runtime_only";
+};
+
 type ExecuteValidationRunResult = {
   status: "passed" | "failed";
   summary: string;
@@ -573,6 +579,31 @@ async function createValidationRunRecord(args: {
     started_at: null,
     completed_at: null,
   };
+}
+
+async function dispatchValidationRuns(args: {
+  db: D1Database;
+  requestedBy: string;
+  targetBaseUrl: string;
+  mode: "full" | "runtime_only";
+}): Promise<ValidationRunRow[]> {
+  const validationTypes =
+    args.mode === "runtime_only"
+      ? (["runtime_read_safety"] as const)
+      : listDispatchableValidationTypes();
+
+  const createdRuns: ValidationRunRow[] = [];
+  for (const validationType of validationTypes) {
+    const run = await createValidationRunRecord({
+      db: args.db,
+      validationType,
+      requestedBy: args.requestedBy,
+      targetBaseUrl: args.targetBaseUrl,
+    });
+    createdRuns.push(run);
+  }
+
+  return createdRuns;
 }
 
 async function markValidationRunRunning(
@@ -1280,21 +1311,12 @@ export async function handleCreateValidationDispatchRoute(
         );
       }
 
-      const validationTypes =
-        mode === "runtime_only"
-          ? (["runtime_read_safety"] as const)
-          : listDispatchableValidationTypes();
-
-      const createdRuns: ValidationRunRow[] = [];
-      for (const validationType of validationTypes) {
-        const run = await createValidationRunRecord({
-          db: env.DB,
-          validationType,
-          requestedBy: body.requested_by.trim(),
-          targetBaseUrl: body.target_base_url.trim(),
-        });
-        createdRuns.push(run);
-      }
+      const createdRuns = await dispatchValidationRuns({
+        db: env.DB,
+        requestedBy: body.requested_by.trim(),
+        targetBaseUrl: body.target_base_url.trim(),
+        mode,
+      });
 
       return json(
         {
@@ -1311,6 +1333,84 @@ export async function handleCreateValidationDispatchRoute(
             created_at: run.created_at,
           })),
           _owner: getOwnerForRoute("/validation/dispatch"),
+        },
+        { status: 202 },
+      );
+    },
+  });
+}
+
+export async function handleSchedulePostDeployValidationRoute(
+  request: Request,
+  env: EnvLike,
+): Promise<Response> {
+  return withRuntimeJsonBoundary({
+    route: "/internal/validation/schedule-post-deploy",
+    request,
+    handler: async () => {
+      const body = (await request.json()) as SchedulePostDeployValidationBody;
+
+      if (
+        typeof body.requested_by !== "string" ||
+        body.requested_by.trim() === ""
+      ) {
+        return json(
+          {
+            error: "invalid_requested_by",
+            message: "requested_by must be a non-empty string",
+          },
+          { status: 400 },
+        );
+      }
+
+      if (
+        typeof body.target_base_url !== "string" ||
+        body.target_base_url.trim() === ""
+      ) {
+        return json(
+          {
+            error: "invalid_target_base_url",
+            message: "target_base_url must be a non-empty string",
+          },
+          { status: 400 },
+        );
+      }
+
+      const mode = body.mode ?? "full";
+      if (mode !== "full" && mode !== "runtime_only") {
+        return json(
+          {
+            error: "invalid_mode",
+            message: "mode must be full or runtime_only",
+          },
+          { status: 400 },
+        );
+      }
+
+      const createdRuns = await dispatchValidationRuns({
+        db: env.DB,
+        requestedBy: body.requested_by.trim(),
+        targetBaseUrl: body.target_base_url.trim(),
+        mode,
+      });
+
+      return json(
+        {
+          team_id: "team_validation",
+          scheduler: "employee_validation_scheduler",
+          trigger: "post_deploy",
+          mode,
+          dispatched: createdRuns.length,
+          runs: createdRuns.map((run) => ({
+            validation_run_id: run.id,
+            validation_type: run.validation_type,
+            requested_by: run.requested_by,
+            assigned_to: run.assigned_to,
+            status: run.status,
+            target_base_url: run.target_base_url,
+            created_at: run.created_at,
+          })),
+          _owner: getOwnerForRoute("/internal/validation/schedule-post-deploy"),
         },
         { status: 202 },
       );

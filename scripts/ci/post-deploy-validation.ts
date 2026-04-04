@@ -38,6 +38,11 @@ const CHECKS: ValidationCheck[] = [
     scriptPath: "scripts/ci/scheduled-routing-check.ts",
   },
   {
+    id: "dispatch-validation-runs",
+    label: "Dispatch validation runs",
+    scriptPath: "scripts/ci/dispatch-validation-runs.ts",
+  },
+  {
     id: "validation-verdict",
     label: "Validation verdict check",
     scriptPath: "scripts/ci/check-validation-verdict.ts",
@@ -147,14 +152,28 @@ function runCheck(tsxBin: string, check: ValidationCheck): CheckResult {
 function main(): void {
   const baseUrl = requireBaseUrl();
   const checks = CHECKS.map((check) => {
-    if (check.id !== "validation-verdict") {
-      return check;
+    if (check.id === "validation-verdict") {
+      return {
+        ...check,
+        args: ["--base-url", baseUrl],
+      };
     }
 
-    return {
-      ...check,
-      args: ["--base-url", baseUrl],
-    };
+    if (check.id === "dispatch-validation-runs") {
+      return {
+        ...check,
+        args: [
+          "--base-url",
+          baseUrl,
+          "--mode",
+          "full",
+          "--requested-by",
+          "post_deploy_validation",
+        ],
+      };
+    }
+
+    return check;
   });
 
   if (hasArg("--dry-run")) {
