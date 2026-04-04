@@ -18,8 +18,20 @@ function expectIds(
   items: Array<Record<string, unknown>>,
   expectedIds: string[],
   label: string,
+  idKeys: string[],
 ): void {
-  const ids = new Set(items.map((item) => String(item.id ?? "")));
+  const ids = new Set(
+    items.map((item) => {
+      for (const key of idKeys) {
+        const value = item[key];
+        if (typeof value === "string" && value.length > 0) {
+          return value;
+        }
+      }
+      return "";
+    }),
+  );
+
   for (const expectedId of expectedIds) {
     assert(ids.has(expectedId), `Missing ${label}: ${expectedId}`);
   }
@@ -29,7 +41,10 @@ async function main(): Promise<void> {
   const companies = (await getJson("/companies")) as {
     companies: Array<Record<string, unknown>>;
   };
-  expectIds(companies.companies, ["company_internal_aep"], "company");
+  expectIds(companies.companies, ["company_internal_aep"], "company", [
+    "company_id",
+    "id",
+  ]);
 
   const teams = (await getJson("/teams")) as {
     teams: Array<Record<string, unknown>>;
@@ -38,6 +53,7 @@ async function main(): Promise<void> {
     teams.teams,
     ["team_infra", "team_web_product", "team_validation"],
     "team",
+    ["team_id", "id"],
   );
 
   const tenants = (await getJson("/org/tenants")) as {
@@ -47,6 +63,7 @@ async function main(): Promise<void> {
     tenants.tenants,
     ["tenant_internal_aep", "tenant_qa", "tenant_async_validation"],
     "org tenant",
+    ["id", "tenant_id"],
   );
 
   const environments = (await getJson(
@@ -75,6 +92,7 @@ async function main(): Promise<void> {
       "service_ops_console",
     ],
     "service",
+    ["service_id", "id"],
   );
 
   const employees = (await getJson("/employees")) as {
@@ -92,6 +110,7 @@ async function main(): Promise<void> {
       "emp_validation_engineer_01",
     ],
     "employee",
+    ["id", "employee_id"],
   );
 
   const scope = (await getJson(
