@@ -43,6 +43,11 @@ const CHECKS: ValidationCheck[] = [
     scriptPath: "scripts/ci/dispatch-validation-runs.ts",
   },
   {
+    id: "execute-validation-dispatch",
+    label: "Execute dispatched validation runs",
+    scriptPath: "scripts/ci/execute-validation-dispatch.ts",
+  },
+  {
     id: "validation-verdict",
     label: "Validation verdict check",
     scriptPath: "scripts/ci/check-validation-verdict.ts",
@@ -160,6 +165,20 @@ function main(): void {
     }
 
     if (check.id === "dispatch-validation-runs") {
+      return {
+        ...check,
+        args: [
+          "--base-url",
+          baseUrl,
+          "--mode",
+          "full",
+          "--requested-by",
+          "post_deploy_validation",
+        ],
+      };
+    }
+
+    if (check.id === "execute-validation-dispatch") {
       return {
         ...check,
         args: [

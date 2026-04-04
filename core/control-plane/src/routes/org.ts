@@ -93,6 +93,12 @@ type SchedulePostDeployValidationBody = {
   mode?: "full" | "runtime_only";
 };
 
+type ExecuteValidationDispatchBody = {
+  requested_by?: string;
+  target_base_url?: string;
+  mode?: "full" | "runtime_only";
+};
+
 type ExecuteValidationRunResult = {
   status: "passed" | "failed";
   summary: string;
@@ -524,6 +530,42 @@ async function getPersistedValidationRun(
   return row ?? null;
 }
 
+async function listQueuedValidationRunsForDispatch(args: {
+  db: D1Database;
+  requestedBy: string;
+  targetBaseUrl: string;
+  validationTypes: ReadonlyArray<
+    "runtime_read_safety" | "contract_surface" | "ownership_surface"
+  >;
+}): Promise<ValidationRunRow[]> {
+  const placeholders = args.validationTypes.map(() => "?").join(", ");
+
+  const result = await args.db
+    .prepare(
+      `SELECT
+         id,
+         validation_type,
+         requested_by,
+         assigned_to,
+         status,
+         target_base_url,
+         result_id,
+         created_at,
+         started_at,
+         completed_at
+       FROM validation_runs
+       WHERE requested_by = ?
+         AND target_base_url = ?
+         AND status = 'queued'
+         AND validation_type IN (${placeholders})
+       ORDER BY created_at DESC`,
+    )
+    .bind(args.requestedBy, args.targetBaseUrl, ...args.validationTypes)
+    .all<ValidationRunRow>();
+
+  return result.results ?? [];
+}
+
 async function createValidationRunRecord(args: {
   db: D1Database;
   validationType: "runtime_read_safety" | "contract_surface" | "ownership_surface";
@@ -775,6 +817,74 @@ async function auditValidationResult(args: {
     escalationState,
     auditedBy,
     auditedAt,
+  };
+}
+
+async function executeAndAuditValidationRun(args: {
+  db: D1Database;
+  run: ValidationRunRow;
+}): Promise<{
+  validationRunId: string;
+  status: "completed" | "failed";
+  resultId: string;
+  executedBy: string;
+  auditedBy: string | null;
+  auditStatus: "pending" | "reviewed";
+}> {
+  if (args.run.status === "completed" || args.run.status === "failed") {
+    return {
+      validationRunId: args.run.id,
+      status: args.run.status,
+      resultId: args.run.result_id ?? "",
+      executedBy: args.run.assigned_to,
+      auditedBy: null,
+      auditStatus: "pending",
+    };
+  }
+
+  const startedAt = new Date().toISOString();
+  await markValidationRunRunning(args.db, args.run.id, startedAt);
+
+  const refreshedRun = await getPersistedValidationRun(args.db, args.run.id);
+  if (!refreshedRun) {
+    throw new Error(`validation run disappeared during execution: ${args.run.id}`);
+  }
+
+  const execution = await executeValidationRunLogic(refreshedRun);
+  const completedAt = new Date().toISOString();
+
+  const resultId = await persistValidationResultFromRun({
+    db: args.db,
+    run: refreshedRun,
+    execution,
+    createdAt: completedAt,
+  });
+
+  await markValidationRunTerminal({
+    db: args.db,
+    runId: refreshedRun.id,
+    status: execution.status === "passed" ? "completed" : "failed",
+    resultId,
+    completedAt,
+  });
+
+  const result = await getPersistedValidationResult(args.db, resultId);
+  if (!result) {
+    throw new Error(`validation result missing after execution: ${resultId}`);
+  }
+
+  const audited = await auditValidationResult({
+    db: args.db,
+    result,
+  });
+
+  return {
+    validationRunId: refreshedRun.id,
+    status: execution.status === "passed" ? "completed" : "failed",
+    resultId,
+    executedBy: execution.executed_by,
+    auditedBy: audited.auditedBy,
+    auditStatus: "reviewed",
   };
 }
 
@@ -1414,6 +1524,95 @@ export async function handleSchedulePostDeployValidationRoute(
         },
         { status: 202 },
       );
+    },
+  });
+}
+
+export async function handleExecuteValidationDispatchRoute(
+  request: Request,
+  env: EnvLike,
+): Promise<Response> {
+  return withRuntimeJsonBoundary({
+    route: "/internal/validation/execute-dispatch",
+    request,
+    handler: async () => {
+      const body = (await request.json()) as ExecuteValidationDispatchBody;
+
+      if (
+        typeof body.requested_by !== "string" ||
+        body.requested_by.trim() === ""
+      ) {
+        return json(
+          {
+            error: "invalid_requested_by",
+            message: "requested_by must be a non-empty string",
+          },
+          { status: 400 },
+        );
+      }
+
+      if (
+        typeof body.target_base_url !== "string" ||
+        body.target_base_url.trim() === ""
+      ) {
+        return json(
+          {
+            error: "invalid_target_base_url",
+            message: "target_base_url must be a non-empty string",
+          },
+          { status: 400 },
+        );
+      }
+
+      const mode = body.mode ?? "full";
+      if (mode !== "full" && mode !== "runtime_only") {
+        return json(
+          {
+            error: "invalid_mode",
+            message: "mode must be full or runtime_only",
+          },
+          { status: 400 },
+        );
+      }
+
+      const validationTypes =
+        mode === "runtime_only"
+          ? (["runtime_read_safety"] as const)
+          : listDispatchableValidationTypes();
+
+      const queuedRuns = await listQueuedValidationRunsForDispatch({
+        db: env.DB,
+        requestedBy: body.requested_by.trim(),
+        targetBaseUrl: body.target_base_url.trim(),
+        validationTypes,
+      });
+
+      const executed = [];
+      for (const run of queuedRuns) {
+        const result = await executeAndAuditValidationRun({
+          db: env.DB,
+          run,
+        });
+        executed.push(result);
+      }
+
+      return json({
+        team_id: "team_validation",
+        runner: "employee_validation_runner",
+        auditor: "employee_validation_auditor",
+        trigger: "post_deploy_execution",
+        mode,
+        executed: executed.length,
+        runs: executed.map((item) => ({
+          validation_run_id: item.validationRunId,
+          status: item.status,
+          result_id: item.resultId,
+          executed_by: item.executedBy,
+          audit_status: item.auditStatus,
+          audited_by: item.auditedBy,
+        })),
+        _owner: getOwnerForRoute("/internal/validation/execute-dispatch"),
+      });
     },
   });
 }

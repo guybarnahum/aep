@@ -71,6 +71,7 @@ const VALIDATION_SURFACE_ROUTES = [
   "/validation/runs/:runId/execute",
   "/validation/dispatch",
   "/internal/validation/schedule-post-deploy",
+  "/internal/validation/execute-dispatch",
 ];
 
 const VALIDATION_EMPLOYEES: ValidationEmployee[] = [
@@ -84,6 +85,7 @@ const VALIDATION_EMPLOYEES: ValidationEmployee[] = [
       "contract_surface_validation",
       "validation_run_execution",
       "validation_result_persistence",
+      "validation_batch_execution",
     ],
   },
   {
@@ -97,6 +99,7 @@ const VALIDATION_EMPLOYEES: ValidationEmployee[] = [
       "severity_classification",
       "owner_team_assignment",
       "validation_result_review",
+      "validation_batch_audit",
     ],
   },
   {
@@ -162,6 +165,7 @@ export function getOwnerForRoute(pathname: string): string | null {
     pathname.startsWith("/validation/runs/") ||
     pathname === "/validation/dispatch" ||
     pathname === "/internal/validation/schedule-post-deploy" ||
+    pathname === "/internal/validation/execute-dispatch" ||
     pathname === "/teams/team_validation/ownership"
   ) {
     return TEAM_VALIDATION_ID;

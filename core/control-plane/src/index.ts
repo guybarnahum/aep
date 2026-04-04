@@ -28,6 +28,7 @@ import {
   handleValidationDispatchRoute,
   handleCreateValidationDispatchRoute,
   handleSchedulePostDeployValidationRoute,
+  handleExecuteValidationDispatchRoute,
   handleAuditValidationResultRoute,
   handleLatestValidationResultRoute,
   handleValidationResultsRoute,
@@ -587,6 +588,13 @@ export default {
       pathname === "/internal/validation/schedule-post-deploy"
     ) {
       return handleSchedulePostDeployValidationRoute(request, env);
+    }
+
+    if (
+      request.method === "POST" &&
+      pathname === "/internal/validation/execute-dispatch"
+    ) {
+      return handleExecuteValidationDispatchRoute(request, env);
     }
 
     match = pathname.match(/^\/validation\/results\/([^/]+)\/audit$/);
