@@ -15,6 +15,8 @@ import {
 import {
   getOwnerForRoute,
   getTeamOwnership,
+  getValidationEmployee,
+  listValidationEmployees,
 } from "@aep/control-plane/org/ownership";
 import {
   getCompany,
@@ -313,5 +315,29 @@ export async function handleValidationRoute(
       "ownership_surface_validation",
     ],
     _owner: getOwnerForRoute("/validation"),
+  });
+}
+
+export async function handleValidationEmployeesRoute(
+  request: Request,
+): Promise<Response> {
+  return json({
+    employees: listValidationEmployees(),
+    _owner: getOwnerForRoute("/validation/employees"),
+  });
+}
+
+export async function handleValidationEmployeeDetailRoute(
+  request: Request,
+  employeeId: string,
+): Promise<Response> {
+  const employee = getValidationEmployee(employeeId);
+  if (!employee) {
+    return notFound(`validation employee not found: ${employeeId}`);
+  }
+
+  return json({
+    ...employee,
+    _owner: getOwnerForRoute(`/validation/employees/${employeeId}`),
   });
 }
