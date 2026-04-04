@@ -21,6 +21,7 @@ import {
   getOwnerForRoute,
   getTeamOwnership,
   getValidationEmployee,
+  listDispatchableValidationTypes,
   listValidationEmployees,
 } from "@aep/control-plane/org/ownership";
 import {
@@ -78,6 +79,12 @@ type CreateValidationRunBody = {
   validation_type?: "runtime_read_safety" | "contract_surface" | "ownership_surface";
   requested_by?: string;
   target_base_url?: string;
+};
+
+type DispatchValidationRunsBody = {
+  target_base_url?: string;
+  requested_by?: string;
+  mode?: "full" | "runtime_only";
 };
 
 type ExecuteValidationRunResult = {
@@ -377,6 +384,17 @@ export async function handleValidationEmployeesRoute(
   });
 }
 
+export async function handleValidationDispatchRoute(
+  request: Request,
+): Promise<Response> {
+  return json({
+    team_id: "team_validation",
+    supported_modes: ["full", "runtime_only"],
+    dispatchable_validation_types: listDispatchableValidationTypes(),
+    _owner: getOwnerForRoute("/validation/dispatch"),
+  });
+}
+
 export async function handleValidationEmployeeDetailRoute(
   request: Request,
   employeeId: string,
@@ -498,6 +516,63 @@ async function getPersistedValidationRun(
     .first<ValidationRunRow>();
 
   return row ?? null;
+}
+
+async function createValidationRunRecord(args: {
+  db: D1Database;
+  validationType: "runtime_read_safety" | "contract_surface" | "ownership_surface";
+  requestedBy: string;
+  targetBaseUrl: string;
+}): Promise<ValidationRunRow> {
+  const validationRunId =
+    typeof crypto !== "undefined" && "randomUUID" in crypto
+      ? `validation_run_${crypto.randomUUID()}`
+      : `validation_run_${Date.now()}`;
+
+  const assignedTo = assignValidationEmployeeForType(args.validationType);
+  const createdAt = new Date().toISOString();
+
+  await args.db
+    .prepare(
+      `INSERT INTO validation_runs (
+         id,
+         validation_type,
+         requested_by,
+         assigned_to,
+         status,
+         target_base_url,
+         result_id,
+         created_at,
+         started_at,
+         completed_at
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    )
+    .bind(
+      validationRunId,
+      args.validationType,
+      args.requestedBy,
+      assignedTo,
+      "queued",
+      args.targetBaseUrl,
+      null,
+      createdAt,
+      null,
+      null,
+    )
+    .run();
+
+  return {
+    id: validationRunId,
+    validation_type: args.validationType,
+    requested_by: args.requestedBy,
+    assigned_to: assignedTo,
+    status: "queued",
+    target_base_url: args.targetBaseUrl,
+    result_id: null,
+    created_at: createdAt,
+    started_at: null,
+    completed_at: null,
+  };
 }
 
 async function markValidationRunRunning(
@@ -1134,53 +1209,108 @@ export async function handleCreateValidationRunRoute(
         );
       }
 
-      const validationRunId =
-        typeof crypto !== "undefined" && "randomUUID" in crypto
-          ? `validation_run_${crypto.randomUUID()}`
-          : `validation_run_${Date.now()}`;
-
-      const assignedTo = assignValidationEmployeeForType(body.validation_type);
-      const createdAt = new Date().toISOString();
-
-      await env.DB
-        .prepare(
-          `INSERT INTO validation_runs (
-             id,
-             validation_type,
-             requested_by,
-             assigned_to,
-             status,
-             target_base_url,
-             result_id,
-             created_at,
-             started_at,
-             completed_at
-           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        )
-        .bind(
-          validationRunId,
-          body.validation_type,
-          body.requested_by.trim(),
-          assignedTo,
-          "queued",
-          body.target_base_url.trim(),
-          null,
-          createdAt,
-          null,
-          null,
-        )
-        .run();
+      const run = await createValidationRunRecord({
+        db: env.DB,
+        validationType: body.validation_type,
+        requestedBy: body.requested_by.trim(),
+        targetBaseUrl: body.target_base_url.trim(),
+      });
 
       return json(
         {
-          validation_run_id: validationRunId,
-          validation_type: body.validation_type,
-          requested_by: body.requested_by.trim(),
-          assigned_to: assignedTo,
-          status: "queued",
-          target_base_url: body.target_base_url.trim(),
-          created_at: createdAt,
+          validation_run_id: run.id,
+          validation_type: run.validation_type,
+          requested_by: run.requested_by,
+          assigned_to: run.assigned_to,
+          status: run.status,
+          target_base_url: run.target_base_url,
+          created_at: run.created_at,
           _owner: getOwnerForRoute("/validation/runs"),
+        },
+        { status: 202 },
+      );
+    },
+  });
+}
+
+export async function handleCreateValidationDispatchRoute(
+  request: Request,
+  env: EnvLike,
+): Promise<Response> {
+  return withRuntimeJsonBoundary({
+    route: "/validation/dispatch",
+    request,
+    handler: async () => {
+      const body = (await request.json()) as DispatchValidationRunsBody;
+
+      if (
+        typeof body.requested_by !== "string" ||
+        body.requested_by.trim() === ""
+      ) {
+        return json(
+          {
+            error: "invalid_requested_by",
+            message: "requested_by must be a non-empty string",
+          },
+          { status: 400 },
+        );
+      }
+
+      if (
+        typeof body.target_base_url !== "string" ||
+        body.target_base_url.trim() === ""
+      ) {
+        return json(
+          {
+            error: "invalid_target_base_url",
+            message: "target_base_url must be a non-empty string",
+          },
+          { status: 400 },
+        );
+      }
+
+      const mode = body.mode ?? "full";
+      if (mode !== "full" && mode !== "runtime_only") {
+        return json(
+          {
+            error: "invalid_mode",
+            message: "mode must be full or runtime_only",
+          },
+          { status: 400 },
+        );
+      }
+
+      const validationTypes =
+        mode === "runtime_only"
+          ? (["runtime_read_safety"] as const)
+          : listDispatchableValidationTypes();
+
+      const createdRuns: ValidationRunRow[] = [];
+      for (const validationType of validationTypes) {
+        const run = await createValidationRunRecord({
+          db: env.DB,
+          validationType,
+          requestedBy: body.requested_by.trim(),
+          targetBaseUrl: body.target_base_url.trim(),
+        });
+        createdRuns.push(run);
+      }
+
+      return json(
+        {
+          team_id: "team_validation",
+          mode,
+          dispatched: createdRuns.length,
+          runs: createdRuns.map((run) => ({
+            validation_run_id: run.id,
+            validation_type: run.validation_type,
+            requested_by: run.requested_by,
+            assigned_to: run.assigned_to,
+            status: run.status,
+            target_base_url: run.target_base_url,
+            created_at: run.created_at,
+          })),
+          _owner: getOwnerForRoute("/validation/dispatch"),
         },
         { status: 202 },
       );

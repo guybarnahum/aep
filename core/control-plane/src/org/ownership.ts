@@ -69,6 +69,7 @@ const VALIDATION_SURFACE_ROUTES = [
   "/validation/runs",
   "/validation/runs/:runId",
   "/validation/runs/:runId/execute",
+  "/validation/dispatch",
 ];
 
 const VALIDATION_EMPLOYEES: ValidationEmployee[] = [
@@ -105,6 +106,8 @@ const VALIDATION_EMPLOYEES: ValidationEmployee[] = [
     capabilities: [
       "validation_dispatch_planning",
       "validation_lane_scheduling",
+      "validation_run_creation",
+      "validation_batch_dispatch",
     ],
   },
 ];
@@ -155,6 +158,7 @@ export function getOwnerForRoute(pathname: string): string | null {
     pathname === "/validation/verdict" ||
     pathname === "/validation/runs" ||
     pathname.startsWith("/validation/runs/") ||
+    pathname === "/validation/dispatch" ||
     pathname === "/teams/team_validation/ownership"
   ) {
     return TEAM_VALIDATION_ID;
@@ -249,4 +253,14 @@ export function assignValidationEmployeeForType(
 
 export function defaultAuditStatus(): "pending" {
   return "pending";
+}
+
+export function listDispatchableValidationTypes(): Array<
+  "runtime_read_safety" | "contract_surface" | "ownership_surface"
+> {
+  return [
+    "runtime_read_safety",
+    "contract_surface",
+    "ownership_surface",
+  ];
 }
