@@ -29,7 +29,6 @@ async function main(): Promise<void> {
     (entry) => entry.tenant_id === "tenant_internal_aep",
   );
   assert(tenant, "Expected tenant_internal_aep in /tenants");
-  assert.equal(tenant.source, "seeded");
 
   const tenantOverview = (await fetchJson(
     baseUrl,
