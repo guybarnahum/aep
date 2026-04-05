@@ -75,6 +75,7 @@ const VALIDATION_SURFACE_ROUTES = [
   "/validation/dispatch",
   "/internal/validation/schedule-post-deploy",
   "/internal/validation/execute-dispatch",
+  "/internal/validation/schedule-recurring",
 ];
 
 const VALIDATION_EMPLOYEES: ValidationEmployee[] = [
@@ -116,6 +117,7 @@ const VALIDATION_EMPLOYEES: ValidationEmployee[] = [
       "validation_run_creation",
       "validation_batch_dispatch",
       "post_deploy_validation_scheduling",
+      "recurring_validation_scheduling",
     ],
   },
 ];
@@ -170,6 +172,7 @@ export function getOwnerForRoute(pathname: string): string | null {
     pathname === "/validation/dispatch" ||
     pathname === "/internal/validation/schedule-post-deploy" ||
     pathname === "/internal/validation/execute-dispatch" ||
+    pathname === "/internal/validation/schedule-recurring" ||
     pathname === "/teams/team_validation/ownership"
   ) {
     return TEAM_VALIDATION_ID;

@@ -96,6 +96,13 @@ type SchedulePostDeployValidationBody = {
   mode?: "full" | "runtime_only";
 };
 
+type ScheduleRecurringValidationBody = {
+  requested_by?: string;
+  target_base_url?: string;
+  mode?: "full" | "runtime_only";
+  reason?: "scheduled_health" | "drift_detection" | "governance_review";
+};
+
 type ExecuteValidationDispatchBody = {
   dispatch_batch_id?: string;
   requested_by?: string;
@@ -403,6 +410,8 @@ export async function handleValidationRoute(
       "validation_run_execution",
       "validation_result_persistence",
       "validation_result_review",
+      "recurring_validation_scheduling",
+      "batch_scoped_validation_policy",
     ],
     _owner: getOwnerForRoute("/validation"),
   });
@@ -1865,6 +1874,103 @@ export async function handleSchedulePostDeployValidationRoute(
             created_at: run.created_at,
           })),
           _owner: getOwnerForRoute("/internal/validation/schedule-post-deploy"),
+        },
+        { status: 202 },
+      );
+    },
+  });
+}
+
+export async function handleScheduleRecurringValidationRoute(
+  request: Request,
+  env: EnvLike,
+): Promise<Response> {
+  return withRuntimeJsonBoundary({
+    route: "/internal/validation/schedule-recurring",
+    request,
+    handler: async () => {
+      const body = (await request.json()) as ScheduleRecurringValidationBody;
+
+      if (
+        typeof body.requested_by !== "string" ||
+        body.requested_by.trim() === ""
+      ) {
+        return json(
+          {
+            error: "invalid_requested_by",
+            message: "requested_by must be a non-empty string",
+          },
+          { status: 400 },
+        );
+      }
+
+      if (
+        typeof body.target_base_url !== "string" ||
+        body.target_base_url.trim() === ""
+      ) {
+        return json(
+          {
+            error: "invalid_target_base_url",
+            message: "target_base_url must be a non-empty string",
+          },
+          { status: 400 },
+        );
+      }
+
+      const mode = body.mode ?? "full";
+      if (mode !== "full" && mode !== "runtime_only") {
+        return json(
+          {
+            error: "invalid_mode",
+            message: "mode must be full or runtime_only",
+          },
+          { status: 400 },
+        );
+      }
+
+      const reason = body.reason ?? "scheduled_health";
+      if (
+        reason !== "scheduled_health" &&
+        reason !== "drift_detection" &&
+        reason !== "governance_review"
+      ) {
+        return json(
+          {
+            error: "invalid_reason",
+            message:
+              "reason must be scheduled_health, drift_detection, or governance_review",
+          },
+          { status: 400 },
+        );
+      }
+
+      const dispatched = await dispatchValidationRuns({
+        db: env.DB,
+        requestedBy: body.requested_by.trim(),
+        targetBaseUrl: body.target_base_url.trim(),
+        mode,
+      });
+
+      return json(
+        {
+          team_id: "team_validation",
+          scheduler: "employee_validation_scheduler",
+          trigger: "recurring",
+          reason,
+          dispatch_batch_id: dispatched.dispatchBatchId,
+          mode,
+          dispatched: dispatched.runs.length,
+          runs: dispatched.runs.map((run) => ({
+            validation_run_id: run.id,
+            dispatch_batch_id: run.dispatch_batch_id,
+            validation_type: run.validation_type,
+            requested_by: run.requested_by,
+            assigned_to: run.assigned_to,
+            status: run.status,
+            target_base_url: run.target_base_url,
+            created_at: run.created_at,
+          })),
+          _owner: getOwnerForRoute("/internal/validation/schedule-recurring"),
         },
         { status: 202 },
       );

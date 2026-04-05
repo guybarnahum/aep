@@ -28,6 +28,7 @@ import {
   handleValidationDispatchRoute,
   handleCreateValidationDispatchRoute,
   handleSchedulePostDeployValidationRoute,
+  handleScheduleRecurringValidationRoute,
   handleExecuteValidationDispatchRoute,
   handleAuditValidationResultRoute,
   handleLatestValidationResultRoute,
@@ -594,6 +595,13 @@ export default {
       pathname === "/internal/validation/schedule-post-deploy"
     ) {
       return handleSchedulePostDeployValidationRoute(request, env);
+    }
+
+    if (
+      request.method === "POST" &&
+      pathname === "/internal/validation/schedule-recurring"
+    ) {
+      return handleScheduleRecurringValidationRoute(request, env);
     }
 
     if (
