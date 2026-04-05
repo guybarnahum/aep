@@ -27,6 +27,7 @@ function buildHint(contentType: string, text: string): string | null {
 }
 
 function buildErrorMessage(args: {
+  method: string;
   path: string;
   status: number;
   statusText: string;
@@ -37,7 +38,7 @@ function buildErrorMessage(args: {
   parseStage: "http" | "parse";
 }): string {
   const lines = [
-    `GET ${args.path} failed during ${args.parseStage}`,
+    `${args.method} ${args.path} failed during ${args.parseStage}`,
     `status=${args.status} ${args.statusText}`.trim(),
     `content-type=${args.contentType || "<missing>"}`,
   ];
@@ -69,6 +70,7 @@ export async function fetchJson(baseUrl: string, path: string): Promise<unknown>
   if (!response.ok) {
     throw new Error(
       buildErrorMessage({
+        method: "GET",
         path,
         status: response.status,
         statusText: response.statusText,
@@ -84,6 +86,7 @@ export async function fetchJson(baseUrl: string, path: string): Promise<unknown>
   if (!contentType.includes("application/json")) {
     throw new Error(
       buildErrorMessage({
+        method: "GET",
         path,
         status: response.status,
         statusText: response.statusText,
@@ -101,6 +104,83 @@ export async function fetchJson(baseUrl: string, path: string): Promise<unknown>
   } catch {
     throw new Error(
       buildErrorMessage({
+        method: "GET",
+        path,
+        status: response.status,
+        statusText: response.statusText,
+        contentType,
+        cfRay,
+        server,
+        text,
+        parseStage: "parse",
+      }),
+    );
+  }
+}
+
+export async function httpPost(
+  url: string,
+  body: Record<string, unknown>,
+): Promise<unknown> {
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      accept: "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+
+  const text = await response.text();
+  const contentType = (response.headers.get("content-type") || "").toLowerCase();
+  const cfRay = response.headers.get("cf-ray") || "";
+  const server = response.headers.get("server") || "";
+  const path = (() => {
+    try {
+      return new URL(url).pathname;
+    } catch {
+      return url;
+    }
+  })();
+
+  if (!response.ok) {
+    throw new Error(
+      buildErrorMessage({
+        method: "POST",
+        path,
+        status: response.status,
+        statusText: response.statusText,
+        contentType,
+        cfRay,
+        server,
+        text,
+        parseStage: "http",
+      }),
+    );
+  }
+
+  if (!contentType.includes("application/json")) {
+    throw new Error(
+      buildErrorMessage({
+        method: "POST",
+        path,
+        status: response.status,
+        statusText: response.statusText,
+        contentType,
+        cfRay,
+        server,
+        text,
+        parseStage: "parse",
+      }),
+    );
+  }
+
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new Error(
+      buildErrorMessage({
+        method: "POST",
         path,
         status: response.status,
         statusText: response.statusText,

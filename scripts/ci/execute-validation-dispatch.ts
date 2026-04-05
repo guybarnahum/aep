@@ -1,8 +1,17 @@
 #!/usr/bin/env node
 
+import { httpPost } from "../lib/http-json";
+
 export {};
 
 function parseArgs(argv: string[]) {
+  if (argv.length >= 2 && !argv[0].startsWith("--")) {
+    return {
+      operatorBaseUrl: argv[0].replace(/\/+$/, ""),
+      targetUrl: argv[1],
+    } as const;
+  }
+
   const args = new Map<string, string>();
 
   for (let i = 0; i < argv.length; i += 1) {
@@ -21,61 +30,42 @@ function parseArgs(argv: string[]) {
     i += 1;
   }
 
-  const baseUrl = args.get("base-url");
-  if (!baseUrl) {
-    throw new Error("Missing required --base-url");
+  const operatorBaseUrl =
+    args.get("operator-base-url") ?? args.get("base-url") ?? process.env.OPERATOR_AGENT_BASE_URL;
+  if (!operatorBaseUrl) {
+    throw new Error("Missing required operator-agent base URL");
   }
 
-  const mode = args.get("mode") ?? "full";
-  if (mode !== "full" && mode !== "runtime_only") {
-    throw new Error("Invalid --mode, must be full or runtime_only");
+  const targetUrl = args.get("target-url") ?? process.env.DEPLOY_URL;
+  if (!targetUrl) {
+    throw new Error("Missing required target URL");
   }
-
-  const requestedBy = args.get("requested-by") ?? "post_deploy_validation";
-  const dispatchBatchId = args.get("dispatch-batch-id");
 
   return {
-    baseUrl: baseUrl.replace(/\/+$/, ""),
-    mode,
-    requestedBy,
-    dispatchBatchId,
+    operatorBaseUrl: operatorBaseUrl.replace(/\/+$/, ""),
+    targetUrl,
   } as const;
 }
 
 async function main() {
-  const { baseUrl, mode, requestedBy, dispatchBatchId } = parseArgs(
+  const { operatorBaseUrl, targetUrl } = parseArgs(
     process.argv.slice(2),
   );
 
-  const response = await fetch(
-    `${baseUrl}/internal/validation/execute-dispatch`,
-    {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        accept: "application/json",
-        "user-agent": "aep-ci-execute-validation-dispatch/1.0",
-      },
-      body: JSON.stringify({
-        dispatch_batch_id: dispatchBatchId ?? undefined,
-        requested_by: requestedBy,
-        target_base_url: baseUrl,
-        mode,
-      }),
-    },
-  );
+  console.log(`Dispatching validation task for ${targetUrl}...`);
 
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(
-      `Validation execution request failed with HTTP ${response.status}: ${text}`,
-    );
+  const body = (await httpPost(`${operatorBaseUrl}/agent/tasks`, {
+    companyId: "company_internal_aep",
+    teamId: "team_validation",
+    taskType: "validate-deployment",
+    payload: { targetUrl },
+  })) as { ok?: boolean; workOrderId?: string; error?: string };
+
+  if (!body.ok || typeof body.workOrderId !== "string" || body.workOrderId.length === 0) {
+    throw new Error(`Failed to create task: ${body.error ?? "missing workOrderId"}`);
   }
 
-  const body = await response.json();
-
-  console.log("Validation runs executed and audited");
-  console.log(JSON.stringify(body, null, 2));
+  console.log(`WORK_ORDER_ID=${body.workOrderId}`);
 }
 
 void main().catch((error) => {

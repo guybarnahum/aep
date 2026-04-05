@@ -16,6 +16,7 @@ import { handleManagerLog } from "./routes/manager-log";
 import { handleRun } from "./routes/run";
 import { handleRunOnce } from "./routes/run-once";
 import { handleSchedulerStatus } from "./routes/scheduler-status";
+import { handleCreateTask, handleGetTask } from "./routes/tasks";
 import { handleSeedApproval } from "./routes/te-seed-approval";
 import { handleSeedWorkLog } from "./routes/te-seed-work-log";
 import { handleWorkLog } from "./routes/work-log";
@@ -80,6 +81,15 @@ async function dispatch(request: Request, env: OperatorAgentEnv): Promise<Respon
 
   if (url.pathname === "/agent/work-log") {
     return handleWorkLog(request, env);
+  }
+
+  if (url.pathname === "/agent/tasks" && request.method === "POST") {
+    return handleCreateTask(request, env);
+  }
+
+  const taskMatch = url.pathname.match(/^\/agent\/tasks\/([^/]+)$/);
+  if (taskMatch && request.method === "GET") {
+    return handleGetTask(request, env, decodeURIComponent(taskMatch[1]));
   }
 
   if (url.pathname === "/agent/manager-log") {

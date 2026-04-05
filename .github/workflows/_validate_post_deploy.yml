@@ -105,7 +105,19 @@ jobs:
       - name: Run post-deploy validation
         id: post_deploy_validation
         if: steps.config.outputs.enabled == 'true'
-        run: npm run ci:post-deploy-validation 2>&1 | tee post-deploy-validation.log
+        run: |
+          : > post-deploy-validation.log
+
+          WORK_ORDER_ID=$(npx tsx scripts/ci/execute-validation-dispatch.ts "$OPERATOR_AGENT_BASE_URL" "$DEPLOY_URL" 2>&1 | tee -a post-deploy-validation.log | grep '^WORK_ORDER_ID=' | cut -d= -f2)
+
+          if [[ -z "$WORK_ORDER_ID" ]]; then
+            echo "Failed to capture WORK_ORDER_ID from validation dispatch." >&2
+            exit 1
+          fi
+
+          echo "AEP validation work order: $WORK_ORDER_ID" | tee -a post-deploy-validation.log
+
+          npx tsx scripts/ci/check-validation-verdict.ts "$OPERATOR_AGENT_BASE_URL" "$WORK_ORDER_ID" 2>&1 | tee -a post-deploy-validation.log
 
       - name: Capture outputs
         id: capture

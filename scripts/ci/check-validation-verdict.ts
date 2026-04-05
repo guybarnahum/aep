@@ -1,19 +1,31 @@
 #!/usr/bin/env node
 
+import { fetchJson } from "../lib/http-json";
+
 export {};
 
-type VerdictCheck = {
-  validation_type: string;
-  status: string;
-  severity?: string | null;
-  owner_team?: string | null;
-  audit_status?: string | null;
-  freshness?: string | null;
-  message?: string | null;
-  dispatch_batch_id?: string | null;
+type TaskResponse = {
+  ok: boolean;
+  task?: {
+    id: string;
+    status: "pending" | "in-progress" | "completed" | "failed";
+  };
+  decision?: {
+    verdict?: string;
+    reasoning?: string;
+  } | null;
 };
 
 function parseArgs(argv: string[]) {
+  if (argv.length >= 2 && !argv[0].startsWith("--")) {
+    return {
+      operatorBaseUrl: argv[0].replace(/\/+$/, ""),
+      workOrderId: argv[1],
+      attempts: 20,
+      intervalMs: 10_000,
+    } as const;
+  }
+
   const args = new Map<string, string>();
   for (let i = 0; i < argv.length; i += 1) {
     const token = argv[i];
@@ -28,66 +40,77 @@ function parseArgs(argv: string[]) {
     i += 1;
   }
 
-  const baseUrl = args.get("base-url");
-  if (!baseUrl) {
-    throw new Error("Missing required --base-url");
+  const operatorBaseUrl =
+    args.get("operator-base-url") ?? args.get("base-url") ?? process.env.OPERATOR_AGENT_BASE_URL;
+  if (!operatorBaseUrl) {
+    throw new Error("Missing required operator-agent base URL");
   }
 
-  const freshnessMinutesRaw = args.get("freshness-minutes") ?? "30";
-  const freshnessMinutes = Number(freshnessMinutesRaw);
-  if (!Number.isFinite(freshnessMinutes) || freshnessMinutes <= 0) {
-    throw new Error("Invalid --freshness-minutes, must be a positive number");
+  const workOrderId = args.get("work-order-id") ?? args.get("dispatch-batch-id");
+  if (!workOrderId) {
+    throw new Error("Missing required work order id");
+  }
+
+  const attempts = Number(args.get("attempts") ?? 20);
+  const intervalMs = Number(args.get("interval-ms") ?? 10_000);
+  if (!Number.isFinite(attempts) || attempts <= 0) {
+    throw new Error("Invalid --attempts, must be a positive number");
+  }
+  if (!Number.isFinite(intervalMs) || intervalMs <= 0) {
+    throw new Error("Invalid --interval-ms, must be a positive number");
   }
 
   return {
-    baseUrl: baseUrl.replace(/\/+$/, ""),
-    freshnessMinutes: Math.trunc(freshnessMinutes),
-    dispatchBatchId: args.get("dispatch-batch-id") ?? null,
+    operatorBaseUrl: operatorBaseUrl.replace(/\/+$/, ""),
+    workOrderId,
+    attempts: Math.trunc(attempts),
+    intervalMs: Math.trunc(intervalMs),
   };
 }
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 async function main() {
-  const { baseUrl, freshnessMinutes, dispatchBatchId } = parseArgs(
+  const { operatorBaseUrl, workOrderId, attempts, intervalMs } = parseArgs(
     process.argv.slice(2),
   );
 
-  const verdictUrl = new URL(`${baseUrl}/validation/verdict`);
-  verdictUrl.searchParams.set("freshness_minutes", String(freshnessMinutes));
-  if (dispatchBatchId) {
-    verdictUrl.searchParams.set("dispatch_batch_id", dispatchBatchId);
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    const response = (await fetchJson(
+      operatorBaseUrl,
+      `/agent/tasks/${encodeURIComponent(workOrderId)}`,
+    )) as TaskResponse;
+
+    if (!response.ok || !response.task) {
+      throw new Error(`Failed to fetch task ${workOrderId}`);
+    }
+
+    if (response.task.status === "completed") {
+      const verdict = String(response.decision?.verdict ?? "unknown").toUpperCase();
+      const reasoning = String(response.decision?.reasoning ?? "<missing>");
+
+      console.log(`Reliability Engineer verdict: ${verdict}`);
+      console.log(`Reasoning: ${reasoning}`);
+      process.exit(response.decision?.verdict === "pass" ? 0 : 1);
+    }
+
+    if (response.task.status === "failed") {
+      console.error("Validation task execution failed.");
+      process.exit(1);
+    }
+
+    console.log(`... Waiting for Reliability Engineer (status: ${response.task.status}) ...`);
+    await sleep(intervalMs);
   }
 
-  const response = await fetch(verdictUrl.toString(), {
-    headers: {
-      accept: "application/json",
-      "user-agent": "aep-ci-validation-verdict/1.0",
-    },
-  });
-
-  if (!response.ok) {
-    throw new Error(`Validation verdict request failed with HTTP ${response.status}`);
-  }
-
-  const body = (await response.json()) as {
-    team_id?: string;
-    status?: string;
-    freshness_minutes?: number;
-    dispatch_batch_id?: string | null;
-    checks?: VerdictCheck[];
-  };
-
-  if (body.status !== "passed") {
-    console.error("❌ Validation verdict failed");
-    console.error(JSON.stringify(body, null, 2));
-    process.exit(1);
-  }
-
-  console.log("✅ Validation verdict passed");
-  console.log(JSON.stringify(body, null, 2));
+  console.error("Timeout waiting for validation verdict.");
+  process.exit(1);
 }
 
 void main().catch((error) => {
   const message = error instanceof Error ? error.message : String(error);
-  console.error(`❌ ${message}`);
+  console.error(message);
   process.exit(1);
 });
