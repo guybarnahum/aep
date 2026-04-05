@@ -108,10 +108,15 @@ jobs:
         run: |
           : > post-deploy-validation.log
 
-          WORK_ORDER_ID=$(npx tsx scripts/ci/execute-validation-dispatch.ts "$OPERATOR_AGENT_BASE_URL" "$DEPLOY_URL" 2>&1 | tee -a post-deploy-validation.log | grep '^WORK_ORDER_ID=' | cut -d= -f2)
+          if ! npx tsx scripts/ci/execute-validation-dispatch.ts "$OPERATOR_AGENT_BASE_URL" "$DEPLOY_URL" 2>&1 | tee -a post-deploy-validation.log; then
+            echo "Validation dispatch failed before returning a work order." >&2
+            exit 1
+          fi
+
+          WORK_ORDER_ID=$(sed -n 's/^WORK_ORDER_ID=//p' post-deploy-validation.log | tail -n 1)
 
           if [[ -z "$WORK_ORDER_ID" ]]; then
-            echo "Failed to capture WORK_ORDER_ID from validation dispatch." >&2
+            echo "Failed to capture WORK_ORDER_ID from validation dispatch output." >&2
             exit 1
           fi
 
