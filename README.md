@@ -430,7 +430,12 @@ AEP now runs a **real three-employee small department**:
 
 ### Worker cron
 
-Both `timeout-recovery-operator` and `retry-supervisor` run on every cron tick via a team loop. Each result includes a `workerRole` field identifying the responsible worker.
+The worker cron runs a bounded team loop each minute:
+
+- one infra scanner per tick, alternating between `timeout-recovery-operator` and `retry-supervisor`
+- `reliability-engineer` runs every tick
+
+This keeps the scheduled invocation under Cloudflare subrequest limits while preserving continuous department coverage. Each result includes a `workerRole` field identifying the responsible worker.
 
 ### Manager supervision
 

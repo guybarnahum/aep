@@ -13,16 +13,27 @@ import type {
   WorkerExecutionResponse,
 } from "@aep/operator-agent/types";
 
+export function selectWorkersForCronTick(
+  scheduledTimeMs: number,
+): AgentEmployeeDefinition[] {
+  const minuteSlot = Math.floor(scheduledTimeMs / 60_000);
+  const infraWorker =
+    minuteSlot % 2 === 0 ? timeoutRecoveryEmployee : retrySupervisorEmployee;
+
+  return [infraWorker, reliabilityEngineerEmployee];
+}
+
 export async function handleWorkerCron(
-  env: OperatorAgentEnv
+  env: OperatorAgentEnv,
+  scheduledTimeMs = Date.now(),
 ): Promise<void> {
   const config = getConfig(env);
+  const workers = selectWorkersForCronTick(scheduledTimeMs);
 
-  const workers: AgentEmployeeDefinition[] = [
-    timeoutRecoveryEmployee,
-    retrySupervisorEmployee,
-    reliabilityEngineerEmployee,
-  ];
+  console.log("[operator-agent] selected worker cron roster", {
+    scheduledTimeMs,
+    workerIds: workers.map((worker) => worker.identity.employeeId),
+  });
 
   for (const employee of workers) {
     const executionContext = makeCronFallbackContext(employee.identity.employeeId);

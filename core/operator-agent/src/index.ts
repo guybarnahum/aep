@@ -46,7 +46,15 @@ async function dispatch(request: Request, env: OperatorAgentEnv): Promise<Respon
     url.pathname === "/__scheduled"
   ) {
     const cron = url.searchParams.get("cron") ?? "* * * * *";
-    await handleScheduledCron(cron, env);
+    const scheduledTimeMs = Number.parseInt(
+      url.searchParams.get("scheduledTime") ?? `${Date.now()}`,
+      10,
+    );
+    await handleScheduledCron(
+      cron,
+      env,
+      Number.isFinite(scheduledTimeMs) ? scheduledTimeMs : Date.now(),
+    );
     return Response.json({
       ok: true,
       trigger: "scheduled_test",
@@ -182,6 +190,6 @@ export default {
     controller: ScheduledController,
     env: OperatorAgentEnv
   ): Promise<void> {
-    await handleScheduledCron(controller.cron, env);
+    await handleScheduledCron(controller.cron, env, controller.scheduledTime);
   }
 };

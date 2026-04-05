@@ -22,12 +22,14 @@ export function classifyScheduledCron(cron: string): ScheduledCronKind {
 
 export async function handleScheduledCron(
   cron: string,
-  env: OperatorAgentEnv
+  env: OperatorAgentEnv,
+  scheduledTimeMs = Date.now(),
 ): Promise<void> {
   if (!isCronFallbackEnabled(env)) {
     console.log("[operator-agent] cron fallback disabled; skipping scheduled execution", {
       cron,
       kind: classifyScheduledCron(cron),
+      scheduledTimeMs,
     });
     return;
   }
@@ -35,12 +37,13 @@ export async function handleScheduledCron(
   console.log("[operator-agent] scheduled trigger received (cron fallback path)", {
     cron,
     kind: classifyScheduledCron(cron),
+    scheduledTimeMs,
   });
 
   switch (classifyScheduledCron(cron)) {
     case "worker": {
       console.log("[operator-agent] invoking worker cron as fallback/bootstrap");
-      await handleWorkerCron(env);
+      await handleWorkerCron(env, scheduledTimeMs);
       return;
     }
     case "manager": {
