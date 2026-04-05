@@ -588,6 +588,9 @@ export interface OperatorAgentEnv extends Record<string, unknown> {
   OPERATOR_AGENT_STORE_BACKEND?: string;
   CONTROL_PLANE?: Fetcher;
   CONTROL_PLANE_BASE_URL?: string;
+  APP_ENV?: string;
+  GIT_SHA?: string;
+  SERVICE_NAME?: string;
   AEP_CRON_FALLBACK_ENABLED?: string;
   PAPERCLIP_SHARED_SECRET?: string;
   PAPERCLIP_AUTH_REQUIRED?: string;

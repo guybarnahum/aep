@@ -3,6 +3,7 @@ import { handleApprovalDetail } from "./routes/approval-detail";
 import { handleApproveApproval } from "./routes/approvals-approve";
 import { handleRejectApproval } from "./routes/approvals-reject";
 import { handleApprovals } from "./routes/approvals";
+import { handleBuildInfo } from "./routes/build-info";
 import { handleEscalations } from "./routes/escalations";
 import { handleAcknowledgeEscalation } from "./routes/escalations-acknowledge";
 import { handleResolveEscalation } from "./routes/escalations-resolve";
@@ -54,7 +55,11 @@ async function dispatch(request: Request, env: OperatorAgentEnv): Promise<Respon
   }
 
   if (request.method === "GET" && url.pathname === "/healthz") {
-    return handleHealthz();
+    return handleHealthz(request, env);
+  }
+
+  if (request.method === "GET" && url.pathname === "/build-info") {
+    return handleBuildInfo(request, env);
   }
 
   if (url.pathname === "/agent/run") {
