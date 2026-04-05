@@ -95,3 +95,37 @@ export interface IAgentWorkLogStore {
   write(entry: AgentWorkLogEntry): Promise<void>;
   listByEmployee(args: { employeeId: string; limit: number }): Promise<AgentWorkLogEntry[]>;
 }
+
+export type TaskStatus = "pending" | "in-progress" | "completed" | "failed";
+
+export type TaskVerdict = "pass" | "fail" | "remediate" | "manual_escalation";
+
+export interface Task {
+  id: string;
+  companyId: string;
+  teamId: string;
+  employeeId?: string;
+  taskType: string;
+  status: TaskStatus;
+  payload: Record<string, unknown>;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface Decision {
+  id: string;
+  taskId: string;
+  employeeId: string;
+  verdict: TaskVerdict;
+  reasoning: string;
+  evidenceTraceId?: string;
+  createdAt?: string;
+}
+
+export interface TaskStore {
+  createTask(task: Omit<Task, "status" | "createdAt" | "updatedAt">): Promise<void>;
+  getTask(taskId: string): Promise<Task | null>;
+  getPendingTasksForEmployee(employeeId: string, teamId: string): Promise<Task[]>;
+  updateTaskStatus(taskId: string, status: TaskStatus): Promise<void>;
+  recordDecision(decision: Decision): Promise<void>;
+}

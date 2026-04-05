@@ -33,6 +33,7 @@ export function adaptPaperclipRequest(
   return {
     companyId: payload.companyId,
     teamId: payload.teamId,
+    taskId: payload.taskId,
     employeeId: payload.employeeId,
     roleId: payload.roleId,
     trigger: "paperclip",

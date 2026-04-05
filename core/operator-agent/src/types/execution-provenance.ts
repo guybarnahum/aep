@@ -18,17 +18,20 @@ export interface CronFallbackExecutionContext {
   executionSource: "cron_fallback";
   executorId: string;
   trigger: "scheduled_tick";
+  taskId?: string;
   receivedAt: number;
 }
 
 export interface OperatorExecutionContext {
   executionSource: "operator";
   actor?: string;
+  taskId?: string;
   receivedAt: number;
 }
 
 export interface TestExecutionContext {
   executionSource: "test";
+  taskId?: string;
   receivedAt: number;
 }
 

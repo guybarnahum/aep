@@ -85,6 +85,7 @@ export interface EmployeeRunRequest {
   tenantId?: string;
   serviceId?: string;
   environmentName?: string;
+  taskId?: string;
   employeeId: string;
   roleId: AgentRoleId;
   trigger: EmployeeTrigger;

@@ -4,6 +4,7 @@ import { D1EmployeeControlHistoryStore } from "@aep/operator-agent/lib/control-h
 import { D1EmployeeControlStore } from "@aep/operator-agent/lib/employee-control-store-d1";
 import { D1EscalationStore } from "@aep/operator-agent/lib/escalation-log-d1";
 import { D1ManagerDecisionStore } from "@aep/operator-agent/lib/manager-decision-log-d1";
+import { D1TaskStore } from "@aep/operator-agent/lib/task-store-d1";
 import { D1AgentWorkLogStore } from "@aep/operator-agent/lib/work-log-store-d1";
 import type {
   IAgentWorkLogStore,
@@ -12,6 +13,7 @@ import type {
   IEmployeeControlStore,
   IEscalationStore,
   IManagerDecisionStore,
+  TaskStore,
 } from "@aep/operator-agent/lib/store-types";
 
 export interface OperatorAgentStores {
@@ -21,6 +23,7 @@ export interface OperatorAgentStores {
   escalations: IEscalationStore;
   managerDecisions: IManagerDecisionStore;
   agentWorkLog: IAgentWorkLogStore;
+  tasks: TaskStore;
 }
 
 export function createStores(env: OperatorAgentEnv): OperatorAgentStores {
@@ -31,5 +34,10 @@ export function createStores(env: OperatorAgentEnv): OperatorAgentStores {
     escalations: new D1EscalationStore(env),
     managerDecisions: new D1ManagerDecisionStore(env),
     agentWorkLog: new D1AgentWorkLogStore(env),
+    tasks: new D1TaskStore(env),
   };
+}
+
+export function getTaskStore(env: OperatorAgentEnv): TaskStore {
+  return new D1TaskStore(env);
 }
