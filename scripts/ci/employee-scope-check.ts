@@ -48,6 +48,7 @@ async function main(): Promise<void> {
   assert.equal(validationScope.teamId, "team_validation");
   assert(validationScope.allowedEnvironmentNames.includes("async_validation"));
 
+  // Confirms the validation specialist org identity has reached the deployed worker.
   const validationSpecialistScope = (await fetchJson(
     baseUrl,
     "/agent/employees/emp_val_specialist_01/scope",

@@ -92,6 +92,7 @@ export const infraOpsManagerEmployee: AgentEmployeeDefinition = {
   },
 };
 
+// Keep this employee explicit so live scope probes can detect stale deployments.
 export const reliabilityEngineerEmployee: AgentEmployeeDefinition = {
   identity: {
     employeeId: "emp_val_specialist_01",

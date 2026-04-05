@@ -37,6 +37,7 @@ export const roles: Record<AgentRoleId, { id: AgentRoleId; name: string }> = {
     id: "validation-engineer",
     name: "Validation Engineer",
   },
+  // Used by the validation specialist employee in async-validation environments.
   "reliability-engineer": {
     id: "reliability-engineer",
     name: "Site Reliability Engineer (Agent)",

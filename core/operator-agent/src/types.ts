@@ -45,6 +45,7 @@ export interface AgentIdentity {
 }
 
 export interface AgentAuthority {
+  // Validation specialist workflows need remediation and fix proposal actions.
   allowedOperatorActions: Array<
     "advance-timeout" |
     "execute-remediation" |
