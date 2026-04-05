@@ -1,12 +1,16 @@
 import { getConfig } from "@aep/operator-agent/config";
 import { makeCronFallbackContext } from "@aep/operator-agent/lib/execution-context";
 import { executeEmployeeRun } from "@aep/operator-agent/lib/execute-employee-run";
-import { retrySupervisorEmployee, timeoutRecoveryEmployee } from "@aep/operator-agent/org/employees";
+import {
+  reliabilityEngineerEmployee,
+  retrySupervisorEmployee,
+  timeoutRecoveryEmployee,
+} from "@aep/operator-agent/org/employees";
 import type {
   AgentEmployeeDefinition,
   EmployeeRunRequest,
-  EmployeeRunResponse,
   OperatorAgentEnv,
+  WorkerExecutionResponse,
 } from "@aep/operator-agent/types";
 
 export async function handleWorkerCron(
@@ -17,6 +21,7 @@ export async function handleWorkerCron(
   const workers: AgentEmployeeDefinition[] = [
     timeoutRecoveryEmployee,
     retrySupervisorEmployee,
+    reliabilityEngineerEmployee,
   ];
 
   for (const employee of workers) {
@@ -33,13 +38,13 @@ export async function handleWorkerCron(
 
     const result = await executeEmployeeRun(runRequest, env, executionContext);
 
-    if (!("dryRun" in result)) {
+    if (!("workerRole" in result)) {
       throw new Error(
         `Unexpected non-worker response for cron run of ${employee.identity.employeeId}`
       );
     }
 
-    const workerResult: EmployeeRunResponse = result;
+    const workerResult: WorkerExecutionResponse = result;
 
     console.log("[operator-agent] worker cron run completed", {
       employeeId: workerResult.employee.employeeId,

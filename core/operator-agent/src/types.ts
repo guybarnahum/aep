@@ -570,8 +570,48 @@ export interface EmployeeRunResponse {
   message: string;
 }
 
-export type AgentExecutionResponse =
+export interface ValidationTaskDecision {
+  taskId: string;
+  taskType: string;
+  targetUrl?: string;
+  verdict: "pass" | "fail" | "remediate" | "manual_escalation";
+  reasoning: string;
+  statusCode?: number;
+}
+
+export interface ValidationAgentResponse {
+  ok: true;
+  status: "completed";
+  policyVersion: string;
+  trigger: EmployeeTrigger;
+  employee: AgentIdentity;
+  workerRole: "reliability-engineer";
+  baseAuthority: AgentAuthority;
+  baseBudget: AgentBudget;
+  authority: AgentAuthority;
+  budget: AgentBudget;
+  dryRun: false;
+  scanned: {
+    tasks: number;
+    eligibleTasks: number;
+  };
+  decisions: ValidationTaskDecision[];
+  summary: {
+    processed: number;
+    passed: number;
+    failed: number;
+    remediations: number;
+    ignored: number;
+  };
+  message: string;
+}
+
+export type WorkerExecutionResponse =
   | EmployeeRunResponse
+  | ValidationAgentResponse;
+
+export type AgentExecutionResponse =
+  | WorkerExecutionResponse
   | ManagerDecisionResponse
   | EmployeeControlBlockedResponse;
 

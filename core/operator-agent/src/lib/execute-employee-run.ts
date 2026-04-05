@@ -1,4 +1,5 @@
 import { getConfig } from "@aep/operator-agent/config";
+import { runValidationAgent } from "@aep/operator-agent/agents/validation-agent";
 import { runInfraOpsManager } from "@aep/operator-agent/agents/infra-ops-manager";
 import { runRetrySupervisor } from "@aep/operator-agent/agents/retry-supervisor";
 import { runTimeoutRecoveryOperator } from "@aep/operator-agent/agents/timeout-recovery";
@@ -225,6 +226,8 @@ export async function executeEmployeeRun(
       return runTimeoutRecoveryOperator(runContext, env);
     case "retry-supervisor":
       return runRetrySupervisor(runContext, env);
+    case "reliability-engineer":
+      return runValidationAgent(runContext, env);
     case "infra-ops-manager":
       return runInfraOpsManager(runContext, env);
     default:

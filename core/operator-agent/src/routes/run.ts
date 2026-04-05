@@ -11,6 +11,7 @@ import type {
   EmployeeRunRequest,
   OperatorAgentEnv,
   PaperclipRunRequest,
+  ValidationAgentResponse,
 } from "@aep/operator-agent/types";
 
 function asRecord(value: unknown): Record<string, unknown> {
@@ -54,6 +55,12 @@ function inferEvidenceTraceId(result: AgentExecutionResponse): string | undefine
   return undefined;
 }
 
+function isValidationAgentResponse(
+  result: AgentExecutionResponse,
+): result is ValidationAgentResponse {
+  return "workerRole" in result && result.workerRole === "reliability-engineer";
+}
+
 function inferVerdict(result: AgentExecutionResponse): {
   verdict: "pass" | "fail" | "remediate" | "manual_escalation";
   reasoning: string;
@@ -68,6 +75,34 @@ function inferVerdict(result: AgentExecutionResponse): {
   if ("observedEmployeeIds" in result) {
     return {
       verdict: result.summary.decisionsEmitted > 0 ? "manual_escalation" : "pass",
+      reasoning: result.message,
+    };
+  }
+
+  if (isValidationAgentResponse(result)) {
+    if (result.summary.remediations > 0) {
+      return {
+        verdict: "remediate",
+        reasoning: result.message,
+      };
+    }
+
+    if (result.summary.failed > 0) {
+      return {
+        verdict: "fail",
+        reasoning: result.message,
+      };
+    }
+
+    if (result.decisions.some((decision) => decision.verdict === "manual_escalation")) {
+      return {
+        verdict: "manual_escalation",
+        reasoning: result.message,
+      };
+    }
+
+    return {
+      verdict: "pass",
       reasoning: result.message,
     };
   }
@@ -175,6 +210,13 @@ async function recordWorkOrderDecisionIfPresent(args: {
   result: AgentExecutionResponse;
 }): Promise<void> {
   if (!args.env || !args.workOrderId) {
+    return;
+  }
+
+  if (
+    isValidationAgentResponse(args.result) &&
+    args.result.decisions.some((decision) => decision.taskId === args.workOrderId)
+  ) {
     return;
   }
 
