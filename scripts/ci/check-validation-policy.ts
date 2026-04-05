@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 
+export {};
+
 type PolicyCheck = {
   validation_type: string;
   status: string;

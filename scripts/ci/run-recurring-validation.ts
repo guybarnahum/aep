@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 
+export {};
+
 function parseArgs(argv: string[]) {
   const args = new Map<string, string>();
 

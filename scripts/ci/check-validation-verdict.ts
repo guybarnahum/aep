@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 
+export {};
+
 type VerdictCheck = {
   validation_type: string;
   status: string;
