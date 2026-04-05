@@ -1,6 +1,6 @@
 import { COMPANY_INTERNAL_AEP } from "@aep/operator-agent/org/company";
 import { SERVICE_CONTROL_PLANE } from "@aep/operator-agent/org/services";
-import { TEAM_INFRA } from "@aep/operator-agent/org/teams";
+import { TEAM_INFRA, TEAM_VALIDATION } from "@aep/operator-agent/org/teams";
 import type { AgentEmployeeDefinition, AgentRoleId } from "@aep/operator-agent/types";
 
 export const timeoutRecoveryEmployee: AgentEmployeeDefinition = {
@@ -92,10 +92,41 @@ export const infraOpsManagerEmployee: AgentEmployeeDefinition = {
   },
 };
 
+export const reliabilityEngineerEmployee: AgentEmployeeDefinition = {
+  identity: {
+    employeeId: "emp_val_specialist_01",
+    employeeName: "Validation Specialist",
+    companyId: COMPANY_INTERNAL_AEP,
+    teamId: TEAM_VALIDATION,
+    roleId: "reliability-engineer",
+    managerRoleId: "infra-ops-manager",
+  },
+  authority: {
+    allowedOperatorActions: ["execute-remediation", "propose-fix"],
+    allowedTenants: ["tenant_internal_aep", "tenant_qa"],
+    allowedServices: [SERVICE_CONTROL_PLANE],
+    requireTraceVerification: true,
+  },
+  budget: {
+    maxActionsPerScan: 3,
+    maxActionsPerHour: 15,
+    maxActionsPerTenantPerHour: 5,
+    tokenBudgetDaily: 0,
+    runtimeBudgetMsPerScan: 10000,
+    verificationReadsPerAction: 5,
+  },
+  escalation: {
+    onBudgetExhausted: "notify-human",
+    onRepeatedVerificationFailure: "disable-agent",
+    onProdTenantAction: "require-manager-approval",
+  },
+};
+
 export const operatorEmployees: AgentEmployeeDefinition[] = [
   timeoutRecoveryEmployee,
   retrySupervisorEmployee,
   infraOpsManagerEmployee,
+  reliabilityEngineerEmployee,
 ];
 
 export function getEmployeeById(

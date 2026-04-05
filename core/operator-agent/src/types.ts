@@ -32,7 +32,8 @@ export type AgentRoleId =
   | "product-manager-web"
   | "frontend-engineer"
   | "validation-pm"
-  | "validation-engineer";
+  | "validation-engineer"
+  | "reliability-engineer";
 
 export interface AgentIdentity {
   employeeId: string;
@@ -44,7 +45,11 @@ export interface AgentIdentity {
 }
 
 export interface AgentAuthority {
-  allowedOperatorActions: Array<"advance-timeout">;
+  allowedOperatorActions: Array<
+    "advance-timeout" |
+    "execute-remediation" |
+    "propose-fix"
+  >;
   allowedTenants?: string[];
   allowedServices?: string[];
   allowedEnvironmentNames?: string[];
