@@ -21,6 +21,7 @@ export async function parseExecutionContext(
       | null;
 
     const companyId = body?.companyId;
+    const workOrderId = body?.workOrderId;
     const taskId = body?.taskId;
     const heartbeatId = body?.heartbeatId;
     const workflowKind = body?.workflowKind;
@@ -40,6 +41,7 @@ export async function parseExecutionContext(
       executionSource: "paperclip",
       companyId,
       taskId,
+      workOrderId: isNonEmptyString(workOrderId) ? workOrderId : undefined,
       heartbeatId,
       workflowKind: isNonEmptyString(workflowKind) ? workflowKind : undefined,
       requestedBy: isNonEmptyString(requestedBy) ? requestedBy : undefined,

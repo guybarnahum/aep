@@ -85,6 +85,7 @@ export interface EmployeeRunRequest {
   tenantId?: string;
   serviceId?: string;
   environmentName?: string;
+  workOrderId?: string;
   taskId?: string;
   employeeId: string;
   roleId: AgentRoleId;
@@ -117,6 +118,7 @@ export interface PaperclipRunRequest {
   budgetOverride?: Partial<AgentBudget>;
   authorityOverride?: Partial<AgentAuthority>;
   trigger?: "paperclip";
+  workOrderId?: string;
   taskId: string;
   heartbeatId: string;
   workflowKind?: string;
@@ -131,6 +133,7 @@ export interface PaperclipRunResponse {
   ok: true;
   status: "completed";
   companyId: string;
+  workOrderId?: string;
   taskId: string;
   heartbeatId: string;
   request: EmployeeRunRequest;

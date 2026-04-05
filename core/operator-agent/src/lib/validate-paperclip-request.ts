@@ -25,6 +25,10 @@ export function validatePaperclipRunRequest(
     throw new Error("Paperclip request missing heartbeatId");
   }
 
+  if (typed.workOrderId != null && !isNonEmptyString(typed.workOrderId)) {
+    throw new Error("Paperclip request workOrderId must be a non-empty string");
+  }
+
   if (typed.employeeId != null && !isNonEmptyString(typed.employeeId)) {
     throw new Error("Paperclip request employeeId must be a non-empty string");
   }

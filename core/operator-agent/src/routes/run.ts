@@ -17,33 +17,33 @@ function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" ? (value as Record<string, unknown>) : {};
 }
 
-function getRequestedTaskId(body: unknown, executionContext?: ExecutionContext): string | null {
-  const value = asRecord(body).taskId;
+function getRequestedWorkOrderId(body: unknown, executionContext?: ExecutionContext): string | null {
+  const value = asRecord(body).workOrderId;
   if (typeof value === "string" && value.length > 0) {
     return value;
   }
 
-  return executionContext && "taskId" in executionContext && typeof executionContext.taskId === "string"
-    ? executionContext.taskId
+  return executionContext && "workOrderId" in executionContext && typeof executionContext.workOrderId === "string"
+    ? executionContext.workOrderId
     : null;
 }
 
-function withTaskId(
+function withWorkOrderId(
   executionContext: ExecutionContext,
-  taskId: string,
+  workOrderId: string,
 ): ExecutionContext {
-  if ("taskId" in executionContext && executionContext.taskId === taskId) {
+  if ("workOrderId" in executionContext && executionContext.workOrderId === workOrderId) {
     return executionContext;
   }
 
   return {
     ...executionContext,
-    taskId,
+    workOrderId,
   };
 }
 
-function taskDecisionId(taskId: string, employeeId: string): string {
-  return `${taskId}:${employeeId}:${Date.now()}`;
+function workOrderDecisionId(workOrderId: string, employeeId: string): string {
+  return `${workOrderId}:${employeeId}:${Date.now()}`;
 }
 
 function inferEvidenceTraceId(result: AgentExecutionResponse): string | undefined {
@@ -92,17 +92,17 @@ function inferVerdict(result: AgentExecutionResponse): {
   };
 }
 
-async function claimTaskIfPresent(
+async function claimWorkOrderIfPresent(
   body: unknown,
   env: OperatorAgentEnv | undefined,
   executionContext: ExecutionContext,
 ): Promise<
-  | { ok: true; taskId: string | null; executionContext: ExecutionContext }
+  | { ok: true; workOrderId: string | null; executionContext: ExecutionContext }
   | { ok: false; response: Response }
 > {
-  const taskId = getRequestedTaskId(body, executionContext);
-  if (!taskId) {
-    return { ok: true, taskId: null, executionContext };
+  const workOrderId = getRequestedWorkOrderId(body, executionContext);
+  if (!workOrderId) {
+    return { ok: true, workOrderId: null, executionContext };
   }
 
   if (!env) {
@@ -128,7 +128,7 @@ async function claimTaskIfPresent(
     : undefined;
 
   const taskStore = getTaskStore(env);
-  const task = await taskStore.getTask(taskId);
+  const task = await taskStore.getTask(workOrderId);
 
   if (!task) {
     return {
@@ -137,7 +137,7 @@ async function claimTaskIfPresent(
         {
           ok: false,
           status: "invalid_request",
-          error: `Task ${taskId} not found`,
+          error: `Work order ${workOrderId} not found`,
         },
         { status: 400 },
       ),
@@ -159,22 +159,22 @@ async function claimTaskIfPresent(
     };
   }
 
-  await taskStore.updateTaskStatus(taskId, "in-progress");
+  await taskStore.updateTaskStatus(workOrderId, "in-progress");
 
   return {
     ok: true,
-    taskId,
-    executionContext: withTaskId(executionContext, taskId),
+    workOrderId,
+    executionContext: withWorkOrderId(executionContext, workOrderId),
   };
 }
 
-async function recordTaskDecisionIfPresent(args: {
+async function recordWorkOrderDecisionIfPresent(args: {
   env?: OperatorAgentEnv;
-  taskId: string | null;
+  workOrderId: string | null;
   employeeId: string;
   result: AgentExecutionResponse;
 }): Promise<void> {
-  if (!args.env || !args.taskId) {
+  if (!args.env || !args.workOrderId) {
     return;
   }
 
@@ -182,8 +182,8 @@ async function recordTaskDecisionIfPresent(args: {
   const verdict = inferVerdict(args.result);
 
   await taskStore.recordDecision({
-    id: taskDecisionId(args.taskId, args.employeeId),
-    taskId: args.taskId,
+    id: workOrderDecisionId(args.workOrderId, args.employeeId),
+    taskId: args.workOrderId,
     employeeId: args.employeeId,
     verdict: verdict.verdict,
     reasoning: verdict.reasoning,
@@ -238,14 +238,18 @@ export async function handleRun(
         typeof asRecord(body).workerId === "string"
           ? (asRecord(body).workerId as string)
           : null,
+      workOrderId:
+        typeof asRecord(body).workOrderId === "string"
+          ? (asRecord(body).workOrderId as string)
+          : null,
     };
 
-    const taskClaim = await claimTaskIfPresent(body, env, executionContext);
-    if (!taskClaim.ok) {
-      return taskClaim.response;
+    const workOrderClaim = await claimWorkOrderIfPresent(body, env, executionContext);
+    if (!workOrderClaim.ok) {
+      return workOrderClaim.response;
     }
 
-    executionContext = taskClaim.executionContext;
+    executionContext = workOrderClaim.executionContext;
 
     if (executionContext.executionSource === "paperclip") {
       try {
@@ -267,9 +271,9 @@ export async function handleRun(
       const adaptedRequest = adaptPaperclipRequest(paperclipPayload, env);
       try {
         const result = await executeEmployeeRun(adaptedRequest, env, executionContext);
-        await recordTaskDecisionIfPresent({
+        await recordWorkOrderDecisionIfPresent({
           env,
-          taskId: taskClaim.taskId,
+          workOrderId: workOrderClaim.workOrderId,
           employeeId: adaptedRequest.employeeId,
           result,
         });
@@ -286,8 +290,8 @@ export async function handleRun(
           routing,
         });
       } catch (error) {
-        if (env && taskClaim.taskId) {
-          await getTaskStore(env).updateTaskStatus(taskClaim.taskId, "failed");
+        if (env && workOrderClaim.workOrderId) {
+          await getTaskStore(env).updateTaskStatus(workOrderClaim.workOrderId, "failed");
         }
         return toErrorResponse(error, env);
       }
@@ -300,9 +304,9 @@ export async function handleRun(
         env,
         executionContext
       );
-      await recordTaskDecisionIfPresent({
+      await recordWorkOrderDecisionIfPresent({
         env,
-        taskId: taskClaim.taskId,
+        workOrderId: workOrderClaim.workOrderId,
         employeeId: typedBody.employeeId,
         result,
       });
@@ -312,8 +316,8 @@ export async function handleRun(
         routing,
       });
     } catch (error) {
-      if (env && taskClaim.taskId) {
-        await getTaskStore(env).updateTaskStatus(taskClaim.taskId, "failed");
+      if (env && workOrderClaim.workOrderId) {
+        await getTaskStore(env).updateTaskStatus(workOrderClaim.workOrderId, "failed");
       }
       return toErrorResponse(error, env);
     }

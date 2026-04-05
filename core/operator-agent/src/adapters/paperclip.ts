@@ -33,6 +33,7 @@ export function adaptPaperclipRequest(
   return {
     companyId: payload.companyId,
     teamId: payload.teamId,
+    workOrderId: payload.workOrderId,
     taskId: payload.taskId,
     employeeId: payload.employeeId,
     roleId: payload.roleId,
@@ -55,6 +56,7 @@ export function adaptPaperclipResponse(args: {
     ok: true,
     status: "completed",
     companyId: args.payload.companyId,
+    workOrderId: args.payload.workOrderId,
     taskId: args.payload.taskId,
     heartbeatId: args.payload.heartbeatId,
     request: args.request,
