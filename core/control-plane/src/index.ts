@@ -48,6 +48,7 @@ import {
   handleEmployeesCatalogRoute,
   handleEmployeeCatalogDetailRoute,
   handleEmployeeScopeRoute,
+  getRecurringValidationCronConfig,
 } from "@aep/control-plane/routes/org";
 import {
   handleRunDetailRoute,
@@ -63,6 +64,10 @@ import {
   handleTenantServicesRoute,
 } from "@aep/control-plane/routes/tenants";
 import { advanceTimeoutForJob } from "@aep/control-plane/operator/advance-timeout";
+
+type ValidationCronEnv = Env & {
+  RECURRING_VALIDATION_BASE_URL?: string;
+};
 
 async function json(request: Request): Promise<unknown> {
   return request.json();
@@ -115,6 +120,56 @@ function parseDeployMode(value: unknown): "sync" | "async" {
 
 function parseTeardownMode(value: unknown): "sync" | "async" {
   return value === "sync" ? "sync" : "async";
+}
+
+async function runCronDrivenRecurringValidation(
+  env: ValidationCronEnv,
+): Promise<void> {
+  const baseUrl = env.RECURRING_VALIDATION_BASE_URL;
+  if (!baseUrl || baseUrl.trim() === "") {
+    console.warn("recurring validation skipped: missing RECURRING_VALIDATION_BASE_URL");
+    return;
+  }
+
+  const cronConfig = getRecurringValidationCronConfig(env);
+  const normalizedBaseUrl = baseUrl.replace(/\/+$/, "");
+
+  const scheduleResponse = await fetch(
+    `${normalizedBaseUrl}/internal/validation/schedule-recurring`,
+    {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        accept: "application/json",
+        "user-agent": "aep-cron-recurring-validation/1.0",
+      },
+      body: JSON.stringify({
+        requested_by: cronConfig.requestedBy,
+        target_base_url: normalizedBaseUrl,
+        mode: cronConfig.mode,
+        reason: cronConfig.reason,
+      }),
+    },
+  );
+
+  if (!scheduleResponse.ok) {
+    const text = await scheduleResponse.text();
+    throw new Error(
+      `recurring validation schedule failed with HTTP ${scheduleResponse.status}: ${text}`,
+    );
+  }
+
+  const body = (await scheduleResponse.json()) as {
+    dispatch_batch_id?: string;
+  };
+
+  if (!body.dispatch_batch_id) {
+    throw new Error("recurring validation schedule response missing dispatch_batch_id");
+  }
+
+  console.log("recurring validation batch completed", {
+    dispatch_batch_id: body.dispatch_batch_id,
+  });
 }
 
 async function verifyCallbackToken(
@@ -1923,6 +1978,14 @@ export default {
 
       throw error;
     }
+  },
+
+  async scheduled(
+    _controller: ScheduledController,
+    env: Env,
+    _ctx: ExecutionContext,
+  ): Promise<void> {
+    await runCronDrivenRecurringValidation(env as ValidationCronEnv);
   },
 } satisfies ExportedHandler<Env>;
 

@@ -736,6 +736,81 @@ async function dispatchValidationRuns(args: {
   };
 }
 
+async function runRecurringValidationBatch(args: {
+  db: D1Database;
+  requestedBy: string;
+  targetBaseUrl: string;
+  mode: "full" | "runtime_only";
+  reason: "scheduled_health" | "drift_detection" | "governance_review";
+}): Promise<{
+  dispatchBatchId: string;
+  dispatchedRuns: ValidationRunRow[];
+  executedRuns: Array<{
+    validationRunId: string;
+    status: "completed" | "failed";
+    resultId: string;
+    executedBy: string;
+    auditedBy: string | null;
+    auditStatus: "pending" | "reviewed";
+  }>;
+}> {
+  const dispatched = await dispatchValidationRuns({
+    db: args.db,
+    requestedBy: args.requestedBy,
+    targetBaseUrl: args.targetBaseUrl,
+    mode: args.mode,
+  });
+
+  const validationTypes =
+    args.mode === "runtime_only"
+      ? (["runtime_read_safety"] as const)
+      : listDispatchableValidationTypes();
+
+  const queuedRuns = await listQueuedValidationRunsForDispatch({
+    db: args.db,
+    dispatchBatchId: dispatched.dispatchBatchId,
+    validationTypes,
+  });
+
+  const executedRuns = [];
+  for (const run of queuedRuns) {
+    const result = await executeAndAuditValidationRun({
+      db: args.db,
+      run,
+    });
+    executedRuns.push(result);
+  }
+
+  return {
+    dispatchBatchId: dispatched.dispatchBatchId,
+    dispatchedRuns: dispatched.runs,
+    executedRuns,
+  };
+}
+
+export function getRecurringValidationCronConfig(env: EnvLike): {
+  requestedBy: string;
+  targetBaseUrl: string | null;
+  mode: "full" | "runtime_only";
+  reason: "scheduled_health";
+} {
+  const requestedBy = "recurring_validation_cron";
+  const mode = "full";
+  const reason = "scheduled_health" as const;
+
+  const targetBaseUrl =
+    typeof env.APP_ENV === "string" && env.APP_ENV.trim() !== ""
+      ? null
+      : null;
+
+  return {
+    requestedBy,
+    targetBaseUrl,
+    mode,
+    reason,
+  };
+}
+
 async function markValidationRunRunning(
   db: D1Database,
   runId: string,
@@ -1944,31 +2019,33 @@ export async function handleScheduleRecurringValidationRoute(
         );
       }
 
-      const dispatched = await dispatchValidationRuns({
+      const recurring = await runRecurringValidationBatch({
         db: env.DB,
         requestedBy: body.requested_by.trim(),
         targetBaseUrl: body.target_base_url.trim(),
         mode,
+        reason,
       });
 
       return json(
         {
           team_id: "team_validation",
           scheduler: "employee_validation_scheduler",
+          runner: "employee_validation_runner",
+          auditor: "employee_validation_auditor",
           trigger: "recurring",
           reason,
-          dispatch_batch_id: dispatched.dispatchBatchId,
+          dispatch_batch_id: recurring.dispatchBatchId,
           mode,
-          dispatched: dispatched.runs.length,
-          runs: dispatched.runs.map((run) => ({
-            validation_run_id: run.id,
-            dispatch_batch_id: run.dispatch_batch_id,
-            validation_type: run.validation_type,
-            requested_by: run.requested_by,
-            assigned_to: run.assigned_to,
+          dispatched: recurring.dispatchedRuns.length,
+          executed: recurring.executedRuns.length,
+          runs: recurring.executedRuns.map((run) => ({
+            validation_run_id: run.validationRunId,
             status: run.status,
-            target_base_url: run.target_base_url,
-            created_at: run.created_at,
+            result_id: run.resultId,
+            executed_by: run.executedBy,
+            audit_status: run.auditStatus,
+            audited_by: run.auditedBy,
           })),
           _owner: getOwnerForRoute("/internal/validation/schedule-recurring"),
         },

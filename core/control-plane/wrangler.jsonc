@@ -2,6 +2,9 @@
   "name": "aep-control-plane",
   "main": "src/index.ts",
   "compatibility_date": "2025-01-01",
+  "triggers": {
+    "crons": ["*/30 * * * *"]
+  },
 
   "d1_databases": [
     {
@@ -84,6 +87,7 @@
 
       "vars": {
         "APP_ENV": "dev",
+        "RECURRING_VALIDATION_BASE_URL": "https://aep-control-plane-async-validation.guybubba.workers.dev",
         "RUNTIME_READ_FAILURE_INJECTION_ENABLED": "true",
         "SERVICE_NAME": "control-plane",
         "VALIDATION_LANE": "async_validation"

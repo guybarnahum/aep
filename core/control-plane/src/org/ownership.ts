@@ -118,6 +118,7 @@ const VALIDATION_EMPLOYEES: ValidationEmployee[] = [
       "validation_batch_dispatch",
       "post_deploy_validation_scheduling",
       "recurring_validation_scheduling",
+      "cron_driven_validation_scheduling",
     ],
   },
 ];
