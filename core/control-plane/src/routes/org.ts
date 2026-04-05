@@ -736,7 +736,7 @@ async function dispatchValidationRuns(args: {
   };
 }
 
-async function runRecurringValidationBatch(args: {
+export async function runRecurringValidationBatch(args: {
   db: D1Database;
   requestedBy: string;
   targetBaseUrl: string;

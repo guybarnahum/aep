@@ -49,6 +49,7 @@ import {
   handleEmployeeCatalogDetailRoute,
   handleEmployeeScopeRoute,
   getRecurringValidationCronConfig,
+  runRecurringValidationBatch,
 } from "@aep/control-plane/routes/org";
 import {
   handleRunDetailRoute,
@@ -134,41 +135,18 @@ async function runCronDrivenRecurringValidation(
   const cronConfig = getRecurringValidationCronConfig(env);
   const normalizedBaseUrl = baseUrl.replace(/\/+$/, "");
 
-  const scheduleResponse = await fetch(
-    `${normalizedBaseUrl}/internal/validation/schedule-recurring`,
-    {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        accept: "application/json",
-        "user-agent": "aep-cron-recurring-validation/1.0",
-      },
-      body: JSON.stringify({
-        requested_by: cronConfig.requestedBy,
-        target_base_url: normalizedBaseUrl,
-        mode: cronConfig.mode,
-        reason: cronConfig.reason,
-      }),
-    },
-  );
-
-  if (!scheduleResponse.ok) {
-    const text = await scheduleResponse.text();
-    throw new Error(
-      `recurring validation schedule failed with HTTP ${scheduleResponse.status}: ${text}`,
-    );
-  }
-
-  const body = (await scheduleResponse.json()) as {
-    dispatch_batch_id?: string;
-  };
-
-  if (!body.dispatch_batch_id) {
-    throw new Error("recurring validation schedule response missing dispatch_batch_id");
-  }
+  const recurring = await runRecurringValidationBatch({
+    db: env.DB,
+    requestedBy: cronConfig.requestedBy,
+    targetBaseUrl: normalizedBaseUrl,
+    mode: cronConfig.mode,
+    reason: cronConfig.reason,
+  });
 
   console.log("recurring validation batch completed", {
-    dispatch_batch_id: body.dispatch_batch_id,
+    dispatch_batch_id: recurring.dispatchBatchId,
+    dispatched: recurring.dispatchedRuns.length,
+    executed: recurring.executedRuns.length,
   });
 }
 
