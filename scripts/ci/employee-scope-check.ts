@@ -48,6 +48,24 @@ async function main(): Promise<void> {
   assert.equal(validationScope.teamId, "team_validation");
   assert(validationScope.allowedEnvironmentNames.includes("async_validation"));
 
+  const validationSpecialistScope = (await fetchJson(
+    baseUrl,
+    "/agent/employees/emp_val_specialist_01/scope",
+  )) as {
+    companyId: string;
+    teamId: string;
+    allowedTenants: string[];
+    allowedServices: string[];
+  };
+
+  assert.equal(validationSpecialistScope.companyId, "company_internal_aep");
+  assert.equal(validationSpecialistScope.teamId, "team_validation");
+  assert(validationSpecialistScope.allowedTenants.includes("tenant_internal_aep"));
+  assert(validationSpecialistScope.allowedTenants.includes("tenant_qa"));
+  assert(
+    validationSpecialistScope.allowedServices.includes("service_control_plane"),
+  );
+
   const effectivePolicy = (await fetchJson(
     baseUrl,
     "/agent/employees/emp_timeout_recovery_01/effective-policy",
