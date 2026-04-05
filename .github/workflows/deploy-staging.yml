@@ -41,7 +41,7 @@ jobs:
       health_runtime_env: staging
       wrangler_config: core/control-plane/wrangler.jsonc
       d1_database_name: aep-staging
-      deploy_operator_agent: false
+      deploy_operator_agent: true
       operator_agent_wrangler_config: core/operator-agent/wrangler.jsonc
       operator_agent_d1_database_name: aep-operator-agent-staging
       enable_test_endpoints: "false"
@@ -79,6 +79,7 @@ jobs:
     uses: ./.github/workflows/_validate_post_deploy.yml
     with:
       environment_name: staging
+      operator_agent_base_url: ${{ needs.deploy-staging-env.outputs.operator_agent_url }}
       cf_env: ${{ needs.deploy-staging-env.outputs.cf_env }}
       git_sha: ${{ needs.deploy-staging-env.outputs.git_sha }}
       node_version: "20"
