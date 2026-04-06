@@ -112,7 +112,9 @@ jobs:
         run: |
           : > post-deploy-validation.log
 
-          if ! npx tsx scripts/ci/execute-validation-dispatch.ts "$OPERATOR_AGENT_BASE_URL" "$DEPLOY_URL" 2>&1 | tee -a post-deploy-validation.log; then
+          VALIDATION_TARGET_URL="${DEPLOY_URL%/}/healthz"
+
+          if ! npx tsx scripts/ci/execute-validation-dispatch.ts "$OPERATOR_AGENT_BASE_URL" "$VALIDATION_TARGET_URL" 2>&1 | tee -a post-deploy-validation.log; then
             echo "Validation dispatch failed before returning a work order." >&2
             exit 1
           fi
