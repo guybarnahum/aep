@@ -98,6 +98,7 @@ jobs:
     uses: ./.github/workflows/_validate_post_deploy.yml
     with:
       environment_name: production
+      deploy_url: ${{ needs.deploy-production-env.outputs.deploy_url }}
       cf_env: ${{ needs.deploy-production-env.outputs.cf_env }}
       git_sha: ${{ needs.deploy-production-env.outputs.git_sha }}
       node_version: "20"
