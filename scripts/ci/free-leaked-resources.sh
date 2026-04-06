@@ -7,7 +7,7 @@ set -euo pipefail
 : "${GITHUB_REPOSITORY:?GITHUB_REPOSITORY must be set}"
 
 WORKER_PREFIXES=("aep-control-plane-pr-" "sample-worker-run_")
-DATABASE_PREFIXES=("aep-preview-pr-" "sample-worker-run_")
+DATABASE_PREFIXES=("aep-preview-pr-")
 
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$TMP_DIR"' EXIT
@@ -116,8 +116,12 @@ if [[ "${#WORKERS[@]}" -eq 0 ]]; then
   log "- No preview workers found."
 else
   for worker in "${WORKERS[@]}"; do
-    pr_number="$(extract_pr_number_from_name "$worker" || true)"
+    if [[ "$worker" == sample-worker-run_* ]]; then
+      delete_worker "$worker"
+      continue
+    fi
 
+    pr_number="$(extract_pr_number_from_name "$worker" || true)"
     if [[ -z "$pr_number" ]]; then
       log "- Skipped worker with unrecognized name: ${worker}"
       continue
