@@ -81,17 +81,26 @@ log "- Database prefixes: ${DATABASE_PREFIXES[*]}"
 log ""
 
 
+# Fetch all worker names from API for debug
+ALL_WORKERS=()
+mapfile -t ALL_WORKERS < <(
+  curl -fsSL \
+    -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
+    "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/workers/scripts" \
+    | tr '{},' '\n' \
+    | sed -n 's/.*"id":"\([^"]*\)".*/\1/p'
+)
+log "[DEBUG] All workers found: ${ALL_WORKERS[*]}"
+
 # Collect all workers matching any prefix
 WORKERS=()
 for prefix in "${WORKER_PREFIXES[@]}"; do
   mapfile -t found < <(
-    curl -fsSL \
-      -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
-      "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/workers/scripts" \
-      | tr '{},' '\n' \
-      | sed -n 's/.*"id":"\([^"]*\)".*/\1/p' \
-      | grep "^${prefix}" || true
+    for w in "${ALL_WORKERS[@]}"; do
+      [[ "$w" == ${prefix}* ]] && echo "$w"
+    done
   )
+  log "[DEBUG] Workers matching prefix '${prefix}': ${found[*]}"
   WORKERS+=("${found[@]}")
 done
 
