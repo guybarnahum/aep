@@ -99,15 +99,15 @@ log "- Database prefixes: ${DATABASE_PREFIXES[*]}"
 log ""
 
 
-# Fetch all worker names from API for debug
+
+# Fetch all worker names from API for debug (using jq for robust parsing)
+RAW_WORKERS_JSON=$(curl -fsSL \
+  -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
+  "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/workers/scripts")
+echo "[DEBUG] Raw workers API response: $RAW_WORKERS_JSON"
+
 ALL_WORKERS=()
-mapfile -t ALL_WORKERS < <(
-  curl -fsSL \
-    -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
-    "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/workers/scripts" \
-    | tr '{},' '\n' \
-    | sed -n 's/.*"id":"\([^"]*\)".*/\1/p'
-)
+mapfile -t ALL_WORKERS < <(echo "$RAW_WORKERS_JSON" | jq -r '.result[].id')
 log "[DEBUG] All workers found: ${ALL_WORKERS[*]}"
 
 # Collect all workers matching any prefix
