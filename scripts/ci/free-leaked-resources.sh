@@ -6,8 +6,8 @@ set -euo pipefail
 : "${GITHUB_TOKEN:?GITHUB_TOKEN must be set}"
 : "${GITHUB_REPOSITORY:?GITHUB_REPOSITORY must be set}"
 
-WORKER_PREFIX="aep-control-plane-pr-"
-DATABASE_PREFIX="aep-preview-pr-"
+WORKER_PREFIXES=("aep-control-plane-pr-" "sample-worker-run_")
+DATABASE_PREFIXES=("aep-preview-pr-" "sample-worker-run_")
 
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$TMP_DIR"' EXIT
@@ -76,12 +76,35 @@ delete_database() {
 }
 
 log "- Reaper started"
-log "- Worker prefix: ${WORKER_PREFIX}"
-log "- Database prefix: ${DATABASE_PREFIX}"
+log "- Worker prefixes: ${WORKER_PREFIXES[*]}"
+log "- Database prefixes: ${DATABASE_PREFIXES[*]}"
 log ""
 
-mapfile -t WORKERS < <(list_preview_workers)
-mapfile -t DATABASES < <(list_preview_databases)
+
+# Collect all workers matching any prefix
+WORKERS=()
+for prefix in "${WORKER_PREFIXES[@]}"; do
+  mapfile -t found < <(
+    curl -fsSL \
+      -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
+      "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/workers/scripts" \
+      | tr '{},' '\n' \
+      | sed -n 's/.*"id":"\([^"]*\)".*/\1/p' \
+      | grep "^${prefix}" || true
+  )
+  WORKERS+=("${found[@]}")
+done
+
+# Collect all databases matching any prefix
+DATABASES=()
+for prefix in "${DATABASE_PREFIXES[@]}"; do
+  mapfile -t found < <(
+    npx wrangler d1 list \
+      | sed -n "s/.*│ \([^ ]*${prefix}[0-9A-Za-z_\-]*\) .*/\1/p" \
+      | sort -u || true
+  )
+  DATABASES+=("${found[@]}")
+done
 
 if [[ "${#WORKERS[@]}" -eq 0 && "${#DATABASES[@]}" -eq 0 ]]; then
   log "- No preview resources found."

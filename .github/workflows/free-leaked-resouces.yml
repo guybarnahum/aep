@@ -1,4 +1,4 @@
-name: Reap Preview Garbage
+name: Free Leaked Resources
 
 on:
   workflow_dispatch:
@@ -6,11 +6,11 @@ on:
     - cron: "17 9 * * *"
 
 concurrency:
-  group: reap-preview-garbage
+  group: free-leaked-resources
   cancel-in-progress: false
 
 jobs:
-  reap-preview-garbage:
+  free-leaked-resources:
     runs-on: ubuntu-latest
     environment:
       name: preview
@@ -30,24 +30,24 @@ jobs:
 
       - run: npm ci
 
-      - name: Reap orphaned preview resources
-        id: reap_preview
+      - name: Free orphaned preview and test resources
+        id: free_leaked_resources
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           GITHUB_TOKEN: ${{ github.token }}
           GITHUB_REPOSITORY: ${{ github.repository }}
         run: |
-          bash ./scripts/ci/reap-preview-garbage.sh | tee reap-preview-garbage.log
+          bash ./scripts/ci/free-leeaked-resouces.sh | tee free-leaked-resources.log
 
       - name: Write summary
         if: always()
         run: |
-          echo "## Preview garbage reaper summary" >> "$GITHUB_STEP_SUMMARY"
+          echo "## Free leaked resources summary" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
 
-          if [[ -f reap-preview-garbage.log ]]; then
-            cat reap-preview-garbage.log >> "$GITHUB_STEP_SUMMARY"
+          if [[ -f free-leaked-resources.log ]]; then
+            cat free-leaked-resources.log >> "$GITHUB_STEP_SUMMARY"
           else
             echo "- No reaper log found." >> "$GITHUB_STEP_SUMMARY"
           fi
