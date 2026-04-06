@@ -104,11 +104,11 @@ log ""
 RAW_WORKERS_JSON=$(curl -fsSL \
   -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
   "https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/workers/scripts")
-echo "[DEBUG] Raw workers API response: $RAW_WORKERS_JSON"
+# echo "[DEBUG] Raw workers API response: $RAW_WORKERS_JSON"
 
 ALL_WORKERS=()
 mapfile -t ALL_WORKERS < <(echo "$RAW_WORKERS_JSON" | jq -r '.result[].id')
-log "[DEBUG] All workers found: ${ALL_WORKERS[*]}"
+# log "[DEBUG] All workers found: ${ALL_WORKERS[*]}"
 
 # Collect all workers matching any prefix
 WORKERS=()
@@ -118,7 +118,7 @@ for prefix in "${WORKER_PREFIXES[@]}"; do
       [[ "$w" == ${prefix}* ]] && echo "$w"
     done
   )
-  log "[DEBUG] Workers matching prefix '${prefix}': ${found[*]}"
+  log "Workers matching prefix '${prefix}': ${found[*]}"
   WORKERS+=("${found[@]}")
 done
 
