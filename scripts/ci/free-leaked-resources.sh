@@ -1,10 +1,28 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-: "${CLOUDFLARE_API_TOKEN:?CLOUDFLARE_API_TOKEN must be set}"
-: "${CLOUDFLARE_ACCOUNT_ID:?CLOUDFLARE_ACCOUNT_ID must be set}"
-: "${GITHUB_TOKEN:?GITHUB_TOKEN must be set}"
-: "${GITHUB_REPOSITORY:?GITHUB_REPOSITORY must be set}"
+
+if [[ -z "${CLOUDFLARE_API_TOKEN:-}" ]]; then
+  echo "[ERROR] CLOUDFLARE_API_TOKEN must be set" >&2
+  exit 1
+fi
+if [[ -z "${CLOUDFLARE_ACCOUNT_ID:-}" ]]; then
+  echo "[ERROR] CLOUDFLARE_ACCOUNT_ID must be set" >&2
+  exit 1
+fi
+if [[ -z "${GITHUB_TOKEN:-}" ]]; then
+  echo "[ERROR] GITHUB_TOKEN must be set" >&2
+  exit 1
+fi
+if [[ -z "${GITHUB_REPOSITORY:-}" ]]; then
+  echo "[ERROR] GITHUB_REPOSITORY must be set" >&2
+  exit 1
+fi
+
+echo "[DEBUG] CLOUDFLARE_API_TOKEN is set: $([[ -n \"${CLOUDFLARE_API_TOKEN}\" ]] && echo yes || echo no)"
+echo "[DEBUG] CLOUDFLARE_ACCOUNT_ID: ${CLOUDFLARE_ACCOUNT_ID}"
+echo "[DEBUG] GITHUB_TOKEN is set: $([[ -n \"${GITHUB_TOKEN}\" ]] && echo yes || echo no)"
+echo "[DEBUG] GITHUB_REPOSITORY: ${GITHUB_REPOSITORY}"
 
 WORKER_PREFIXES=("aep-control-plane-pr-" "sample-worker-run_")
 DATABASE_PREFIXES=("aep-preview-pr-")

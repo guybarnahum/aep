@@ -13,7 +13,7 @@ jobs:
   free-leaked-resources:
     runs-on: ubuntu-latest
     environment:
-      name: preview
+      name: async-validation
     defaults:
       run:
         shell: bash -eo pipefail {0}
