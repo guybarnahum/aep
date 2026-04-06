@@ -65,9 +65,13 @@ async function main() {
       "x-actor": "github-actions-post-deploy",
     },
     body: JSON.stringify({
+      companyId: "company_internal_aep",
+      teamId: "team_validation",
       employeeId: "emp_val_specialist_01",
+      roleId: "reliability-engineer",
       workOrderId,
       trigger: "post-deploy-validation",
+      policyVersion: "ci-post-deploy",
     }),
   }).then(async (response) => {
     const text = await response.text();
