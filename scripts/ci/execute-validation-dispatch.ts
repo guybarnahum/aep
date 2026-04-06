@@ -52,16 +52,20 @@ async function main() {
     process.argv.slice(2),
   );
 
+  console.log("[DEBUG] operatorBaseUrl:", operatorBaseUrl);
+  console.log("[DEBUG] targetUrl:", targetUrl);
+  const payload = {
+    targetUrl,
+    useControlPlaneBinding: true,
+  };
+  console.log("[DEBUG] payload:", JSON.stringify(payload));
   console.log(`Dispatching validation task for ${targetUrl}...`);
 
   const body = (await httpPost(`${operatorBaseUrl}/agent/tasks`, {
     companyId: "company_internal_aep",
     teamId: "team_validation",
     taskType: "validate-deployment",
-    payload: {
-      targetUrl,
-      useControlPlaneBinding: true,
-    },
+    payload,
   })) as { ok?: boolean; workOrderId?: string; error?: string };
 
   if (!body.ok || typeof body.workOrderId !== "string" || body.workOrderId.length === 0) {
