@@ -41,6 +41,10 @@ function requireTargetUrl(task: Task): string {
   return targetUrl;
 }
 
+function shouldUseControlPlaneBinding(task: Task): boolean {
+  return task.payload.useControlPlaneBinding === true;
+}
+
 async function loadTasksForRun(
   env: OperatorAgentEnv,
   context: ResolvedEmployeeRunContext,
@@ -62,7 +66,11 @@ async function loadTasksForRun(
   );
 }
 
-async function runHealthCheck(targetUrl: string): Promise<{
+async function runHealthCheck(args: {
+  targetUrl: string;
+  env: OperatorAgentEnv;
+  useControlPlaneBinding: boolean;
+}): Promise<{
   verdict: "pass" | "remediate";
   reasoning: string;
   statusCode?: number;
@@ -71,10 +79,22 @@ async function runHealthCheck(targetUrl: string): Promise<{
   const timeoutId = setTimeout(() => controller.abort("timeout"), HEALTH_CHECK_TIMEOUT_MS);
 
   try {
-    const response = await fetch(targetUrl, {
-      method: "GET",
-      signal: controller.signal,
-    });
+    const response = await (async () => {
+      if (args.useControlPlaneBinding && args.env.CONTROL_PLANE) {
+        const url = new URL(args.targetUrl);
+        return args.env.CONTROL_PLANE.fetch(
+          new Request(`https://control-plane${url.pathname}${url.search}`, {
+            method: "GET",
+            signal: controller.signal,
+          }),
+        );
+      }
+
+      return fetch(args.targetUrl, {
+        method: "GET",
+        signal: controller.signal,
+      });
+    })();
 
     if (!response.ok) {
       return {
@@ -86,7 +106,7 @@ async function runHealthCheck(targetUrl: string): Promise<{
 
     return {
       verdict: "pass",
-      reasoning: `Health check passed for ${targetUrl}`,
+      reasoning: `Health check passed for ${args.targetUrl}`,
       statusCode: response.status,
     };
   } catch (error) {
@@ -132,7 +152,11 @@ async function processValidationTask(args: {
 
   try {
     const targetUrl = requireTargetUrl(args.task);
-    const healthCheck = await runHealthCheck(targetUrl);
+    const healthCheck = await runHealthCheck({
+      targetUrl,
+      env: args.env,
+      useControlPlaneBinding: shouldUseControlPlaneBinding(args.task),
+    });
 
     await recordTaskDecision({
       env: args.env,

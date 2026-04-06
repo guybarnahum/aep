@@ -58,7 +58,10 @@ async function main() {
     companyId: "company_internal_aep",
     teamId: "team_validation",
     taskType: "validate-deployment",
-    payload: { targetUrl },
+    payload: {
+      targetUrl,
+      useControlPlaneBinding: true,
+    },
   })) as { ok?: boolean; workOrderId?: string; error?: string };
 
   if (!body.ok || typeof body.workOrderId !== "string" || body.workOrderId.length === 0) {
