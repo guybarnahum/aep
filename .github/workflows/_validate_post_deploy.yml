@@ -22,6 +22,10 @@ on:
         required: false
         type: string
         default: "20"
+      execute_work_order_immediately:
+        required: false
+        type: boolean
+        default: false
     outputs:
       enabled:
         description: "Whether post-deploy validation was enabled"
@@ -121,6 +125,10 @@ jobs:
           fi
 
           echo "AEP validation work order: $WORK_ORDER_ID" | tee -a post-deploy-validation.log
+
+          if [[ "${{ inputs.execute_work_order_immediately }}" == "true" ]]; then
+            npx tsx scripts/ci/execute-validation-work-order.ts "$OPERATOR_AGENT_BASE_URL" "$WORK_ORDER_ID" 2>&1 | tee -a post-deploy-validation.log
+          fi
 
           npx tsx scripts/ci/check-validation-verdict.ts "$OPERATOR_AGENT_BASE_URL" "$WORK_ORDER_ID" 2>&1 | tee -a post-deploy-validation.log
 
