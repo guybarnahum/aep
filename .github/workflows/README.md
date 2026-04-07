@@ -5,6 +5,10 @@ This directory is structured around a clear separation between:
 - **top-level entry workflows** that are triggered by GitHub events or manual dispatch
 - **reusable internal workflows** that are invoked via `workflow_call`
 
+Resource cleanup is handled globally by `free-leaked-resources.yml`, which reaps all ephemeral and test resources (including preview and sample-worker-run_ workers) across the account, not just preview.
+
+Post-deploy validation is robust and durable, using direct invocation and internal service bindings for all deploy lanes.
+
 The goal is to make deployment and validation first class, composable, and easy to extend without duplicating environment bring-up logic across multiple workflows.
 
 Current state:
@@ -12,6 +16,8 @@ Current state:
 - preview deploy is PR-only and ephemeral
 - preview teardown is split across PR-close destroy and scheduled backstop reaping
 - async-validation now verifies both org schema seed state and org inventory route availability
+- post-deploy validation is unified and robust for preview, staging, and production (using internal service bindings)
+- resource cleanup is handled by `free-leaked-resources.yml` (was `reap-preview-garbage.yml`)
 
 ## Naming convention
 
@@ -19,7 +25,7 @@ Top-level workflows use **hyphenated names**:
 
 - `deploy-preview.yml`
 - `destroy-preview.yml`
-- `reap-preview-garbage.yml`
+- `free-leaked-resources.yml`
 - `deploy-staging.yml`
 - `deploy-production.yml`
 - `validate-async-environment.yml`
@@ -335,6 +341,14 @@ Should include:
 - multi-worker safety suite
 - future deep validation suites
 
+### Resource cleanup lane
+
+`free-leaked-resources.yml`
+
+Should include:
+- scheduled and manual cleanup of all ephemeral and test resources (preview, sample-worker-run_ workers, etc.)
+- global to the Cloudflare account, not environment-specific
+
 ## How to extend
 
 When adding a new validation:
@@ -377,7 +391,7 @@ New deeper suites should become new `_validate_*` reusable workflows and be call
 ├── README.md
 ├── deploy-preview.yml
 ├── destroy-preview.yml
-├── reap-preview-garbage.yml
+├── free-leaked-resources.yml
 ├── deploy-staging.yml
 ├── deploy-production.yml
 ├── validate-async-environment.yml
@@ -392,6 +406,7 @@ New deeper suites should become new `_validate_*` reusable workflows and be call
 ├── _validate_operator_surface.yml
 ├── _validate_operator_governance.yml
 └── _validate_paperclip_handoff.yml
+```
 ```
 
 ## Design rules
