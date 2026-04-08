@@ -29,6 +29,7 @@ export type AgentRoleId =
   | "retry-supervisor"
   | "teardown-safety-operator"
   | "incident-triage-operator"
+  | "product-manager"
   | "product-manager-web"
   | "frontend-engineer"
   | "validation-pm"

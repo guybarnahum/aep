@@ -1,3 +1,4 @@
+
 import type { AgentRoleId } from "@aep/operator-agent/types";
 
 export const roles: Record<AgentRoleId, { id: AgentRoleId; name: string }> = {
@@ -20,6 +21,10 @@ export const roles: Record<AgentRoleId, { id: AgentRoleId; name: string }> = {
   "incident-triage-operator": {
     id: "incident-triage-operator",
     name: "Incident Triage Operator",
+  },
+  "product-manager": {
+    id: "product-manager",
+    name: "Product Manager",
   },
   "product-manager-web": {
     id: "product-manager-web",

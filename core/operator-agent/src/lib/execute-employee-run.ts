@@ -1,3 +1,4 @@
+import { runPmAgent } from "@aep/operator-agent/agents/pm-agent";
 import { getConfig } from "@aep/operator-agent/config";
 import { runValidationAgent } from "@aep/operator-agent/agents/validation-agent";
 import { runInfraOpsManager } from "@aep/operator-agent/agents/infra-ops-manager";
@@ -230,6 +231,8 @@ export async function executeEmployeeRun(
       return runValidationAgent(runContext, env);
     case "infra-ops-manager":
       return runInfraOpsManager(runContext, env);
+    case "product-manager":
+      return runPmAgent(runContext, env);
     default:
       throw Object.assign(
         new Error(
