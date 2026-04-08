@@ -1,5 +1,48 @@
--- Migration: 0008_cognitive_identities.sql
--- Goal: Seed the "Personality" and "Strategy" for the Agentic Organization.
+-- 0. Ensure the Company exists (required for FK on teams and employees)
+INSERT OR IGNORE INTO companies (id, slug, name, status, created_at, updated_at)
+VALUES (
+  'company_internal_aep',
+  'internal-aep',
+  'AEP Internal',
+  'active',
+  CURRENT_TIMESTAMP,
+  CURRENT_TIMESTAMP
+);
+
+
+-- 1. Ensure the Teams exist with required schema columns
+INSERT OR IGNORE INTO teams (id, company_id, slug, name, kind, status, created_at, updated_at)
+VALUES (
+  'team_validation', 
+  'company_internal_aep', 
+  'validation', 
+  'Validation Team', 
+  'engineering', 
+  'active', 
+  CURRENT_TIMESTAMP, 
+  CURRENT_TIMESTAMP
+);
+
+INSERT OR IGNORE INTO teams (id, company_id, slug, name, kind, status, created_at, updated_at)
+VALUES (
+  'team_infra', 
+  'company_internal_aep', 
+  'infrastructure', 
+  'Infrastructure Team', 
+  'engineering', 
+  'active', 
+  CURRENT_TIMESTAMP, 
+  CURRENT_TIMESTAMP
+);
+
+-- 2. Hire the base Employees into the catalog
+
+INSERT OR IGNORE INTO employees_catalog (id, company_id, team_id, employee_name, role_id, status, scheduler_mode, created_at, updated_at)
+VALUES ('emp_val_specialist_01', 'company_internal_aep', 'team_validation', 'Sia', 'reliability-engineer', 'active', 'default', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+
+INSERT OR IGNORE INTO employees_catalog (id, company_id, team_id, employee_name, role_id, status, scheduler_mode, created_at, updated_at)
+VALUES ('emp_pm_01', 'company_internal_aep', 'team_infra', 'Marcus', 'product-manager', 'active', 'default', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+
 
 -- 1. Employee Personas (The "Who")
 CREATE TABLE IF NOT EXISTS employee_personas (

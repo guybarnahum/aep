@@ -583,6 +583,7 @@ export interface ValidationTaskDecision {
   verdict: "pass" | "fail" | "remediate" | "manual_escalation";
   reasoning: string;
   statusCode?: number;
+  internalMonologue?: string; // The "Thinking Trace" from the LLM
 }
 
 export interface ValidationAgentResponse {

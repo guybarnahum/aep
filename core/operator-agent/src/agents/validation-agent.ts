@@ -120,12 +120,44 @@ async function runHealthCheck(args: {
   }
 }
 
+// Deliberation Helper: Generates the internal monologue (Thinking Trace)
+async function deliberate(args: {
+  context: ResolvedEmployeeRunContext;
+  task: Task;
+  observation: string;
+}): Promise<string> {
+  const { employee } = args.context;
+  const persona = `Name: ${employee.identity.employeeName}\nRole: ${employee.identity.roleId}\nBio: ${employee.identity.bio || "No bio set."}\nTone: ${employee.identity.tone || "Professional"}\nSkills: ${employee.identity.skills?.join(", ") || "Generalist"}`;
+
+  const prompt = `
+[SYSTEM: COGNITIVE IDENTITY]
+${persona}
+
+[STRATEGIC CONTEXT]
+Roadmap: Platform Stability 1.0
+Objective: Ensure 99.9% uptime for preview deployments.
+
+[OBSERVATION]
+I am validating Task: ${args.task.id} (${args.task.taskType}).
+Current Observation: ${args.observation}
+
+[TASK]
+Generate a 1-2 sentence internal monologue (Thinking Trace) about how you interpret this result relative to your goals. \nWrite in your specific persona tone. Do not use filler.
+`;
+
+  // Placeholder for LLM call. In Cloudflare: return await env.AI.run(...)
+  // For now, we simulate the "Thought" if AI isn't bound, or use a simple heuristic.
+  return `Observed ${args.observation}. As an SRE, I must ensure this doesn't degrade the core substrate. Verdict is determined by my strict reliability threshold.`;
+}
+
+// Updated recordTaskDecision to accept internalMonologue
 async function recordTaskDecision(args: {
   env: OperatorAgentEnv;
   context: ResolvedEmployeeRunContext;
   task: Task;
   verdict: ValidationTaskDecision["verdict"];
   reasoning: string;
+  internalMonologue?: string;
 }): Promise<void> {
   const taskStore = getTaskStore(args.env);
   await taskStore.recordDecision({
@@ -134,10 +166,12 @@ async function recordTaskDecision(args: {
     employeeId: args.context.employee.identity.employeeId,
     verdict: args.verdict,
     reasoning: args.reasoning,
+    internalMonologue: args.internalMonologue,
     evidenceTraceId: getEvidenceTraceId(args.context),
   });
 }
 
+// Sense-Think-Act: Thought Loop
 async function processValidationTask(args: {
   env: OperatorAgentEnv;
   context: ResolvedEmployeeRunContext;
@@ -152,18 +186,29 @@ async function processValidationTask(args: {
 
   try {
     const targetUrl = requireTargetUrl(args.task);
+
+    // SENSE: Run the health check
     const healthCheck = await runHealthCheck({
       targetUrl,
       env: args.env,
       useControlPlaneBinding: shouldUseControlPlaneBinding(args.task),
     });
 
+    // THINK: Generate the Internal Monologue
+    const internalMonologue = await deliberate({
+      context: args.context,
+      task: args.task,
+      observation: healthCheck.reasoning,
+    });
+
+    // ACT: Record Decision with Thought Trace
     await recordTaskDecision({
       env: args.env,
       context: args.context,
       task: args.task,
       verdict: healthCheck.verdict,
       reasoning: healthCheck.reasoning,
+      internalMonologue,
     });
 
     const decision: ValidationTaskDecision = {
@@ -173,6 +218,7 @@ async function processValidationTask(args: {
       verdict: healthCheck.verdict,
       reasoning: healthCheck.reasoning,
       statusCode: healthCheck.statusCode,
+      internalMonologue,
     };
 
     logInfo("validation task processed", {

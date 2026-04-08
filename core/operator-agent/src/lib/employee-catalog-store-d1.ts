@@ -8,6 +8,11 @@ export interface EmployeeCatalogRow {
   roleId: string;
   status: string;
   schedulerMode: string;
+  // Cognitive Additions
+  bio?: string;
+  tone?: string;
+  skillsJson?: string;
+  photoUrl?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -114,31 +119,34 @@ export async function getEmployeeCatalogEntry(
   const row = await db
     .prepare(
       `SELECT
-         id,
-         company_id,
-         team_id,
-         employee_name,
-         role_id,
-         status,
-         scheduler_mode,
-         created_at,
-         updated_at
-       FROM employees_catalog
-       WHERE id = ?
+         e.id,
+         e.company_id,
+         e.team_id,
+         e.employee_name,
+         e.role_id,
+         e.status,
+         e.scheduler_mode,
+         e.created_at,
+         e.updated_at,
+         p.bio,
+         p.tone,
+         p.skills_json,
+         p.photo_url
+       FROM employees_catalog e
+       LEFT JOIN employee_personas p ON e.id = p.employee_id
+       WHERE e.id = ?
        LIMIT 1`,
     )
     .bind(employeeId)
-    .first<{
-      id: string;
-      company_id: string;
-      team_id: string;
-      employee_name: string;
-      role_id: string;
-      status: string;
-      scheduler_mode: string;
-      created_at: string;
-      updated_at: string;
-    }>();
+    .first<any>(); // Cast to any for the join result
 
-  return row ? rowToEmployeeCatalogRow(row) : null;
+  if (!row) return null;
+
+  return {
+    ...rowToEmployeeCatalogRow(row),
+    bio: row.bio,
+    tone: row.tone,
+    skillsJson: row.skills_json,
+    photoUrl: row.photo_url,
+  };
 }
