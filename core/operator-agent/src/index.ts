@@ -96,6 +96,17 @@ async function dispatch(request: Request, env: OperatorAgentEnv): Promise<Respon
     return handleManagerLog(request, env);
   }
 
+  // Roadmap API endpoint for dashboard
+  if (url.pathname === "/agent/roadmaps" && request.method === "GET") {
+    if (!env.OPERATOR_AGENT_DB) {
+      return new Response("Operator agent database not configured", { status: 500 });
+    }
+    const result = await env.OPERATOR_AGENT_DB.prepare(
+      "SELECT * FROM team_roadmaps ORDER BY priority DESC, created_at DESC"
+    ).all();
+    return Response.json({ entries: result.results });
+  }
+
   if (url.pathname === "/agent/employee-controls") {
     return handleEmployeeControls(request, env);
   }

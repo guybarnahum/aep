@@ -8,5 +8,22 @@
   </head>
   <body>
     <div id="app"></div>
+    <style>
+      .persona-card { border-top: 3px solid #6366f1; }
+      .avatar-block { width: 44px; height: 44px; flex-shrink: 0; }
+      .avatar-img { width: 100%; height: 100%; border-radius: 8px; object-fit: cover; }
+      .avatar-fallback { 
+        width: 100%; height: 100%; border-radius: 8px; background: #e2e8f0; 
+        display: flex; align-items: center; justify-content: center; font-weight: bold; color: #475569;
+      }
+      .skill-tag { 
+        background: #f1f5f9; color: #64748b; font-size: 0.65rem; font-weight: 600;
+        padding: 2px 6px; border-radius: 4px; margin: 2px; display: inline-block;
+      }
+      .persona-bio { font-size: 0.85rem; line-height: 1.5; color: #334155; margin: 8px 0; }
+      .priority-pill { padding: 2px 8px; border-radius: 12px; font-size: 0.7rem; font-weight: bold; }
+      .p-5 { background: #fee2e2; color: #991b1b; } /* High Priority */
+      .p-1 { background: #f1f5f9; color: #475569; }
+    </style>
   </body>
 </html>

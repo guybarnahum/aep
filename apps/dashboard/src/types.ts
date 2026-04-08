@@ -1,3 +1,12 @@
+export type TeamRoadmap = {
+  id: string;
+  team_id: string;
+  objective_title: string;
+  strategic_context: string;
+  priority: number;
+  status: "active" | "completed";
+  created_at: string;
+};
 export type RunSummary = {
   run_id: string;
   tenant_id: string;
@@ -73,6 +82,10 @@ export type OperatorEmployeeRecord = {
     departmentId: string;
     roleId: string;
     managerRoleId?: string;
+    bio?: string;
+    tone?: string;
+    skills?: string[];
+    photoUrl?: string;
   };
   authority: {
     allowedOperatorActions: string[];
@@ -155,6 +168,7 @@ export type ManagerDecisionRecord = {
     taskId?: string;
     heartbeatId?: string;
     executorId?: string;
+    internalMonologue?: string;
   };
 };
 
@@ -269,6 +283,7 @@ export type DepartmentOverview = {
   controlHistory: ControlHistoryRecord[];
   managerLog: ManagerDecisionRecord[];
   approvals: ApprovalRecord[];
+  roadmaps: TeamRoadmap[];
   schedulerStatus: SchedulerStatus;
 };
 

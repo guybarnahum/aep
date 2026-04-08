@@ -100,28 +100,15 @@ export async function getDepartmentOverview(): Promise<DepartmentOverview> {
     controlHistoryPayload,
     managerLogPayload,
     approvalsPayload,
+    roadmapsPayload,
     schedulerStatus,
   ] = await Promise.all([
-    getJson<{ employees: OperatorEmployeeRecord[] }>(
-      agentBaseUrl,
-      "/agent/employees",
-    ),
-    getJson<{ entries: EscalationRecord[] }>(
-      agentBaseUrl,
-      "/agent/escalations?limit=50",
-    ),
-    getJson<{ entries: ControlHistoryRecord[] }>(
-      agentBaseUrl,
-      "/agent/control-history?limit=50",
-    ),
-    getJson<{ entries: ManagerDecisionRecord[] }>(
-      agentBaseUrl,
-      "/agent/manager-log?limit=50",
-    ),
-    getJson<{ entries: ApprovalRecord[] }>(
-      agentBaseUrl,
-      "/agent/approvals?limit=50",
-    ),
+    getJson<{ employees: OperatorEmployeeRecord[] }>(agentBaseUrl, "/agent/employees"),
+    getJson<{ entries: EscalationRecord[] }>(agentBaseUrl, "/agent/escalations?limit=50"),
+    getJson<{ entries: ControlHistoryRecord[] }>(agentBaseUrl, "/agent/control-history?limit=50"),
+    getJson<{ entries: ManagerDecisionRecord[] }>(agentBaseUrl, "/agent/manager-log?limit=50"),
+    getJson<{ entries: ApprovalRecord[] }>(agentBaseUrl, "/agent/approvals?limit=50"),
+    getJson<{ entries: TeamRoadmap[] }>(agentBaseUrl, "/agent/roadmaps"),
     getJson<SchedulerStatus>(agentBaseUrl, "/agent/scheduler-status"),
   ]);
 
@@ -131,6 +118,7 @@ export async function getDepartmentOverview(): Promise<DepartmentOverview> {
     controlHistory: controlHistoryPayload.entries ?? [],
     managerLog: managerLogPayload.entries ?? [],
     approvals: approvalsPayload.entries ?? [],
+    roadmaps: roadmapsPayload.entries ?? [],
     schedulerStatus,
   };
 }

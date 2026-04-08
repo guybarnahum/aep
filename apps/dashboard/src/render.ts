@@ -1,3 +1,68 @@
+// 1. New Persona-driven Employee Card
+function renderEmployeeCard(employee: OperatorEmployeeRecord, selectedEmployeeId: string | null): string {
+  const iden = employee.identity;
+  const isSelected = selectedEmployeeId === iden.employeeId;
+  const skills = iden.skills?.map(s => `<span class="skill-tag">${escapeHtml(s)}</span>`).join("") || "";
+
+  return `
+    <article class="service-card persona-card ${isSelected ? "service-card-selected" : ""}">
+      <div class="service-card-header">
+        <div class="avatar-block">
+          ${iden.photoUrl ? `<img src="${escapeHtml(iden.photoUrl)}" class="avatar-img" />` : `<div class="avatar-fallback">${escapeHtml(iden.employeeName[0])}</div>`}
+        </div>
+        <div style="flex: 1; margin-left: 12px;">
+          <h3 style="margin:0">${escapeHtml(iden.employeeName)}</h3>
+          <p class="muted small" style="margin:0">${escapeHtml(iden.roleId)}</p>
+        </div>
+        <div class="card-actions">
+          <span class="${employeeStateSummaryClass(employee.effectiveState.state)}">${escapeHtml(employee.effectiveState.state)}</span>
+        </div>
+      </div>
+
+      <div class="persona-body">
+        <p class="persona-bio"><em>"${escapeHtml(iden.bio || "No bio set.")}"</em></p>
+        <div class="skills-row">${skills}</div>
+      </div>
+
+      <div class="governance-grid" style="border-top: 1px solid var(--border); padding-top: 12px;">
+        <div class="muted small">Tone: ${escapeHtml(iden.tone || "Neutral")}</div>
+        <div class="muted small">Budget: ${employee.effectiveBudget.maxActionsPerHour}/hr</div>
+      </div>
+    </article>
+  `;
+}
+
+// 2. Add Monologue to Manager Log Table
+// Update the row generation inside renderManagerLogTable:
+// Find the <td> for "Reason" and update its content:
+//
+// `<td>
+//   <div>${escapeHtml(entry.reason)}</div>
+//   <div class="muted small">${escapeHtml(entry.message)}</div>
+//   ${entry.executionContext?.internalMonologue ? 
+//     renderExpandableText(`thought-${entry.timestamp}`, "🧠 View Internal Monologue", entry.executionContext.internalMonologue) : ""}
+//   ...
+// </td>`
+
+// 3. New Roadmap Section
+function renderRoadmapsTable(roadmaps: TeamRoadmap[]): string {
+  if (roadmaps.length === 0) return `<div class="empty-state">No strategic objectives defined.</div>`;
+  return `
+    <table class="data-table">
+      <thead><tr><th>Priority</th><th>Objective</th><th>Context</th><th>Status</th></tr></thead>
+      <tbody>
+        ${roadmaps.map(r => `
+          <tr>
+            <td><span class="priority-pill p-${r.priority}">${r.priority}</span></td>
+            <td><strong>${escapeHtml(r.objective_title)}</strong></td>
+            <td class="muted small">${escapeHtml(r.strategic_context)}</td>
+            <td><span class="status status-${r.status}">${r.status}</span></td>
+          </tr>
+        `).join("")}
+      </tbody>
+    </table>
+  `;
+}
 import type {
   ApprovalActionFilter,
   ApprovalRecord,
