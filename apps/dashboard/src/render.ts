@@ -81,6 +81,7 @@ import type {
   ServiceOverview,
   TenantOverview,
   TenantSummary,
+  TeamRoadmap,
 } from "./types";
 
 function escapeHtml(value: unknown): string {
