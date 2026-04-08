@@ -453,43 +453,6 @@ function renderEmployeeJumpButton(employeeId: string): string {
   `;
 }
 
-          ${renderEmployeeJumpButton(employee.identity.employeeId)}
-          <span class="${employeeStateSummaryClass(employee.effectiveState.state)}">
-            ${escapeHtml(employee.effectiveState.state)}
-          </span>
-        </div>
-      </div>
-
-      <div class="governance-grid">
-        <div>
-          <div class="muted small">Blocked</div>
-          <div>${employee.effectiveState.blocked ? "yes" : "no"}</div>
-        </div>
-        <div>
-          <div class="muted small">Trace verification</div>
-          <div>${employee.effectiveAuthority.requireTraceVerification ? "required" : "not required"}</div>
-        </div>
-        <div>
-          <div class="muted small">Tenants</div>
-          <div>${renderValue(employee.effectiveAuthority.allowedTenants?.join(", "))}</div>
-        </div>
-        <div>
-          <div class="muted small">Services</div>
-          <div>${renderValue(employee.effectiveAuthority.allowedServices?.join(", "))}</div>
-        </div>
-        <div>
-          <div class="muted small">Max actions / scan</div>
-          <div>${renderValue(employee.effectiveBudget.maxActionsPerScan)}</div>
-        </div>
-        <div>
-          <div class="muted small">Max actions / hour</div>
-          <div>${renderValue(employee.effectiveBudget.maxActionsPerHour)}</div>
-        </div>
-      </div>
-    </article>
-  `;
-}
-
 function renderEscalationActions(entry: EscalationRecord): string {
   if (entry.state === "resolved") {
     return `<span class="muted small">Resolved</span>`;
