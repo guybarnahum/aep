@@ -109,9 +109,10 @@ export class D1TaskStore implements TaskStore {
             employee_id,
             verdict,
             reasoning,
+            internal_monologue,
             evidence_trace_id,
             created_at
-          ) VALUES (?, ?, ?, ?, ?, ?, COALESCE(?, CURRENT_TIMESTAMP))`,
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, COALESCE(?, CURRENT_TIMESTAMP))`,
         )
         .bind(
           decision.id,
@@ -119,6 +120,7 @@ export class D1TaskStore implements TaskStore {
           decision.employeeId,
           decision.verdict,
           decision.reasoning,
+          decision.internalMonologue ?? null,
           decision.evidenceTraceId ?? null,
           decision.createdAt ?? null,
         ),

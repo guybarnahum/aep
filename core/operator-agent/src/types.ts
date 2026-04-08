@@ -42,6 +42,12 @@ export interface AgentIdentity {
   teamId: TeamId;
   roleId: AgentRoleId;
   managerRoleId?: AgentRoleId;
+
+  // Cognitive Plane additions
+  bio?: string;        // The agent's biography
+  tone?: string;       // The agent's communication tone
+  skills?: string[];   // The agent's core competencies
+  photoUrl?: string;   // The agent's photo URL
 }
 
 export interface AgentAuthority {

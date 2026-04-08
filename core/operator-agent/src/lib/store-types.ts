@@ -118,6 +118,7 @@ export interface Decision {
   employeeId: string;
   verdict: TaskVerdict;
   reasoning: string;
+  internalMonologue?: string; // The "Thinking Trace" from the LLM
   evidenceTraceId?: string;
   createdAt?: string;
 }
