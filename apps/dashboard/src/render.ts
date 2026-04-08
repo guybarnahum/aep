@@ -453,16 +453,6 @@ function renderEmployeeJumpButton(employeeId: string): string {
   `;
 }
 
-function renderEmployeeCard(employee: OperatorEmployeeRecord, selectedEmployeeId: string | null): string {
-  const isSelected = selectedEmployeeId === employee.identity.employeeId;
-  return `
-    <article class="service-card ${isSelected ? "service-card-selected" : ""}">
-      <div class="service-card-header">
-        <div>
-          <h3>${escapeHtml(employee.identity.employeeName)}</h3>
-          <p class="muted">${escapeHtml(employee.identity.employeeId)} · ${escapeHtml(employee.identity.roleId)}</p>
-        </div>
-        <div class="card-actions">
           ${renderEmployeeJumpButton(employee.identity.employeeId)}
           <span class="${employeeStateSummaryClass(employee.effectiveState.state)}">
             ${escapeHtml(employee.effectiveState.state)}
