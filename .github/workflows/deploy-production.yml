@@ -114,8 +114,6 @@ jobs:
     with:
       environment_name: production
       pages_project_name: aep-dashboard
-      control_plane_base_url: ${{ needs.deploy-production-env.outputs.deploy_url }}
-      operator_agent_base_url: ${{ needs.deploy-production-env.outputs.operator_agent_url }}
     secrets:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

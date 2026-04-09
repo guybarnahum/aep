@@ -96,8 +96,6 @@ jobs:
     with:
       environment_name: staging
       pages_project_name: aep-dashboard-staging
-      control_plane_base_url: ${{ needs.deploy-staging-env.outputs.deploy_url }}
-      operator_agent_base_url: ${{ needs.deploy-staging-env.outputs.operator_agent_url }}
     secrets:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
