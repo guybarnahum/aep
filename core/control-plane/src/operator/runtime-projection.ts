@@ -91,6 +91,7 @@ export function buildObservedTenantProjection(
     service_count: services.length,
     environment_count: environments.length,
     source: "observed",
+    is_internal: false,
   };
 }
 
