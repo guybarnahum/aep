@@ -1,3 +1,22 @@
+# Dashboard Deployment
+
+The dashboard in `apps/dashboard` is deployed separately from the Workers as a static web app.
+
+Recommended target:
+- Cloudflare Pages
+
+Required build-time environment variables:
+- `VITE_CONTROL_PLANE_BASE_URL`
+- `VITE_OPERATOR_AGENT_BASE_URL`
+
+In staging, the dashboard should point to the deployed staging control-plane and operator-agent Workers.
+
+This keeps:
+- UI deployment separate from runtime orchestration
+- browser-based observability simple
+- the operator surface directly connected to live staging services
+
+See `apps/dashboard/README.md` for dashboard-specific deployment details.
 
 # AEP — Agentic Engineering Platform
 
