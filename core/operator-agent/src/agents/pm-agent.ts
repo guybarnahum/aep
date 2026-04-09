@@ -27,7 +27,7 @@ export async function runPmAgent(
   try {
     const response = await fetch(`${env.CONTROL_PLANE_TARGET}/runs`);
     if (response.ok) {
-      const data = await response.json();
+      const data = await response.json() as { runs: any[] };
       currentRuns = data.runs;
     }
   } catch (e) {

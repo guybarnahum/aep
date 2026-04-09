@@ -1,80 +1,387 @@
-````
+
 # AEP — Agentic Engineering Platform
-### The Infrastructure Department as a Service (IDaaS)
 
-AEP is the runtime kernel for a zero-employee infrastructure company. It models infrastructure operations not as a set of scripts, but as a fully functional operating organization with teams, identities, and authoritative work management.
+## What this is
 
----
+AEP is the **infra department kernel** of a future:
 
-## 👁️ Vision
-AEP is designed to be the self-operating infrastructure department inside a larger agentic organization (e.g., a Paperclip-style company). Much like AWS began as Amazon’s internal team, AEP is built to dogfood internally before scaling to external multi-tenant customers.
+> **Agentic, zero-employee companies**
 
-**The Goal:** A system that plans, codes, deploys, validates, and fixes itself with minimal human intervention.
+It is not just infrastructure orchestration.
 
----
+# AEP — Agentic Engineering Platform
+- executes **workflows as operations**
+AEP is the **infra department kernel** of a zero-employee, agentic company.
 
-## 🏗️ Architecture: The Five Planes
-AEP operates across a Cloudflare-native substrate (Workers, Durable Objects, D1) through five distinct planes:
-
-1.  **Control Plane (The Brain):** Stateful orchestration (Durable Objects), D1-backed runtime state, and provider-neutral job/attempt lifecycles.
-2.  **Execution Plane (The Muscle):** Asynchronous execution of infrastructure mutations via operator APIs.
-3.  **Observability Plane (The Memory):** A trace-first system where every action is explainable and verifiable via `/trace/:id`.
-4.  **Governance Plane (The Trust):** Real-time budget enforcement, cooldowns, and human-in-the-loop approval gates.
-5.  **Delivery Plane (The Logistics):** Integration with GitHub Actions and ephemeral "Proving Ground" environments.
+It models infrastructure operations not as scripts, but as a **stateful operating organization** with:
+- agents (employees)
+- workflows (operations)
+- policies (governance)
+- trace (audit)
+- maintains **auditability and trace**
 
 ---
 
-## 👥 The AEP Organization
-The platform is structured into specialized departments composed of autonomous "employees":
+AEP is designed as the **self-operating infrastructure department** inside a larger agentic organization.
 
-| Team | Role | Primary Responsibility |
-| :--- | :--- | :--- |
-| **Validation Team** | `reliability-engineer` | System integrity, health monitoring, and fix-it loops. |
-| **Infra Dev Team** | `infra-ops-manager` | Platform engineering, deployment substrate, and feature dev. |
-| **Infra Dev Team** | `timeout-recovery` | Stuck/Timeout job detection and safe intervention. |
-| **Infra Dev Team** | `retry-supervisor` | Smart backoff and retry strategy management. |
-| **Web Product Team** | `frontend-engineer` | Human interface, AEP dashboard, and documentation. |
+The goal is a system that can:
+- plan
+- deploy
+- validate
+- remediate
 
-### Bounded Autonomous Cron
-The department operates under a "Bounded Alternating Cron" model to stay within Cloudflare subrequest limits:
-* One infra scanner per tick (alternating between `timeout-recovery` and `retry-supervisor`).
-* The `reliability-engineer` runs every tick to ensure continuous safety validation.
+with minimal human intervention — while remaining **observable and controllable**.
 
----
+- Cloudflare Workers / Durable Objects (today)
+## Architecture
 
-## ⚖️ The Task & Decision Ledger
-AEP 1.0 (Layer 5) introduces a formal stateful work-management model that separates request origin from execution authority:
+### Execution Boundary (Critical)
 
-* **`workOrderId` (Authority):** The explicit D1-backed ledger identifier. Used for authoritative task-tracking, status transitions (`pending` → `in-progress` → `completed`), and recording durable verdicts.
-* **`taskId` (Provenance):** The Paperclip-native identifier used for cross-system tracking. It provides history without requiring a local D1 ledger row.
-* **Decision Ledger:** A relational record of *why* a choice was made (e.g., `pass`, `remediate`), linked to the authoritative execution trace for forensic reconstruction.
+AEP enforces a strict separation:
 
----
+- **Worker runtime** → orchestration + decision-making  
+- **CI / external systems** → real execution (deploy, teardown)
 
-## 📍 Current Status — Commit 14.x
-AEP has matured into a **Stateful Autonomous Department**.
-
-* **Self-Healing Runtime (PR3):** The **Reliability Engineer** (`emp_val_specialist_01`) autonomously claims `validate-deployment` tasks, executes health checks, and records remediation decisions.
-* **Atomic Org Updates:** Organizational identity is synchronized across TypeScript definitions and the authoritative D1 `employees_catalog`.
-* **Budget & Cooldown:** Enforced per-scan, per-hour, and per-tenant to ensure safe autonomous behavior.
-* **Paperclip-First:** Explicit execution provenance (`x-aep-execution-source`) is required for all runs.
+This ensures:
+- deterministic control-plane behavior
+- safe retries and idempotency
+- clear audit boundaries
 
 ---
 
-## 🚧 Roadmap & Gaps
-1.  **CI/CD Bridge (PR4):** Full integration where GitHub Actions wait for agentic verdicts before completing a "Proving Ground" deployment.
-2.  **Manager Overlays:** Finalizing the UI for real-time human intervention to clarify intent or freeze agents without code changes.
-3.  **Adaptive Policy:** Extending automated "restriction" and "re-enabling" based on cross-worker failure patterns.
+### Operational Planes
+
+AEP operates across five logical planes:
+
+1. **Control Plane**
+   - Durable Object orchestration
+   - jobs, attempts, workflow state
+
+2. **Execution Plane**
+   - CI and provider integrations
+   - deploy / teardown actions
+
+3. **Observability Plane**
+   - trace-first system (`/trace/:id`)
+   - structured failure + audit data
+
+4. **Governance Plane**
+   - budgets, cooldowns, authority scopes
+   - safe mutation enforcement
+
+5. **Delivery Plane**
+   - GitHub Actions integration
+   - proving-ground environments
+
+These are logical separations, not separate services.
+
+
+## Agent Model
+
+AEP models agents as **employees with identity and role**.
+
+Current system:
+
+- **Marcus (`emp_pm_01`)**
+  - Product Manager
+  - translates strategy → tasks
+
+- **Sia (`emp_val_specialist_01`)**
+  - Reliability Engineer
+  - validates deployments and system safety
+
+Agents:
+- observe system state
+- produce reasoning
+- act through the control plane
+
+All actions are:
+- attributed
+- recorded
+- auditable
+This is where:
+- work is executed
+## Scheduling Model (Bounded Autonomy)
+
+AEP operates under infrastructure constraints (e.g., Cloudflare limits).
+
+To remain safe and predictable:
+
+- agents run in bounded cycles
+- background scanners are rate-limited
+- work is distributed across ticks
+
+Example:
+- validation runs continuously
+- recovery tasks are alternated per cycle
+
+This prevents:
+- runaway execution
+- unbounded retries
+- system overload
+### 3. Company Layer (future — “Paperclip”)
+- org structure
+- budgets
+- strategy
+AEP separates **authority, provenance, and decisions**.
+
+### Work Orders (Authority)
+
+- `workOrderId`
+- authoritative D1 record
+- lifecycle:
+  - `pending → in-progress → completed`
+
+### Tasks (Provenance)
+
+- `taskId`
+- cross-system identifier
+- not authoritative on its own
+
+### Decision Ledger
+
+Every action produces a decision:
+
+- `pass`
+- `fail`
+- `remediate`
+- `retry`
+
+Each decision is:
+- linked to trace
+- attributable to an agent
+- replayable
+
+This enables full reconstruction of system behavior.
+
+
+- Durable Object–based orchestration
+- async workflow execution (deploy / teardown)
+AEP is now a **stateful autonomous infrastructure department**.
+
+- control-plane: stable and orchestrating real workflows
+- workflow engine: async, retry-safe, observable
+- CI: real deployment validation
+- trace: complete audit surface
+- agents: active (Marcus, Sia)
+- org model: D1-backed identities and roles
+
+The system is:
+- self-operating (bounded)
+- observable
+- safe to extend
+
+
+- lifecycle: `waiting → running → completed | failed`
+- async external execution model
+1. Inter-agent negotiation (task clarification, budget escalation)
+2. Scoped agent identity (JWT + attribution)
+3. Episodic memory (vector retrieval of past failures)
+4. Real provider integrations (AWS, GCP, etc.)
+---
+### Operator Surface
+
+APIs:
+- `/runs`
+- `/runs/:id`
+- `/runs/:id/jobs`
+- `/tenants`
+- `/services`
+
+Capabilities:
+- full run visibility
+- job + attempt inspection
+- derived status + failure classification
 
 ---
 
-## 🛠️ Repository Layout
-```text
-.
-├── apps/                 # operator UI surfaces (Dashboard, Ops Console)
-├── core/
-│   ├── control-plane     # DO-based orchestration engine + inventory APIs
-│   └── operator-agent    # autonomous employees + task/decision ledger
-├── infra/                # Cloudflare (Wrangler) + D1 migrations
-├── scripts/              # CI/CD validation + synthetic failure harnesses
-```
+### Observability (Critical)
+
+- normalized `/trace/:id`
+- structured failure payloads:
+  - `failure_kind`
+  - attempt context
+- CI-integrated summaries
+
+Trace is the **source of truth**.
+
+---
+
+### CI / Validation System
+
+- deploy via GitHub Actions
+- D1 migrations
+- health checks (`/healthz`)
+- smoke tests (`/workflow/start`)
+- SHA verification
+
+CI is:
+> the **real execution validator**
+
+Worker runtime remains:
+> orchestration + control-plane only
+
+---
+
+## PR5 Shift: From Automation → Digital Employees
+
+AEP has crossed a major boundary:
+
+> AI is no longer a feature — it is the organization.
+
+We now model **agents as employees**.
+
+---
+
+## Current Agent System
+
+### Strategic Loop (v1)
+
+Two agents drive the system:
+
+#### Marcus (`emp_pm_01`)
+- Role: Product Manager
+- Focus: strategy → tasks
+- Concern: *why*
+
+#### Sia (`emp_val_specialist_01`)
+- Role: Reliability Engineer
+- Focus: validation + safety
+- Concern: *how*
+
+They operate through:
+- the control plane
+- the tactical ledger (runs/jobs)
+- structured reasoning + decisions
+
+---
+
+## Runtime Model
+
+### How agents run
+
+1. Agent **senses** system state (runs, jobs, roadmap)
+2. Agent produces:
+   - reasoning
+   - internal monologue
+3. Agent **acts**:
+   - creates tasks
+   - advances workflows
+   - validates execution
+
+All actions:
+- go through control-plane APIs
+- are recorded in trace + decisions
+
+---
+
+### Human Interaction Model
+
+Humans interact via:
+
+#### 1. APIs
+- full operator control
+- can inspect and intervene
+
+#### 2. Dashboard (apps/dashboard)
+- visualize runs, jobs, traces
+- audit agent decisions
+- trigger workflows
+
+#### 3. CI System
+- acts as execution validator
+- ensures real-world correctness
+
+---
+
+## Design Principles
+
+### 1. Separation of Concerns
+
+- Worker runtime: orchestration only
+- CI / external systems: execution
+- agents: decision-making
+
+---
+
+### 2. Auditability First
+
+Every decision:
+- is recorded
+- is attributable
+- is replayable
+
+---
+
+### 3. Safe Mutation Surface
+
+- no arbitrary state mutation
+- all actions go through defined APIs
+- idempotent + retry-safe
+
+---
+
+### 4. Agent-Compatible by Design
+
+System is built so that:
+- agents can operate it safely
+- humans and agents use the same surface
+
+---
+
+## Current State
+
+> **Strategic Ready**
+
+- Control plane: stable
+- Workflow engine: production-grade semantics
+- CI validation: operational
+- Operator surface: usable
+- Agents: initialized (Marcus, Sia)
+- Dashboard: placeholder but structured
+
+---
+
+## Near-Term Roadmap
+
+### 1. Inter-Agent Collaboration
+- negotiation between agents
+- shared message channel (D1)
+
+---
+
+### 2. Identity & Security
+- scoped agent tokens (JWT)
+- per-action attribution
+
+---
+
+### 3. Memory System
+- vectorized episodic memory
+- retrieval of past runs / failures
+
+---
+
+### 4. Real Provider Integration
+- AWS / GCP connectors
+- real resource sensing
+
+---
+
+## What This Becomes
+
+AEP evolves into:
+
+> a **self-operating infrastructure organization**
+
+Where:
+- agents plan
+- agents validate
+- agents operate
+- humans supervise
+
+---
+
+## Repository
+
+https://github.com/guybarnahum/aep
