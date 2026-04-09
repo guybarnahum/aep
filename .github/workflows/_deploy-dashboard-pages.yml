@@ -53,7 +53,7 @@ jobs:
         with:
           node-version: 24
           cache: npm
-          cache-dependency-path: apps/dashboard/package-lock.json
+          cache-dependency-path: package-lock.json
 
       - name: Validate required inputs
         run: |
@@ -69,16 +69,15 @@ jobs:
           echo "Control-plane base URL: ${{ inputs.control_plane_base_url }}"
           echo "Operator-agent base URL:${{ inputs.operator_agent_base_url }}"
 
-      - name: Install dashboard dependencies
-        working-directory: apps/dashboard
+
+      - name: Install workspace dependencies
         run: npm ci
 
       - name: Build dashboard
-        working-directory: apps/dashboard
         env:
           VITE_CONTROL_PLANE_BASE_URL: ${{ inputs.control_plane_base_url }}
           VITE_OPERATOR_AGENT_BASE_URL: ${{ inputs.operator_agent_base_url }}
-        run: npm run build
+        run: npm --workspace @aep/dashboard run build
 
       - name: Deploy to Cloudflare Pages
         working-directory: apps/dashboard

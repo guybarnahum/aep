@@ -126,7 +126,14 @@ jobs:
             echo "- Post-deploy validation: ${{ needs.validate-staging-post-deploy.outputs.outcome }}" >> "$GITHUB_STEP_SUMMARY"
           fi
 
+
           echo "- Dashboard deploy: ${{ needs.deploy-dashboard-pages.result }}" >> "$GITHUB_STEP_SUMMARY"
+          if [[ "${{ needs.deploy-dashboard-pages.result }}" != "success" ]]; then
+            echo "  - Dashboard deploy failed. Check _deploy-dashboard-pages.yml logs for the exact failing stage." >> "$GITHUB_STEP_SUMMARY"
+            echo "  - Current likely failure class for this repo: workspace lockfile/cache mismatch if the workflow points to apps/dashboard/package-lock.json instead of root package-lock.json." >> "$GITHUB_STEP_SUMMARY"
+            echo "  - This repo is an npm workspace repo, so dashboard installs should use root npm ci and the root lockfile." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
 
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "### Lane verdict" >> "$GITHUB_STEP_SUMMARY"
