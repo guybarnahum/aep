@@ -373,6 +373,7 @@ function attachDepartmentActionHandlers(): void {
       const employeeId = button.dataset.employeeId;
       if (!employeeId) return;
       updateDepartmentFilters({ selectedEmployeeId: employeeId });
+      resetDepartmentPaginationPages();
       void renderRoute();
     });
   });

@@ -121,10 +121,23 @@ export type OperatorEmployeeRecord = {
     onRepeatedVerificationFailure: string;
     onProdTenantAction: string;
   };
-  effectiveState: {
+  effectiveState?: {
     state: EmployeeStateValue;
     blocked: boolean;
   };
+  catalog?: {
+    companyId: string;
+    teamId: string;
+    status: string;
+    schedulerMode: string;
+    implemented: boolean;
+  };
+  scope?: {
+    allowedTenants?: string[];
+    allowedServices?: string[];
+    allowedEnvironmentNames?: string[];
+  };
+  message?: string;
   governance: {
     companyPrimaryEntryPoint: string;
     cronFallbackEnabled: boolean;

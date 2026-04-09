@@ -1,3 +1,15 @@
+// Normalizer for employee records to ensure shape stability
+function normalizeEmployeeRecord(
+  employee: OperatorEmployeeRecord,
+): OperatorEmployeeRecord {
+  return {
+    ...employee,
+    effectiveState: employee.effectiveState,
+    catalog: employee.catalog,
+    scope: employee.scope,
+    message: employee.message,
+  };
+}
 import type {
   ApprovalRecord,
   ControlHistoryRecord,
@@ -107,7 +119,7 @@ export async function getDepartmentOverview(): Promise<DepartmentOverview> {
   ]);
 
   return {
-    employees: employeesPayload.employees ?? [],
+    employees: (employeesPayload.employees ?? []).map(normalizeEmployeeRecord),
     escalations: escalationsPayload.entries ?? [],
     controlHistory: controlHistoryPayload.entries ?? [],
     managerLog: managerLogPayload.entries ?? [],

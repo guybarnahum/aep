@@ -1,3 +1,33 @@
+// --- Safe helpers for employee rendering ---
+function getEmployeeDisplayState(employee: OperatorEmployeeRecord): string {
+  if (employee.effectiveState?.state) {
+    return employee.effectiveState.state;
+  }
+  if (employee.catalog?.implemented === false) {
+    return employee.catalog.status || "planned";
+  }
+  return "unknown";
+}
+
+function isEmployeeBlocked(employee: OperatorEmployeeRecord): boolean {
+  return employee.effectiveState?.blocked === true;
+}
+
+function isEmployeeRestricted(employee: OperatorEmployeeRecord): boolean {
+  return employee.effectiveState?.state === "restricted";
+}
+
+function getEmployeeBudgetSummary(employee: OperatorEmployeeRecord): string {
+  const maxActionsPerHour = employee.effectiveBudget?.maxActionsPerHour;
+  return typeof maxActionsPerHour === "number" ? `${maxActionsPerHour}/hr` : "—";
+}
+
+function getEmployeeGovernanceSummary(employee: OperatorEmployeeRecord): string {
+  if (employee.catalog?.implemented === false) {
+    return employee.message || "Catalog employee — not yet implemented in runtime.";
+  }
+  return employee.governance?.escalationRoute || "—";
+}
 // 1. New Persona-driven Employee Card
 function renderEmployeeCard(employee: OperatorEmployeeRecord, selectedEmployeeId: string | null): string {
   const iden = employee.identity;
@@ -8,14 +38,14 @@ function renderEmployeeCard(employee: OperatorEmployeeRecord, selectedEmployeeId
     <article class="service-card persona-card ${isSelected ? "service-card-selected" : ""}">
       <div class="service-card-header">
         <div class="avatar-block">
-          ${iden.photoUrl ? `<img src="${escapeHtml(iden.photoUrl)}" class="avatar-img" />` : `<div class="avatar-fallback">${escapeHtml(iden.employeeName[0])}</div>`}
+          ${iden.photoUrl ? `<img src="${escapeHtml(iden.photoUrl)}" class="avatar-img" />` : `<div class="avatar-fallback">${escapeHtml(iden.employeeName?.[0] || "?")}</div>`}
         </div>
         <div style="flex: 1; margin-left: 12px;">
           <h3 style="margin:0">${escapeHtml(iden.employeeName)}</h3>
           <p class="muted small" style="margin:0">${escapeHtml(iden.roleId)}</p>
         </div>
         <div class="card-actions">
-          <span class="${employeeStateSummaryClass(employee.effectiveState.state)}">${escapeHtml(employee.effectiveState.state)}</span>
+          <span class="${statusClass(employee.effectiveState?.state)}">${escapeHtml(getEmployeeDisplayState(employee))}</span>
         </div>
       </div>
 
@@ -26,7 +56,9 @@ function renderEmployeeCard(employee: OperatorEmployeeRecord, selectedEmployeeId
 
       <div class="governance-grid" style="border-top: 1px solid var(--border); padding-top: 12px;">
         <div class="muted small">Tone: ${escapeHtml(iden.tone || "Neutral")}</div>
-        <div class="muted small">Budget: ${employee.effectiveBudget.maxActionsPerHour}/hr</div>
+        <div class="muted small">Budget: ${escapeHtml(getEmployeeBudgetSummary(employee))}</div>
+        ${employee.catalog?.implemented === false ? `<div class="muted small">Catalog-only employee · ${escapeHtml(employee.catalog.teamId)}</div>` : ""}
+        <div class="muted small">${escapeHtml(getEmployeeGovernanceSummary(employee))}</div>
       </div>
     </article>
   `;
@@ -1010,7 +1042,7 @@ export function renderDepartmentOverview(args: {
 
     const matchesEmployeeState =
       filters.employeeState === "all" ||
-      employee.effectiveState.state === filters.employeeState;
+      employee.effectiveState?.state === filters.employeeState;
 
     return matchesSelectedEmployee && matchesEmployeeState;
   });
@@ -1090,16 +1122,19 @@ export function renderDepartmentOverview(args: {
     pagination.approvals.pageSize,
   );
 
-  const blockedEmployees = overview.employees.filter(
-    (employee) => employee.effectiveState.blocked,
+  const blockedEmployees = overview.employees.filter((employee) =>
+    isEmployeeBlocked(employee),
   ).length;
 
   const openEscalations = overview.escalations.filter(
     (entry) => entry.state === "open",
   ).length;
 
-  const restrictedEmployees = overview.employees.filter(
-    (employee) => employee.effectiveState.state === "restricted",
+  const restrictedEmployees = overview.employees.filter((employee) =>
+    isEmployeeRestricted(employee),
+  ).length;
+  const plannedEmployees = overview.employees.filter(
+    (employee) => employee.catalog?.implemented === false,
   ).length;
 
   return `
@@ -1119,7 +1154,7 @@ export function renderDepartmentOverview(args: {
           ${renderSummaryCard(
             "Employees",
             overview.employees.length,
-            `${blockedEmployees} blocked · ${restrictedEmployees} restricted`,
+            `${blockedEmployees} blocked · ${restrictedEmployees} restricted · ${plannedEmployees} planned`,
           )}
           ${renderSummaryCard(
             "Open escalations",
