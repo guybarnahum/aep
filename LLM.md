@@ -1,12 +1,13 @@
-# LLM.md — AEP Project State, Mental Model, and Execution Plan
+# 🧠 LLM.md — AEP Cognitive Context & Execution Plan
 
-This document is the working continuity file for LLM sessions on AEP.
+This document is the **source of truth for LLM sessions** working on AEP.
 
-Its job is to:
-- restore accurate project context quickly
+It exists to:
+- restore context quickly
+- anchor decisions in system reality
 - prevent architectural drift
-- capture the current staged plan
-- make the next implementation steps explicit
+- define the staged execution plan
+- enable continuation without re-deriving intent
 
 ---
 
@@ -14,20 +15,15 @@ Its job is to:
 
 AEP (Agentic Engineering Platform) is:
 
-> the infra and operations kernel of an agentic, zero-employee company
+> the **infra + operations kernel of a zero-employee, agentic company**
 
-AEP is not just:
-- a workflow engine
-- a deployment orchestrator
-- a chatbot with tools
+AEP models:
+- agents → employees
+- workflows → operations
+- control-plane → management
+- trace → audit + memory
 
-AEP is becoming:
-- a company model
-- an operating department model
-- an employee model
-- an auditable runtime for digital employees
-
-The system is evolving from:
+We are transitioning from:
 
 > “AI as a feature”
 
@@ -37,159 +33,442 @@ to
 
 ---
 
-# 2. Ground Truth Architecture
+# 2. Core Architecture (Ground Truth)
 
-## Execution boundary (critical)
+## Execution Boundary (CRITICAL)
 
-AEP enforces a hard separation between:
+AEP enforces strict separation:
 
-### Worker runtime
-Responsible for:
+### Worker runtime (Cloudflare)
 - orchestration
 - workflow state
-- policy checks
-- agent runtime coordination
-- trace and audit production
+- governance
+- agent coordination
+- trace + audit
 
-### External execution systems
-Responsible for:
+### External systems (CI / providers)
 - deploy
 - teardown
-- validation side effects
 - real-world infra mutation
 
-This boundary must not be violated.
-
-Workers coordinate and reason.
-They do not directly perform uncontrolled infra mutations.
+This must NEVER be violated.
 
 ---
 
-## Current runtime layers
+## Current System Layers
 
-### 1. Control plane
-- Durable Object–based orchestration
+### 1. Control Plane
+- Durable Object orchestration
 - D1-backed state
-- run / job / attempt model
-- async pause / resume lifecycle
-- trace-oriented observability
+- job + attempt model
+- async lifecycle (waiting → running → completed | failed)
+- pause / resume
 
-### 2. Operator-agent plane
-- employee-facing and manager-facing operational APIs
-- employee controls
+### 2. Operator-Agent Plane
+- employee model
 - escalations
 - approvals
+- manager log
 - control history
-- manager decision log
+- roadmaps
 - scheduler status
 
-### 3. Dashboard / ops-console plane
-This is the operator observability surface.
+### 3. Dashboard / Ops Console
+- organization + governance visibility
+- execution visibility (partial)
 
-Its purpose is not just UI polish.
-It is the visible mirror of the system model.
-
-### 4. CI / external execution plane
-- deployment workflows
+### 4. CI Plane
+- deployment validation
 - health checks
-- smoke checks
-- surface checks
-- structural validation
+- operator surface checks
+- org shape validation
 
 ---
 
-# 3. Current Conceptual Shift (Post-PR5)
+# 3. PR5 → PR6 Transition
 
-PR5 established the critical shift:
+PR5 introduced:
 
-> AEP is no longer “automation with AI”
-> it is “organization modeled as employees”
+> agents as employees
 
-Post-PR5, the next major step is:
+PR6 introduces:
 
-> move from “a few named agents exist”
-> to “a structured company and department model exists”
+> **organization as first-class runtime structure**
 
-That is PR6.
+We are no longer modeling a few agents.
 
----
-
-# 4. Current Organizational Model
-
-AEP is moving toward a model with explicit:
-
+We are modeling:
 - company
-- departments / teams
+- teams
 - employees
 - managers
-- task / decision / approval flows
-- cross-team coordination
-- scheduler / supervision
-- observability surfaces that reflect these levels
+- governance
+- coordination
 
-The repo is already partially in this transition.
+---
 
-Important current reality:
+# 4. Current State (POST PR6A)
 
-## Two employee classes now exist
+## ✅ PR6A — Completed
 
-### A. Runtime employees
-These are real implemented employees in runtime.
-They can have:
+### What exists now
+
+#### Organization model
+- company
+- teams:
+  - infra
+  - web-product
+  - validation
+
+#### Employees (mixed types)
+- runtime employees (infra)
+- catalog/planned employees (web + validation)
+
+#### Operator-agent surface
+- `/agent/employees`
+- `/agent/escalations`
+- `/agent/approvals`
+- `/agent/control-history`
+- `/agent/manager-log`
+- `/agent/roadmaps`
+- `/agent/scheduler-status`
+
+#### Dashboard (department view)
+- employees
+- escalations
+- approvals
+- manager log
+- control history
+- roadmaps
+- scheduler
+
+#### CI
+- org schema validation
+- operator surface checks
+- multi-team validation
+
+---
+
+## ⚠️ Critical Reality
+
+Employees now exist in two forms:
+
+### 1. Runtime employees (implemented)
+Have:
 - effectiveState
 - effectiveBudget
 - effectiveAuthority
-- manager policy overlays
-- control history
 
-### B. Catalog / planned employees
-These are defined as part of the org model but are not yet fully implemented in runtime.
-They may have:
+### 2. Catalog / planned employees
+Have:
 - catalog metadata
 - scope
-- message / placeholder explanation
+- optional persona
 
-They may not yet have:
+May NOT have:
 - effectiveState
-- effectiveBudget
-- effectiveAuthority
+- runtime fields
 
-This distinction is important and must be explicit.
-The UI must not guess by missing fields forever; the runtime contract must eventually declare the distinction directly.
+👉 This broke the dashboard and revealed a deeper issue:
+
+> the system lacks a **formal projection contract**
 
 ---
 
-# 5. The Immediate Product Priority: Observability First
+# 5. Key Design Insight (Locked)
 
-Before deeper agent cognition work, we want strong observability over what already exists.
+## 🧍 Employee = Encapsulated Unit
 
-This means:
+Each employee is:
 
-> the dashboard and ops-console must mirror the levels of the system
+> a **bounded entity with identity, cognition, and projection**
 
-Not just runs and jobs.
+---
 
-They should reflect:
+## Split the employee into 3 layers
 
-- company
-- departments / teams
+### 1. Shell (org-visible)
+- employeeId
+- companyId
+- teamId
+- roleId
+- runtimeStatus
+- authority
+- budget
+- effectiveState
+
+---
+
+### 2. Public Profile (visible)
+- displayName
+- shortBio
+- skills
+- avatarUrl
+
+---
+
+### 3. Mind (private, encapsulated)
+- base prompt
+- tone / decision style
+- identity seed
+- memory (future)
+- internal monologue (future)
+- portrait generation prompt
+- prompt version
+
+---
+
+## 🔒 Rule
+
+> LLM + generative identity live **inside the employee**
+
+NOT:
+- global prompt registry
+- shared persona system
+- exposed raw cognitive state
+
+System exposes:
+- projections
+- not internals
+
+---
+
+# 6. Observability-First Principle
+
+Before deeper cognition:
+
+> we must fully observe what already exists
+
+The dashboard and ops-console must mirror:
+
+### Levels of the system
+
+1. Company
+2. Teams
+3. Employees
+4. Governance
+5. Execution
+6. (future) Cognition
+
+---
+
+## Dashboard vs Ops Console
+
+### Dashboard
+- org view
 - employees
-- managers
-- roadmaps
-- work / decisions / approvals
-- controls and escalations
-- trace and execution
+- governance
+- approvals
+- escalations
+- roadmap
 
-This observability-first step is intentional.
+### Ops Console
+- runs / jobs / attempts
+- trace
+- execution debugging
 
-Reason:
-- we already have meaningful runtime state and governance state
-- we need visibility before adding more cognition
-- without strong visibility, future LLM-driven behavior becomes hard to debug and trust
+They complement each other.
 
 ---
 
-# 6. System Levels the UI Must Mirror
+# 7. PR6 Plan
+
+---
+
+## ✅ 6A — Department Surface + Org Seeding (DONE)
+
+- org exists in runtime + UI
+- mixed employee types introduced
+- dashboard + CI expanded
+
+---
+
+## 🔷 6B — Runtime Projection + Employee Boundary (NEXT)
+
+### 🎯 Goal
+
+Make employees:
+
+> **well-defined, explicit, and bounded**
+
+---
+
+### Introduce canonical projection
+
+```ts
+EmployeeProjection = {
+  identity: {
+    employeeId
+    companyId
+    teamId
+    roleId
+  }
+
+  runtime: {
+    runtimeStatus: "implemented" | "planned" | "disabled"
+    effectiveState?
+    effectiveBudget?
+    effectiveAuthority?
+  }
+
+  publicProfile?: {
+    displayName
+    bio
+    skills
+    avatarUrl
+  }
+
+  hasCognitiveProfile: boolean
+}
+```
+
+---
+
+### Requirements
+
+#### 1. Backend must be explicit
+- no missing-field inference
+- runtimeStatus is REQUIRED
+
+#### 2. UI must not guess
+- no assumptions about effectiveState
+- no implicit “planned” detection
+
+#### 3. Cognitive layer exists but is hidden
+- persona stored
+- prompt stored
+- NOT exposed by default
+
+#### 4. CI enforces shape
+- implemented employees → must have effectiveState
+- planned employees → must not fake runtime fields
+
+---
+
+### Definition of Done (6B)
+
+- stable employee API contract
+- explicit runtimeStatus
+- dashboard uses projection cleanly
+- no UI crashes
+- CI enforces structure
+
+---
+
+## 🔷 6C — Company Coordination
+
+### Goal
+Move from:
+
+> teams exist
+
+to:
+
+> teams interact
+
+---
+
+### Introduce
+
+- company-level orchestration
+- cross-team flows
+- roadmap → execution linkage
+
+Example:
+- Web → Infra → Validation
+
+---
+
+## 🔷 6D — Documentation Lock
+
+- update README.md
+- update LLM.md
+- lock architecture and plan
+
+Goal:
+> no more reconstruction required
+
+---
+
+# 8. Future Phase — Cognition Layer
+
+After observability + projection:
+
+---
+
+## Internal Monologue
+- private
+- stored in trace / memory
+- used for explainability
+
+---
+
+## Inter-Employee Messaging
+- explicit communication
+- persisted
+- visible in org views
+
+---
+
+## LLM Reasoning Loop
+
+Each employee:
+
+1. observes system state
+2. reads messages
+3. invokes LLM
+4. outputs:
+   - reasoning
+   - internal_monologue
+   - decisions
+   - messages
+5. acts via control-plane APIs
+
+---
+
+# 9. Constraints (DO NOT VIOLATE)
+
+- no infra mutation inside Workers
+- no UI as source of truth
+- no implicit state inference
+- no exposing full cognitive internals by default
+- no mixing monologue and messaging
+- no unauditable agent actions
+
+---
+
+# 10. Immediate Next Step
+
+👉 Implement **PR6B**
+
+Specifically:
+
+1. define EmployeeProjection
+2. update `/agent/employees`
+3. normalize catalog + runtime + persona
+4. update dashboard to use projection
+5. add CI checks
+
+---
+
+# 11. Summary
+
+AEP is now:
+
+> a partially observable agentic organization
+
+The next step is:
+
+> make employees real, bounded, and explicit
+
+Everything after that:
+- reasoning
+- messaging
+- autonomy
+
+depends on this foundation.
+
+# 12. System Levels the UI Must Mirror
 
 The dashboard and ops-console should converge toward reflecting the following levels.
 
@@ -237,287 +516,3 @@ Questions:
 - what evidence and context drove decisions?
 
 This level is not fully implemented yet, but it is part of the plan and should be represented in the architecture and docs now.
-
----
-
-# 7. PR6 Staged Plan
-
-This staged plan is the current working roadmap.
-
-## 6A — Department Surface + Org Seeding
-Goal:
-Introduce the org model into runtime-facing APIs and dashboard surfaces.
-
-Scope:
-- employee catalog expansion
-- multi-team model
-- department dashboard view
-- manager / approval / escalation / control-history surfaces
-- roadmaps and scheduler status exposure
-- CI checks for operator surface and multi-team shape
-
-Reality:
-This stage introduced mixed employee types:
-- implemented runtime employees
-- planned / catalog employees
-
-This created UI shape bugs where the dashboard assumed all employees had full runtime fields.
-
-### 6A done means
-- org is visible
-- teams are visible
-- dashboard handles mixed employee shapes safely
-- CI validates the surface
-
----
-
-## 6B — Runtime Projection Contract
-Goal:
-Make the org/runtime contract explicit and stable.
-
-This stage should introduce a canonical employee runtime projection, for example:
-
-- identity
-- companyId
-- teamId
-- runtimeStatus: implemented | planned | disabled
-- effectiveState?
-- effectiveBudget?
-- effectiveAuthority?
-- catalog metadata
-
-Key requirement:
-The backend must explicitly declare employee runtime status.
-The UI should not infer meaning from missing fields.
-
-### 6B done means
-- stable employee API contract
-- explicit distinction between planned and implemented employees
-- no UI guesswork
-- CI enforces shape consistency
-
----
-
-## 6C — Company Coordination Model
-Goal:
-Move from “teams exist” to “teams interact”.
-
-This stage includes:
-- company-level identity as first-class
-- cross-team work flow
-- team-to-team dependency surfaces
-- roadmap-to-execution relationship
-- broader scheduler and coordination semantics
-
-Example future flow:
-- web team defines work
-- infra team deploys
-- validation team validates
-- manager / approval / escalation chain governs execution
-
-### 6C done means
-- the UI and runtime model represent a company, not just a department
-- cross-team coordination is explicit
-- roadmaps connect to execution and governance
-
----
-
-## 6D — Documentation and Concept Lock
-Goal:
-Make the project understandable to new humans and new LLM sessions without relying on memory.
-
-This stage updates:
-- README.md
-- LLM.md
-- dashboard / ops-console framing
-- the observability-first roadmap
-- the next cognitive layers
-
-### 6D done means
-- the current plan is written down
-- the repo tells the truth about current state and next steps
-- future sessions can continue without reconstructing intent from scratch
-
----
-
-# 8. Observability-First Work Before Deeper Cognition
-
-Before building richer LLM-driven introspection, the immediate product work should be:
-
-## A. Make dashboard resilient
-- support implemented and catalog employees safely
-- remove assumptions that all employees have runtime-only fields
-- expose planned vs implemented state clearly
-
-## B. Expand dashboard to mirror system levels
-- company / team / employee views
-- manager decisions
-- approvals
-- escalations
-- control history
-- roadmaps
-- scheduler status
-- links to underlying runs / traces where applicable
-
-## C. Expand ops-console to mirror execution levels
-- run / job / attempt / trace
-- tie execution back to employees / teams when available
-- make it possible to move from org view to execution view
-
-## D. Keep the two surfaces conceptually distinct
-### Dashboard
-Best for:
-- org
-- governance
-- employee and team visibility
-- approvals and escalations
-- policy posture
-
-### Ops-console
-Best for:
-- run / job / attempt detail
-- trace detail
-- execution debugging
-- failure and remediation visibility
-
-They should complement each other, not duplicate blindly.
-
----
-
-# 9. Planned Next Cognitive Layer (After Observability)
-
-Once observability is strong, the next major layer is:
-
-> explicit agent cognition and communication
-
-This includes two distinct concepts.
-
-## A. Internal monologue
-Private introspective thought produced by an employee / agent.
-
-It is for:
-- explainability
-- debugging
-- memory and reflection
-- post-hoc reasoning audit
-
-It is not the same as communication to other employees.
-
-## B. Inter-employee messaging
-Explicit messages exchanged between employees.
-
-Examples:
-- clarification
-- escalation
-- instruction
-- negotiation
-
-This is how the company becomes interactive rather than just independently acting employees.
-
----
-
-# 10. Intended Design for LLM-Driven Introspection and Communication
-
-This is not fully implemented yet, but it is the intended direction.
-
-## Agent cycle shape
-Each employee cycle should conceptually operate as:
-
-1. read observations
-2. read relevant work state
-3. read messages addressed to the employee
-4. invoke LLM with role / authority / context
-5. receive structured output containing:
-   - reasoning
-   - internal monologue
-   - proposed decisions
-   - outgoing messages
-6. persist those artifacts
-7. execute allowed actions only through control-plane APIs
-
-## Separation rule
-Internal monologue and messages must remain distinct.
-
-### Internal monologue
-- private
-- introspective
-- traceable
-- useful for memory and debugging
-
-### Messages
-- explicit communication
-- persisted as inter-employee records
-- visible in org / communication surfaces
-- actionable by other employees
-
-## Enforcement rule
-No meaningful employee action should become a black box.
-Over time, employee actions should be associated with:
-- reasoning
-- evidence
-- trace linkage
-- actor identity
-
----
-
-# 11. Non-Negotiable Constraints
-
-Do not violate these:
-
-- do not execute uncontrolled infra mutation inside Workers
-- do not bypass control-plane APIs
-- do not let UI become the source of truth
-- do not let the UI permanently infer semantics from missing fields
-- do not introduce untraceable agent actions
-- do not conflate private monologue with public inter-agent messaging
-
----
-
-# 12. Current Recommended Sequence
-
-The execution order from here should be:
-
-## Step 1
-Finish 6A safely:
-- harden dashboard against mixed employee shapes
-- make observability surfaces trustworthy
-
-## Step 2
-Proceed to 6B:
-- define canonical employee runtime projection
-- make operator-agent APIs explicit
-- enforce with CI
-
-## Step 3
-Deepen observability:
-- dashboard mirrors org and governance levels
-- ops-console mirrors execution and trace levels
-- bridge the two
-
-## Step 4
-Begin cognition layer:
-- reasoning capture
-- internal monologue persistence
-- inter-employee messaging model
-- bounded LLM invocation contract
-
----
-
-# 13. Short Summary
-
-AEP is currently in the transition from:
-
-> agent-themed infra system
-
-to
-
-> observable, governable, multi-team agentic company runtime
-
-The immediate priority is not “more AI”.
-It is:
-
-> observability that mirrors the real structure already present
-
-After that, the next major milestone is:
-
-> explicit reasoning, introspection, and communication between digital employees
