@@ -9,6 +9,7 @@ type D1Like = D1Database;
 type OrgTenantRow = {
   id: string;
   name: string;
+  is_internal: number | string | null;
 };
 
 type ServiceCatalogRow = {
@@ -98,7 +99,7 @@ function sortByEnvironmentName(
 export async function listCatalogTenants(db: D1Like): Promise<TenantSummary[]> {
   const rows = await db
     .prepare(
-      `SELECT id, name
+      `SELECT id, name, is_internal
        FROM org_tenants
        ORDER BY id`,
     )
@@ -111,6 +112,7 @@ export async function listCatalogTenants(db: D1Like): Promise<TenantSummary[]> {
       name: normalizeName(row.name, row.id.trim()),
       service_count: 0,
       environment_count: 0,
+      is_internal: parseBooleanFlag(row.is_internal),
       source: "seeded" as const,
     }));
 
@@ -123,7 +125,7 @@ export async function getCatalogTenant(
 ): Promise<TenantSummary | null> {
   const row = await db
     .prepare(
-      `SELECT id, name
+      `SELECT id, name, is_internal
        FROM org_tenants
        WHERE id = ?
        LIMIT 1`,
@@ -158,9 +160,11 @@ export async function getCatalogTenant(
     name: normalizeName(row.name, row.id.trim()),
     service_count: parseCount(serviceCountRow?.count),
     environment_count: parseCount(environmentCountRow?.count),
-    source: "seeded",
+    is_internal: parseBooleanFlag(row.is_internal),
+    source: "seeded" as const,
   };
 }
+
 
 export async function listCatalogServicesForTenant(
   db: D1Like,
@@ -316,4 +320,14 @@ function inferProvider(kind: string, slug: string): string | null {
   }
 
   return null;
+}
+
+function parseBooleanFlag(value: string | number | null): boolean {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "number") return value !== 0;
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    return normalized === "1" || normalized === "true";
+  }
+  return false;
 }

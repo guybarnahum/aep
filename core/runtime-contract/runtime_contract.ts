@@ -3,6 +3,7 @@ export type RuntimeTenant = {
   name: string;
   service_count: number;
   environment_count: number;
+  is_internal?: boolean;
 };
 
 export type RuntimeEnvelope<T> = {
@@ -16,6 +17,10 @@ export function normalizeTenant(input: any): RuntimeTenant {
     name: String(input?.name ?? ""),
     service_count: Number(input?.service_count ?? 0),
     environment_count: Number(input?.environment_count ?? 0),
+    is_internal:
+      input?.is_internal === null || input?.is_internal === undefined
+        ? undefined
+        : Boolean(input.is_internal),
   };
 }
 
@@ -30,6 +35,13 @@ export function assertRuntimeTenant(obj: any): RuntimeTenant {
 
   if (typeof obj.name !== "string") {
     throw new Error("invalid tenant name");
+  }
+
+  if (
+    obj.is_internal !== undefined &&
+    typeof obj.is_internal !== "boolean"
+  ) {
+    throw new Error("invalid tenant is_internal");
   }
 
   return obj;

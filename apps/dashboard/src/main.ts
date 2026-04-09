@@ -31,6 +31,12 @@ const app: HTMLDivElement = (() => {
 })();
 
 const AUTO_REFRESH_MS = 15_000;
+const HOME_TENANT_STORAGE_KEY = "dashboard.home-tenant-id";
+const INTERNAL_TENANT_ID_CANDIDATES = [
+  "internal",
+  "company_internal_aep",
+  "tenant_internal_aep",
+] as const;
 let autoRefreshTimer: number | null = null;
 let mutationStatusMessage: string | null = null;
 
@@ -170,6 +176,57 @@ function resetDepartmentPaginationPages(): DepartmentPaginationState {
 
 function setMutationStatus(message: string | null): void {
   mutationStatusMessage = message;
+}
+
+function getStoredHomeTenantId(): string | null {
+  const value = window.localStorage.getItem(HOME_TENANT_STORAGE_KEY);
+  return value && value.trim() ? value.trim() : null;
+}
+
+function setStoredHomeTenantId(tenantId: string): void {
+  window.localStorage.setItem(HOME_TENANT_STORAGE_KEY, tenantId);
+}
+
+function resolveHomeTenantId(tenants: TenantSummary[]): string | null {
+  if (tenants.length === 0) {
+    return null;
+  }
+
+  const tenantIds = new Set(tenants.map((tenant) => tenant.tenant_id));
+
+  const storedTenantId = getStoredHomeTenantId();
+  if (storedTenantId && tenantIds.has(storedTenantId)) {
+    return storedTenantId;
+  }
+
+  const firstInternalTenant = tenants.find((tenant) => tenant.is_internal);
+  if (firstInternalTenant) {
+    setStoredHomeTenantId(firstInternalTenant.tenant_id);
+    return firstInternalTenant.tenant_id;
+  }
+
+  for (const candidate of INTERNAL_TENANT_ID_CANDIDATES) {
+    if (tenantIds.has(candidate)) {
+      setStoredHomeTenantId(candidate);
+      return candidate;
+    }
+  }
+
+  const seededInternalishTenant = tenants.find(
+    (tenant) =>
+      tenant.source === "seeded" &&
+      /(internal|aep)/i.test(`${tenant.tenant_id} ${tenant.name}`),
+  );
+  if (seededInternalishTenant) {
+    setStoredHomeTenantId(seededInternalishTenant.tenant_id);
+    return seededInternalishTenant.tenant_id;
+  }
+
+  const firstTenantId = tenants[0]?.tenant_id ?? null;
+  if (firstTenantId) {
+    setStoredHomeTenantId(firstTenantId);
+  }
+  return firstTenantId;
 }
 
 function getRoute(defaultTenantId: string): Route {
@@ -476,8 +533,33 @@ async function renderRoute(): Promise<void> {
   renderShell(`<div class="loading">Loading…</div>`);
 
   try {
-    const defaultTenantId = "internal";
-    const route = getRoute(defaultTenantId);
+    const tenants = await getTenants();
+    const homeTenantId = resolveHomeTenantId(tenants);
+
+    if (!homeTenantId && window.location.hash.replace(/^#/, "") !== "department") {
+      const content = `
+        ${renderToolbar({
+          autoRefresh: getAutoRefreshEnabled(),
+          mutationStatus: mutationStatusMessage,
+        })}
+        ${renderPrimaryNav({
+          activeView: "tenant",
+          tenantHref: "#department",
+        })}
+        <section class="card">
+          <h2>No tenants available</h2>
+          <p class="muted">
+            The control-plane returned no tenants for this environment yet.
+          </p>
+        </section>
+      `;
+      renderShell(content);
+      attachToolbarHandlers();
+      syncAutoRefresh();
+      return;
+    }
+
+    const route = getRoute(homeTenantId ?? "department");
 
     let content = renderToolbar({
       autoRefresh: getAutoRefreshEnabled(),
@@ -486,10 +568,9 @@ async function renderRoute(): Promise<void> {
 
     content += renderPrimaryNav({
       activeView: route.kind === "department" ? "department" : "tenant",
-      tenantHref:
-        route.kind === "department"
-          ? "#tenant/internal"
-          : `#tenant/${encodeURIComponent(route.tenantId)}`,
+      tenantHref: `#tenant/${encodeURIComponent(
+        route.kind === "department" ? (homeTenantId ?? "") : route.tenantId,
+      )}`,
     });
 
     if (route.kind === "department") {
@@ -502,6 +583,9 @@ async function renderRoute(): Promise<void> {
       content += renderServiceOverview(overview);
     } else {
       // route.kind === "tenant"
+      if (homeTenantId && route.tenantId !== homeTenantId) {
+        setStoredHomeTenantId(route.tenantId);
+      }
       const overview = await getTenantOverview(route.tenantId);
       content += renderTenantOverview(overview);
     }

@@ -34,6 +34,7 @@ export type TenantSummary = {
   name: string;
   service_count: number;
   environment_count: number;
+  is_internal: boolean;
   source?: "seeded" | "observed";
 };
 
