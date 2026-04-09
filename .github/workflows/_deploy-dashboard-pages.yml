@@ -11,14 +11,14 @@ on:
         description: "Cloudflare Pages project name"
         required: true
         type: string
-        control_plane_base_url:
-          description: "Optional explicit override for the deployed control-plane Worker URL"
-          required: false
-          type: string
-        operator_agent_base_url:
-          description: "Optional explicit override for the deployed operator-agent Worker URL"
-          required: false
-          type: string
+      control_plane_base_url:
+        description: "Optional explicit override for the deployed control-plane Worker URL"
+        required: false
+        type: string
+      operator_agent_base_url:
+        description: "Optional explicit override for the deployed operator-agent Worker URL"
+        required: false
+        type: string
     secrets:
       CLOUDFLARE_API_TOKEN:
         description: "Cloudflare API token with Pages deployment permissions"
