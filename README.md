@@ -1,406 +1,337 @@
-# Dashboard Deployment
-
-The dashboard in `apps/dashboard` is deployed separately from the Workers as a static web app.
-
-Recommended target:
-- Cloudflare Pages
-
-Required build-time environment variables:
-- `VITE_CONTROL_PLANE_BASE_URL`
-- `VITE_OPERATOR_AGENT_BASE_URL`
-
-In staging, the dashboard should point to the deployed staging control-plane and operator-agent Workers.
-
-This keeps:
-- UI deployment separate from runtime orchestration
-- browser-based observability simple
-- the operator surface directly connected to live staging services
-
-See `apps/dashboard/README.md` for dashboard-specific deployment details.
-
 # AEP — Agentic Engineering Platform
 
-## What this is
+AEP is the infrastructure and operations kernel of an agentic, zero-employee company.
 
-AEP is the **infra department kernel** of a future:
+It models software operations as a structured organization with:
+- company and team structure
+- digital employees with roles and authority
+- governance and supervision
+- runs, jobs, attempts, and trace
+- bounded automation through explicit control surfaces
 
-> **Agentic, zero-employee companies**
-
-It is not just infrastructure orchestration.
-
-# AEP — Agentic Engineering Platform
-- executes **workflows as operations**
-AEP is the **infra department kernel** of a zero-employee, agentic company.
-
-It models infrastructure operations not as scripts, but as a **stateful operating organization** with:
-- agents (employees)
-- workflows (operations)
-- policies (governance)
-- trace (audit)
-- maintains **auditability and trace**
+AEP is not just a workflow engine.
+It is becoming an observable and governable runtime for digital employees.
 
 ---
 
-AEP is designed as the **self-operating infrastructure department** inside a larger agentic organization.
+# What AEP Is
 
-The goal is a system that can:
-- plan
-- deploy
-- validate
-- remediate
+AEP sits between raw infrastructure and a future higher-level company runtime.
 
-with minimal human intervention — while remaining **observable and controllable**.
+## Conceptual layering
 
-- Cloudflare Workers / Durable Objects (today)
-## Architecture
+### Execution substrate
+Examples:
+- Cloudflare Workers
+- Durable Objects
+- D1
+- CI
+- external deploy / validation systems
 
-### Execution Boundary (Critical)
+### AEP
+The infra and operations department kernel:
+- orchestration
+- governance
+- supervision
+- employee model
+- audit / trace
+- operator surfaces
 
-AEP enforces a strict separation:
-
-- **Worker runtime** → orchestration + decision-making  
-- **CI / external systems** → real execution (deploy, teardown)
-
-This ensures:
-- deterministic control-plane behavior
-- safe retries and idempotency
-- clear audit boundaries
-
----
-
-### Operational Planes
-
-AEP operates across five logical planes:
-
-1. **Control Plane**
-   - Durable Object orchestration
-   - jobs, attempts, workflow state
-
-2. **Execution Plane**
-   - CI and provider integrations
-   - deploy / teardown actions
-
-3. **Observability Plane**
-   - trace-first system (`/trace/:id`)
-   - structured failure + audit data
-
-4. **Governance Plane**
-   - budgets, cooldowns, authority scopes
-   - safe mutation enforcement
-
-5. **Delivery Plane**
-   - GitHub Actions integration
-   - proving-ground environments
-
-These are logical separations, not separate services.
-
-
-## Agent Model
-
-AEP models agents as **employees with identity and role**.
-
-Current system:
-
-- **Marcus (`emp_pm_01`)**
-  - Product Manager
-  - translates strategy → tasks
-
-- **Sia (`emp_val_specialist_01`)**
-  - Reliability Engineer
-  - validates deployments and system safety
-
-Agents:
-- observe system state
-- produce reasoning
-- act through the control plane
-
-All actions are:
-- attributed
-- recorded
-- auditable
-This is where:
-- work is executed
-## Scheduling Model (Bounded Autonomy)
-
-AEP operates under infrastructure constraints (e.g., Cloudflare limits).
-
-To remain safe and predictable:
-
-- agents run in bounded cycles
-- background scanners are rate-limited
-- work is distributed across ticks
-
-Example:
-- validation runs continuously
-- recovery tasks are alternated per cycle
-
-This prevents:
-- runaway execution
-- unbounded retries
-- system overload
-### 3. Company Layer (future — “Paperclip”)
-- org structure
-- budgets
+### Future company layer
+A broader agentic company runtime:
 - strategy
-AEP separates **authority, provenance, and decisions**.
-
-### Work Orders (Authority)
-
-- `workOrderId`
-- authoritative D1 record
-- lifecycle:
-  - `pending → in-progress → completed`
-
-### Tasks (Provenance)
-
-- `taskId`
-- cross-system identifier
-- not authoritative on its own
-
-### Decision Ledger
-
-Every action produces a decision:
-
-- `pass`
-- `fail`
-- `remediate`
-- `retry`
-
-Each decision is:
-- linked to trace
-- attributable to an agent
-- replayable
-
-This enables full reconstruction of system behavior.
-
-
-- Durable Object–based orchestration
-- async workflow execution (deploy / teardown)
-AEP is now a **stateful autonomous infrastructure department**.
-
-- control-plane: stable and orchestrating real workflows
-- workflow engine: async, retry-safe, observable
-- CI: real deployment validation
-- trace: complete audit surface
-- agents: active (Marcus, Sia)
-- org model: D1-backed identities and roles
-
-The system is:
-- self-operating (bounded)
-- observable
-- safe to extend
-
-
-- lifecycle: `waiting → running → completed | failed`
-- async external execution model
-1. Inter-agent negotiation (task clarification, budget escalation)
-2. Scoped agent identity (JWT + attribution)
-3. Episodic memory (vector retrieval of past failures)
-4. Real provider integrations (AWS, GCP, etc.)
----
-### Operator Surface
-
-APIs:
-- `/runs`
-- `/runs/:id`
-- `/runs/:id/jobs`
-- `/tenants`
-- `/services`
-
-Capabilities:
-- full run visibility
-- job + attempt inspection
-- derived status + failure classification
+- budgets
+- cross-department planning
+- richer long-horizon coordination
 
 ---
 
-### Observability (Critical)
+# Core Design Principle: Execution Boundary
 
-- normalized `/trace/:id`
-- structured failure payloads:
-  - `failure_kind`
-  - attempt context
-- CI-integrated summaries
+AEP enforces a strict separation between:
 
-Trace is the **source of truth**.
+## Worker runtime
+Responsible for:
+- orchestration
+- state transitions
+- policy and supervision
+- trace and audit
+- coordination of digital employees
 
----
+## External execution systems
+Responsible for:
+- deploy
+- teardown
+- real-world validation side effects
+- infra mutation
 
-### CI / Validation System
+This separation is intentional.
+Workers reason and coordinate.
+External systems perform the real side effects.
 
-- deploy via GitHub Actions
-- D1 migrations
-- health checks (`/healthz`)
-- smoke tests (`/workflow/start`)
-- SHA verification
-
-CI is:
-> the **real execution validator**
-
-Worker runtime remains:
-> orchestration + control-plane only
-
----
-
-## PR5 Shift: From Automation → Digital Employees
-
-AEP has crossed a major boundary:
-
-> AI is no longer a feature — it is the organization.
-
-We now model **agents as employees**.
+This keeps the system:
+- auditable
+- retry-safe
+- easier to reason about
+- safer for automation
 
 ---
 
-## Current Agent System
+# What Exists Today
 
-### Strategic Loop (v1)
+AEP already has meaningful pieces of a digital operations organization.
 
-Two agents drive the system:
+## Control plane
+- Durable Object orchestration
+- D1-backed state
+- run / job / attempt lifecycle
+- async pause / resume semantics
+- trace-oriented observability
 
-#### Marcus (`emp_pm_01`)
-- Role: Product Manager
-- Focus: strategy → tasks
-- Concern: *why*
+## Operator-agent surface
+The runtime already exposes organization and governance-oriented surfaces such as:
+- employees
+- escalations
+- approvals
+- manager log
+- control history
+- roadmaps
+- scheduler status
 
-#### Sia (`emp_val_specialist_01`)
-- Role: Reliability Engineer
-- Focus: validation + safety
-- Concern: *how*
+## Dashboard
+The dashboard is the operator-facing organization and governance view.
 
-They operate through:
-- the control plane
-- the tactical ledger (runs/jobs)
-- structured reasoning + decisions
+It is intended to show:
+- tenant and service state
+- department and employee state
+- escalations
+- approvals
+- manager decisions
+- control history
+- roadmaps
+- scheduler posture
 
----
-
-## Runtime Model
-
-### How agents run
-
-1. Agent **senses** system state (runs, jobs, roadmap)
-2. Agent produces:
-   - reasoning
-   - internal monologue
-3. Agent **acts**:
-   - creates tasks
-   - advances workflows
-   - validates execution
-
-All actions:
-- go through control-plane APIs
-- are recorded in trace + decisions
-
----
-
-### Human Interaction Model
-
-Humans interact via:
-
-#### 1. APIs
-- full operator control
-- can inspect and intervene
-
-#### 2. Dashboard (apps/dashboard)
-- visualize runs, jobs, traces
-- audit agent decisions
-- trigger workflows
-
-#### 3. CI System
-- acts as execution validator
-- ensures real-world correctness
+## CI / validation
+GitHub Actions and CI checks validate:
+- deploy health
+- smoke behavior
+- operator surface consistency
+- multi-team and governance shape
 
 ---
 
-## Design Principles
+# Current Transition: From Agents to Organization
 
-### 1. Separation of Concerns
+PR5 established the major shift:
 
-- Worker runtime: orchestration only
-- CI / external systems: execution
-- agents: decision-making
+> AI is no longer just a feature of the system.
+> It is the beginning of the organization.
 
----
+The project is now moving through PR6, which is about turning that concept into a real, observable company and department model.
 
-### 2. Auditability First
-
-Every decision:
-- is recorded
-- is attributable
-- is replayable
-
----
-
-### 3. Safe Mutation Surface
-
-- no arbitrary state mutation
-- all actions go through defined APIs
-- idempotent + retry-safe
+AEP is no longer just “a couple of named agents”.
+It is moving toward:
+- company
+- teams / departments
+- employees
+- managers
+- approvals
+- escalations
+- supervision
+- eventually reasoning and inter-employee communication
 
 ---
 
-### 4. Agent-Compatible by Design
+# Current Organizational Reality
 
-System is built so that:
-- agents can operate it safely
-- humans and agents use the same surface
+The project currently contains two kinds of employees.
 
----
+## Implemented runtime employees
+These are active in runtime and can have:
+- effective state
+- effective authority
+- effective budget
+- controls and overlays
+- manager and approval history
 
-## Current State
+## Catalog / planned employees
+These are part of the organization model but are not yet fully implemented in runtime.
 
-> **Strategic Ready**
+They may carry:
+- catalog metadata
+- scope
+- placeholder messaging
 
-- Control plane: stable
-- Workflow engine: production-grade semantics
-- CI validation: operational
-- Operator surface: usable
-- Agents: initialized (Marcus, Sia)
-- Dashboard: placeholder but structured
+They may not yet carry the same runtime fields as active employees.
 
----
-
-## Near-Term Roadmap
-
-### 1. Inter-Agent Collaboration
-- negotiation between agents
-- shared message channel (D1)
+This distinction matters.
+It is a real part of the current design state.
 
 ---
 
-### 2. Identity & Security
-- scoped agent tokens (JWT)
-- per-action attribution
+# Why Observability Comes First
+
+Before adding deeper agent cognition, the immediate priority is strong observability.
+
+The dashboard and ops-console should mirror the levels of the system.
+
+## The system levels we want visible
+
+### Company
+- what company and teams exist
+- what is implemented vs planned
+- overall scheduler / governance posture
+
+### Teams / departments
+- who belongs to each team
+- what objectives and roadmaps exist
+- what teams are active in runtime
+
+### Employees
+- identity
+- role
+- manager relationship
+- runtime status
+- authority and budget
+- control state
+
+### Governance
+- escalations
+- approvals
+- manager decisions
+- control history
+
+### Execution
+- runs
+- jobs
+- attempts
+- trace
+- failure and remediation context
+
+This observability-first step is intentional.
+It makes the current system understandable and debuggable before richer LLM-driven behavior is introduced.
 
 ---
 
-### 3. Memory System
-- vectorized episodic memory
-- retrieval of past runs / failures
+# Dashboard vs Ops-Console
+
+These are complementary surfaces.
+
+## Dashboard
+Best for:
+- organization view
+- team and employee view
+- governance view
+- manager / approval / escalation visibility
+- roadmap and scheduler visibility
+
+## Ops-console
+Best for:
+- run / job / attempt detail
+- trace detail
+- execution debugging
+- remediation visibility
+- deeper operational forensics
+
+Together, they should mirror the real structure of the system from company level down to trace level.
 
 ---
 
-### 4. Real Provider Integration
-- AWS / GCP connectors
-- real resource sensing
+# PR6 Plan
+
+## 6A — Department Surface + Org Seeding
+Introduce the org model into runtime-facing APIs and dashboard surfaces.
+
+Includes:
+- multi-team employee catalog
+- department view
+- governance surfaces
+- roadmaps and scheduler visibility
+- CI checks for operator surface shape
+
+Immediate requirement:
+- the dashboard must safely support mixed employee shapes
+
+## 6B — Runtime Projection Contract
+Define a stable backend contract for employees and teams.
+
+Includes:
+- explicit runtime status such as implemented vs planned
+- canonical employee projection
+- removal of UI guesswork
+- CI enforcement of the contract
+
+## 6C — Company Coordination Model
+Move from “teams exist” to “teams interact”.
+
+Includes:
+- company-level identity
+- cross-team work and dependency flow
+- roadmap-to-execution linkage
+- broader scheduler and supervision model
+
+## 6D — Documentation and Concept Lock
+Update the docs so humans and LLM sessions can continue from the real plan without reconstructing it from memory.
 
 ---
 
-## What This Becomes
+# What Comes After Observability
 
-AEP evolves into:
+Once observability is strong and the org/runtime contract is explicit, the next major layer is:
 
-> a **self-operating infrastructure organization**
+## LLM-driven introspection
+Employees produce:
+- reasoning
+- internal monologue
+- traceable decisions
 
-Where:
-- agents plan
-- agents validate
-- agents operate
-- humans supervise
+## Inter-employee messaging
+Employees exchange explicit messages such as:
+- clarification
+- escalation
+- instruction
+- negotiation
+
+This is how the system evolves from a structured control plane into a real digital organization.
+
+Important distinction:
+- internal monologue is private introspection
+- messages are explicit communication between employees
+
+They should not be conflated.
 
 ---
 
-## Repository
+# Constraints
 
-https://github.com/guybarnahum/aep
+The following constraints remain central:
+
+- Workers orchestrate and reason; they do not perform uncontrolled infra mutation
+- Real side effects must go through explicit control-plane and external execution boundaries
+- Trace and audit remain first-class
+- UI is a mirror of the system, not the source of truth
+- Future employee actions must become explainable and attributable
+
+---
+
+# Current Priority
+
+The immediate priority is:
+
+> make the dashboard and ops-console capture the levels of the system that already exist
+
+That means:
+- finishing the department and governance observability surfaces
+- making the UI resilient to mixed employee types
+- tightening the backend runtime projection contract
+- then continuing into deeper cognition and communication
+
+---
+
+# Repository
+
+Source of truth:
+`guybarnahum/aep`
+
+Suggested companion doc for ongoing implementation context:
+- `LLM.md`
