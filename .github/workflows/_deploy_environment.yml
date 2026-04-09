@@ -188,6 +188,25 @@ jobs:
             --config "$WRANGLER_CONFIG" \
             --env "$CF_ENV" | tee deploy-control-plane.log
 
+      - name: Resolve control-plane URL
+        id: control_plane_url
+        run: |
+          DEPLOYED_URL=""
+          if [[ -f deploy-control-plane.log ]]; then
+            DEPLOYED_URL="$(grep -Eo 'https://[A-Za-z0-9._-]+\.workers\.dev' deploy-control-plane.log | tail -n1 || true)"
+          fi
+
+          if [[ -n "$DEPLOYED_URL" ]]; then
+            echo "url=$DEPLOYED_URL" >> "$GITHUB_OUTPUT"
+            echo "source=deploy" >> "$GITHUB_OUTPUT"
+          elif [[ -n "$DEPLOY_URL" ]]; then
+            echo "url=$DEPLOY_URL" >> "$GITHUB_OUTPUT"
+            echo "source=fallback:$DEPLOY_URL_SOURCE" >> "$GITHUB_OUTPUT"
+          else
+            echo "url=" >> "$GITHUB_OUTPUT"
+            echo "source=none" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Deploy operator-agent
         id: deploy_operator_agent
         if: inputs.deploy_operator_agent
@@ -298,7 +317,7 @@ jobs:
             OPERATOR_AGENT_READY="true"
           fi
 
-          echo "deploy_url=$DEPLOY_URL" >> "$GITHUB_OUTPUT"
+          echo "deploy_url=${{ steps.control_plane_url.outputs.url }}" >> "$GITHUB_OUTPUT"
           echo "operator_agent_url=${{ steps.operator_agent_url.outputs.url }}" >> "$GITHUB_OUTPUT"
           echo "cf_env=$CF_ENV" >> "$GITHUB_OUTPUT"
           echo "git_sha=$GIT_SHA" >> "$GITHUB_OUTPUT"
@@ -330,8 +349,8 @@ jobs:
           echo "## Environment deploy summary" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "- Environment: $CF_ENV" >> "$GITHUB_STEP_SUMMARY"
-          echo "- URL: $DEPLOY_URL" >> "$GITHUB_STEP_SUMMARY"
-          echo "- URL source: $DEPLOY_URL_SOURCE" >> "$GITHUB_STEP_SUMMARY"
+          echo "- URL: ${{ steps.control_plane_url.outputs.url }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- URL source: ${{ steps.control_plane_url.outputs.source }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- SHA: $GIT_SHA" >> "$GITHUB_STEP_SUMMARY"
           echo "- Database: $D1_DATABASE_NAME" >> "$GITHUB_STEP_SUMMARY"
           if [[ -n "${{ steps.operator_agent_url.outputs.url }}" ]]; then
