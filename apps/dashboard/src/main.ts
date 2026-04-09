@@ -10,7 +10,7 @@ import {
   rejectApproval,
   resolveEscalation,
 } from "./api";
-import type { DepartmentFilters, DepartmentPaginationState, PageSize } from "./types";
+import type { DepartmentFilters, DepartmentPaginationState, PageSize, TenantSummary } from "./types";
 import {
   renderDepartmentOverview,
   renderDepartmentFilters,
