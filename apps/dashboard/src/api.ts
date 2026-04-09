@@ -16,18 +16,12 @@ const DEFAULT_CONTROL_PLANE_BASE_URL = "http://127.0.0.1:8788";
 const DEFAULT_OPERATOR_AGENT_BASE_URL = "http://127.0.0.1:8797";
 
 export function getApiBaseUrl(): string {
-  const meta = import.meta as ImportMeta & {
-    env?: Record<string, string | undefined>;
-  };
-  const configured = meta.env?.VITE_CONTROL_PLANE_BASE_URL;
+  const configured = import.meta.env.VITE_CONTROL_PLANE_BASE_URL;
   return (configured && configured.trim()) || DEFAULT_CONTROL_PLANE_BASE_URL;
 }
 
 export function getOperatorAgentBaseUrl(): string {
-  const meta = import.meta as ImportMeta & {
-    env?: Record<string, string | undefined>;
-  };
-  const configured = meta.env?.VITE_OPERATOR_AGENT_BASE_URL;
+  const configured = import.meta.env.VITE_OPERATOR_AGENT_BASE_URL;
   return (configured && configured.trim()) || DEFAULT_OPERATOR_AGENT_BASE_URL;
 }
 

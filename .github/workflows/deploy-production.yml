@@ -99,13 +99,14 @@ jobs:
     with:
       environment_name: production
       deploy_url: ${{ needs.deploy-production-env.outputs.deploy_url }}
+      operator_agent_base_url: ${{ needs.deploy-production-env.outputs.operator_agent_url }}
       cf_env: ${{ needs.deploy-production-env.outputs.cf_env }}
       git_sha: ${{ needs.deploy-production-env.outputs.git_sha }}
       node_version: "20"
+      execute_work_order_immediately: true
     secrets: inherit
 
   deploy-dashboard-pages:
-    if: ${{ needs.deploy-production-env.outputs.operator_agent_url != '' }}
     needs:
       - deploy-production-env
       - validate-production-smoke
@@ -144,10 +145,11 @@ jobs:
             echo "- Post-deploy validation: ${{ needs.validate-production-post-deploy.outputs.outcome }}" >> "$GITHUB_STEP_SUMMARY"
           fi
 
-          if [[ "${{ needs.deploy-production-env.outputs.operator_agent_url }}" == "" ]]; then
-            echo "- Dashboard deploy: skipped (no production operator-agent URL output from deploy lane)" >> "$GITHUB_STEP_SUMMARY"
-          else
-            echo "- Dashboard deploy: ${{ needs.deploy-dashboard-pages.result }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Dashboard deploy: ${{ needs.deploy-dashboard-pages.result }}" >> "$GITHUB_STEP_SUMMARY"
+          if [[ "${{ needs.deploy-dashboard-pages.result }}" != "success" ]]; then
+            echo "  - Dashboard deploy failed. Check _deploy-dashboard-pages.yml logs for the exact failing stage." >> "$GITHUB_STEP_SUMMARY"
+            echo "  - Production dashboard resolves URLs internally from the production environment config." >> "$GITHUB_STEP_SUMMARY"
+            echo "  - Debug next: inspect _deploy-dashboard-pages.yml summary for resolved DEPLOY_URL and OPERATOR_AGENT_BASE_URL sources." >> "$GITHUB_STEP_SUMMARY"
           fi
 
           echo "" >> "$GITHUB_STEP_SUMMARY"
@@ -163,7 +165,7 @@ jobs:
             echo "- ❌ Production environment and smoke passed, but post-deploy validation failed." >> "$GITHUB_STEP_SUMMARY"
           elif [[ "${{ needs.validate-production-post-deploy.outputs.attention }}" == "true" ]]; then
             echo "- ⚠️ Production deploy lane passed with post-deploy warning/skip attention." >> "$GITHUB_STEP_SUMMARY"
-          elif [[ "${{ needs.deploy-production-env.outputs.operator_agent_url }}" != "" && "${{ needs.deploy-dashboard-pages.result }}" != "success" ]]; then
+          elif [[ "${{ needs.deploy-dashboard-pages.result }}" != "success" ]]; then
             echo "- ❌ Production environment validations passed, but dashboard deployment failed." >> "$GITHUB_STEP_SUMMARY"
           else
             echo "- ✅ Production deploy lane passed." >> "$GITHUB_STEP_SUMMARY"
