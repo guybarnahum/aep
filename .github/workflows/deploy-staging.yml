@@ -87,11 +87,27 @@ jobs:
       execute_work_order_immediately: true
     secrets: inherit
 
+  deploy-dashboard-pages:
+    needs:
+      - deploy-staging-env
+      - validate-staging-smoke
+      - validate-staging-post-deploy
+    uses: ./.github/workflows/_deploy-dashboard-pages.yml
+    with:
+      environment_name: staging
+      pages_project_name: aep-dashboard-staging
+      control_plane_base_url: ${{ needs.deploy-staging-env.outputs.deploy_url }}
+      operator_agent_base_url: ${{ needs.deploy-staging-env.outputs.operator_agent_url }}
+    secrets:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
   final-summary:
     needs:
       - deploy-staging-env
       - validate-staging-smoke
       - validate-staging-post-deploy
+      - deploy-dashboard-pages
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -110,6 +126,8 @@ jobs:
             echo "- Post-deploy validation: ${{ needs.validate-staging-post-deploy.outputs.outcome }}" >> "$GITHUB_STEP_SUMMARY"
           fi
 
+          echo "- Dashboard deploy: ${{ needs.deploy-dashboard-pages.result }}" >> "$GITHUB_STEP_SUMMARY"
+
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "### Lane verdict" >> "$GITHUB_STEP_SUMMARY"
 
@@ -121,6 +139,8 @@ jobs:
             echo "- ❌ Staging environment and smoke passed, but post-deploy validation failed." >> "$GITHUB_STEP_SUMMARY"
           elif [[ "${{ needs.validate-staging-post-deploy.outputs.attention }}" == "true" ]]; then
             echo "- ⚠️ Staging deploy lane passed with post-deploy warning/skip attention." >> "$GITHUB_STEP_SUMMARY"
+          elif [[ "${{ needs.deploy-dashboard-pages.result }}" != "success" ]]; then
+            echo "- ❌ Staging environment validations passed, but dashboard deployment failed." >> "$GITHUB_STEP_SUMMARY"
           else
             echo "- ✅ Staging deploy lane passed." >> "$GITHUB_STEP_SUMMARY"
           fi

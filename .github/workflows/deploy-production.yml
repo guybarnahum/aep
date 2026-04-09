@@ -60,7 +60,7 @@ jobs:
       health_runtime_env: production
       wrangler_config: core/control-plane/wrangler.jsonc
       d1_database_name: aep-production
-      deploy_operator_agent: false
+      deploy_operator_agent: true
       operator_agent_wrangler_config: core/operator-agent/wrangler.jsonc
       operator_agent_d1_database_name: aep-operator-agent-production
       enable_test_endpoints: "false"
@@ -104,12 +104,29 @@ jobs:
       node_version: "20"
     secrets: inherit
 
+  deploy-dashboard-pages:
+    if: ${{ needs.deploy-production-env.outputs.operator_agent_url != '' }}
+    needs:
+      - deploy-production-env
+      - validate-production-smoke
+      - validate-production-post-deploy
+    uses: ./.github/workflows/_deploy-dashboard-pages.yml
+    with:
+      environment_name: production
+      pages_project_name: aep-dashboard
+      control_plane_base_url: ${{ needs.deploy-production-env.outputs.deploy_url }}
+      operator_agent_base_url: ${{ needs.deploy-production-env.outputs.operator_agent_url }}
+    secrets:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
   final-summary:
     needs:
       - confirm
       - deploy-production-env
       - validate-production-smoke
       - validate-production-post-deploy
+      - deploy-dashboard-pages
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -129,6 +146,12 @@ jobs:
             echo "- Post-deploy validation: ${{ needs.validate-production-post-deploy.outputs.outcome }}" >> "$GITHUB_STEP_SUMMARY"
           fi
 
+          if [[ "${{ needs.deploy-production-env.outputs.operator_agent_url }}" == "" ]]; then
+            echo "- Dashboard deploy: skipped (no production operator-agent URL output from deploy lane)" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "- Dashboard deploy: ${{ needs.deploy-dashboard-pages.result }}" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "### Lane verdict" >> "$GITHUB_STEP_SUMMARY"
 
@@ -142,5 +165,8 @@ jobs:
             echo "- ❌ Production environment and smoke passed, but post-deploy validation failed." >> "$GITHUB_STEP_SUMMARY"
           elif [[ "${{ needs.validate-production-post-deploy.outputs.attention }}" == "true" ]]; then
             echo "- ⚠️ Production deploy lane passed with post-deploy warning/skip attention." >> "$GITHUB_STEP_SUMMARY"
+          elif [[ "${{ needs.deploy-production-env.outputs.operator_agent_url }}" != "" && "${{ needs.deploy-dashboard-pages.result }}" != "success" ]]; then
+            echo "- ❌ Production environment validations passed, but dashboard deployment failed." >> "$GITHUB_STEP_SUMMARY"
           else
             echo "- ✅ Production deploy lane passed." >> "$GITHUB_STEP_SUMMARY"
+          fi

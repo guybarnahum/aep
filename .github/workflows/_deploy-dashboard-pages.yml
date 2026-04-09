@@ -1,0 +1,99 @@
+name: _Deploy Dashboard Pages
+
+on:
+  workflow_call:
+    inputs:
+      environment_name:
+        description: "GitHub environment name to bind job-scoped vars/secrets/policies"
+        required: true
+        type: string
+      pages_project_name:
+        description: "Cloudflare Pages project name"
+        required: true
+        type: string
+      control_plane_base_url:
+        description: "Public base URL for the deployed control-plane Worker"
+        required: true
+        type: string
+      operator_agent_base_url:
+        description: "Public base URL for the deployed operator-agent Worker"
+        required: true
+        type: string
+    secrets:
+      CLOUDFLARE_API_TOKEN:
+        description: "Cloudflare API token with Pages deployment permissions"
+        required: true
+      CLOUDFLARE_ACCOUNT_ID:
+        description: "Cloudflare account ID"
+        required: true
+
+concurrency:
+  group: deploy-dashboard-pages-${{ inputs.environment_name }}
+  cancel-in-progress: false
+
+jobs:
+  deploy-dashboard-pages:
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ inputs.environment_name }}
+
+    permissions:
+      contents: read
+
+    defaults:
+      run:
+        shell: bash -eo pipefail {0}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: apps/dashboard/package-lock.json
+
+      - name: Validate required inputs
+        run: |
+          test -n "${{ inputs.environment_name }}" || { echo "Missing inputs.environment_name" >&2; exit 1; }
+          test -n "${{ inputs.pages_project_name }}" || { echo "Missing inputs.pages_project_name" >&2; exit 1; }
+          test -n "${{ inputs.control_plane_base_url }}" || { echo "Missing inputs.control_plane_base_url" >&2; exit 1; }
+          test -n "${{ inputs.operator_agent_base_url }}" || { echo "Missing inputs.operator_agent_base_url" >&2; exit 1; }
+
+      - name: Show deployment configuration
+        run: |
+          echo "Environment:            ${{ inputs.environment_name }}"
+          echo "Pages project:          ${{ inputs.pages_project_name }}"
+          echo "Control-plane base URL: ${{ inputs.control_plane_base_url }}"
+          echo "Operator-agent base URL:${{ inputs.operator_agent_base_url }}"
+
+      - name: Install dashboard dependencies
+        working-directory: apps/dashboard
+        run: npm ci
+
+      - name: Build dashboard
+        working-directory: apps/dashboard
+        env:
+          VITE_CONTROL_PLANE_BASE_URL: ${{ inputs.control_plane_base_url }}
+          VITE_OPERATOR_AGENT_BASE_URL: ${{ inputs.operator_agent_base_url }}
+        run: npm run build
+
+      - name: Deploy to Cloudflare Pages
+        working-directory: apps/dashboard
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          npx wrangler pages deploy dist \
+            --project-name "${{ inputs.pages_project_name }}"
+
+      - name: Write dashboard summary
+        run: |
+          echo "## Dashboard deployment summary" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Environment: ${{ inputs.environment_name }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Pages project: ${{ inputs.pages_project_name }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Control-plane base URL: ${{ inputs.control_plane_base_url }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Operator-agent base URL: ${{ inputs.operator_agent_base_url }}" >> "$GITHUB_STEP_SUMMARY"
