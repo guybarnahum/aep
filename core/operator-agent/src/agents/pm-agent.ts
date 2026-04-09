@@ -16,10 +16,24 @@ export async function runPmAgent(
   const taskStore = getTaskStore(env);
   const config = getConfig(env);
 
-  // 1. SENSE: Query the Roadmap
+
+  // 1. SENSE: Query the Roadmap and Current Runs
   const roadmap = await env.OPERATOR_AGENT_DB!.prepare(
     "SELECT * FROM team_roadmaps WHERE status = 'active' ORDER BY priority DESC LIMIT 1"
   ).first<any>();
+
+  // Sensing Phase: Try to fetch current runs from the control plane
+  let currentRuns = [];
+  try {
+    const response = await fetch(`${env.CONTROL_PLANE_TARGET}/runs`);
+    if (response.ok) {
+      const data = await response.json();
+      currentRuns = data.runs;
+    }
+  } catch (e) {
+    // Log the warning, but DON'T crash. Marcus can still plan based on the Roadmap alone.
+    console.warn("Sense Phase: Could not reach Control Plane. Proceeding with Roadmap context only.");
+  }
 
   if (!roadmap) {
     throw new Error("No active roadmap objective found for PM Agent.");
