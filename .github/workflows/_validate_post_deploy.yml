@@ -119,20 +119,20 @@ jobs:
             exit 1
           fi
 
-          WORK_ORDER_ID=$(sed -n 's/^WORK_ORDER_ID=//p' post-deploy-validation.log | tail -n 1)
+          TASK_ID=$(sed -n 's/^TASK_ID=//p' post-deploy-validation.log | tail -n 1)
 
-          if [[ -z "$WORK_ORDER_ID" ]]; then
-            echo "Failed to capture WORK_ORDER_ID from validation dispatch output." >&2
+          if [[ -z "$TASK_ID" ]]; then
+            echo "Failed to capture TASK_ID from validation dispatch output." >&2
             exit 1
           fi
 
-          echo "AEP validation work order: $WORK_ORDER_ID" | tee -a post-deploy-validation.log
+          echo "AEP validation task: $TASK_ID" | tee -a post-deploy-validation.log
 
-          if [[ "${{ inputs.execute_work_order_immediately }}" == "true" ]]; then
-            npx tsx scripts/ci/execute-validation-work-order.ts "$OPERATOR_AGENT_BASE_URL" "$WORK_ORDER_ID" 2>&1 | tee -a post-deploy-validation.log
+          if [[ "true" == "true" ]]; then
+            npx tsx scripts/ci/execute-validation-work-order.ts "$OPERATOR_AGENT_BASE_URL" "$TASK_ID" 2>&1 | tee -a post-deploy-validation.log
           fi
 
-          npx tsx scripts/ci/check-validation-verdict.ts "$OPERATOR_AGENT_BASE_URL" "$WORK_ORDER_ID" 2>&1 | tee -a post-deploy-validation.log
+          npx tsx scripts/ci/check-validation-verdict.ts "$OPERATOR_AGENT_BASE_URL" "$TASK_ID" 2>&1 | tee -a post-deploy-validation.log
 
       - name: Capture outputs
         id: capture

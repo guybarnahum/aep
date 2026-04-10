@@ -12,7 +12,7 @@ function parseArgs(argv: string[]) {
   if (argv.length >= 2 && !argv[0].startsWith("--")) {
     return {
       operatorBaseUrl: argv[0].replace(/\/+$/, ""),
-      workOrderId: argv[1],
+      taskId: argv[1],
     } as const;
   }
 
@@ -35,26 +35,33 @@ function parseArgs(argv: string[]) {
   }
 
   const operatorBaseUrl =
-    args.get("operator-base-url") ?? args.get("base-url") ?? process.env.OPERATOR_AGENT_BASE_URL;
+    args.get("operator-base-url") ??
+    args.get("base-url") ??
+    process.env.OPERATOR_AGENT_BASE_URL;
   if (!operatorBaseUrl) {
     throw new Error("Missing required operator-agent base URL");
   }
 
-  const workOrderId = args.get("work-order-id") ?? process.env.WORK_ORDER_ID;
-  if (!workOrderId) {
-    throw new Error("Missing required work order id");
+  const taskId =
+    args.get("task-id") ??
+    args.get("work-order-id") ??
+    process.env.TASK_ID ??
+    process.env.WORK_ORDER_ID;
+
+  if (!taskId) {
+    throw new Error("Missing required task id");
   }
 
   return {
     operatorBaseUrl: operatorBaseUrl.replace(/\/+$/, ""),
-    workOrderId,
+    taskId,
   } as const;
 }
 
 async function main() {
-  const { operatorBaseUrl, workOrderId } = parseArgs(process.argv.slice(2));
+  const { operatorBaseUrl, taskId } = parseArgs(process.argv.slice(2));
 
-  console.log(`Executing validation work order ${workOrderId}...`);
+  console.log(`Executing validation task ${taskId}...`);
 
   const body = (await fetch(`${operatorBaseUrl}/agent/run`, {
     method: "POST",
@@ -69,8 +76,8 @@ async function main() {
       teamId: "team_validation",
       employeeId: "emp_val_specialist_01",
       roleId: "reliability-engineer",
-      workOrderId,
-      trigger: "post-deploy-validation",
+      taskId,
+      trigger: "manual",
       policyVersion: "ci-post-deploy",
     }),
   }).then(async (response) => {
@@ -84,17 +91,21 @@ async function main() {
     }
 
     if (!contentType.includes("application/json")) {
-      throw new Error(`POST /agent/run returned non-JSON content-type: ${contentType || "<missing>"}`);
+      throw new Error(
+        `POST /agent/run returned non-JSON content-type: ${contentType || "<missing>"}`,
+      );
     }
 
     return JSON.parse(text) as Promise<RunResponse>;
   })) as RunResponse;
 
   if (!body.ok) {
-    throw new Error(`Failed to execute validation work order: ${body.error ?? body.status ?? "unknown error"}`);
+    throw new Error(
+      `Failed to execute validation task: ${body.error ?? body.status ?? "unknown error"}`,
+    );
   }
 
-  console.log(`EXECUTED_WORK_ORDER_ID=${workOrderId}`);
+  console.log(`EXECUTED_TASK_ID=${taskId}`);
 }
 
 void main().catch((error) => {

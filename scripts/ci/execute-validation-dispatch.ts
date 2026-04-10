@@ -31,7 +31,9 @@ function parseArgs(argv: string[]) {
   }
 
   const operatorBaseUrl =
-    args.get("operator-base-url") ?? args.get("base-url") ?? process.env.OPERATOR_AGENT_BASE_URL;
+    args.get("operator-base-url") ??
+    args.get("base-url") ??
+    process.env.OPERATOR_AGENT_BASE_URL;
   if (!operatorBaseUrl) {
     throw new Error("Missing required operator-agent base URL");
   }
@@ -48,31 +50,35 @@ function parseArgs(argv: string[]) {
 }
 
 async function main() {
-  const { operatorBaseUrl, targetUrl } = parseArgs(
-    process.argv.slice(2),
-  );
+  const { operatorBaseUrl, targetUrl } = parseArgs(process.argv.slice(2));
 
   console.log("[DEBUG] operatorBaseUrl:", operatorBaseUrl);
   console.log("[DEBUG] targetUrl:", targetUrl);
+
   const payload = {
     targetUrl,
     useControlPlaneBinding: true,
   };
+
   console.log("[DEBUG] payload:", JSON.stringify(payload));
   console.log(`Dispatching validation task for ${targetUrl}...`);
 
   const body = (await httpPost(`${operatorBaseUrl}/agent/tasks`, {
     companyId: "company_internal_aep",
-    teamId: "team_validation",
+    originatingTeamId: "team_web_product",
+    assignedTeamId: "team_validation",
+    createdByEmployeeId: "emp_pm_01",
+    assignedEmployeeId: "emp_val_specialist_01",
     taskType: "validate-deployment",
+    title: "Post-deploy validation health check",
     payload,
-  })) as { ok?: boolean; workOrderId?: string; error?: string };
+  })) as { ok?: boolean; taskId?: string; error?: string };
 
-  if (!body.ok || typeof body.workOrderId !== "string" || body.workOrderId.length === 0) {
-    throw new Error(`Failed to create task: ${body.error ?? "missing workOrderId"}`);
+  if (!body.ok || typeof body.taskId !== "string" || body.taskId.length === 0) {
+    throw new Error(`Failed to create task: ${body.error ?? "missing taskId"}`);
   }
 
-  console.log(`WORK_ORDER_ID=${body.workOrderId}`);
+  console.log(`TASK_ID=${body.taskId}`);
 }
 
 void main().catch((error) => {

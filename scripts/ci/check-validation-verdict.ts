@@ -8,7 +8,14 @@ type TaskResponse = {
   ok: boolean;
   task?: {
     id: string;
-    status: "pending" | "in-progress" | "completed" | "failed";
+    status:
+      | "queued"
+      | "blocked"
+      | "ready"
+      | "in_progress"
+      | "completed"
+      | "failed"
+      | "escalated";
   };
   decision?: {
     verdict?: string;
@@ -20,7 +27,7 @@ function parseArgs(argv: string[]) {
   if (argv.length >= 2 && !argv[0].startsWith("--")) {
     return {
       operatorBaseUrl: argv[0].replace(/\/+$/, ""),
-      workOrderId: argv[1],
+      taskId: argv[1],
       attempts: 20,
       intervalMs: 10_000,
     } as const;
@@ -41,14 +48,22 @@ function parseArgs(argv: string[]) {
   }
 
   const operatorBaseUrl =
-    args.get("operator-base-url") ?? args.get("base-url") ?? process.env.OPERATOR_AGENT_BASE_URL;
+    args.get("operator-base-url") ??
+    args.get("base-url") ??
+    process.env.OPERATOR_AGENT_BASE_URL;
   if (!operatorBaseUrl) {
     throw new Error("Missing required operator-agent base URL");
   }
 
-  const workOrderId = args.get("work-order-id") ?? args.get("dispatch-batch-id");
-  if (!workOrderId) {
-    throw new Error("Missing required work order id");
+  const taskId =
+    args.get("task-id") ??
+    args.get("work-order-id") ??
+    args.get("dispatch-batch-id") ??
+    process.env.TASK_ID ??
+    process.env.WORK_ORDER_ID;
+
+  if (!taskId) {
+    throw new Error("Missing required task id");
   }
 
   const attempts = Number(args.get("attempts") ?? 20);
@@ -62,7 +77,7 @@ function parseArgs(argv: string[]) {
 
   return {
     operatorBaseUrl: operatorBaseUrl.replace(/\/+$/, ""),
-    workOrderId,
+    taskId,
     attempts: Math.trunc(attempts),
     intervalMs: Math.trunc(intervalMs),
   };
@@ -73,18 +88,18 @@ function sleep(ms: number): Promise<void> {
 }
 
 async function main() {
-  const { operatorBaseUrl, workOrderId, attempts, intervalMs } = parseArgs(
+  const { operatorBaseUrl, taskId, attempts, intervalMs } = parseArgs(
     process.argv.slice(2),
   );
 
   for (let attempt = 0; attempt < attempts; attempt += 1) {
     const response = (await fetchJson(
       operatorBaseUrl,
-      `/agent/tasks/${encodeURIComponent(workOrderId)}`,
+      `/agent/tasks/${encodeURIComponent(taskId)}`,
     )) as TaskResponse;
 
     if (!response.ok || !response.task) {
-      throw new Error(`Failed to fetch task ${workOrderId}`);
+      throw new Error(`Failed to fetch task ${taskId}`);
     }
 
     if (response.task.status === "completed") {
@@ -96,12 +111,17 @@ async function main() {
       process.exit(response.decision?.verdict === "pass" ? 0 : 1);
     }
 
-    if (response.task.status === "failed") {
-      console.error("Validation task execution failed.");
+    if (
+      response.task.status === "failed" ||
+      response.task.status === "escalated"
+    ) {
+      console.error(`Validation task ended in terminal status: ${response.task.status}`);
       process.exit(1);
     }
 
-    console.log(`... Waiting for Reliability Engineer (status: ${response.task.status}) ...`);
+    console.log(
+      `... Waiting for Reliability Engineer (status: ${response.task.status}) ...`,
+    );
     await sleep(intervalMs);
   }
 
