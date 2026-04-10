@@ -34,39 +34,33 @@ type EmployeesResponse = {
     effectiveBudget?: Record<string, unknown>;
     effectiveState?: {
       state: "enabled" | "disabled_pending_review" | "disabled_by_manager" | "restricted";
-      blocked: boolean;
-    };
-    scope?: {
-      allowedTenants: string[];
-      allowedServices: string[];
-      allowedEnvironmentNames: string[];
-    };
-    message?: string;
-  }>;
-};
-
-type EmployeeScopeResponse = {
-  ok: true;
-  employeeId: string;
-  companyId: string;
-  teamId: string;
-  allowedTenants: string[];
-  allowedServices: string[];
-  allowedEnvironmentNames: string[];
-};
-
-type EmployeeEffectivePolicyResponse = {
-  ok: true;
-  employeeId: string;
-  companyId: string;
-  teamId: string;
-  implemented: boolean;
-  effectiveAuthority?: {
-    allowedTenants?: string[];
-    allowedServices?: string[];
-    allowedEnvironmentNames?: string[];
-  };
-};
+        identity: {
+          employeeId: string;
+          roleId: string;
+          companyId: string;
+          teamId: string;
+        };
+        runtime: {
+          runtimeStatus: "implemented" | "planned" | "disabled";
+          effectiveAuthority?: {
+            allowedTenants?: string[];
+            allowedServices?: string[];
+            allowedEnvironmentNames?: string[];
+            [key: string]: unknown;
+          };
+          effectiveBudget?: Record<string, unknown>;
+          effectiveState?: {
+            state: "enabled" | "disabled_pending_review" | "disabled_by_manager" | "restricted";
+            blocked: boolean;
+          };
+        };
+        publicProfile?: {
+          displayName: string;
+          bio?: string;
+          skills?: string[];
+          avatarUrl?: string;
+        };
+        hasCognitiveProfile: boolean;
 
 type ManagerLogResponse = {
   ok: true;

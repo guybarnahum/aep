@@ -127,10 +127,12 @@ async function deliberate(args: {
   observation: string;
 }): Promise<string> {
   const { employee } = args.context;
-  const displayName = employee.publicProfile?.displayName ?? employee.identity.employeeId;
-  const bio = employee.publicProfile?.bio || "No bio set.";
-  const tone = employee.publicProfile?.tone || "Professional";
-  const skills = employee.publicProfile?.skills?.join(", ") || "Generalist";
+  const displayName = employee.identity.employeeName ?? employee.identity.employeeId;
+  const bio = employee.identity.bio || "No bio set.";
+  const tone = employee.identity.tone || "Professional";
+  const skills = Array.isArray(employee.identity.skills) && employee.identity.skills.length > 0
+    ? employee.identity.skills.join(", ")
+    : "Generalist";
   const persona = `Name: ${displayName}\nRole: ${employee.identity.roleId}\nBio: ${bio}\nTone: ${tone}\nSkills: ${skills}`;
 
   const prompt = `

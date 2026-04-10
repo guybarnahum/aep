@@ -20,7 +20,7 @@ export interface EmployeeProjection {
   runtime: {
     runtimeStatus: EmployeeRuntimeStatus;
     effectiveState?: {
-      state: string;
+      state: EmployeeControlState;
       blocked: boolean;
     };
     effectiveBudget?: AgentBudget;
