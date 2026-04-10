@@ -1,3 +1,12 @@
+function getDashboardBuildCommit(): string {
+  const configured = import.meta.env.VITE_BUILD_COMMIT;
+  return (configured && configured.trim()) || "dev";
+}
+
+function getDashboardBuildDate(): string {
+  const configured = import.meta.env.VITE_BUILD_DATE;
+  return (configured && configured.trim()) || "local build";
+}
 import {
   acknowledgeEscalation,
   approveApproval,
@@ -271,6 +280,10 @@ function renderShell(content: string, error?: string): void {
         <div class="endpoint-stack muted">
           <div>Control plane: ${getApiBaseUrl()}</div>
           <div>Operator agent: ${getOperatorAgentBaseUrl()}</div>
+          <div class="build-meta">
+            <div>Dashboard build: ${getDashboardBuildCommit()}</div>
+            <div>${getDashboardBuildDate()}</div>
+          </div>
         </div>
       </header>
 
