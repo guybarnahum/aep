@@ -1,522 +1,301 @@
 # AEP — Agentic Engineering Platform
 
-👉 https://github.com/guybarnahum/aep
-
----
-
-# What AEP Is
-
 AEP is the **infra department of a zero-employee company**.
 
-It is a system where:
-
-- software systems act as employees
-- teams exist as structured units
-- decisions are governed and observable
-- operations are executed through controlled interfaces
+It is a system for modeling and operating digital employees: teams, managers, tasks, governance, and eventually cognition. Today, AEP is evolving from an execution-oriented control plane into the kernel of a real agentic organization.
 
 ---
 
-# The Core Idea
+## Core idea
 
-> AI is not a feature  
-> → it is the organization
+> AI is not a feature of the system.  
+> It is becoming the organization.
 
 AEP models:
 
-- employees (agents)
-- teams (functions)
-- governance (policy + control)
-- execution (control plane)
-- observation (dashboard)
+- employees as first-class units
+- teams as structured operating groups
+- managers, approvals, and escalations
+- task-based coordination across teams
+- human-visible governance and observability
 
 ---
 
-# System Architecture
+## What AEP is becoming
 
-## Execution Layer
+AEP is not just a workflow runner or a bot framework.
+
+It is becoming an **operating system for digital employees**, with core primitives such as:
+
+- identity
+- authority
+- task
+- plan
+- result
+- approval
+- escalation
+- observability
+
+The long-term goal is a company where software systems can:
+- deploy, validate, and operate software
+- coordinate work across teams
+- reason about tasks and outcomes
+- collaborate with humans naturally
+- improve their own structure over time
+
+---
+
+## Architecture at a glance
+
+### Execution layer
+The execution substrate handles runtime and orchestration:
+
 - Cloudflare Workers
 - Durable Objects
-- Async workflows
+- async workflows
+- D1-backed state
 
-## AEP Layer
-- employee system
-- governance + policy
-- operator surface
-- dashboard
+### AEP layer
+This repo is the **infra department**:
 
-## Company Layer (future)
-- strategy
+- employees and managers
+- policy and governance
+- task coordination
+- operator surfaces
+- dashboard and observability
+
+### Company layer
+The future company layer will add:
+
+- broader coordination
 - budgeting
-- coordination
+- strategy
+- higher-level organizational behavior
 
 ---
 
-# Employees (Core Concept)
+## How the system works
 
-Each employee is a **first-class unit** with:
+AEP is moving toward a simple organizational model:
 
-## Identity + Runtime
-- role
+```text
+task → assigned employee → execution → decision → result
+```
+
+This is important because work is no longer modeled as direct system calls.  
+It is modeled as **organizational responsibility**.
+
+That means:
+
+- tasks have ownership and assignment
+- employees act within authority and budget
+- managers supervise and intervene
+- outputs become visible and reviewable
+
+---
+
+## Employees
+
+Each employee is a bounded unit with three layers:
+
+### 1. Identity and runtime
+The employee’s role in the org:
+
+- company
 - team
+- role
+- runtime status
 - authority
 - budget
 - operational state
 
-## Public Profile
-- name
+### 2. Public profile
+The human-facing projection:
+
+- display name
 - skills
 - bio
+- avatar / representation
 
-## Private Cognitive Layer
+### 3. Private cognitive layer
+The internal employee mind:
+
 - prompt profile
 - decision style
-- reasoning (future)
+- identity seed
+- memory and reasoning over time
+
+A core rule of AEP is:
+
+> cognition belongs inside the employee
+
+There is no global shared agent mind.
 
 ---
 
-# What Exists Today
+## What exists today
 
-## Org Model
+AEP already has meaningful parts of a digital operations organization.
+
+### Organization model
 - company
 - teams
-- employees (planned + implemented)
-
-## Control Plane
-- async execution
-- workflow orchestration
-- retry + timeout
-- state tracking
-
-## Governance
-- authority enforcement
-- budget control
-- escalation
-
-## Dashboard
-- org view
-- employees
-- escalations
-- approvals
-- control history
-- roadmap visibility
-
----
-
-# Current State
-
-AEP is now:
-
-> a functioning agentic infrastructure department
-
-It has:
-
-- structured employees
-- clear boundaries
-- observable behavior
-- enforced contracts
-
----
-
-# What’s Next (PR6C)
-
-We are moving to:
-
-> **company coordination**
-
-Next capabilities:
-
-- cross-team workflows
-- roadmap-driven execution
-- company scheduler
-- inter-employee communication
-
-Example:
-
-```
-Product defines → Infra deploys → Validation validates
-```
-
----
-
-# Vision
-
-AEP evolves toward:
-
-> fully autonomous organizations
-
-Where systems can:
-
-- operate continuously
-- reason about outcomes
-- coordinate across teams
-- improve their own structure
-
----
-
-## External execution systems
-Responsible for:
-- deploy
-- teardown
-- real-world validation side effects
-- infra mutation
-
-This separation is intentional.
-Workers reason and coordinate.
-External systems perform the real side effects.
-
-This keeps the system:
-- auditable
-- retry-safe
-- easier to reason about
-- safer for automation
-
----
-
-# What Exists Today
-
-AEP already has meaningful pieces of a digital operations organization.
-
-## Control plane
-- Durable Object orchestration
-- D1-backed state
-- run / job / attempt lifecycle
-- async pause / resume semantics
-- trace-oriented observability
-
-## Operator-agent surface
-The runtime already exposes organization and governance-oriented surfaces such as:
-- employees
-- escalations
-- approvals
-- manager log
-- control history
-- roadmaps
-- scheduler status
-
-## Dashboard
-The dashboard is the operator-facing organization and governance view.
-
-It is intended to show:
-- tenant and service state
-- department and employee state
-- escalations
-- approvals
-- manager decisions
-- control history
-- roadmaps
-- scheduler posture
-
-## CI / validation
-GitHub Actions and CI checks validate:
-- deploy health
-- smoke behavior
-- operator surface consistency
-- multi-team and governance shape
-
----
-
-# Current Transition: From Agents to Organization
-
-PR5 established the major shift:
-
-> AI is no longer just a feature of the system.
-> It is the beginning of the organization.
-
-The project is now moving through PR6, which is about turning that concept into a real, observable company and department model.
-
-AEP is no longer just “a couple of named agents”.
-It is moving toward:
-- company
-- teams / departments
 - employees
 - managers
-- approvals
-- escalations
-- supervision
-- eventually reasoning and inter-employee communication
+- planned and implemented employee types
 
----
-
-# Current Organizational Reality
-
-The project currently contains two kinds of employees.
-
-## Implemented runtime employees
-These are active in runtime and can have:
-- effective state
-- effective authority
-- effective budget
-- controls and overlays
-- manager and approval history
-
-## Catalog / planned employees
-These are part of the organization model but are not yet fully implemented in runtime.
-
-They may carry:
-- catalog metadata
-- scope
-- placeholder messaging
-
-They may not yet carry the same runtime fields as active employees.
-
-This distinction matters.
-It is a real part of the current design state.
-
----
-
-# Why Observability Comes First
-
-Before adding deeper agent cognition, the immediate priority is strong observability.
-
-The dashboard and ops-console should mirror the levels of the system.
-
-## The system levels we want visible
-
-### Company
-- what company and teams exist
-- what is implemented vs planned
-- overall scheduler / governance posture
-
-### Teams / departments
-- who belongs to each team
-- what objectives and roadmaps exist
-- what teams are active in runtime
-
-### Employees
-- identity
-- role
-- manager relationship
-- runtime status
-- authority and budget
-- control state
+### Control plane
+- async execution
+- run / job / attempt lifecycle
+- retries and timeouts
+- trace-oriented observability
 
 ### Governance
-- escalations
 - approvals
-- manager decisions
+- escalations
+- manager logs
 - control history
+- budget and authority enforcement
 
-### Execution
-- runs
-- jobs
-- attempts
-- trace
-- failure and remediation context
-
-This observability-first step is intentional.
-It makes the current system understandable and debuggable before richer LLM-driven behavior is introduced.
-
----
-
-# Dashboard vs Ops-Console
-
-These are complementary surfaces.
-
-## Dashboard
-Best for:
-- organization view
-- team and employee view
-- governance view
-- manager / approval / escalation visibility
+### Dashboard
+- organization and department view
+- employee visibility
+- approvals and escalations
 - roadmap and scheduler visibility
 
-## Ops-console
-Best for:
-- run / job / attempt detail
-- trace detail
-- execution debugging
-- remediation visibility
-- deeper operational forensics
-
-Together, they should mirror the real structure of the system from company level down to trace level.
+### CI / validation
+- health checks
+- deploy validation
+- operator surface checks
+- org shape checks
 
 ---
 
-# PR6 Plan
+## Current state
 
-## 6A — Department Surface + Org Seeding
-Introduce the org model into runtime-facing APIs and dashboard surfaces.
+AEP is now a **structured, observable agentic infra department**.
 
-Includes:
-- multi-team employee catalog
-- department view
-- governance surfaces
-- roadmaps and scheduler visibility
-- CI checks for operator surface shape
+It already models:
+- teams
+- employees
+- supervision
+- governance
+- task-based work coordination
 
-Immediate requirement:
-- the dashboard must safely support mixed employee shapes
-
-## 6B — Runtime Projection Contract
-Define a stable backend contract for employees and teams.
-
-Includes:
-- explicit runtime status such as implemented vs planned
-- canonical employee projection
-- removal of UI guesswork
-- CI enforcement of the contract
-
-## 6C — Company Coordination Model
-Move from “teams exist” to “teams interact”.
-
-Includes:
-- company-level identity
-- cross-team work and dependency flow
-- roadmap-to-execution linkage
-- broader scheduler and supervision model
-
-## 6D — Documentation and Concept Lock
-Update the docs so humans and LLM sessions can continue from the real plan without reconstructing it from memory.
+The next major step is to make those employees truly **cognitive and collaborative**.
 
 ---
 
-# What Comes After Observability
+## Roadmap
 
-Once observability is strong and the org/runtime contract is explicit, the next major layer is:
+### PR6 — Organization kernel
+PR6 is about making the organization real and operational.
 
-## LLM-driven introspection
-Employees produce:
-- reasoning
-- internal monologue
-- traceable decisions
+It includes:
+- org surface and seeding
+- employee runtime boundary
+- task coordination
+- task dependencies and orchestration
+- durable task artifacts such as plans and results
+- documentation lock
 
-## Inter-employee messaging
-Employees exchange explicit messages such as:
-- clarification
-- escalation
-- instruction
-- negotiation
+The goal of PR6 is:
 
-This is how the system evolves from a structured control plane into a real digital organization.
+> a clean structural kernel for an operating digital organization
 
-Important distinction:
-- internal monologue is private introspection
-- messages are explicit communication between employees
+### PR7 — Cognitive organization
+PR7 is the next major phase.
 
-They should not be conflated.
+It will introduce:
+- employee reasoning loops
+- internal communication and message threads
+- planning and delegation
+- result publishing
+- natural human collaboration
+- Slack and email adapters
 
----
+The goal of PR7 is:
 
-# Constraints
-
-The following constraints remain central:
-
-- Workers orchestrate and reason; they do not perform uncontrolled infra mutation
-- Real side effects must go through explicit control-plane and external execution boundaries
-- Trace and audit remain first-class
-- UI is a mirror of the system, not the source of truth
-- Future employee actions must become explainable and attributable
+> employees that can think, communicate, assign, and collaborate
 
 ---
 
-# Current Priority
+## Human observability
 
-The immediate priority is:
+AEP is designed so humans can work with the system naturally.
 
-> make the dashboard and ops-console capture the levels of the system that already exist
+Humans should be able to see:
+- what teams exist
+- who the employees are
+- what tasks are assigned
+- what is blocked
+- what decisions were made
+- what results were produced
+- what approvals or escalations are pending
 
-That means:
-- finishing the department and governance observability surfaces
-- making the UI resilient to mixed employee types
-- tightening the backend runtime projection contract
-- then continuing into deeper cognition and communication
+Over time, humans should also be able to:
+- review plans
+- comment on work
+- participate in message threads
+- approve or redirect actions
+- receive summaries in familiar channels
 
----
-
-# Repository
-
-Source of truth:
-`guybarnahum/aep`
-
-Suggested companion doc for ongoing implementation context:
-- `LLM.md`
-
----
-
-## Coordination Model (PR6C)
-
-AEP has evolved beyond a control plane and into a system that models how real organizations operate.
-
-### From execution → coordination
-
-Previously:
-
-- Systems triggered jobs directly
-- Execution was mechanical
-- Context was minimal
-
-Now:
-
-- Work is represented as **tasks**
-- Tasks have:
-  - origin (which team created it)
-  - ownership (which team is responsible)
-  - assignment (which employee executes it)
-- Execution flows through the organization
+The intention is not to expose raw private cognition by default.  
+Instead, AEP should expose **legible work artifacts**: plans, results, rationale summaries, and communication threads.
 
 ---
 
-### Tasks as first-class primitives
+## Slack and email
 
-Every action in AEP now follows:
+Slack and email may become important collaboration surfaces, but they are **not** the source of truth.
 
-```
-Task → Assignment → Execution → Decision
-```
+AEP remains canonical for:
+- tasks
+- messages
+- plans
+- results
+- approvals
+- organizational state
 
-This allows:
-
-- auditability
-- delegation
-- escalation
-- cross-team collaboration
-
----
-
-### CI/CD as an organizational workflow
-
-Even deployment validation now:
-
-1. Creates a task in the validation team
-2. Assigns it to a reliability engineer
-3. Executes through the agent runtime
-4. Produces a decision (pass/fail)
-
-This mirrors how a real company operates.
+Slack and email are adapters for:
+- collaboration
+- notifications
+- approvals
+- stakeholder visibility
 
 ---
 
-## What’s next
+## Key design constraints
 
-The next phase introduces:
+A few principles remain central:
 
-> **Task dependencies and orchestration across teams**
-
-This enables:
-
-- multi-step workflows
-- cross-team validation chains
-- blocked/unblocked execution
-- real organizational coordination
+- AEP coordinates and reasons; real side effects must stay controlled
+- trace and audit are first-class
+- the UI is a mirror of the system, not the source of truth
+- cognition stays inside the employee boundary
+- human collaboration should feel natural without requiring raw hidden reasoning
+- external tools like Slack or email must not replace the internal system model
 
 ---
 
-## Long-term direction
+## Why this repo matters
 
-AEP is moving toward:
-
-> a fully autonomous organization
-
-Where:
-
-- teams coordinate via tasks
-- employees execute work
-- managers supervise and intervene
-- the system evolves its own structure
-
----
-
-This is the foundation for building:
+AEP is the foundation for something larger:
 
 > **zero-employee companies with real operational structure**
+
+Not just bots.  
+Not just workflows.  
+A real digital organization with teams, responsibilities, supervision, and eventually cognition.
+
+---
+
+## Repository
+
+Source of truth:
+
+`guybarnahum/aep`
+
+For deeper architecture and implementation context, see:
+
+- `LLM.md`
