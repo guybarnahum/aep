@@ -1,31 +1,53 @@
-import { D1Database } from "@cloudflare/workers-types";
+import assert from "node:assert/strict";
+import type { D1Database } from "@cloudflare/workers-types";
+
+type SqliteRow = {
+  name?: string;
+};
+
+type PragmaColumnRow = {
+  name: string;
+};
 
 export async function checkCoordinationSchema(db: D1Database): Promise<void> {
-  // Check for required tables and columns
-  const tables = ["tasks", "task_dependencies", "employee_messages"];
-  for (const table of tables) {
-    const result = await db.prepare(`SELECT name FROM sqlite_master WHERE type='table' AND name=?`).bind(table).first();
-    if (!result) {
-      throw new Error(`Missing required table: ${table}`);
-    }
-  }
-  // Check for required columns in tasks
-  const columns = [
-    "id", "companyId", "originatingTeamId", "assignedTeamId", "ownerEmployeeId", "assignedEmployeeId", "createdByEmployeeId", "taskType", "title", "status", "payload", "blockingDependencyCount"
-  ];
-  const pragma = await db.prepare(`PRAGMA table_info(tasks)`).all();
-  const colNames = pragma.results.map((row: any) => row.name);
-  for (const col of columns) {
-    if (!colNames.includes(col)) {
-      throw new Error(`Missing column in tasks: ${col}`);
-    }
-  }
-  // If all checks pass
-  console.log("Coordination schema is valid.");
-}
+  const requiredTables = ["tasks", "task_dependencies", "employee_messages"];
 
-if (require.main === module) {
-  // Example usage: node company-coordination-schema-check.js
-  // (You would wire this up to your CI environment with the actual DB)
-  console.log("Coordination schema check script loaded.");
+  for (const table of requiredTables) {
+    const row = await db
+      .prepare(`SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?`)
+      .bind(table)
+      .first<SqliteRow>();
+
+    assert.ok(row?.name === table, `Missing required table: ${table}`);
+  }
+
+  const pragma = await db.prepare(`PRAGMA table_info(tasks)`).all<PragmaColumnRow>();
+
+  const columnNames = new Set(
+    (pragma.results ?? []).map((row: PragmaColumnRow) => row.name),
+  );
+
+  const requiredTaskColumns = [
+    "id",
+    "company_id",
+    "originating_team_id",
+    "assigned_team_id",
+    "owner_employee_id",
+    "assigned_employee_id",
+    "created_by_employee_id",
+    "task_type",
+    "title",
+    "status",
+    "payload",
+    "blocking_dependency_count",
+  ];
+
+  for (const column of requiredTaskColumns) {
+    assert.ok(columnNames.has(column), `Missing column in tasks: ${column}`);
+  }
+
+  console.log("company-coordination-schema-check passed", {
+    requiredTables,
+    requiredTaskColumns,
+  });
 }

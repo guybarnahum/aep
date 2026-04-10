@@ -1,3 +1,18 @@
+import type {
+  ApprovalRecord,
+  ControlHistoryRecord,
+  DepartmentOverview,
+  EscalationMutationResponse,
+  EscalationRecord,
+  ManagerDecisionRecord,
+  OperatorEmployeeRecord,
+  SchedulerStatus,
+  ServiceOverview,
+  TeamRoadmap,
+  TenantOverview,
+  TenantSummary,
+} from "./types";
+
 // Normalizer for employee records to ensure shape stability
 function normalizeEmployeeRecord(
   employee: OperatorEmployeeRecord,
@@ -14,19 +29,6 @@ function normalizeEmployeeRecord(
     hasCognitiveProfile: employee.hasCognitiveProfile === true,
   };
 }
-  ApprovalRecord,
-  ControlHistoryRecord,
-  DepartmentOverview,
-  EscalationMutationResponse,
-  EscalationRecord,
-  ManagerDecisionRecord,
-  OperatorEmployeeRecord,
-  SchedulerStatus,
-  ServiceOverview,
-  TenantOverview,
-  TenantSummary,
-  TeamRoadmap,
-} from "./types";
 
 const DEFAULT_CONTROL_PLANE_BASE_URL = "http://127.0.0.1:8788";
 const DEFAULT_OPERATOR_AGENT_BASE_URL = "http://127.0.0.1:8797";
@@ -84,7 +86,9 @@ export async function getTenants(): Promise<TenantSummary[]> {
   return payload.tenants;
 }
 
-export async function getTenantOverview(tenantId: string): Promise<TenantOverview> {
+export async function getTenantOverview(
+  tenantId: string,
+): Promise<TenantOverview> {
   return getJson<TenantOverview>(
     getApiBaseUrl(),
     `/tenants/${encodeURIComponent(tenantId)}`,
@@ -113,11 +117,26 @@ export async function getDepartmentOverview(): Promise<DepartmentOverview> {
     roadmapsPayload,
     schedulerStatus,
   ] = await Promise.all([
-    getJson<{ employees: OperatorEmployeeRecord[] }>(agentBaseUrl, "/agent/employees"),
-    getJson<{ entries: EscalationRecord[] }>(agentBaseUrl, "/agent/escalations?limit=50"),
-    getJson<{ entries: ControlHistoryRecord[] }>(agentBaseUrl, "/agent/control-history?limit=50"),
-    getJson<{ entries: ManagerDecisionRecord[] }>(agentBaseUrl, "/agent/manager-log?limit=50"),
-    getJson<{ entries: ApprovalRecord[] }>(agentBaseUrl, "/agent/approvals?limit=50"),
+    getJson<{ employees: OperatorEmployeeRecord[] }>(
+      agentBaseUrl,
+      "/agent/employees",
+    ),
+    getJson<{ entries: EscalationRecord[] }>(
+      agentBaseUrl,
+      "/agent/escalations?limit=50",
+    ),
+    getJson<{ entries: ControlHistoryRecord[] }>(
+      agentBaseUrl,
+      "/agent/control-history?limit=50",
+    ),
+    getJson<{ entries: ManagerDecisionRecord[] }>(
+      agentBaseUrl,
+      "/agent/manager-log?limit=50",
+    ),
+    getJson<{ entries: ApprovalRecord[] }>(
+      agentBaseUrl,
+      "/agent/approvals?limit=50",
+    ),
     getJson<{ entries: TeamRoadmap[] }>(agentBaseUrl, "/agent/roadmaps"),
     getJson<SchedulerStatus>(agentBaseUrl, "/agent/scheduler-status"),
   ]);

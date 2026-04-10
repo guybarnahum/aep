@@ -1,10 +1,11 @@
 {
   "name": "@aep/operator-agent",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "wrangler dev",
     "check": "tsc --noEmit",
-    "coordination-schema-check": "node ../../scripts/ci/company-coordination-schema-check.ts"
+    "coordination-schema-check": "tsx ../../scripts/ci/company-coordination-schema-check.ts"
   }
 }

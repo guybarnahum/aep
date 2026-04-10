@@ -1,3 +1,7 @@
+import type { ExecutionContext } from "@aep/operator-agent/types/execution-provenance";
+import type { CompanyId } from "@aep/operator-agent/org/company";
+import type { TeamId } from "@aep/operator-agent/org/teams";
+
 export type EmployeeRuntimeStatus =
   | "implemented"
   | "planned"
@@ -28,66 +32,63 @@ export interface EmployeeProjection {
   };
   publicProfile?: EmployeePublicProfile;
   hasCognitiveProfile: boolean;
-  }
-
-  export type CoordinationTaskStatus =
-    | "queued"
-    | "blocked"
-    | "ready"
-    | "in_progress"
-    | "completed"
-    | "failed"
-    | "escalated";
-
-  export type EmployeeMessageType = "task" | "escalation" | "coordination";
-
-  export type EmployeeMessageStatus = "pending" | "delivered" | "acknowledged";
-
-  export interface CoordinationTaskRecord {
-    id: string;
-    companyId: CompanyId;
-    originatingTeamId: TeamId;
-    assignedTeamId: TeamId;
-    ownerEmployeeId?: string;
-    assignedEmployeeId?: string;
-    createdByEmployeeId?: string;
-    taskType: string;
-    title: string;
-    status: CoordinationTaskStatus;
-    payload: Record<string, unknown>;
-    blockingDependencyCount: number;
-    createdAt?: string;
-    updatedAt?: string;
-    startedAt?: string;
-    completedAt?: string;
-    failedAt?: string;
-  }
-
-  export interface CoordinationTaskDependencyRecord {
-    taskId: string;
-    dependsOnTaskId: string;
-    dependencyType: "completion";
-    createdAt?: string;
-  }
-
-  export interface EmployeeMessageRecord {
-    id: string;
-    companyId: CompanyId;
-    senderEmployeeId: string;
-    receiverEmployeeId?: string;
-    receiverTeamId?: TeamId;
-    type: EmployeeMessageType;
-    status: EmployeeMessageStatus;
-    payload: Record<string, unknown>;
-    relatedTaskId?: string;
-    relatedEscalationId?: string;
-    relatedApprovalId?: string;
-    createdAt?: string;
-    updatedAt?: string;
 }
-import type { ExecutionContext } from "@aep/operator-agent/types/execution-provenance";
-import type { CompanyId } from "@aep/operator-agent/org/company";
-import type { TeamId } from "@aep/operator-agent/org/teams";
+
+export type CoordinationTaskStatus =
+  | "queued"
+  | "blocked"
+  | "ready"
+  | "in_progress"
+  | "completed"
+  | "failed"
+  | "escalated";
+
+export type EmployeeMessageType = "task" | "escalation" | "coordination";
+
+export type EmployeeMessageStatus = "pending" | "delivered" | "acknowledged";
+
+export interface CoordinationTaskRecord {
+  id: string;
+  companyId: CompanyId;
+  originatingTeamId: TeamId;
+  assignedTeamId: TeamId;
+  ownerEmployeeId?: string;
+  assignedEmployeeId?: string;
+  createdByEmployeeId?: string;
+  taskType: string;
+  title: string;
+  status: CoordinationTaskStatus;
+  payload: Record<string, unknown>;
+  blockingDependencyCount: number;
+  createdAt?: string;
+  updatedAt?: string;
+  startedAt?: string;
+  completedAt?: string;
+  failedAt?: string;
+}
+
+export interface CoordinationTaskDependencyRecord {
+  taskId: string;
+  dependsOnTaskId: string;
+  dependencyType: "completion";
+  createdAt?: string;
+}
+
+export interface EmployeeMessageRecord {
+  id: string;
+  companyId: CompanyId;
+  senderEmployeeId: string;
+  receiverEmployeeId?: string;
+  receiverTeamId?: TeamId;
+  type: EmployeeMessageType;
+  status: EmployeeMessageStatus;
+  payload: Record<string, unknown>;
+  relatedTaskId?: string;
+  relatedEscalationId?: string;
+  relatedApprovalId?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
 
 export type EmployeeTrigger = "manual" | "cron" | "paperclip";
 

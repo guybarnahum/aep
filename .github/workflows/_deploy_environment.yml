@@ -249,6 +249,14 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: ./scripts/ci/apply-d1-migrations.sh | tee migrations.log
 
+      - name: Check operator-agent coordination schema
+        id: coordination_schema_check
+        if: inputs.deploy_operator_agent
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: ./scripts/ci/check-operator-agent-coordination-schema.sh | tee coordination-schema-check.log
+
       - name: Wait for control-plane readiness
         id: wait_control_plane
         run: |
@@ -342,6 +350,7 @@ jobs:
           DEPLOY_CONTROL_PLANE_OUTCOME="${{ steps.deploy_control_plane.outcome }}"
           DEPLOY_OPERATOR_AGENT_OUTCOME="${{ steps.deploy_operator_agent.outcome }}"
           MIGRATIONS_OUTCOME="${{ steps.d1_migrations.outcome }}"
+          COORDINATION_SCHEMA_OUTCOME="${{ steps.coordination_schema_check.outcome }}"
           WAIT_CONTROL_PLANE_OUTCOME="${{ steps.wait_control_plane.outcome }}"
           HEALTH_OUTCOME="${{ steps.health_check.outcome }}"
           WAIT_OPERATOR_AGENT_OUTCOME="${{ steps.wait_operator_agent.outcome }}"
@@ -372,6 +381,9 @@ jobs:
             echo "- ⚪ Operator-agent deploy: skipped (deploy_operator_agent=false)" >> "$GITHUB_STEP_SUMMARY"
           fi
           echo "- $(status_emoji "$MIGRATIONS_OUTCOME") D1 migrations: $MIGRATIONS_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
+          if [[ "${{ inputs.deploy_operator_agent }}" == "true" ]]; then
+            echo "- $(status_emoji "$COORDINATION_SCHEMA_OUTCOME") Coordination schema: $COORDINATION_SCHEMA_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
+          fi
           echo "- $(status_emoji "$WAIT_CONTROL_PLANE_OUTCOME") Control-plane readiness: $WAIT_CONTROL_PLANE_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
           echo "- $(status_emoji "$HEALTH_OUTCOME") Control-plane health: $HEALTH_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
           if [[ "${{ inputs.deploy_operator_agent }}" == "true" ]]; then
@@ -382,8 +394,8 @@ jobs:
           echo "### Failure triage" >> "$GITHUB_STEP_SUMMARY"
           if [[ "$BASE_URL_CONFIG_OUTCOME" != "success" ]]; then
             echo "- Base URL configuration failed. Check deploy URL resolution for '${{ inputs.environment_name }}'." >> "$GITHUB_STEP_SUMMARY"
-          elif [[ "$DEPLOY_CONTROL_PLANE_OUTCOME" != "success" || "$MIGRATIONS_OUTCOME" != "success" || "$WAIT_CONTROL_PLANE_OUTCOME" != "success" || "$HEALTH_OUTCOME" != "success" ]]; then
-            echo "- Control-plane bring-up failed. Start with deploy logs, migrations, readiness, and /healthz." >> "$GITHUB_STEP_SUMMARY"
+          elif [[ "$DEPLOY_CONTROL_PLANE_OUTCOME" != "success" || "$MIGRATIONS_OUTCOME" != "success" || ( "${{ inputs.deploy_operator_agent }}" == "true" && "$COORDINATION_SCHEMA_OUTCOME" != "success" ) || "$WAIT_CONTROL_PLANE_OUTCOME" != "success" || "$HEALTH_OUTCOME" != "success" ]]; then
+            echo "- Bring-up failed. Start with deploy logs, migrations, operator-agent coordination schema, readiness, and /healthz." >> "$GITHUB_STEP_SUMMARY"
           elif [[ "${{ inputs.deploy_operator_agent }}" == "true" && "$DEPLOY_OPERATOR_AGENT_OUTCOME" != "success" ]]; then
             echo "- Operator-agent deploy failed. Inspect deploy-operator-agent.log and wrangler config." >> "$GITHUB_STEP_SUMMARY"
           elif [[ "${{ inputs.deploy_operator_agent }}" == "true" && "${{ steps.operator_agent_config.outputs.enabled }}" == "true" && "$WAIT_OPERATOR_AGENT_OUTCOME" != "success" ]]; then
@@ -394,7 +406,7 @@ jobs:
           echo "" >> "$GITHUB_STEP_SUMMARY"
 
           echo "### Overall verdict" >> "$GITHUB_STEP_SUMMARY"
-          if [[ "$BASE_URL_CONFIG_OUTCOME" == "success" && "$DEPLOY_CONTROL_PLANE_OUTCOME" == "success" && "$MIGRATIONS_OUTCOME" == "success" && "$WAIT_CONTROL_PLANE_OUTCOME" == "success" && "$HEALTH_OUTCOME" == "success" ]]; then
+          if [[ "$BASE_URL_CONFIG_OUTCOME" == "success" && "$DEPLOY_CONTROL_PLANE_OUTCOME" == "success" && "$MIGRATIONS_OUTCOME" == "success" && ( "${{ inputs.deploy_operator_agent }}" != "true" || "$COORDINATION_SCHEMA_OUTCOME" == "success" ) && "$WAIT_CONTROL_PLANE_OUTCOME" == "success" && "$HEALTH_OUTCOME" == "success" ]]; then
             if [[ "${{ inputs.deploy_operator_agent }}" != "true" || "${{ steps.operator_agent_config.outputs.enabled }}" != "true" || "$WAIT_OPERATOR_AGENT_OUTCOME" == "success" ]]; then
               echo "- ✅ Environment deploy passed." >> "$GITHUB_STEP_SUMMARY"
             else
