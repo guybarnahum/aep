@@ -16,7 +16,16 @@ import { handleManagerLog } from "./routes/manager-log";
 import { handleRun } from "./routes/run";
 import { handleRunOnce } from "./routes/run-once";
 import { handleSchedulerStatus } from "./routes/scheduler-status";
-import { handleCreateTask, handleGetTask } from "./routes/tasks";
+import {
+  handleCreateTask,
+  handleGetTask,
+  handleListTasks,
+} from "./routes/tasks";
+import {
+  handleCreateMessage,
+  handleListMessages,
+  handleListMessagesForEmployee,
+} from "./routes/messages";
 import { handleSeedApproval } from "./routes/te-seed-approval";
 import { handleSeedWorkLog } from "./routes/te-seed-work-log";
 import { handleWorkLog } from "./routes/work-log";
@@ -36,11 +45,9 @@ function withCors(response: Response): Response {
 }
 
 async function dispatch(request: Request, env: OperatorAgentEnv): Promise<Response> {
-  // Debug: print ENABLE_TEST_ENDPOINTS value for troubleshooting
   console.log("[DEBUG] ENABLE_TEST_ENDPOINTS:", env.ENABLE_TEST_ENDPOINTS);
   const url = new URL(request.url);
 
-  // Test endpoint: allow CI to trigger scheduled event via HTTP (POST /__scheduled)
   if (
     env.ENABLE_TEST_ENDPOINTS === "true" &&
     request.method === "POST" &&
@@ -83,6 +90,10 @@ async function dispatch(request: Request, env: OperatorAgentEnv): Promise<Respon
     return handleWorkLog(request, env);
   }
 
+  if (url.pathname === "/agent/tasks" && request.method === "GET") {
+    return handleListTasks(request, env);
+  }
+
   if (url.pathname === "/agent/tasks" && request.method === "POST") {
     return handleCreateTask(request, env);
   }
@@ -92,17 +103,33 @@ async function dispatch(request: Request, env: OperatorAgentEnv): Promise<Respon
     return handleGetTask(request, env, decodeURIComponent(taskMatch[1]));
   }
 
+  if (url.pathname === "/agent/messages" && request.method === "GET") {
+    return handleListMessages(request, env);
+  }
+
+  if (url.pathname === "/agent/messages" && request.method === "POST") {
+    return handleCreateMessage(request, env);
+  }
+
+  const employeeMessagesMatch = url.pathname.match(/^\/agent\/messages\/([^/]+)$/);
+  if (employeeMessagesMatch && request.method === "GET") {
+    return handleListMessagesForEmployee(
+      request,
+      env,
+      decodeURIComponent(employeeMessagesMatch[1]),
+    );
+  }
+
   if (url.pathname === "/agent/manager-log") {
     return handleManagerLog(request, env);
   }
 
-  // Roadmap API endpoint for dashboard
   if (url.pathname === "/agent/roadmaps" && request.method === "GET") {
     if (!env.OPERATOR_AGENT_DB) {
       return new Response("Operator agent database not configured", { status: 500 });
     }
     const result = await env.OPERATOR_AGENT_DB.prepare(
-      "SELECT * FROM team_roadmaps ORDER BY priority DESC, created_at DESC"
+      "SELECT * FROM team_roadmaps ORDER BY priority DESC, created_at DESC",
     ).all();
     return Response.json({ entries: result.results });
   }
@@ -199,7 +226,7 @@ async function dispatch(request: Request, env: OperatorAgentEnv): Promise<Respon
 export default {
   async fetch(
     request: Request,
-    env: OperatorAgentEnv
+    env: OperatorAgentEnv,
   ): Promise<Response> {
     if (request.method === "OPTIONS") {
       return new Response(null, { status: 204, headers: CORS_HEADERS });
@@ -209,8 +236,8 @@ export default {
 
   async scheduled(
     controller: ScheduledController,
-    env: OperatorAgentEnv
+    env: OperatorAgentEnv,
   ): Promise<void> {
     await handleScheduledCron(controller.cron, env, controller.scheduledTime);
-  }
+  },
 };

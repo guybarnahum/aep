@@ -1,4 +1,12 @@
 {
   "extends": "../tsconfig.base.json",
-  "include": ["deploy/**/*.ts", "dev/**/*.ts"]
+  "include": [
+    "deploy/**/*.ts",
+    "dev/**/*.ts",
+    "ci/**/*.ts"
+  ],
+  "exclude": [
+    "ci/dev/**",
+    "ci/experimental/**"
+  ]
 }

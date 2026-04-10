@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "wrangler dev",
-    "check": "tsc --noEmit"
+    "check": "tsc --noEmit",
+    "coordination-schema-check": "node ../../scripts/ci/company-coordination-schema-check.ts"
   }
 }

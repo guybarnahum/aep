@@ -186,8 +186,8 @@ async function processValidationTask(args: {
 }): Promise<ValidationTaskDecision> {
   const taskStore = getTaskStore(args.env);
 
-  if (args.shouldClaim && args.task.status !== "in-progress") {
-    await taskStore.updateTaskStatus(args.task.id, "in-progress");
+  if (args.shouldClaim && args.task.status !== "in_progress") {
+    await taskStore.updateTaskStatus(args.task.id, "in_progress");
   }
 
   try {

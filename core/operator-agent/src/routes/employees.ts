@@ -5,15 +5,70 @@ import {
   mergeAuthority,
   mergeBudget,
 } from "@aep/operator-agent/lib/policy-merge";
+import {
+  COMPANY_INTERNAL_AEP,
+  type CompanyId,
+} from "@aep/operator-agent/org/company";
+import {
+  TEAM_INFRA,
+  TEAM_VALIDATION,
+  TEAM_WEB_PRODUCT,
+  type TeamId,
+} from "@aep/operator-agent/org/teams";
 import { getEmployeeById } from "@aep/operator-agent/org/employees";
 import type {
+  AgentRoleId,
   EmployeeProjection,
   EmployeeRuntimeStatus,
   OperatorAgentEnv,
 } from "@aep/operator-agent/types";
 
+function toCompanyId(companyId: string): CompanyId {
+  if (companyId !== COMPANY_INTERNAL_AEP) {
+    throw new Error(`Unsupported companyId in employee catalog: ${companyId}`);
+  }
+  return companyId;
+}
+
+function toTeamId(teamId: string): TeamId {
+  const validTeams: TeamId[] = [
+    TEAM_INFRA,
+    TEAM_WEB_PRODUCT,
+    TEAM_VALIDATION,
+  ];
+
+  if (!validTeams.includes(teamId as TeamId)) {
+    throw new Error(`Unsupported teamId in employee catalog: ${teamId}`);
+  }
+
+  return teamId as TeamId;
+}
+
+function toAgentRoleId(roleId: string): AgentRoleId {
+  const validRoles: AgentRoleId[] = [
+    "timeout-recovery-operator",
+    "infra-ops-manager",
+    "retry-supervisor",
+    "teardown-safety-operator",
+    "incident-triage-operator",
+    "product-manager",
+    "product-manager-web",
+    "frontend-engineer",
+    "validation-pm",
+    "validation-engineer",
+    "reliability-engineer",
+  ];
+
+  if (!validRoles.includes(roleId as AgentRoleId)) {
+    throw new Error(`Unsupported roleId in employee catalog: ${roleId}`);
+  }
+
+  return roleId as AgentRoleId;
+}
+
 function parseSkillsJson(skillsJson?: string): string[] | undefined {
   if (!skillsJson) return undefined;
+
   try {
     const parsed = JSON.parse(skillsJson);
     return Array.isArray(parsed)
@@ -31,15 +86,17 @@ function getRuntimeStatus(args: {
   if (args.catalogStatus === "planned") {
     return "planned";
   }
+
   if (args.catalogStatus === "disabled") {
     return "disabled";
   }
+
   return args.hasRuntimeEmployee ? "implemented" : "disabled";
 }
 
 export async function handleEmployees(
   request: Request,
-  env?: OperatorAgentEnv
+  env?: OperatorAgentEnv,
 ): Promise<Response> {
   if (request.method !== "GET") {
     return new Response("Method Not Allowed", { status: 405 });
@@ -51,7 +108,7 @@ export async function handleEmployees(
         ok: false,
         error: "Missing operator-agent environment",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 
@@ -84,19 +141,21 @@ export async function handleEmployees(
 
       const hasCognitiveProfile = Boolean(
         catalogEntry.bio ||
-        catalogEntry.tone ||
-        catalogEntry.skillsJson ||
-        catalogEntry.photoUrl
+          catalogEntry.tone ||
+          catalogEntry.skillsJson ||
+          catalogEntry.photoUrl,
       );
+
+      const identity = {
+        employeeId: catalogEntry.employeeId,
+        companyId: toCompanyId(catalogEntry.companyId),
+        teamId: toTeamId(catalogEntry.teamId),
+        roleId: toAgentRoleId(catalogEntry.roleId),
+      };
 
       if (!runtimeEmployee) {
         return {
-          identity: {
-            employeeId: catalogEntry.employeeId,
-            companyId: catalogEntry.companyId,
-            teamId: catalogEntry.teamId,
-            roleId: catalogEntry.roleId,
-          },
+          identity,
           runtime: {
             runtimeStatus,
           },
@@ -108,26 +167,21 @@ export async function handleEmployees(
       const scope = await resolveAllowedScope(env, catalogEntry.employeeId);
       const control = await store.getEffective(
         catalogEntry.employeeId,
-        new Date().toISOString()
+        new Date().toISOString(),
       );
 
       const effectiveAuthority = mergeAuthority(
         runtimeEmployee.authority,
-        control.authorityOverride
+        control.authorityOverride,
       );
 
       const effectiveBudget = mergeBudget(
         runtimeEmployee.budget,
-        control.budgetOverride
+        control.budgetOverride,
       );
 
       return {
-        identity: {
-          employeeId: catalogEntry.employeeId,
-          companyId: catalogEntry.companyId,
-          teamId: catalogEntry.teamId,
-          roleId: catalogEntry.roleId,
-        },
+        identity,
         runtime: {
           runtimeStatus,
           effectiveState: {
@@ -151,7 +205,7 @@ export async function handleEmployees(
         publicProfile,
         hasCognitiveProfile,
       };
-    })
+    }),
   );
 
   return Response.json({

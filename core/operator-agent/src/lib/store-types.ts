@@ -96,18 +96,60 @@ export interface IAgentWorkLogStore {
   listByEmployee(args: { employeeId: string; limit: number }): Promise<AgentWorkLogEntry[]>;
 }
 
-export type TaskStatus = "pending" | "in-progress" | "completed" | "failed";
+export type TaskStatus =
+  | "queued"
+  | "blocked"
+  | "ready"
+  | "in_progress"
+  | "completed"
+  | "failed"
+  | "escalated";
 
 export type TaskVerdict = "pass" | "fail" | "remediate" | "manual_escalation";
+
+export type MessageType = "task" | "escalation" | "coordination";
+
+export type MessageStatus = "pending" | "delivered" | "acknowledged";
 
 export interface Task {
   id: string;
   companyId: string;
-  teamId: string;
-  employeeId?: string;
+  originatingTeamId: string;
+  assignedTeamId: string;
+  ownerEmployeeId?: string;
+  assignedEmployeeId?: string;
+  createdByEmployeeId?: string;
   taskType: string;
+  title: string;
   status: TaskStatus;
   payload: Record<string, unknown>;
+  blockingDependencyCount: number;
+  createdAt?: string;
+  updatedAt?: string;
+  startedAt?: string;
+  completedAt?: string;
+  failedAt?: string;
+}
+
+export interface TaskDependency {
+  taskId: string;
+  dependsOnTaskId: string;
+  dependencyType: "completion";
+  createdAt?: string;
+}
+
+export interface EmployeeMessage {
+  id: string;
+  companyId: string;
+  senderEmployeeId: string;
+  receiverEmployeeId?: string;
+  receiverTeamId?: string;
+  type: MessageType;
+  status: MessageStatus;
+  payload: Record<string, unknown>;
+  relatedTaskId?: string;
+  relatedEscalationId?: string;
+  relatedApprovalId?: string;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -118,15 +160,63 @@ export interface Decision {
   employeeId: string;
   verdict: TaskVerdict;
   reasoning: string;
-  internalMonologue?: string; // The "Thinking Trace" from the LLM
+  internalMonologue?: string; // private; never exposed on coordination routes
   evidenceTraceId?: string;
   createdAt?: string;
 }
 
+export interface TaskListQuery {
+  companyId?: string;
+  assignedTeamId?: string;
+  assignedEmployeeId?: string;
+  status?: TaskStatus;
+  limit: number;
+}
+
+export interface MessageListQuery {
+  receiverEmployeeId?: string;
+  receiverTeamId?: string;
+  relatedTaskId?: string;
+  limit: number;
+}
+
 export interface TaskStore {
-  createTask(task: Omit<Task, "status" | "createdAt" | "updatedAt">): Promise<void>;
+  createTask(
+    task: Omit<
+      Task,
+      | "status"
+      | "blockingDependencyCount"
+      | "createdAt"
+      | "updatedAt"
+      | "startedAt"
+      | "completedAt"
+      | "failedAt"
+    >,
+  ): Promise<void>;
+
+  createTaskWithDependencies(args: {
+    task: Omit<
+      Task,
+      | "status"
+      | "blockingDependencyCount"
+      | "createdAt"
+      | "updatedAt"
+      | "startedAt"
+      | "completedAt"
+      | "failedAt"
+    >;
+    dependsOnTaskIds?: string[];
+  }): Promise<void>;
+
   getTask(taskId: string): Promise<Task | null>;
+  listTasks(query: TaskListQuery): Promise<Task[]>;
+  listDependencies(taskId: string): Promise<TaskDependency[]>;
+
   getPendingTasksForEmployee(employeeId: string, teamId: string): Promise<Task[]>;
+
   updateTaskStatus(taskId: string, status: TaskStatus): Promise<void>;
   recordDecision(decision: Decision): Promise<void>;
+
+  createMessage(message: Omit<EmployeeMessage, "createdAt" | "updatedAt">): Promise<void>;
+  listMessages(query: MessageListQuery): Promise<EmployeeMessage[]>;
 }

@@ -1,16 +1,27 @@
 import { getTaskStore } from "@aep/operator-agent/lib/store-factory";
-import type { Decision } from "@aep/operator-agent/lib/store-types";
+import type { Decision, TaskStatus } from "@aep/operator-agent/lib/store-types";
 import type { OperatorAgentEnv } from "@aep/operator-agent/types";
 
 type CreateTaskRequest = {
   companyId?: string;
-  teamId?: string;
-  employeeId?: string;
+  originatingTeamId?: string;
+  assignedTeamId?: string;
+  ownerEmployeeId?: string;
+  assignedEmployeeId?: string;
+  createdByEmployeeId?: string;
   taskType?: string;
+  title?: string;
   payload?: Record<string, unknown>;
+  dependsOnTaskIds?: string[];
 };
 
 type DecisionRow = Decision;
+
+function parseLimit(url: URL, defaultValue = 50): number {
+  const raw = Number.parseInt(url.searchParams.get("limit") ?? `${defaultValue}`, 10);
+  if (!Number.isFinite(raw) || raw <= 0) return defaultValue;
+  return Math.min(raw, 200);
+}
 
 export async function handleCreateTask(
   request: Request,
@@ -21,7 +32,10 @@ export async function handleCreateTask(
   }
 
   if (!env) {
-    return Response.json({ ok: false, error: "Missing operator-agent environment" }, { status: 500 });
+    return Response.json(
+      { ok: false, error: "Missing operator-agent environment" },
+      { status: 500 },
+    );
   }
 
   let body: CreateTaskRequest;
@@ -34,19 +48,70 @@ export async function handleCreateTask(
     );
   }
 
-  const store = getTaskStore(env);
-  const workOrderId = `task_${crypto.randomUUID().split("-")[0]}`;
+  if (!body.originatingTeamId || !body.assignedTeamId || !body.taskType || !body.title) {
+    return Response.json(
+      {
+        ok: false,
+        error:
+          "originatingTeamId, assignedTeamId, taskType, and title are required",
+      },
+      { status: 400 },
+    );
+  }
 
-  await store.createTask({
-    id: workOrderId,
-    companyId: body.companyId ?? "company_internal_aep",
-    teamId: body.teamId ?? "team_validation",
-    employeeId: body.employeeId,
-    taskType: body.taskType ?? "validate-deployment",
-    payload: body.payload ?? {},
+  const store = getTaskStore(env);
+  const taskId = `task_${crypto.randomUUID().split("-")[0]}`;
+
+  await store.createTaskWithDependencies({
+    task: {
+      id: taskId,
+      companyId: body.companyId ?? "company_internal_aep",
+      originatingTeamId: body.originatingTeamId,
+      assignedTeamId: body.assignedTeamId,
+      ownerEmployeeId: body.ownerEmployeeId,
+      assignedEmployeeId: body.assignedEmployeeId,
+      createdByEmployeeId: body.createdByEmployeeId,
+      taskType: body.taskType,
+      title: body.title,
+      payload: body.payload ?? {},
+    },
+    dependsOnTaskIds: body.dependsOnTaskIds ?? [],
   });
 
-  return Response.json({ ok: true, workOrderId }, { status: 201 });
+  return Response.json({ ok: true, taskId }, { status: 201 });
+}
+
+export async function handleListTasks(
+  request: Request,
+  env?: OperatorAgentEnv,
+): Promise<Response> {
+  if (request.method !== "GET") {
+    return new Response("Method Not Allowed", { status: 405 });
+  }
+
+  if (!env) {
+    return Response.json(
+      { ok: false, error: "Missing operator-agent environment" },
+      { status: 500 },
+    );
+  }
+
+  const url = new URL(request.url);
+  const store = getTaskStore(env);
+
+  const tasks = await store.listTasks({
+    companyId: url.searchParams.get("companyId") ?? undefined,
+    assignedTeamId: url.searchParams.get("assignedTeamId") ?? undefined,
+    assignedEmployeeId: url.searchParams.get("assignedEmployeeId") ?? undefined,
+    status: (url.searchParams.get("status") as TaskStatus | null) ?? undefined,
+    limit: parseLimit(url),
+  });
+
+  return Response.json({
+    ok: true,
+    count: tasks.length,
+    tasks,
+  });
 }
 
 export async function handleGetTask(
@@ -59,7 +124,10 @@ export async function handleGetTask(
   }
 
   if (!env) {
-    return Response.json({ ok: false, error: "Missing operator-agent environment" }, { status: 500 });
+    return Response.json(
+      { ok: false, error: "Missing operator-agent environment" },
+      { status: 500 },
+    );
   }
 
   const store = getTaskStore(env);
@@ -69,25 +137,29 @@ export async function handleGetTask(
     return Response.json({ ok: false, error: "task not found" }, { status: 404 });
   }
 
+  const dependencies = await store.listDependencies(taskId);
+
   let decision: DecisionRow | null = null;
   if (task.status === "completed" || task.status === "failed") {
     if (!env.OPERATOR_AGENT_DB) {
-      return Response.json({ ok: false, error: "Missing OPERATOR_AGENT_DB binding" }, { status: 500 });
+      return Response.json(
+        { ok: false, error: "Missing OPERATOR_AGENT_DB binding" },
+        { status: 500 },
+      );
     }
 
-    const row = await env.OPERATOR_AGENT_DB
-      .prepare(
-        `SELECT id, task_id AS taskId, employee_id AS employeeId, verdict, reasoning, evidence_trace_id AS evidenceTraceId, created_at AS createdAt
-         FROM decisions
-         WHERE task_id = ?
-         ORDER BY created_at DESC
-         LIMIT 1`,
-      )
+    const row = await env.OPERATOR_AGENT_DB.prepare(
+      `SELECT id, task_id AS taskId, employee_id AS employeeId, verdict, reasoning, evidence_trace_id AS evidenceTraceId, created_at AS createdAt
+       FROM decisions
+       WHERE task_id = ?
+       ORDER BY created_at DESC
+       LIMIT 1`,
+    )
       .bind(taskId)
       .first<DecisionRow>();
 
     decision = row ?? null;
   }
 
-  return Response.json({ ok: true, task, decision });
+  return Response.json({ ok: true, task, dependencies, decision });
 }

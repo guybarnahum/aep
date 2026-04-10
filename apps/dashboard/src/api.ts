@@ -14,7 +14,6 @@ function normalizeEmployeeRecord(
     hasCognitiveProfile: employee.hasCognitiveProfile === true,
   };
 }
-import type {
   ApprovalRecord,
   ControlHistoryRecord,
   DepartmentOverview,
@@ -26,6 +25,7 @@ import type {
   ServiceOverview,
   TenantOverview,
   TenantSummary,
+  TeamRoadmap,
 } from "./types";
 
 const DEFAULT_CONTROL_PLANE_BASE_URL = "http://127.0.0.1:8788";
