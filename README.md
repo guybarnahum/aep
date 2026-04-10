@@ -431,3 +431,92 @@ Source of truth:
 
 Suggested companion doc for ongoing implementation context:
 - `LLM.md`
+
+---
+
+## Coordination Model (PR6C)
+
+AEP has evolved beyond a control plane and into a system that models how real organizations operate.
+
+### From execution → coordination
+
+Previously:
+
+- Systems triggered jobs directly
+- Execution was mechanical
+- Context was minimal
+
+Now:
+
+- Work is represented as **tasks**
+- Tasks have:
+  - origin (which team created it)
+  - ownership (which team is responsible)
+  - assignment (which employee executes it)
+- Execution flows through the organization
+
+---
+
+### Tasks as first-class primitives
+
+Every action in AEP now follows:
+
+```
+Task → Assignment → Execution → Decision
+```
+
+This allows:
+
+- auditability
+- delegation
+- escalation
+- cross-team collaboration
+
+---
+
+### CI/CD as an organizational workflow
+
+Even deployment validation now:
+
+1. Creates a task in the validation team
+2. Assigns it to a reliability engineer
+3. Executes through the agent runtime
+4. Produces a decision (pass/fail)
+
+This mirrors how a real company operates.
+
+---
+
+## What’s next
+
+The next phase introduces:
+
+> **Task dependencies and orchestration across teams**
+
+This enables:
+
+- multi-step workflows
+- cross-team validation chains
+- blocked/unblocked execution
+- real organizational coordination
+
+---
+
+## Long-term direction
+
+AEP is moving toward:
+
+> a fully autonomous organization
+
+Where:
+
+- teams coordinate via tasks
+- employees execute work
+- managers supervise and intervene
+- the system evolves its own structure
+
+---
+
+This is the foundation for building:
+
+> **zero-employee companies with real operational structure**

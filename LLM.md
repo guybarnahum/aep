@@ -154,7 +154,262 @@ Move from a modeled organization to an **operating organization**
 
 ---
 
-# 🔷 PR6D — Concept Lock
+# 🔷 PR6C.1 — Coordination Model Integration (COMPLETE)
+
+## Summary
+
+PR6C.1 completes the transition from:
+
+> "task as a lightweight trigger"
+
+to:
+
+> "task as a first-class coordination primitive across the organization"
+
+This is a foundational shift in AEP:
+- Tasks now represent **intent + ownership + assignment**
+- The system enforces **org-aware execution**
+- CI/CD flows operate through **real employees and teams**
+
+---
+
+## What changed
+
+### 1. Task creation contract (breaking change)
+
+`POST /agent/tasks` now requires:
+
+- `companyId`
+- `originatingTeamId`
+- `assignedTeamId`
+- `taskType`
+- `title`
+- optional:
+  - `createdByEmployeeId`
+  - `assignedEmployeeId`
+  - `payload`
+
+This replaces the legacy:
+
+- `teamId`
+- implicit routing
+- work-order abstraction
+
+---
+
+### 2. Task identity
+
+- `taskId` is now the **primary identifier**
+- `workOrderId` is deprecated and removed from CI paths
+
+---
+
+### 3. Task lifecycle (expanded)
+
+Tasks now move through:
+
+- `queued`
+- `blocked`
+- `ready`
+- `in_progress`
+- `completed`
+- `failed`
+- `escalated`
+
+This reflects real organizational flow rather than execution-only state.
+
+---
+
+### 4. Execution model
+
+Execution now happens via:
+
+```
+task → /agent/run → employee → decision/verdict
+```
+
+Not:
+
+```
+work order → run → result
+```
+
+---
+
+### 5. CI/CD integration
+
+Post-deploy validation now:
+
+1. Creates a coordination task
+2. Executes it via assigned employee
+3. Waits for a decision/verdict
+
+CI is now:
+
+> an organizational workflow, not a direct system call
+
+---
+
+## What this means (important)
+
+AEP is no longer:
+
+> "an agent runner with some metadata"
+
+It is now:
+
+> "an operating organization with tasks, ownership, and execution semantics"
+
+This is the first point where:
+
+- Teams matter
+- Assignment matters
+- Task routing matters
+- Execution is no longer purely mechanical
+
+---
+
+# PR6C.2 — NEXT PHASE
+
+## Theme
+
+> **Task orchestration and dependency awareness**
+
+PR6C.1 introduced tasks.
+PR6C.2 will introduce:
+
+> **how tasks relate to each other and move through the org**
+
+---
+
+## Core goals
+
+### 1. Task dependencies
+
+Allow tasks to express:
+
+- `dependsOnTaskIds: string[]`
+
+Behavior:
+
+- task enters `blocked` if dependencies not completed
+- transitions to `ready` when dependencies resolve
+
+---
+
+### 2. Task graph (not just list)
+
+We move from:
+
+> flat task list
+
+to:
+
+> **task DAG (directed acyclic graph)**
+
+This enables:
+
+- workflows across teams
+- chained validation
+- escalation paths
+
+---
+
+### 3. Cross-team coordination
+
+Tasks can now:
+
+- originate from one team
+- be assigned to another
+- depend on a third
+
+This formalizes:
+
+> **inter-team contracts**
+
+---
+
+### 4. Scheduler awareness
+
+Scheduler must:
+
+- pick only `ready` tasks
+- ignore `blocked`
+- handle retries / escalation paths
+
+---
+
+### 5. Observability
+
+Expose:
+
+- dependency graph
+- blocked reasons
+- upstream/downstream relationships
+
+---
+
+## Expected schema additions (directional)
+
+- `task_dependencies` table OR embedded JSON
+- `blocked_reason` field
+- `resolved_at` timestamps
+
+---
+
+## Expected API additions
+
+- `GET /agent/tasks/:id/dependencies`
+- `GET /agent/tasks/:id/blockers`
+- `POST /agent/tasks/:id/unblock` (optional/system-driven)
+
+---
+
+## Constraints (DO NOT VIOLATE)
+
+- Do NOT introduce orchestration engines outside the current model
+- Do NOT bypass `/agent/tasks`
+- Do NOT reintroduce work-order concepts
+- All execution must still go through `/agent/run`
+
+---
+
+## Definition of Done (6C.2)
+
+- Tasks can be created with dependencies
+- Blocked tasks do not execute
+- Tasks transition automatically when dependencies complete
+- CI can model a multi-step validation flow using dependencies
+
+---
+
+## After 6C.2 (preview)
+
+PR6C.3 will likely introduce:
+
+- escalation policies
+- manager intervention loops
+- prioritization / scheduling heuristics
+
+---
+
+## Mental model going forward
+
+We are building:
+
+> **a distributed organization, not a job queue**
+
+Tasks are:
+
+- contracts
+- responsibilities
+- units of coordination
+
+Not just triggers.
+
+---
+
+# 🔷 PR6D — Documentation Lock
 After PR6C:
 - freeze architecture
 - finalize README + LLM.md
