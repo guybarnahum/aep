@@ -1,62 +1,158 @@
 # AEP — Agentic Engineering Platform
 
-AEP is the infrastructure and operations kernel of an agentic, zero-employee company.
-
-It models software operations as a structured organization with:
-- company and team structure
-- digital employees with roles and authority
-- governance and supervision
-- runs, jobs, attempts, and trace
-- bounded automation through explicit control surfaces
-
-AEP is not just a workflow engine.
-It is becoming an observable and governable runtime for digital employees.
+👉 https://github.com/guybarnahum/aep
 
 ---
 
 # What AEP Is
 
-AEP sits between raw infrastructure and a future higher-level company runtime.
+AEP is the **infra department of a zero-employee company**.
 
-## Conceptual layering
+It is a system where:
 
-### Execution substrate
-Examples:
-- Cloudflare Workers
-- Durable Objects
-- D1
-- CI
-- external deploy / validation systems
-
-### AEP
-The infra and operations department kernel:
-- orchestration
-- governance
-- supervision
-- employee model
-- audit / trace
-- operator surfaces
-
-### Future company layer
-A broader agentic company runtime:
-- strategy
-- budgets
-- cross-department planning
-- richer long-horizon coordination
+- software systems act as employees
+- teams exist as structured units
+- decisions are governed and observable
+- operations are executed through controlled interfaces
 
 ---
 
-# Core Design Principle: Execution Boundary
+# The Core Idea
 
-AEP enforces a strict separation between:
+> AI is not a feature  
+> → it is the organization
 
-## Worker runtime
-Responsible for:
-- orchestration
-- state transitions
-- policy and supervision
-- trace and audit
-- coordination of digital employees
+AEP models:
+
+- employees (agents)
+- teams (functions)
+- governance (policy + control)
+- execution (control plane)
+- observation (dashboard)
+
+---
+
+# System Architecture
+
+## Execution Layer
+- Cloudflare Workers
+- Durable Objects
+- Async workflows
+
+## AEP Layer
+- employee system
+- governance + policy
+- operator surface
+- dashboard
+
+## Company Layer (future)
+- strategy
+- budgeting
+- coordination
+
+---
+
+# Employees (Core Concept)
+
+Each employee is a **first-class unit** with:
+
+## Identity + Runtime
+- role
+- team
+- authority
+- budget
+- operational state
+
+## Public Profile
+- name
+- skills
+- bio
+
+## Private Cognitive Layer
+- prompt profile
+- decision style
+- reasoning (future)
+
+---
+
+# What Exists Today
+
+## Org Model
+- company
+- teams
+- employees (planned + implemented)
+
+## Control Plane
+- async execution
+- workflow orchestration
+- retry + timeout
+- state tracking
+
+## Governance
+- authority enforcement
+- budget control
+- escalation
+
+## Dashboard
+- org view
+- employees
+- escalations
+- approvals
+- control history
+- roadmap visibility
+
+---
+
+# Current State
+
+AEP is now:
+
+> a functioning agentic infrastructure department
+
+It has:
+
+- structured employees
+- clear boundaries
+- observable behavior
+- enforced contracts
+
+---
+
+# What’s Next (PR6C)
+
+We are moving to:
+
+> **company coordination**
+
+Next capabilities:
+
+- cross-team workflows
+- roadmap-driven execution
+- company scheduler
+- inter-employee communication
+
+Example:
+
+```
+Product defines → Infra deploys → Validation validates
+```
+
+---
+
+# Vision
+
+AEP evolves toward:
+
+> fully autonomous organizations
+
+Where systems can:
+
+- operate continuously
+- reason about outcomes
+- coordinate across teams
+- improve their own structure
+
+---
 
 ## External execution systems
 Responsible for:

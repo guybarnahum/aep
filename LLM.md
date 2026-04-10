@@ -1,63 +1,204 @@
-# 🧠 LLM.md — AEP Cognitive Context & Execution Plan
+# AEP — System State, Architecture, and Execution Plan
 
-This document is the **source of truth for LLM sessions** working on AEP.
-
-It exists to:
-- restore context quickly
-- anchor decisions in system reality
-- prevent architectural drift
-- define the staged execution plan
-- enable continuation without re-deriving intent
+Repository (source of truth):
+👉 https://github.com/guybarnahum/aep
 
 ---
 
-# 1. What AEP Is
+# What AEP Is
 
-AEP (Agentic Engineering Platform) is:
+AEP is the **infra department of a zero-employee company**.
 
-> the **infra + operations kernel of a zero-employee, agentic company**
+It is a system where:
+- software systems act as employees
+- teams exist as structured units
+- decisions are governed and observable
+- operations are executed through controlled interfaces
 
-AEP models:
-- agents → employees
-- workflows → operations
-- control-plane → management
-- trace → audit + memory
-
-We are transitioning from:
-
-> “AI as a feature”
-
-to
-
-> “AI as the organization”
+AEP can:
+- deploy, validate, operate, and observe software
+- enforce policy and escalate issues
+- (eventually) improve itself
 
 ---
 
-# 2. Core Architecture (Ground Truth)
+# System Layering
 
-## Execution Boundary (CRITICAL)
+## Execution Layer
+- Cloudflare Workers
+- Durable Objects
+- Async workflows
+- D1 (state)
 
-AEP enforces strict separation:
+## AEP Layer (this repo)
+> The **infra department**
+- employees (agents)
+- managers (supervision)
+- policy + enforcement
+- audit + governance
+- execution surface
 
-### Worker runtime (Cloudflare)
-- orchestration
-- workflow state
-- governance
-- agent coordination
-- trace + audit
-
-### External systems (CI / providers)
-- deploy
-- teardown
-- real-world infra mutation
-
-This must NEVER be violated.
+## Company Layer (future)
+- org structure
+- budgeting
+- strategy
+- coordination
 
 ---
 
-## Current System Layers
+# Evolution So Far
 
-### 1. Control Plane
+- **Commit 8**: First employee — from orchestration system to system with an actor
+- **Commit 10–11**: Org emerges — employees, managers, escalation, governance; proto-organization
+- **PR5**: Agentic shift — AI is not a feature, AI is the organization; agent identities, roles, cognitive positioning
+- **PR6A**: Department surface + org seeding — company, teams, employee catalog, dashboard org view; system now models an organization, not just runtime agents
+
+---
+
+# 🔷 PR6B — Runtime Projection + Employee Boundary (COMPLETE)
+
+**Major architectural milestone.**
+
+## Goal
+Make employees **first-class, bounded, encapsulated units**
+
+## Employee Model (Canonical)
+Each employee now has 3 layers:
+
+### 1. Org-visible shell
+`identity + runtime`
+- employeeId, companyId, teamId, roleId
+- runtimeStatus, effectiveState, effectiveBudget, effectiveAuthority
+
+### 2. Public projection
+`publicProfile`
+- displayName, bio, skills, avatarUrl
+- Used by dashboard, humans, org views
+
+### 3. Private cognitive layer (NOT exposed)
+- persona (bio, tone, skills — internal)
+- prompt profile (`employee_prompt_profiles`)
+- decision style, identity seed, reasoning (future), memory (future)
+
+## Core Rule
+> Cognition belongs INSIDE the employee
+
+No global prompts, shared LLM state, or system-level reasoning.
+
+## Canonical Contract
+All employee APIs MUST return:
+```ts
+EmployeeProjection = {
+  identity: {...}
+  runtime: {...}
+  publicProfile?: {...}
+  hasCognitiveProfile: boolean
+}
+```
+
+## Forbidden
+Do NOT expose:
+- basePrompt, decisionStyle, collaborationStyle, promptVersion, identitySeed, portraitPrompt
+- legacy fields: catalog, scope, message, top-level authority/budget
+
+## Runtime Semantics
+| Field            | Meaning                |
+|------------------|-----------------------|
+| runtimeStatus    | structural presence   |
+| effectiveState   | operational control   |
+| effectiveAuthority | allowed actions     |
+| effectiveBudget  | execution limits      |
+
+## Cognitive Layer (New)
+- `employee_prompt_profiles` table: base prompt, decision style, collaboration style, identity seed, portrait prompt, versioning, approval state
+- NOT exposed in `/agent/employees`, owned by the employee boundary
+
+## What PR6B Achieved
+- canonical employee projection
+- strict boundary enforcement
+- dashboard aligned to projection
+- no UI inference
+- CI enforces contract
+- no legacy field leakage
+- cognitive layer formalized
+
+---
+
+# Where We Are Now
+
+We have moved from:
+> “agents as runtime features”
+to:
+> **employees as structured units in an organization**
+
+This is the **foundational shift**.
+
+---
+
+# 🔷 PR6C — Company Coordination (NEXT)
+
+## Goal
+Move from a modeled organization to an **operating organization**
+
+## What We Add
+1. Cross-team flows (e.g. Web → Infra → Validation)
+  - task handoff, dependency tracking, execution chaining
+2. Company scheduler
+  - company-level loop, team coordination, workload distribution
+3. Roadmap → execution linkage
+  - roadmaps drive actions, tasks, execution flows
+4. Inter-employee communication
+  - structured messaging, persistence, org view visibility
+5. Coordination primitives
+  - task ownership, dependency graph, execution propagation, escalation across teams
+
+---
+
+# 🔷 PR6D — Concept Lock
+After PR6C:
+- freeze architecture
+- finalize README + LLM.md
+- ensure no future re-interpretation needed
+
+---
+
+# 🔮 Next Phase (Post PR6)
+
+## Cognitive Execution Layer
+Each employee will:
+1. observe
+2. reason (LLM)
+3. emit: decisions, reasoning, messages
+4. act via control-plane APIs
+
+## Future Additions
+- internal monologue (private)
+- memory system
+- inter-agent messaging
+- distributed reasoning
+- learning loops
+
+---
+
+# 🚫 Constraints (Do NOT violate)
+- no uncontrolled infra mutation
+- UI is NOT source of truth
+- no implicit state inference
+- no exposure of cognitive internals
+- no mixing public profile and internal persona
+- no global LLM state
+
+---
+
+# ✅ Summary
+AEP is now:
+> a structured, observable, multi-team agentic company
+
+PR6B ensured:
+> employees are real, bounded units
+
+PR6C will ensure:
+> the company actually operates across those units
 - Durable Object orchestration
 - D1-backed state
 - job + attempt model
