@@ -128,7 +128,7 @@ jobs:
 
           echo "AEP validation task: $TASK_ID" | tee -a post-deploy-validation.log
 
-          if [[ "true" == "true" ]]; then
+          if [[ "${{ inputs.execute_work_order_immediately }}" == "true" ]]; then
             npx tsx scripts/ci/execute-validation-work-order.ts "$OPERATOR_AGENT_BASE_URL" "$TASK_ID" 2>&1 | tee -a post-deploy-validation.log
           fi
 
