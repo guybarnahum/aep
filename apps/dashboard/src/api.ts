@@ -4,10 +4,14 @@ function normalizeEmployeeRecord(
 ): OperatorEmployeeRecord {
   return {
     ...employee,
-    effectiveState: employee.effectiveState,
-    catalog: employee.catalog,
-    scope: employee.scope,
-    message: employee.message,
+    runtime: {
+      ...employee.runtime,
+      effectiveState: employee.runtime?.effectiveState,
+      effectiveBudget: employee.runtime?.effectiveBudget,
+      effectiveAuthority: employee.runtime?.effectiveAuthority,
+    },
+    publicProfile: employee.publicProfile,
+    hasCognitiveProfile: employee.hasCognitiveProfile === true,
   };
 }
 import type {

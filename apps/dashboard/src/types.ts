@@ -1,3 +1,7 @@
+export type EmployeeRuntimeStatus =
+  | "implemented"
+  | "planned"
+  | "disabled";
 export type TeamRoadmap = {
   id: string;
   team_id: string;
@@ -79,71 +83,39 @@ export type EmployeeStateValue =
 export type OperatorEmployeeRecord = {
   identity: {
     employeeId: string;
-    employeeName: string;
-    departmentId: string;
-    roleId: string;
-    managerRoleId?: string;
-    bio?: string;
-    tone?: string;
-    skills?: string[];
-    photoUrl?: string;
-  };
-  authority: {
-    allowedOperatorActions: string[];
-    allowedTenants?: string[];
-    allowedServices?: string[];
-    requireTraceVerification: boolean;
-  };
-  budget: {
-    maxActionsPerScan: number;
-    maxActionsPerHour: number;
-    maxActionsPerTenantPerHour: number;
-    tokenBudgetDaily: number;
-    runtimeBudgetMsPerScan: number;
-    verificationReadsPerAction: number;
-  };
-  effectiveAuthority: {
-    allowedOperatorActions: string[];
-    allowedTenants?: string[];
-    allowedServices?: string[];
-    requireTraceVerification: boolean;
-  };
-  effectiveBudget: {
-    maxActionsPerScan: number;
-    maxActionsPerHour: number;
-    maxActionsPerTenantPerHour: number;
-    tokenBudgetDaily: number;
-    runtimeBudgetMsPerScan: number;
-    verificationReadsPerAction: number;
-  };
-  escalation: {
-    onBudgetExhausted: string;
-    onRepeatedVerificationFailure: string;
-    onProdTenantAction: string;
-  };
-  effectiveState?: {
-    state: EmployeeStateValue;
-    blocked: boolean;
-  };
-  catalog?: {
     companyId: string;
     teamId: string;
-    status: string;
-    schedulerMode: string;
-    implemented: boolean;
+    roleId: string;
   };
-  scope?: {
-    allowedTenants?: string[];
-    allowedServices?: string[];
-    allowedEnvironmentNames?: string[];
+  runtime: {
+    runtimeStatus: EmployeeRuntimeStatus;
+    effectiveAuthority?: {
+      allowedOperatorActions: string[];
+      allowedTenants?: string[];
+      allowedServices?: string[];
+      allowedEnvironmentNames?: string[];
+      requireTraceVerification: boolean;
+    };
+    effectiveBudget?: {
+      maxActionsPerScan: number;
+      maxActionsPerHour: number;
+      maxActionsPerTenantPerHour: number;
+      tokenBudgetDaily: number;
+      runtimeBudgetMsPerScan: number;
+      verificationReadsPerAction: number;
+    };
+    effectiveState?: {
+      state: EmployeeStateValue;
+      blocked: boolean;
+    };
   };
-  message?: string;
-  governance: {
-    companyPrimaryEntryPoint: string;
-    cronFallbackEnabled: boolean;
-    escalationRoute: string;
-    controlHistoryRoute: string;
+  publicProfile?: {
+    displayName: string;
+    bio?: string;
+    skills?: string[];
+    avatarUrl?: string;
   };
+  hasCognitiveProfile: boolean;
 };
 
 export type ManagerDecisionRecord = {
@@ -305,12 +277,11 @@ export type EscalationStateFilter = "all" | "open" | "acknowledged" | "resolved"
 
 export type DecisionSeverityFilter = "all" | "warning" | "critical";
 
-export type EmployeeStateFilter =
+export type EmployeeRuntimeStatusFilter =
   | "all"
-  | "enabled"
-  | "disabled_pending_review"
-  | "disabled_by_manager"
-  | "restricted";
+  | "implemented"
+  | "planned"
+  | "disabled";
 
 export type ApprovalStatusFilter =
   | "all"
@@ -328,7 +299,7 @@ export type DepartmentFilters = {
   selectedEmployeeId: string | null;
   escalationState: EscalationStateFilter;
   decisionSeverity: DecisionSeverityFilter;
-  employeeState: EmployeeStateFilter;
+  runtimeStatus: EmployeeRuntimeStatusFilter;
   approvalStatus: ApprovalStatusFilter;
   approvalAction: ApprovalActionFilter;
 };

@@ -57,10 +57,11 @@ export async function runPmAgent(
 
   // 4. GENERATE COMPLIANT RESPONSE
   const now = new Date().toISOString();
+  const displayName = context.employee.publicProfile?.displayName ?? context.employee.identity.employeeId;
   const strategicDecision: ManagerDecision = {
     timestamp: now,
     managerEmployeeId: context.employee.identity.employeeId,
-    managerEmployeeName: context.employee.identity.employeeName,
+    managerEmployeeName: displayName,
     teamId: context.employee.identity.teamId,
     roleId: context.employee.identity.roleId,
     policyVersion: context.policyVersion,

@@ -6,7 +6,36 @@ import {
   mergeBudget,
 } from "@aep/operator-agent/lib/policy-merge";
 import { getEmployeeById } from "@aep/operator-agent/org/employees";
-import type { OperatorAgentEnv } from "@aep/operator-agent/types";
+import type {
+  EmployeeProjection,
+  EmployeeRuntimeStatus,
+  OperatorAgentEnv,
+} from "@aep/operator-agent/types";
+
+function parseSkillsJson(skillsJson?: string): string[] | undefined {
+  if (!skillsJson) return undefined;
+  try {
+    const parsed = JSON.parse(skillsJson);
+    return Array.isArray(parsed)
+      ? parsed.filter((value): value is string => typeof value === "string")
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function getRuntimeStatus(args: {
+  catalogStatus: string;
+  hasRuntimeEmployee: boolean;
+}): EmployeeRuntimeStatus {
+  if (args.catalogStatus === "planned") {
+    return "planned";
+  }
+  if (args.catalogStatus === "disabled") {
+    return "disabled";
+  }
+  return args.hasRuntimeEmployee ? "implemented" : "disabled";
+}
 
 export async function handleEmployees(
   request: Request,
@@ -38,36 +67,45 @@ export async function handleEmployees(
     status,
   });
 
-  const employees = await Promise.all(
+  const employees: EmployeeProjection[] = await Promise.all(
     catalogEntries.map(async (catalogEntry) => {
       const runtimeEmployee = getEmployeeById(catalogEntry.employeeId);
-      const scope = await resolveAllowedScope(env, catalogEntry.employeeId);
+      const runtimeStatus = getRuntimeStatus({
+        catalogStatus: catalogEntry.status,
+        hasRuntimeEmployee: Boolean(runtimeEmployee),
+      });
+
+      const publicProfile = {
+        displayName: catalogEntry.employeeName,
+        bio: catalogEntry.bio,
+        skills: parseSkillsJson(catalogEntry.skillsJson),
+        avatarUrl: catalogEntry.photoUrl,
+      };
+
+      const hasCognitiveProfile = Boolean(
+        catalogEntry.bio ||
+        catalogEntry.tone ||
+        catalogEntry.skillsJson ||
+        catalogEntry.photoUrl
+      );
 
       if (!runtimeEmployee) {
         return {
           identity: {
             employeeId: catalogEntry.employeeId,
-            employeeName: catalogEntry.employeeName,
             companyId: catalogEntry.companyId,
             teamId: catalogEntry.teamId,
             roleId: catalogEntry.roleId,
           },
-          catalog: {
-            companyId: catalogEntry.companyId,
-            teamId: catalogEntry.teamId,
-            status: catalogEntry.status,
-            schedulerMode: catalogEntry.schedulerMode,
-            implemented: false,
+          runtime: {
+            runtimeStatus,
           },
-          scope: {
-            allowedTenants: scope.allowedTenants,
-            allowedServices: scope.allowedServices,
-            allowedEnvironmentNames: scope.allowedEnvironmentNames,
-          },
-          message: "Employee exists in catalog but is not implemented yet.",
+          publicProfile,
+          hasCognitiveProfile,
         };
       }
 
+      const scope = await resolveAllowedScope(env, catalogEntry.employeeId);
       const control = await store.getEffective(
         catalogEntry.employeeId,
         new Date().toISOString()
@@ -84,47 +122,36 @@ export async function handleEmployees(
       );
 
       return {
-        identity: runtimeEmployee.identity,
-        catalog: {
+        identity: {
+          employeeId: catalogEntry.employeeId,
           companyId: catalogEntry.companyId,
           teamId: catalogEntry.teamId,
-          status: catalogEntry.status,
-          schedulerMode: catalogEntry.schedulerMode,
-          implemented: true,
+          roleId: catalogEntry.roleId,
         },
-        authority: runtimeEmployee.authority,
-        budget: runtimeEmployee.budget,
-        effectiveAuthority: {
-          ...effectiveAuthority,
-          allowedTenants:
-            scope.allowedTenants.length > 0
-              ? scope.allowedTenants
-              : effectiveAuthority.allowedTenants,
-          allowedServices:
-            scope.allowedServices.length > 0
-              ? scope.allowedServices
-              : effectiveAuthority.allowedServices,
-          allowedEnvironmentNames: scope.allowedEnvironmentNames,
+        runtime: {
+          runtimeStatus,
+          effectiveState: {
+            state: control.state,
+            blocked: control.blocked,
+          },
+          effectiveAuthority: {
+            ...effectiveAuthority,
+            allowedTenants:
+              scope.allowedTenants.length > 0
+                ? scope.allowedTenants
+                : effectiveAuthority.allowedTenants,
+            allowedServices:
+              scope.allowedServices.length > 0
+                ? scope.allowedServices
+                : effectiveAuthority.allowedServices,
+            allowedEnvironmentNames: scope.allowedEnvironmentNames,
+          },
+          effectiveBudget,
         },
-        effectiveBudget,
-        escalation: runtimeEmployee.escalation,
-        effectiveState: {
-          state: control.state,
-          blocked: control.blocked,
-        },
-        scope: {
-          allowedTenants: scope.allowedTenants,
-          allowedServices: scope.allowedServices,
-          allowedEnvironmentNames: scope.allowedEnvironmentNames,
-        },
-        governance: {
-          companyPrimaryEntryPoint: "/agent/run",
-          cronFallbackEnabled: true,
-          escalationRoute: "/agent/escalations",
-          controlHistoryRoute: `/agent/control-history?employeeId=${catalogEntry.employeeId}`,
-        },
+        publicProfile,
+        hasCognitiveProfile,
       };
-    }),
+    })
   );
 
   return Response.json({

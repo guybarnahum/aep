@@ -1,3 +1,34 @@
+export type EmployeeRuntimeStatus =
+  | "implemented"
+  | "planned"
+  | "disabled";
+
+export interface EmployeePublicProfile {
+  displayName: string;
+  bio?: string;
+  skills?: string[];
+  avatarUrl?: string;
+}
+
+export interface EmployeeProjection {
+  identity: {
+    employeeId: string;
+    companyId: CompanyId;
+    teamId: TeamId;
+    roleId: AgentRoleId;
+  };
+  runtime: {
+    runtimeStatus: EmployeeRuntimeStatus;
+    effectiveState?: {
+      state: string;
+      blocked: boolean;
+    };
+    effectiveBudget?: AgentBudget;
+    effectiveAuthority?: AgentAuthority;
+  };
+  publicProfile?: EmployeePublicProfile;
+  hasCognitiveProfile: boolean;
+}
 import type { ExecutionContext } from "@aep/operator-agent/types/execution-provenance";
 import type { CompanyId } from "@aep/operator-agent/org/company";
 import type { TeamId } from "@aep/operator-agent/org/teams";

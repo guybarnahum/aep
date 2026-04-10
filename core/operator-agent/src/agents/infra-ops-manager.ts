@@ -48,10 +48,11 @@ function buildDecision(args: {
   recommendation?: ManagerDecision["recommendation"];
   severity?: ManagerDecision["severity"];
 }): ManagerDecision {
+  const displayName = args.manager.publicProfile?.displayName ?? args.manager.employeeId;
   return {
     timestamp: args.nowIso,
     managerEmployeeId: args.manager.employeeId,
-    managerEmployeeName: args.manager.employeeName,
+    managerEmployeeName: displayName,
     teamId: args.manager.teamId,
     roleId: args.manager.roleId,
     policyVersion: args.policyVersion,
@@ -163,6 +164,7 @@ function buildApprovalRecord(args: {
 }): ApprovalRecord {
   const policy = getApprovalPolicy(args.actionType);
 
+  const displayName = args.manager.publicProfile?.displayName ?? args.manager.employeeId;
   return {
     approvalId: approvalId(args.nowIso, args.actionType, args.employeeId),
     timestamp: args.nowIso,
@@ -171,7 +173,7 @@ function buildApprovalRecord(args: {
     heartbeatId: args.heartbeatId,
     teamId: args.manager.teamId,
     requestedByEmployeeId: args.manager.employeeId,
-    requestedByEmployeeName: args.manager.employeeName,
+    requestedByEmployeeName: displayName,
     requestedByRoleId: args.manager.roleId,
     source: "manager",
     actionType: args.actionType,

@@ -32,6 +32,10 @@ function rowToEmployeeCatalogRow(row: {
   role_id: string;
   status: string;
   scheduler_mode: string;
+  bio?: string | null;
+  tone?: string | null;
+  skills_json?: string | null;
+  photo_url?: string | null;
   created_at: string;
   updated_at: string;
 }): EmployeeCatalogRow {
@@ -43,6 +47,10 @@ function rowToEmployeeCatalogRow(row: {
     roleId: row.role_id,
     status: row.status,
     schedulerMode: row.scheduler_mode,
+    bio: row.bio ?? undefined,
+    tone: row.tone ?? undefined,
+    skillsJson: row.skills_json ?? undefined,
+    photoUrl: row.photo_url ?? undefined,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -81,18 +89,24 @@ export async function listEmployeeCatalog(
   const rows = await db
     .prepare(
       `SELECT
-         id,
-         company_id,
-         team_id,
-         employee_name,
-         role_id,
-         status,
-         scheduler_mode,
-         created_at,
-         updated_at
-       FROM employees_catalog
+         e.id,
+         e.company_id,
+         e.team_id,
+         e.employee_name,
+         e.role_id,
+         e.status,
+         e.scheduler_mode,
+         p.bio,
+         p.tone,
+         p.skills_json,
+         p.photo_url,
+         e.created_at,
+         e.updated_at
+       FROM employees_catalog e
+       LEFT JOIN employee_personas p
+         ON e.id = p.employee_id
        ${where}
-       ORDER BY id`,
+       ORDER BY e.id`,
     )
     .bind(...bindings)
     .all<{
@@ -103,6 +117,10 @@ export async function listEmployeeCatalog(
       role_id: string;
       status: string;
       scheduler_mode: string;
+      bio?: string | null;
+      tone?: string | null;
+      skills_json?: string | null;
+      photo_url?: string | null;
       created_at: string;
       updated_at: string;
     }>();

@@ -49,7 +49,7 @@ const DEFAULT_DEPARTMENT_FILTERS: DepartmentFilters = {
   selectedEmployeeId: null,
   escalationState: "all",
   decisionSeverity: "all",
-  employeeState: "all",
+  runtimeStatus: "all",
   approvalStatus: "all",
   approvalAction: "all",
 };
@@ -303,8 +303,8 @@ function attachDepartmentFilterHandlers(): void {
     document.querySelector<HTMLSelectElement>("#escalation-state-filter");
   const decisionSeverityFilter =
     document.querySelector<HTMLSelectElement>("#decision-severity-filter");
-  const employeeStateFilter =
-    document.querySelector<HTMLSelectElement>("#employee-state-filter");
+  const employeeRuntimeStatusFilter =
+    document.querySelector<HTMLSelectElement>("#employee-runtime-status-filter");
   const approvalStatusFilter =
     document.querySelector<HTMLSelectElement>("#approval-status-filter");
   const approvalActionFilter =
@@ -336,9 +336,9 @@ function attachDepartmentFilterHandlers(): void {
     void renderRoute();
   });
 
-  employeeStateFilter?.addEventListener("change", () => {
+  employeeRuntimeStatusFilter?.addEventListener("change", () => {
     updateDepartmentFilters({
-      employeeState: employeeStateFilter.value as DepartmentFilters["employeeState"],
+      runtimeStatus: employeeRuntimeStatusFilter.value as DepartmentFilters["runtimeStatus"],
     });
     resetDepartmentPaginationPages();
     void renderRoute();

@@ -127,7 +127,11 @@ async function deliberate(args: {
   observation: string;
 }): Promise<string> {
   const { employee } = args.context;
-  const persona = `Name: ${employee.identity.employeeName}\nRole: ${employee.identity.roleId}\nBio: ${employee.identity.bio || "No bio set."}\nTone: ${employee.identity.tone || "Professional"}\nSkills: ${employee.identity.skills?.join(", ") || "Generalist"}`;
+  const displayName = employee.publicProfile?.displayName ?? employee.identity.employeeId;
+  const bio = employee.publicProfile?.bio || "No bio set.";
+  const tone = employee.publicProfile?.tone || "Professional";
+  const skills = employee.publicProfile?.skills?.join(", ") || "Generalist";
+  const persona = `Name: ${displayName}\nRole: ${employee.identity.roleId}\nBio: ${bio}\nTone: ${tone}\nSkills: ${skills}`;
 
   const prompt = `
 [SYSTEM: COGNITIVE IDENTITY]

@@ -1,63 +1,70 @@
 // --- Safe helpers for employee rendering ---
 function getEmployeeDisplayState(employee: OperatorEmployeeRecord): string {
-  if (employee.effectiveState?.state) {
-    return employee.effectiveState.state;
+  if (
+    employee.runtime.runtimeStatus === "implemented" &&
+    employee.runtime.effectiveState?.state
+  ) {
+    return employee.runtime.effectiveState.state;
   }
-  if (employee.catalog?.implemented === false) {
-    return employee.catalog.status || "planned";
-  }
-  return "unknown";
+  return employee.runtime.runtimeStatus;
 }
 
 function isEmployeeBlocked(employee: OperatorEmployeeRecord): boolean {
-  return employee.effectiveState?.blocked === true;
+  return employee.runtime.effectiveState?.blocked === true;
 }
 
 function isEmployeeRestricted(employee: OperatorEmployeeRecord): boolean {
-  return employee.effectiveState?.state === "restricted";
+  return employee.runtime.effectiveState?.state === "restricted";
 }
 
 function getEmployeeBudgetSummary(employee: OperatorEmployeeRecord): string {
-  const maxActionsPerHour = employee.effectiveBudget?.maxActionsPerHour;
+  const maxActionsPerHour = employee.runtime.effectiveBudget?.maxActionsPerHour;
   return typeof maxActionsPerHour === "number" ? `${maxActionsPerHour}/hr` : "—";
 }
 
 function getEmployeeGovernanceSummary(employee: OperatorEmployeeRecord): string {
-  if (employee.catalog?.implemented === false) {
-    return employee.message || "Catalog employee — not yet implemented in runtime.";
+  if (employee.runtime.runtimeStatus === "planned") {
+    return "Planned employee — not yet implemented in runtime.";
   }
-  return employee.governance?.escalationRoute || "—";
+  if (employee.runtime.runtimeStatus === "disabled") {
+    return "Disabled employee boundary.";
+  }
+  return employee.hasCognitiveProfile
+    ? "Cognitive profile present"
+    : "No cognitive profile yet";
 }
 // 1. New Persona-driven Employee Card
 function renderEmployeeCard(employee: OperatorEmployeeRecord, selectedEmployeeId: string | null): string {
   const iden = employee.identity;
+  const profile = employee.publicProfile;
   const isSelected = selectedEmployeeId === iden.employeeId;
-  const skills = iden.skills?.map(s => `<span class="skill-tag">${escapeHtml(s)}</span>`).join("") || "";
+  const displayName = profile?.displayName ?? iden.employeeId;
+  const skills = profile?.skills?.map(s => `<span class="skill-tag">${escapeHtml(s)}</span>`).join("") || "";
 
   return `
     <article class="service-card persona-card ${isSelected ? "service-card-selected" : ""}">
       <div class="service-card-header">
         <div class="avatar-block">
-          ${iden.photoUrl ? `<img src="${escapeHtml(iden.photoUrl)}" class="avatar-img" />` : `<div class="avatar-fallback">${escapeHtml(iden.employeeName?.[0] || "?")}</div>`}
+          ${profile?.avatarUrl ? `<img src="${escapeHtml(profile.avatarUrl)}" class="avatar-img" />` : `<div class="avatar-fallback">${escapeHtml(displayName?.[0] || "?")}</div>`}
         </div>
         <div style="flex: 1; margin-left: 12px;">
-          <h3 style="margin:0">${escapeHtml(iden.employeeName)}</h3>
-          <p class="muted small" style="margin:0">${escapeHtml(iden.roleId)}</p>
+          <h3 style="margin:0">${escapeHtml(displayName)}</h3>
+          <p class="muted small" style="margin:0">${escapeHtml(iden.roleId)} · ${escapeHtml(iden.teamId)}</p>
         </div>
         <div class="card-actions">
-          <span class="${statusClass(employee.effectiveState?.state)}">${escapeHtml(getEmployeeDisplayState(employee))}</span>
+          <span class="${statusClass(employee.runtime.effectiveState?.state ?? employee.runtime.runtimeStatus)}">${escapeHtml(getEmployeeDisplayState(employee))}</span>
         </div>
       </div>
 
       <div class="persona-body">
-        <p class="persona-bio"><em>"${escapeHtml(iden.bio || "No bio set.")}"</em></p>
+        <p class="persona-bio"><em>"${escapeHtml(profile?.bio || "No bio set.")}"</em></p>
         <div class="skills-row">${skills}</div>
       </div>
 
       <div class="governance-grid" style="border-top: 1px solid var(--border); padding-top: 12px;">
-        <div class="muted small">Tone: ${escapeHtml(iden.tone || "Neutral")}</div>
+        <div class="muted small">Runtime: ${escapeHtml(employee.runtime.runtimeStatus)}</div>
         <div class="muted small">Budget: ${escapeHtml(getEmployeeBudgetSummary(employee))}</div>
-        ${employee.catalog?.implemented === false ? `<div class="muted small">Catalog-only employee · ${escapeHtml(employee.catalog.teamId)}</div>` : ""}
+        <div class="muted small">Cognitive profile: ${employee.hasCognitiveProfile ? "present" : "absent"}</div>
         <div class="muted small">${escapeHtml(getEmployeeGovernanceSummary(employee))}</div>
       </div>
     </article>
@@ -103,8 +110,8 @@ import type {
   DecisionSeverityFilter,
   DepartmentFilters,
   DepartmentOverview,
-  EmployeeStateFilter,
   EmployeeStateValue,
+  EmployeeRuntimeStatusFilter,
   EscalationRecord,
   EscalationStateFilter,
   ManagerDecisionRecord,
@@ -127,6 +134,12 @@ function escapeHtml(value: unknown): string {
 
 function statusClass(status: string | null | undefined): string {
   switch (status) {
+    case "implemented":
+      return "status status-completed";
+    case "planned":
+      return "status status-waiting";
+    case "disabled":
+      return "status status-failed";
     case "completed":
     case "enabled":
     case "resolved":
@@ -769,7 +782,7 @@ export function renderDepartmentFilters(args: {
                     value="${escapeHtml(employee.identity.employeeId)}"
                     ${args.filters.selectedEmployeeId === employee.identity.employeeId ? "selected" : ""}
                   >
-                    ${escapeHtml(employee.identity.employeeName)} (${escapeHtml(employee.identity.employeeId)})
+                    ${escapeHtml(employee.publicProfile?.displayName ?? employee.identity.employeeId)} (${escapeHtml(employee.identity.employeeId)})
                   </option>
                 `,
               )
@@ -808,20 +821,19 @@ export function renderDepartmentFilters(args: {
         </label>
 
         <label class="filter-field">
-          <span>Employee state</span>
-          <select id="employee-state-filter">
+          <span>Employee runtime status</span>
+          <select id="employee-runtime-status-filter">
             ${(
               [
                 "all",
-                "enabled",
-                "disabled_pending_review",
-                "disabled_by_manager",
-                "restricted",
-              ] as EmployeeStateFilter[]
+                "implemented",
+                "planned",
+                "disabled",
+              ] as EmployeeRuntimeStatusFilter[]
             )
               .map(
                 (value) => `
-                  <option value="${value}" ${args.filters.employeeState === value ? "selected" : ""}>
+                  <option value="${value}" ${args.filters.runtimeStatus === value ? "selected" : ""}>
                     ${escapeHtml(value)}
                   </option>
                 `,
@@ -1040,11 +1052,11 @@ export function renderDepartmentOverview(args: {
       !filters.selectedEmployeeId ||
       employee.identity.employeeId === filters.selectedEmployeeId;
 
-    const matchesEmployeeState =
-      filters.employeeState === "all" ||
-      employee.effectiveState?.state === filters.employeeState;
+    const matchesRuntimeStatus =
+      filters.runtimeStatus === "all" ||
+      employee.runtime.runtimeStatus === filters.runtimeStatus;
 
-    return matchesSelectedEmployee && matchesEmployeeState;
+    return matchesSelectedEmployee && matchesRuntimeStatus;
   });
 
   const filteredEscalations = overview.escalations.filter((entry) => {
@@ -1134,7 +1146,7 @@ export function renderDepartmentOverview(args: {
     isEmployeeRestricted(employee),
   ).length;
   const plannedEmployees = overview.employees.filter(
-    (employee) => employee.catalog?.implemented === false,
+    (employee) => employee.runtime.runtimeStatus === "planned",
   ).length;
 
   return `
