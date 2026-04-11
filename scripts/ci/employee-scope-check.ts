@@ -1,104 +1,86 @@
 /* eslint-disable no-console */
 
-import assert from "node:assert/strict";
-import { fetchJson } from "../lib/http-json";
+import { assert } from "./shared/assert";
+import { createOperatorAgentClient } from "./clients/operator-agent-client";
 
 async function main(): Promise<void> {
-  const baseUrl = process.env.OPERATOR_AGENT_BASE_URL;
-  if (!baseUrl) {
-    throw new Error("Missing OPERATOR_AGENT_BASE_URL");
-  }
+  const client = createOperatorAgentClient();
 
-  const timeoutScope = (await fetchJson(
-    baseUrl,
-    "/agent/employees/emp_timeout_recovery_01/scope",
-  )) as {
-    companyId: string;
-    teamId: string;
-    allowedTenants: string[];
-    allowedServices: string[];
-  };
+  // ---- timeout recovery employee scope
+
+  const timeoutScope = await client.getEmployeeScope(
+    "emp_timeout_recovery_01",
+  );
 
   assert.equal(timeoutScope.companyId, "company_internal_aep");
   assert.equal(timeoutScope.teamId, "team_infra");
+
   assert(timeoutScope.allowedTenants.includes("tenant_internal_aep"));
   assert(timeoutScope.allowedServices.includes("service_control_plane"));
 
-  const webScope = (await fetchJson(
-    baseUrl,
-    "/agent/employees/emp_product_manager_web_01/scope",
-  )) as {
-    teamId: string;
-    allowedServices: string[];
-    allowedEnvironmentNames: string[];
-  };
+  // ---- web product manager scope
+
+  const webScope = await client.getEmployeeScope(
+    "emp_product_manager_web_01",
+  );
 
   assert.equal(webScope.teamId, "team_web_product");
+
   assert(webScope.allowedServices.includes("service_dashboard"));
   assert(webScope.allowedEnvironmentNames.includes("preview"));
 
-  const validationScope = (await fetchJson(
-    baseUrl,
-    "/agent/employees/emp_validation_engineer_01/scope",
-  )) as {
-    teamId: string;
-    allowedEnvironmentNames: string[];
-  };
+  // ---- validation engineer scope
+
+  const validationScope = await client.getEmployeeScope(
+    "emp_validation_engineer_01",
+  );
 
   assert.equal(validationScope.teamId, "team_validation");
-  assert(validationScope.allowedEnvironmentNames.includes("async_validation"));
+  assert(
+    validationScope.allowedEnvironmentNames.includes("async_validation"),
+  );
 
-  // Confirms the validation specialist org identity has reached the deployed worker.
-  const validationSpecialistScope = (await fetchJson(
-    baseUrl,
-    "/agent/employees/emp_val_specialist_01/scope",
-  )) as {
-    companyId: string;
-    teamId: string;
-    allowedTenants: string[];
-    allowedServices: string[];
-  };
+  // ---- validation specialist scope (cross-tenant coverage)
+
+  const validationSpecialistScope = await client.getEmployeeScope(
+    "emp_val_specialist_01",
+  );
 
   assert.equal(validationSpecialistScope.companyId, "company_internal_aep");
   assert.equal(validationSpecialistScope.teamId, "team_validation");
-  assert(validationSpecialistScope.allowedTenants.includes("tenant_internal_aep"));
-  assert(validationSpecialistScope.allowedTenants.includes("tenant_qa"));
+
   assert(
-    validationSpecialistScope.allowedServices.includes("service_control_plane"),
+    validationSpecialistScope.allowedTenants.includes("tenant_internal_aep"),
   );
+  assert(validationSpecialistScope.allowedTenants.includes("tenant_qa"));
 
-  const effectivePolicy = (await fetchJson(
-    baseUrl,
-    "/agent/employees/emp_timeout_recovery_01/effective-policy",
-  )) as {
-    implemented: boolean;
-    companyId: string;
-    teamId: string;
-    effectiveAuthority: {
-      allowedTenants?: string[];
-      allowedServices?: string[];
-      allowedEnvironmentNames?: string[];
-    };
-  };
-
-  assert.equal(effectivePolicy.implemented, true);
-  assert.equal(effectivePolicy.companyId, "company_internal_aep");
-  assert.equal(effectivePolicy.teamId, "team_infra");
   assert(
-    effectivePolicy.effectiveAuthority.allowedServices?.includes(
+    validationSpecialistScope.allowedServices.includes(
       "service_control_plane",
     ),
   );
 
-  const plannedPolicy = (await fetchJson(
-    baseUrl,
-    "/agent/employees/emp_product_manager_web_01/effective-policy",
-  )) as {
-    implemented: boolean;
-    companyId: string;
-    teamId: string;
-    status: string;
-  };
+  // ---- effective policy (implemented employee)
+
+  const effectivePolicy = await client.getEmployeeEffectivePolicy(
+    "emp_timeout_recovery_01",
+  );
+
+  assert.equal(effectivePolicy.implemented, true);
+  assert.equal(effectivePolicy.companyId, "company_internal_aep");
+  assert.equal(effectivePolicy.teamId, "team_infra");
+
+  assert(
+    effectivePolicy.effectiveAuthority?.allowedServices?.includes(
+      "service_control_plane",
+    ),
+  );
+
+  // ---- effective policy (planned employee)
+
+  const plannedPolicy = await client.getEmployeeEffectivePolicy(
+    "emp_product_manager_web_01",
+  );
 
   assert.equal(plannedPolicy.implemented, false);
   assert.equal(plannedPolicy.companyId, "company_internal_aep");
