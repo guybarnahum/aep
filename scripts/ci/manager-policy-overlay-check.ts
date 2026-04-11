@@ -2,7 +2,7 @@
 
 import { createOperatorAgentClient } from "./clients/operator-agent-client";
 import { handleOperatorAgentSoftSkip } from "./shared/soft-skip";
-import type { ManagerRunResponse } from "./clients/operator-agent-client";
+import type { ManagerRunResponse } from "./contracts/manager";
 
 export {};
 

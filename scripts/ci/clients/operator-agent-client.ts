@@ -10,91 +10,20 @@ import type {
   EmployeeScopeResponse,
   SchedulerStatusResponse,
 } from "../contracts/employees";
-
-export type ApprovalState =
-  | "pending_review"
-  | "approved"
-  | "rejected"
-  | "expired"
-  | "already_executed"
-  | "pending";
-
-export type ApprovalControlHistoryEntry = {
-  id: string;
-  timestamp: string;
-  action: string;
-};
-
-export type ApprovalEntry = {
-  id?: string;
-  approvalId?: string;
-  employeeId?: string;
-  requestedByEmployeeId?: string;
-  reason: string;
-  state?: ApprovalState;
-  status?: "pending" | "approved" | "rejected" | "expired";
-  requestedAt?: string;
-  timestamp?: string;
-  expiresAt?: string;
-  approvedAt?: string;
-  rejectedAt?: string;
-  consumedAt?: string;
-  decidedAt?: string;
-  executedAt?: string;
-  executionId?: string;
-  metadata?: Record<string, unknown>;
-  controlHistory?: ApprovalControlHistoryEntry[];
-};
-
-export type ApprovalsListResponse = {
-  ok: true;
-  count: number;
-  approvals?: ApprovalEntry[];
-  entries?: ApprovalEntry[];
-};
-
-export type ApprovalDetailResponse = {
-  ok: true;
-  id?: string;
-  approval?: {
-    id?: string;
-    approvalId?: string;
-  };
-};
-
-export type EscalationsListResponse = {
-  ok: true;
-  count: number;
-  entries: unknown[];
-};
-
-export type ControlHistoryListResponse = {
-  ok: true;
-  count: number;
-  entries: unknown[];
-};
-
-export type ManagerLogResponse = {
-  ok: true;
-  managerEmployeeId: string;
-  count: number;
-  entries: unknown[];
-};
-
-export type ManagerRunResponse = {
-  ok: true;
-  status: "completed";
-  policyVersion: string;
-  summary: {
-    repeatedVerificationFailures: number;
-    operatorActionFailures: number;
-    budgetExhaustionSignals: number;
-    reEnableDecisions: number;
-    restrictionDecisions: number;
-    clearedRestrictionDecisions: number;
-    decisionsEmitted: number;
-  };
-};
+import type {
+  ApprovalDetailResponse,
+  ApprovalsListResponse,
+} from "../contracts/approvals";
+import type {
+  ControlHistoryListResponse,
+  EscalationsListResponse,
+} from "../contracts/escalations";
+import type {
+  ManagerLogResponse,
+} from "../contracts/manager";
+import type {
+  WorkLogResponse,
+} from "../contracts/work-log";
 
 export type RunEmployeeRequest = {
   companyId?: string;
@@ -123,7 +52,8 @@ export function createOperatorAgentClient(
 
   function buildUrl(path: string, search?: URLSearchParams): string {
     const normalizedBaseUrl = baseUrl.replace(/\/$/, "");
-    const query = search && search.toString().length > 0 ? `?${search.toString()}` : "";
+    const query =
+      search && search.toString().length > 0 ? `?${search.toString()}` : "";
     return `${normalizedBaseUrl}${path}${query}`;
   }
 
@@ -165,16 +95,20 @@ export function createOperatorAgentClient(
       );
     },
 
+    async listEmployeeControls(): Promise<EmployeeControlsListResponse> {
+      return getJson<EmployeeControlsListResponse>(
+        buildUrl("/agent/employee-controls"),
+      );
+    },
+
     async getEmployeeControls(
-      employeeId?: string,
-    ): Promise<EmployeeControlsListResponse | EmployeeControlDetailResponse> {
-      const search = new URLSearchParams();
+      employeeId: string,
+    ): Promise<EmployeeControlDetailResponse> {
+      const search = new URLSearchParams({
+        employeeId,
+      });
 
-      if (employeeId) {
-        search.set("employeeId", employeeId);
-      }
-
-      return getJson<EmployeeControlsListResponse | EmployeeControlDetailResponse>(
+      return getJson<EmployeeControlDetailResponse>(
         buildUrl("/agent/employee-controls", search),
       );
     },
@@ -248,6 +182,31 @@ export function createOperatorAgentClient(
       return getJson<ManagerLogResponse>(
         buildUrl("/agent/manager-log", search),
       );
+    },
+
+    async getWorkLog(params: {
+      employeeId: string;
+      limit?: number;
+    }): Promise<WorkLogResponse> {
+      const search = new URLSearchParams({
+        employeeId: params.employeeId,
+      });
+
+      if (typeof params.limit === "number") {
+        search.set("limit", String(params.limit));
+      }
+
+      return getJson<WorkLogResponse>(
+        buildUrl("/agent/work-log", search),
+      );
+    },
+
+    async endpointExists(path: string): Promise<boolean> {
+      const response = await fetch(buildUrl(path), {
+        method: "OPTIONS",
+      });
+
+      return response.ok || response.status === 405;
     },
 
     async runEmployee<T = Record<string, unknown>>(
