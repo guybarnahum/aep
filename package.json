@@ -36,6 +36,8 @@
     "ci:scheduled-routing-check": "tsx scripts/ci/scheduled-routing-check.ts",
     "ci:manager-advisory-check": "tsx scripts/ci/manager-advisory-check.ts",
     "ci:operator-surface-check": "tsx scripts/ci/operator-surface-check.ts",
+    "ci:operator-agent-contract-check": "tsx scripts/ci/checks/contracts/operator-agent-contract-check.ts",
+    "ci:operator-agent-behavior-check": "tsx scripts/ci/checks/policy/operator-agent-behavior-check.ts",
     "ci:employee-scope-check": "tsx scripts/ci/employee-scope-check.ts",
     "ci:operator-agent-org-schema-check": "tsx scripts/ci/operator-agent-org-schema-check.ts",
     "ci:org-schema-check": "tsx scripts/ci/org-schema-check.ts",
