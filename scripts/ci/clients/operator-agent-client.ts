@@ -250,14 +250,14 @@ export function createOperatorAgentClient(
       );
     },
 
-    async runEmployee(
+    async runEmployee<T = Record<string, unknown>>(
       request: RunEmployeeRequest,
       init?: {
         executionSource?: string;
         actor?: string;
       },
-    ): Promise<ManagerRunResponse | Record<string, unknown>> {
-      return postJson<ManagerRunResponse | Record<string, unknown>>(
+    ): Promise<T> {
+      return postJson<T>(
         buildUrl("/agent/run"),
         request,
         {

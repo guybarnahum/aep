@@ -17,7 +17,7 @@ async function main(): Promise<void> {
 
   // ---- run manager
 
-  const managerRun = (await client.runEmployee(
+  const managerRun = await client.runEmployee<ManagerRunResponse>(
     {
       departmentId: "aep-infra-ops",
       employeeId: "emp_infra_ops_manager_01",
@@ -30,8 +30,8 @@ async function main(): Promise<void> {
       executionSource: "operator",
       actor: "ci-manager-policy-overlay-check",
     },
-  )) as ManagerRunResponse;
-  
+  );
+
   if (managerRun.policyVersion !== POLICY_VERSION) {
     throw new Error(
       `Unexpected policyVersion from manager run: ${managerRun.policyVersion}`,
