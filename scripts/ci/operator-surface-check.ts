@@ -33,40 +33,51 @@ type EmployeesResponse = {
     };
     effectiveBudget?: Record<string, unknown>;
     effectiveState?: {
-      state: "enabled" | "disabled_pending_review" | "disabled_by_manager" | "restricted";
-        identity: {
-          employeeId: string;
-          roleId: string;
-          companyId: string;
-          teamId: string;
-        };
-        runtime: {
-          runtimeStatus: "implemented" | "planned" | "disabled";
-          effectiveAuthority?: {
-            allowedTenants?: string[];
-            allowedServices?: string[];
-            allowedEnvironmentNames?: string[];
-            [key: string]: unknown;
-          };
-          effectiveBudget?: Record<string, unknown>;
-          effectiveState?: {
-            state: "enabled" | "disabled_pending_review" | "disabled_by_manager" | "restricted";
-            blocked: boolean;
-          };
-        };
-        publicProfile?: {
-          displayName: string;
-          bio?: string;
-          skills?: string[];
-          avatarUrl?: string;
-        };
-        hasCognitiveProfile: boolean;
+      state:
+        | "enabled"
+        | "disabled_pending_review"
+        | "disabled_by_manager"
+        | "restricted";
+      blocked: boolean;
+    };
+    scope?: Record<string, unknown>;
+    message?: string;
+    publicProfile?: {
+      displayName: string;
+      bio?: string;
+      skills?: string[];
+      avatarUrl?: string;
+    };
+    hasCognitiveProfile?: boolean;
+  }>;
+};
 
-type ManagerLogResponse = {
-  ok: true;
-  managerEmployeeId: string;
-  count: number;
-  entries: unknown[];
+type EmployeeScopeResponse = {
+  companyId: string;
+  teamId: string;
+  employeeId?: string;
+  roleId?: string;
+  allowedTenants?: string[];
+  allowedServices?: string[];
+  allowedEnvironmentNames?: string[];
+  [key: string]: unknown;
+};
+
+type EmployeeEffectivePolicyResponse = {
+  implemented: boolean;
+  authority?: Record<string, unknown>;
+  budget?: Record<string, unknown>;
+  effectiveAuthority?: Record<string, unknown>;
+  effectiveBudget?: Record<string, unknown>;
+  effectiveState?: {
+    state:
+      | "enabled"
+      | "disabled_pending_review"
+      | "disabled_by_manager"
+      | "restricted";
+    blocked?: boolean;
+  };
+  [key: string]: unknown;
 };
 
 type EmployeeControlsResponse = {
@@ -94,6 +105,13 @@ type EmployeeControlsResponse = {
     state: "enabled" | "disabled_pending_review" | "disabled_by_manager" | "restricted";
     blocked: boolean;
   };
+};
+
+type ManagerLogResponse = {
+  ok: true;
+  managerEmployeeId: string;
+  count: number;
+  entries: unknown[];
 };
 
 type WorkLogResponse = {
