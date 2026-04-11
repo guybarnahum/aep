@@ -36,7 +36,7 @@ function parseArgs(argv: string[]) {
   const requestedBy = args.get("requested-by") ?? "post_deploy_validation";
 
   return {
-    baseUrl: baseUrl.replace(/\/*$/, ""),
+    baseUrl: baseUrl.replace(/\/+$/, ""),
     mode,
     requestedBy,
   } as const;

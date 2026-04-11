@@ -8,7 +8,7 @@ export {};
 function parseArgs(argv: string[]) {
   if (argv.length >= 2 && !argv[0].startsWith("--")) {
     return {
-      operatorBaseUrl: argv[0].replace(/\/*$/, ""),
+      operatorBaseUrl: argv[0].replace(/\/+$/, ""),
       targetUrl: argv[1],
     } as const;
   }
@@ -45,7 +45,7 @@ function parseArgs(argv: string[]) {
   }
 
   return {
-    operatorBaseUrl: operatorBaseUrl.replace(/\/*$/, ""),
+    operatorBaseUrl: operatorBaseUrl.replace(/\/+$/, ""),
     targetUrl,
   } as const;
 }

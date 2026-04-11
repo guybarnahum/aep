@@ -27,7 +27,7 @@ type TaskResponse = {
 function parseArgs(argv: string[]) {
   if (argv.length >= 2 && !argv[0].startsWith("--")) {
     return {
-      operatorBaseUrl: argv[0].replace(/\/*$/, ""),
+      operatorBaseUrl: argv[0].replace(/\/+$/, ""),
       taskId: argv[1],
       attempts: 20,
       intervalMs: 10_000,
@@ -77,7 +77,7 @@ function parseArgs(argv: string[]) {
   }
 
   return {
-    operatorBaseUrl: operatorBaseUrl.replace(/\/*$/, ""),
+    operatorBaseUrl: operatorBaseUrl.replace(/\/+$/, ""),
     taskId,
     attempts: Math.trunc(attempts),
     intervalMs: Math.trunc(intervalMs),
