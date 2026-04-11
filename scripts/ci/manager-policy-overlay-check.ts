@@ -7,6 +7,12 @@ export {};
 
 const POLICY_VERSION = "commit10-stageB";
 
+type EmployeeControlState =
+  | "enabled"
+  | "disabled_pending_review"
+  | "disabled_by_manager"
+  | "restricted";
+
 type EmployeesResponse = {
   ok: true;
   count: number;
@@ -14,19 +20,16 @@ type EmployeesResponse = {
     identity: {
       employeeId: string;
     };
-    budget: {
-      maxActionsPerScan: number;
-    };
-    effectiveBudget: {
-      maxActionsPerScan: number;
-    };
-    effectiveState: {
-      state:
-        | "enabled"
-        | "disabled_pending_review"
-        | "disabled_by_manager"
-        | "restricted";
-      blocked: boolean;
+    runtime: {
+      runtimeStatus: "implemented" | "planned" | "disabled";
+      effectiveBudget?: {
+        maxActionsPerScan?: number;
+        [key: string]: unknown;
+      };
+      effectiveState?: {
+        state: EmployeeControlState;
+        blocked: boolean;
+      };
     };
   }>;
 };
@@ -35,11 +38,7 @@ type EmployeeControlsResponse = {
   ok: true;
   employeeId: string;
   control: {
-    state:
-      | "enabled"
-      | "disabled_pending_review"
-      | "disabled_by_manager"
-      | "restricted";
+    state: EmployeeControlState;
     transition:
       | "disabled"
       | "re_enabled"
@@ -55,11 +54,25 @@ type EmployeeControlsResponse = {
     };
   } | null;
   effectiveState?: {
-    state:
-      | "enabled"
-      | "disabled_pending_review"
-      | "disabled_by_manager"
-      | "restricted";
+    state: EmployeeControlState;
+    blocked: boolean;
+  };
+};
+
+type EmployeeEffectivePolicyResponse = {
+  ok: true;
+  employeeId: string;
+  implemented: boolean;
+  baseBudget?: {
+    maxActionsPerScan?: number;
+    [key: string]: unknown;
+  };
+  effectiveBudget?: {
+    maxActionsPerScan?: number;
+    [key: string]: unknown;
+  };
+  controlState?: {
+    state: EmployeeControlState;
     blocked: boolean;
   };
 };
@@ -79,14 +92,6 @@ type ManagerRunResponse = {
   };
 };
 
-function requireEnv(name: string): string {
-  const value = process.env[name];
-  if (!value) {
-    throw new Error(`Missing required env var: ${name}`);
-  }
-  return value;
-}
-
 async function readJson<T>(response: Response): Promise<T> {
   if (!response.ok) {
     const body = await response.text();
@@ -97,7 +102,7 @@ async function readJson<T>(response: Response): Promise<T> {
 
 async function runManager(
   agentBaseUrl: string,
-  observedEmployeeId: string
+  observedEmployeeId: string,
 ): Promise<ManagerRunResponse> {
   return readJson<ManagerRunResponse>(
     await fetch(`${agentBaseUrl}/agent/run`, {
@@ -115,26 +120,37 @@ async function runManager(
         policyVersion: POLICY_VERSION,
         targetEmployeeIdOverride: observedEmployeeId,
       }),
-    })
+    }),
   );
 }
 
 async function getEmployees(agentBaseUrl: string): Promise<EmployeesResponse> {
   return readJson<EmployeesResponse>(
-    await fetch(`${agentBaseUrl}/agent/employees`)
+    await fetch(`${agentBaseUrl}/agent/employees`),
   );
 }
 
 async function getEmployeeControls(
   agentBaseUrl: string,
-  employeeId: string
+  employeeId: string,
 ): Promise<EmployeeControlsResponse> {
   return readJson<EmployeeControlsResponse>(
     await fetch(
       `${agentBaseUrl}/agent/employee-controls?employeeId=${encodeURIComponent(
-        employeeId
-      )}`
-    )
+        employeeId,
+      )}`,
+    ),
+  );
+}
+
+async function getEmployeeEffectivePolicy(
+  agentBaseUrl: string,
+  employeeId: string,
+): Promise<EmployeeEffectivePolicyResponse> {
+  return readJson<EmployeeEffectivePolicyResponse>(
+    await fetch(
+      `${agentBaseUrl}/agent/employees/${encodeURIComponent(employeeId)}/effective-policy`,
+    ),
   );
 }
 
@@ -151,7 +167,7 @@ async function main(): Promise<void> {
 
   if (managerRun.policyVersion !== POLICY_VERSION) {
     throw new Error(
-      `Unexpected policyVersion from manager run: ${managerRun.policyVersion}`
+      `Unexpected policyVersion from manager run: ${managerRun.policyVersion}`,
     );
   }
 
@@ -162,16 +178,41 @@ async function main(): Promise<void> {
   };
   const employees = await getEmployees(agentBaseUrl);
   const employee = employees.employees.find(
-    (item) => item.identity.employeeId === observedEmployeeId
+    (item) => item.identity.employeeId === observedEmployeeId,
   );
 
   if (!employee) {
-    throw new Error(`Observed employee missing from /agent/employees`);
+    throw new Error("Observed employee missing from /agent/employees");
+  }
+
+  const effectivePolicy = await getEmployeeEffectivePolicy(
+    agentBaseUrl,
+    observedEmployeeId,
+  );
+
+  if (!effectivePolicy.ok) {
+    throw new Error(
+      `Expected /effective-policy to return ok=true for ${observedEmployeeId}`,
+    );
+  }
+
+  if (!effectivePolicy.implemented) {
+    throw new Error(
+      `Expected observed employee ${observedEmployeeId} to be implemented, got ${JSON.stringify(
+        effectivePolicy,
+      )}`,
+    );
+  }
+
+  if (employee.runtime.runtimeStatus !== "implemented") {
+    throw new Error(
+      `Expected observed employee ${observedEmployeeId} runtimeStatus=implemented, got ${employee.runtime.runtimeStatus}`,
+    );
   }
 
   if (controls.control === null && effectiveState.state !== "enabled") {
     throw new Error(
-      `Expected missing control to imply enabled effective state, got ${effectiveState.state}`
+      `Expected missing control to imply enabled effective state, got ${effectiveState.state}`,
     );
   }
 
@@ -187,12 +228,17 @@ async function main(): Promise<void> {
       throw new Error("Restricted control must include persisted overlays");
     }
 
+    const effectiveMaxActions =
+      effectivePolicy.effectiveBudget?.maxActionsPerScan;
+    const baseMaxActions = effectivePolicy.baseBudget?.maxActionsPerScan;
+
     if (
-      employee.effectiveBudget.maxActionsPerScan >
-      employee.budget.maxActionsPerScan
+      typeof effectiveMaxActions === "number" &&
+      typeof baseMaxActions === "number" &&
+      effectiveMaxActions > baseMaxActions
     ) {
       throw new Error(
-        "Effective restricted budget must not exceed base employee budget"
+        "Effective restricted budget must not exceed base employee budget",
       );
     }
   }
@@ -201,8 +247,10 @@ async function main(): Promise<void> {
     observedEmployeeId,
     state: effectiveState.state,
     blocked: effectiveState.blocked,
-    baseMaxActionsPerScan: employee.budget.maxActionsPerScan,
-    effectiveMaxActionsPerScan: employee.effectiveBudget.maxActionsPerScan,
+    baseMaxActionsPerScan:
+      effectivePolicy.baseBudget?.maxActionsPerScan ?? null,
+    effectiveMaxActionsPerScan:
+      effectivePolicy.effectiveBudget?.maxActionsPerScan ?? null,
     restrictionDecisions: managerRun.summary.restrictionDecisions,
     clearedRestrictionDecisions:
       managerRun.summary.clearedRestrictionDecisions,
