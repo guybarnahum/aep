@@ -384,24 +384,28 @@ async function main(): Promise<void> {
     throw new Error("Expected timeout scope teamId=team_infra");
   }
 
-  const timeoutEffectivePolicy = await readJson<EmployeeEffectivePolicyResponse>(
+  const timeoutEffectivePolicy = await readJson<EmployeeEffectivePolicyResponse | null>(
     await fetch(
       `${agentBaseUrl}/agent/employees/emp_timeout_recovery_01/effective-policy`
     )
   );
 
-  if (!timeoutEffectivePolicy.implemented) {
-    throw new Error("Expected timeout recovery effective policy to be implemented");
+  if (!timeoutEffectivePolicy || timeoutEffectivePolicy.implemented !== true) {
+    throw new Error(
+      `Expected timeout recovery effective policy to be implemented, got ${JSON.stringify(timeoutEffectivePolicy)}`
+    );
   }
 
-  const productManagerPolicy = await readJson<EmployeeEffectivePolicyResponse>(
+  const productManagerPolicy = await readJson<EmployeeEffectivePolicyResponse | null>(
     await fetch(
       `${agentBaseUrl}/agent/employees/emp_product_manager_web_01/effective-policy`
     )
   );
 
-  if (productManagerPolicy.implemented !== false) {
-    throw new Error("Expected product manager web effective policy to report implemented=false");
+  if (!productManagerPolicy || productManagerPolicy.implemented !== false) {
+    throw new Error(
+      `Expected product manager web effective policy to report implemented=false, got ${JSON.stringify(productManagerPolicy)}`
+    );
   }
 
   const managerLog = await readJson<ManagerLogResponse>(
