@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { fetchJson } from "../lib/http-json";
+import { poll } from "./tasks/poll";
 
 export {};
 
@@ -26,7 +27,7 @@ type TaskResponse = {
 function parseArgs(argv: string[]) {
   if (argv.length >= 2 && !argv[0].startsWith("--")) {
     return {
-      operatorBaseUrl: argv[0].replace(/\/+$/, ""),
+      operatorBaseUrl: argv[0].replace(/\/*$/, ""),
       taskId: argv[1],
       attempts: 20,
       intervalMs: 10_000,
@@ -76,15 +77,11 @@ function parseArgs(argv: string[]) {
   }
 
   return {
-    operatorBaseUrl: operatorBaseUrl.replace(/\/+$/, ""),
+    operatorBaseUrl: operatorBaseUrl.replace(/\/*$/, ""),
     taskId,
     attempts: Math.trunc(attempts),
     intervalMs: Math.trunc(intervalMs),
   };
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 async function main() {
@@ -92,37 +89,60 @@ async function main() {
     process.argv.slice(2),
   );
 
-  for (let attempt = 0; attempt < attempts; attempt += 1) {
-    const response = (await fetchJson(
-      operatorBaseUrl,
-      `/agent/tasks/${encodeURIComponent(taskId)}`,
-    )) as TaskResponse;
+  const response = await poll(
+    async () => {
+      const current = (await fetchJson(
+        operatorBaseUrl,
+        `/agent/tasks/${encodeURIComponent(taskId)}`,
+      )) as TaskResponse;
 
-    if (!response.ok || !response.task) {
-      throw new Error(`Failed to fetch task ${taskId}`);
-    }
+      if (!current.ok || !current.task) {
+        throw new Error(`Failed to fetch task ${taskId}`);
+      }
 
-    if (response.task.status === "completed") {
-      const verdict = String(response.decision?.verdict ?? "unknown").toUpperCase();
-      const reasoning = String(response.decision?.reasoning ?? "<missing>");
+      if (
+        current.task.status !== "completed" &&
+        current.task.status !== "failed" &&
+        current.task.status !== "escalated"
+      ) {
+        console.log(
+          `... Waiting for Reliability Engineer (status: ${current.task.status}) ...`,
+        );
+      }
 
-      console.log(`Reliability Engineer verdict: ${verdict}`);
-      console.log(`Reasoning: ${reasoning}`);
-      process.exit(response.decision?.verdict === "pass" ? 0 : 1);
-    }
+      return current;
+    },
+    {
+      label: "check-validation-verdict",
+      intervalMs,
+      timeoutMs: attempts * intervalMs,
+      shouldStop: (current) =>
+        !!current.task &&
+        (current.task.status === "completed" ||
+          current.task.status === "failed" ||
+          current.task.status === "escalated"),
+    },
+  );
 
-    if (
-      response.task.status === "failed" ||
-      response.task.status === "escalated"
-    ) {
-      console.error(`Validation task ended in terminal status: ${response.task.status}`);
-      process.exit(1);
-    }
+  if (!response.task) {
+    throw new Error(`Failed to fetch task ${taskId}`);
+  }
 
-    console.log(
-      `... Waiting for Reliability Engineer (status: ${response.task.status}) ...`,
-    );
-    await sleep(intervalMs);
+  if (response.task.status === "completed") {
+    const verdict = String(response.decision?.verdict ?? "unknown").toUpperCase();
+    const reasoning = String(response.decision?.reasoning ?? "<missing>");
+
+    console.log(`Reliability Engineer verdict: ${verdict}`);
+    console.log(`Reasoning: ${reasoning}`);
+    process.exit(response.decision?.verdict === "pass" ? 0 : 1);
+  }
+
+  if (
+    response.task.status === "failed" ||
+    response.task.status === "escalated"
+  ) {
+    console.error(`Validation task ended in terminal status: ${response.task.status}`);
+    process.exit(1);
   }
 
   console.error("Timeout waiting for validation verdict.");

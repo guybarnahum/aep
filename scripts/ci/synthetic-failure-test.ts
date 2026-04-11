@@ -4,6 +4,7 @@ import { execFileSync } from "node:child_process";
 
 import { handleOperatorAgentSoftSkip } from "../lib/operator-agent-skip";
 import { resolveServiceBaseUrl } from "../lib/service-map";
+import { retry } from "./tasks/retry";
 
 export {};
 
@@ -207,7 +208,15 @@ async function main(): Promise<void> {
 
     console.log(`Seeded failing task: ${taskId}`);
 
-    const runResponse = await postRun(agentBaseUrl, policyVersion);
+    const runResponse = await retry(
+      async () => postRun(agentBaseUrl, policyVersion),
+      {
+        label: "synthetic-failure-test run dispatch",
+        attempts: 3,
+        delayMs: 1000,
+      },
+    );
+
     console.log(`Validation agent response: ${runResponse.message ?? "<no message>"}`);
 
     const decision = getSingleRow(

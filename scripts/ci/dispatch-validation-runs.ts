@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 
+import { retry } from "./tasks/retry";
+
 export {};
 
 function parseArgs(argv: string[]) {
@@ -34,7 +36,7 @@ function parseArgs(argv: string[]) {
   const requestedBy = args.get("requested-by") ?? "post_deploy_validation";
 
   return {
-    baseUrl: baseUrl.replace(/\/+$/, ""),
+    baseUrl: baseUrl.replace(/\/*$/, ""),
     mode,
     requestedBy,
   } as const;
@@ -43,20 +45,25 @@ function parseArgs(argv: string[]) {
 async function main() {
   const { baseUrl, mode, requestedBy } = parseArgs(process.argv.slice(2));
 
-  const response = await fetch(
-    `${baseUrl}/internal/validation/schedule-post-deploy`,
-    {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        accept: "application/json",
-        "user-agent": "aep-ci-dispatch-validation-runs/1.0",
-      },
-      body: JSON.stringify({
-        requested_by: requestedBy,
-        target_base_url: baseUrl,
-        mode,
+  const response = await retry(
+    async () =>
+      fetch(`${baseUrl}/internal/validation/schedule-post-deploy`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          accept: "application/json",
+          "user-agent": "aep-ci-dispatch-validation-runs/1.0",
+        },
+        body: JSON.stringify({
+          requested_by: requestedBy,
+          target_base_url: baseUrl,
+          mode,
+        }),
       }),
+    {
+      label: "dispatch-validation-runs",
+      attempts: 3,
+      delayMs: 1000,
     },
   );
 

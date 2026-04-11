@@ -1,8 +1,7 @@
 /* eslint-disable no-console */
 
-import { spawnSync } from "node:child_process";
-import { existsSync } from "node:fs";
-import { resolve } from "node:path";
+import { buildDispatchArgs, buildVerdictArgs } from "./tasks/validation-dispatch";
+import { runTsxScript } from "./tasks/run-observe";
 
 type ValidationCheck = {
   id: string;
@@ -64,23 +63,6 @@ function hasArg(flag: string): boolean {
   return process.argv.slice(2).includes(flag);
 }
 
-function resolveTsxBin(): string {
-  const localBin = resolve(
-    process.cwd(),
-    "node_modules",
-    ".bin",
-    process.platform === "win32" ? "tsx.cmd" : "tsx"
-  );
-
-  if (!existsSync(localBin)) {
-    throw new Error(
-      `Unable to find tsx executable at ${localBin}. Run npm ci before invoking post-deploy validation.`
-    );
-  }
-
-  return localBin;
-}
-
 function requireBaseUrl(): string {
   const baseUrl = process.env.DEPLOY_URL;
   if (!baseUrl) {
@@ -92,140 +74,49 @@ function requireBaseUrl(): string {
   return baseUrl;
 }
 
-function extractSkipReason(output: string): string | undefined {
-  for (const line of output.split(/\r?\n/)) {
-    const trimmed = line.trim();
-    if (trimmed.startsWith("[skip] ")) {
-      return trimmed.slice("[skip] ".length).trim();
-    }
-  }
-  return undefined;
-}
-
-function extractWarnReason(output: string): string | undefined {
-  for (const line of output.split(/\r?\n/)) {
-    const trimmed = line.trim();
-    if (trimmed.startsWith("[warn] ")) {
-      return trimmed.slice("[warn] ".length).trim();
-    }
-  }
-  return undefined;
-}
-
-function extractDispatchBatchId(output: string): string | undefined {
-  for (const line of output.split(/\r?\n/)) {
-    const trimmed = line.trim();
-    if (trimmed.startsWith("DISPATCH_BATCH_ID=")) {
-      return trimmed.slice("DISPATCH_BATCH_ID=".length).trim();
-    }
-  }
-  return undefined;
-}
-
-function runCheck(tsxBin: string, check: ValidationCheck): CheckResult {
-  console.log(`\n==> ${check.label}`);
-  console.log(`Running ${check.scriptPath}`);
-
-  const result = spawnSync(tsxBin, [check.scriptPath, ...(check.args ?? [])], {
-    cwd: process.cwd(),
-    env: process.env,
-    stdio: "pipe",
-    encoding: "utf8",
-  });
-
-  const stdout = result.stdout ?? "";
-  const stderr = result.stderr ?? "";
-  if (stdout.length > 0) {
-    process.stdout.write(stdout);
-  }
-  if (stderr.length > 0) {
-    process.stderr.write(stderr);
-  }
-
-  if (typeof result.status === "number") {
-    const combinedOutput = `${stdout}\n${stderr}`;
-    const dispatchBatchId = extractDispatchBatchId(combinedOutput);
-    const skipReason = extractSkipReason(combinedOutput);
-    const warnReason = extractWarnReason(combinedOutput);
-
-    if (result.status === 0 && skipReason) {
-      return {
-        check,
-        exitCode: result.status,
-        status: "skip",
-        skipReason,
-        dispatchBatchId,
-      };
-    }
-
-    if (result.status === 0 && warnReason) {
-      return {
-        check,
-        exitCode: result.status,
-        status: "warn",
-        warnReason,
-        dispatchBatchId,
-      };
-    }
-
-    return {
-      check,
-      exitCode: result.status,
-      status: result.status === 0 ? "pass" : "fail",
-      dispatchBatchId,
-    };
-  }
-
-  if (result.error) {
-    console.error(`Failed to launch ${check.scriptPath}`);
-    console.error(result.error);
-  }
-
-  return { check, exitCode: 1, status: "fail" };
-}
-
 function main(): void {
   const baseUrl = requireBaseUrl();
+
   const checks = CHECKS.map((check) => {
     if (check.id === "validation-verdict") {
       return {
         ...check,
-        args: ["--base-url", baseUrl, "--freshness-minutes", "30"],
+        args: buildVerdictArgs({
+          baseUrl,
+          freshnessMinutes: "30",
+        }),
       };
     }
 
     if (check.id === "validation-policy") {
       return {
         ...check,
-        args: ["--base-url", baseUrl, "--freshness-minutes", "30"],
+        args: buildVerdictArgs({
+          baseUrl,
+          freshnessMinutes: "30",
+        }),
       };
     }
 
     if (check.id === "dispatch-validation-runs") {
       return {
         ...check,
-        args: [
-          "--base-url",
+        args: buildDispatchArgs({
           baseUrl,
-          "--mode",
-          "full",
-          "--requested-by",
-          "post_deploy_validation",
-        ],
+          mode: "full",
+          requestedBy: "post_deploy_validation",
+        }),
       };
     }
 
     if (check.id === "execute-validation-dispatch") {
       return {
         ...check,
-        args: [
-          "--base-url",
+        args: buildDispatchArgs({
           baseUrl,
-          "--mode",
-          "full",
-          "--requested-by",
-          "post_deploy_validation",
-        ],
+          mode: "full",
+          requestedBy: "post_deploy_validation",
+        }),
       };
     }
 
@@ -241,7 +132,6 @@ function main(): void {
     return;
   }
 
-  const tsxBin = resolveTsxBin();
   const results: CheckResult[] = [];
   let dispatchBatchId: string | undefined;
 
@@ -251,48 +141,51 @@ function main(): void {
     if (check.id === "execute-validation-dispatch" && dispatchBatchId) {
       effectiveCheck = {
         ...check,
-        args: [
-          "--base-url",
+        args: buildDispatchArgs({
           baseUrl,
-          "--mode",
-          "full",
-          "--requested-by",
-          "post_deploy_validation",
-          "--dispatch-batch-id",
+          mode: "full",
+          requestedBy: "post_deploy_validation",
           dispatchBatchId,
-        ],
+        }),
       };
     }
 
     if (check.id === "validation-verdict" && dispatchBatchId) {
       effectiveCheck = {
         ...check,
-        args: [
-          "--base-url",
+        args: buildVerdictArgs({
           baseUrl,
-          "--freshness-minutes",
-          "30",
-          "--dispatch-batch-id",
+          freshnessMinutes: "30",
           dispatchBatchId,
-        ],
+        }),
       };
     }
 
     if (check.id === "validation-policy" && dispatchBatchId) {
       effectiveCheck = {
         ...check,
-        args: [
-          "--base-url",
+        args: buildVerdictArgs({
           baseUrl,
-          "--freshness-minutes",
-          "30",
-          "--dispatch-batch-id",
+          freshnessMinutes: "30",
           dispatchBatchId,
-        ],
+        }),
       };
     }
 
-    const result = runCheck(tsxBin, effectiveCheck);
+    const observed = runTsxScript(
+      effectiveCheck.scriptPath,
+      effectiveCheck.args ?? [],
+    );
+
+    const result: CheckResult = {
+      check: effectiveCheck,
+      exitCode: observed.exitCode,
+      status: observed.status,
+      skipReason: observed.skipReason,
+      warnReason: observed.warnReason,
+      dispatchBatchId: observed.dispatchBatchId,
+    };
+
     results.push(result);
 
     if (check.id === "dispatch-validation-runs" && result.dispatchBatchId) {

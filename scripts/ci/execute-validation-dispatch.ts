@@ -1,13 +1,14 @@
 #!/usr/bin/env node
 
 import { httpPost } from "../lib/http-json";
+import { retry } from "./tasks/retry";
 
 export {};
 
 function parseArgs(argv: string[]) {
   if (argv.length >= 2 && !argv[0].startsWith("--")) {
     return {
-      operatorBaseUrl: argv[0].replace(/\/+$/, ""),
+      operatorBaseUrl: argv[0].replace(/\/*$/, ""),
       targetUrl: argv[1],
     } as const;
   }
@@ -44,7 +45,7 @@ function parseArgs(argv: string[]) {
   }
 
   return {
-    operatorBaseUrl: operatorBaseUrl.replace(/\/+$/, ""),
+    operatorBaseUrl: operatorBaseUrl.replace(/\/*$/, ""),
     targetUrl,
   } as const;
 }
@@ -63,16 +64,24 @@ async function main() {
   console.log("[DEBUG] payload:", JSON.stringify(payload));
   console.log(`Dispatching validation task for ${targetUrl}...`);
 
-  const body = (await httpPost(`${operatorBaseUrl}/agent/tasks`, {
-    companyId: "company_internal_aep",
-    originatingTeamId: "team_web_product",
-    assignedTeamId: "team_validation",
-    createdByEmployeeId: "emp_pm_01",
-    assignedEmployeeId: "emp_val_specialist_01",
-    taskType: "validate-deployment",
-    title: "Post-deploy validation health check",
-    payload,
-  })) as { ok?: boolean; taskId?: string; error?: string };
+  const body = await retry(
+    async () =>
+      (await httpPost(`${operatorBaseUrl}/agent/tasks`, {
+        companyId: "company_internal_aep",
+        originatingTeamId: "team_web_product",
+        assignedTeamId: "team_validation",
+        createdByEmployeeId: "emp_pm_01",
+        assignedEmployeeId: "emp_val_specialist_01",
+        taskType: "validate-deployment",
+        title: "Post-deploy validation health check",
+        payload,
+      })) as { ok?: boolean; taskId?: string; error?: string },
+    {
+      label: "execute-validation-dispatch",
+      attempts: 3,
+      delayMs: 1000,
+    },
+  );
 
   if (!body.ok || typeof body.taskId !== "string" || body.taskId.length === 0) {
     throw new Error(`Failed to create task: ${body.error ?? "missing taskId"}`);
