@@ -43,7 +43,12 @@ jobs:
       CF_ENV: ${{ inputs.cf_env }}
       GIT_SHA: ${{ inputs.git_sha }}
 
+      DEPLOY_URL: ${{ vars.DEPLOY_URL }}
       OPERATOR_AGENT_BASE_URL: ${{ vars.OPERATOR_AGENT_BASE_URL }}
+
+      STAGING_BASE_URL: ${{ secrets.STAGING_BASE_URL }}
+      PRODUCTION_BASE_URL: ${{ secrets.PRODUCTION_BASE_URL }}
+      ASYNC_VALIDATION_BASE_URL: ${{ secrets.ASYNC_VALIDATION_BASE_URL }}
 
       STAGING_OPERATOR_AGENT_BASE_URL: ${{ secrets.STAGING_OPERATOR_AGENT_BASE_URL }}
       PRODUCTION_OPERATOR_AGENT_BASE_URL: ${{ secrets.PRODUCTION_OPERATOR_AGENT_BASE_URL }}
@@ -62,12 +67,19 @@ jobs:
       - name: Resolve effective validation URLs
         run: |
           eval "$(bash ./scripts/ci/resolve-environment-urls.sh)"
+          echo "DEPLOY_URL=$RESOLVED_DEPLOY_URL" >> "$GITHUB_ENV"
+          echo "DEPLOY_URL_SOURCE=$RESOLVED_DEPLOY_URL_SOURCE" >> "$GITHUB_ENV"
           echo "OPERATOR_AGENT_BASE_URL=$RESOLVED_OPERATOR_AGENT_BASE_URL" >> "$GITHUB_ENV"
           echo "OPERATOR_AGENT_BASE_URL_SOURCE=$RESOLVED_OPERATOR_AGENT_BASE_URL_SOURCE" >> "$GITHUB_ENV"
 
       - name: Check policy layer configuration
         id: config
         run: |
+          if [[ -z "$DEPLOY_URL" || ! "$DEPLOY_URL" =~ ^https?://[^[:space:]]+$ ]]; then
+            echo "Invalid or missing DEPLOY_URL for policy layer." >&2
+            exit 1
+          fi
+
           if [[ -z "$OPERATOR_AGENT_BASE_URL" || ! "$OPERATOR_AGENT_BASE_URL" =~ ^https?://[^[:space:]]+$ ]]; then
             echo "Invalid or missing OPERATOR_AGENT_BASE_URL for policy layer." >&2
             exit 1
@@ -103,8 +115,10 @@ jobs:
 
       - name: Run validation policy check
         id: validation_policy
-        run: npx tsx scripts/ci/checks/policy/check-validation-policy.ts | tee validation-policy-check.log
-
+        run: |
+          npx tsx scripts/ci/checks/policy/check-validation-policy.ts \
+            --base-url "$DEPLOY_URL" | tee validation-policy-check.log
+            
       - name: Capture outcome
         id: capture_outcome
         if: always()

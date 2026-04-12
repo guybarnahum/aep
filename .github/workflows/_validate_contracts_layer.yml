@@ -76,6 +76,10 @@ jobs:
           echo "OPERATOR_AGENT_BASE_URL=$RESOLVED_OPERATOR_AGENT_BASE_URL" >> "$GITHUB_ENV"
           echo "OPERATOR_AGENT_BASE_URL_SOURCE=$RESOLVED_OPERATOR_AGENT_BASE_URL_SOURCE" >> "$GITHUB_ENV"
 
+          # Legacy aliases still expected by some CI scripts
+          echo "CONTROL_PLANE_BASE_URL=$RESOLVED_DEPLOY_URL" >> "$GITHUB_ENV"
+          echo "CONTROL_PLANE_URL=$RESOLVED_DEPLOY_URL" >> "$GITHUB_ENV"
+
       - name: Check contracts layer configuration
         id: config
         run: |
