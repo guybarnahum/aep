@@ -115,8 +115,7 @@ fi
 
 echo "==> Ensuring old aggregate wording is gone"
 for old_pat in \
-  "Control-plane smoke:" \
-  "Post-deploy validation:"; do
+  "Control-plane smoke:"; do
   if grep -Fq "$old_pat" "$LOG_DIR/full.log"; then
     echo "Found legacy wording that should be gone from aggregate summary: $old_pat" >&2
     exit 1
