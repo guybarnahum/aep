@@ -75,13 +75,34 @@ async function main() {
     checks?: PolicyCheck[];
   };
 
-  if (body.decision !== "allow") {
-    console.error("❌ Validation policy blocked release");
+  const checks = Array.isArray(body.checks) ? body.checks : [];
+
+  if (body.decision !== "allow" && body.decision !== "block") {
+    throw new Error(
+      `Unexpected validation policy decision: ${String(body.decision)}`,
+    );
+  }
+
+  const hasFailedChecks = checks.some((check) => check.status === "failed");
+
+  if (hasFailedChecks && body.decision !== "block") {
+    console.error("❌ Validation policy allowed release despite failed checks");
     console.error(JSON.stringify(body, null, 2));
     process.exit(1);
   }
 
-  console.log("✅ Validation policy allows release");
+  if (!hasFailedChecks && body.decision !== "allow") {
+    console.error("❌ Validation policy blocked release despite no failed checks");
+    console.error(JSON.stringify(body, null, 2));
+    process.exit(1);
+  }
+
+  if (body.decision === "block") {
+    console.log("✅ Validation policy correctly blocked release");
+  } else {
+    console.log("✅ Validation policy correctly allows release");
+  }
+
   console.log(JSON.stringify(body, null, 2));
 }
 

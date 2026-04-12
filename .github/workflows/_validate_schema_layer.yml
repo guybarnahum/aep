@@ -52,10 +52,22 @@ jobs:
 
       - name: Run org schema check
         id: org_schema
+        env:
+            CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+            CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+            WRANGLER_CONFIG_PATH: core/control-plane/wrangler.jsonc
+            WRANGLER_D1_EXECUTION_LOCATION: remote
+            CF_ENV: ${{ inputs.cf_env }}
         run: npx tsx scripts/ci/checks/schema/org-schema-check.ts | tee org-schema-check.log
-
+    
       - name: Run operator-agent org schema check
         id: operator_agent_org_schema
+        env:
+            CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+            CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+            WRANGLER_CONFIG_PATH: core/operator-agent/wrangler.jsonc
+            WRANGLER_D1_EXECUTION_LOCATION: remote
+            CF_ENV: ${{ inputs.cf_env }}
         run: npx tsx scripts/ci/checks/schema/operator-agent-org-schema-check.ts | tee operator-agent-org-schema-check.log
 
       - name: Run company coordination schema check
