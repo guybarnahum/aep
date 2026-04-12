@@ -55,7 +55,15 @@
     "ci:escalation-audit-check": "tsx scripts/ci/escalation-audit-check.ts",
     "ci:escalation-lifecycle-check": "tsx scripts/ci/escalation-lifecycle-check.ts",
     "ci:paperclip-first-execution-check": "tsx scripts/ci/paperclip-first-execution-check.ts",
-    "ci:synthetic-failure-test": "tsx scripts/ci/synthetic-failure-test.ts"
+    "ci:synthetic-failure-test": "tsx scripts/ci/synthetic-failure-test.ts",
+    
+    "ci:check-health:layered": "tsx scripts/ci/checks/environment/check-health.ts",
+    "ci:org-schema-check:layered": "tsx scripts/ci/checks/schema/org-schema-check.ts",
+    "ci:runtime-projection-check:layered": "tsx scripts/ci/checks/contracts/runtime-projection-check.ts",
+    "ci:employee-scope-check:layered": "tsx scripts/ci/checks/contracts/employee-scope-check.ts",
+    "ci:manager-policy-overlay-check:layered": "tsx scripts/ci/checks/policy/manager-policy-overlay-check.ts",
+    "ci:post-deploy-validation:layered": "tsx scripts/ci/checks/scenarios/post-deploy-validation.ts",
+    "ci:synthetic-failure-test:layered": "tsx scripts/ci/checks/scenarios/synthetic-failure-test.ts"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20250320.0",

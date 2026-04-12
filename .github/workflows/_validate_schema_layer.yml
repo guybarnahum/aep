@@ -1,0 +1,109 @@
+name: _validate_schema_layer
+
+on:
+  workflow_call:
+    inputs:
+      environment_name:
+        required: true
+        type: string
+      cf_env:
+        required: true
+        type: string
+      git_sha:
+        required: true
+        type: string
+      node_version:
+        required: false
+        type: string
+        default: "20"
+    outputs:
+      outcome:
+        description: "Outcome of the schema layer validation job"
+        value: ${{ jobs.validate-schema-layer.outputs.outcome }}
+
+permissions:
+  contents: read
+
+jobs:
+  validate-schema-layer:
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ inputs.environment_name }}
+    defaults:
+      run:
+        shell: bash -eo pipefail {0}
+    outputs:
+      outcome: ${{ steps.capture_outcome.outputs.value }}
+    env:
+      CF_ENV: ${{ inputs.cf_env }}
+      GIT_SHA: ${{ inputs.git_sha }}
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ inputs.node_version }}
+          cache: npm
+
+      - run: npm ci
+
+      - name: Run org schema check
+        id: org_schema
+        run: npx tsx scripts/ci/checks/schema/org-schema-check.ts | tee org-schema-check.log
+
+      - name: Run operator-agent org schema check
+        id: operator_agent_org_schema
+        run: npx tsx scripts/ci/checks/schema/operator-agent-org-schema-check.ts | tee operator-agent-org-schema-check.log
+
+      - name: Run company coordination schema check
+        id: company_coordination_schema
+        run: npx tsx scripts/ci/checks/schema/company-coordination-schema-check.ts | tee company-coordination-schema-check.log
+
+      - name: Run org inventory route check
+        id: org_inventory_route
+        run: npx tsx scripts/ci/checks/schema/org-inventory-route-check.ts | tee org-inventory-route-check.log
+
+      - name: Capture outcome
+        id: capture_outcome
+        if: always()
+        run: |
+          if [[ \
+            "${{ steps.org_schema.outcome }}" == "success" && \
+            "${{ steps.operator_agent_org_schema.outcome }}" == "success" && \
+            "${{ steps.company_coordination_schema.outcome }}" == "success" && \
+            "${{ steps.org_inventory_route.outcome }}" == "success" \
+          ]]; then
+            echo "value=success" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=failure" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Write summary
+        if: always()
+        run: |
+          status_emoji() {
+            case "$1" in
+              success) echo "✅" ;;
+              failure) echo "❌" ;;
+              cancelled) echo "⚪" ;;
+              skipped) echo "⚪" ;;
+              *) echo "❓" ;;
+            esac
+          }
+
+          LAYER_OUTCOME="${{ steps.capture_outcome.outputs.value }}"
+
+          echo "## Schema layer validation" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Environment: $CF_ENV" >> "$GITHUB_STEP_SUMMARY"
+          echo "- SHA: $GIT_SHA" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "### Checks" >> "$GITHUB_STEP_SUMMARY"
+          echo "- $(status_emoji "${{ steps.org_schema.outcome }}") org-schema-check: ${{ steps.org_schema.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- $(status_emoji "${{ steps.operator_agent_org_schema.outcome }}") operator-agent-org-schema-check: ${{ steps.operator_agent_org_schema.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- $(status_emoji "${{ steps.company_coordination_schema.outcome }}") company-coordination-schema-check: ${{ steps.company_coordination_schema.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- $(status_emoji "${{ steps.org_inventory_route.outcome }}") org-inventory-route-check: ${{ steps.org_inventory_route.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "### Layer verdict" >> "$GITHUB_STEP_SUMMARY"
+          echo "- $(status_emoji "$LAYER_OUTCOME") Schema layer: $LAYER_OUTCOME" >> "$GITHUB_STEP_SUMMARY"

@@ -113,8 +113,7 @@ jobs:
           : > post-deploy-validation.log
 
           VALIDATION_TARGET_URL="${DEPLOY_URL%/}/healthz"
-
-          if ! npx tsx scripts/ci/execute-validation-dispatch.ts "$OPERATOR_AGENT_BASE_URL" "$VALIDATION_TARGET_URL" 2>&1 | tee -a post-deploy-validation.log; then
+          if ! npx tsx scripts/ci/checks/scenarios/execute-validation-dispatch.ts "$OPERATOR_AGENT_BASE_URL" "$VALIDATION_TARGET_URL" 2>&1 | tee -a post-deploy-validation.log; then
             echo "Validation dispatch failed before returning a work order." >&2
             exit 1
           fi
@@ -129,10 +128,10 @@ jobs:
           echo "AEP validation task: $TASK_ID" | tee -a post-deploy-validation.log
 
           if [[ "${{ inputs.execute_work_order_immediately }}" == "true" ]]; then
-            npx tsx scripts/ci/execute-validation-work-order.ts "$OPERATOR_AGENT_BASE_URL" "$TASK_ID" 2>&1 | tee -a post-deploy-validation.log
+            npx tsx scripts/ci/checks/scenarios/execute-validation-work-order.ts "$OPERATOR_AGENT_BASE_URL" "$TASK_ID" 2>&1 | tee -a post-deploy-validation.log
           fi
 
-          npx tsx scripts/ci/check-validation-verdict.ts "$OPERATOR_AGENT_BASE_URL" "$TASK_ID" 2>&1 | tee -a post-deploy-validation.log
+          npx tsx scripts/ci/checks/scenarios/check-validation-verdict.ts "$OPERATOR_AGENT_BASE_URL" "$TASK_ID" 2>&1 | tee -a post-deploy-validation.log
 
       - name: Capture outputs
         id: capture
@@ -173,6 +172,7 @@ jobs:
           echo "## Post-deploy validation" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "- Environment: $CF_ENV" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Layer: scenarios" >> "$GITHUB_STEP_SUMMARY"
           echo "- URL: $DEPLOY_URL" >> "$GITHUB_STEP_SUMMARY"
           echo "- URL source: $DEPLOY_URL_SOURCE" >> "$GITHUB_STEP_SUMMARY"
           echo "- Operator-agent URL source: $OPERATOR_AGENT_BASE_URL_SOURCE" >> "$GITHUB_STEP_SUMMARY"

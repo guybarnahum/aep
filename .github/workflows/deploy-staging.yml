@@ -52,9 +52,9 @@ jobs:
       readiness_timeout_ms: "8000"
     secrets: inherit
 
-  validate-staging-smoke:
+  validate-staging-environment:
     needs: deploy-staging-env
-    uses: ./.github/workflows/_validate_control_plane_smoke.yml
+    uses: ./.github/workflows/_validate_environment_layer.yml
     with:
       environment_name: staging
       cf_env: ${{ needs.deploy-staging-env.outputs.cf_env }}
@@ -74,13 +74,41 @@ jobs:
       poll_interval_ms: "3000"
     secrets: inherit
 
-  validate-staging-post-deploy:
+  validate-staging-schema:
+    needs: deploy-staging-env
+    uses: ./.github/workflows/_validate_schema_layer.yml
+    with:
+      environment_name: staging
+      cf_env: ${{ needs.deploy-staging-env.outputs.cf_env }}
+      git_sha: ${{ needs.deploy-staging-env.outputs.git_sha }}
+      node_version: "20"
+    secrets: inherit
+
+  validate-staging-contracts:
+    needs: deploy-staging-env
+    uses: ./.github/workflows/_validate_contracts_layer.yml
+    with:
+      environment_name: staging
+      cf_env: ${{ needs.deploy-staging-env.outputs.cf_env }}
+      git_sha: ${{ needs.deploy-staging-env.outputs.git_sha }}
+      node_version: "20"
+    secrets: inherit
+
+  validate-staging-policy:
+    needs: deploy-staging-env
+    uses: ./.github/workflows/_validate_policy_layer.yml
+    with:
+      environment_name: staging
+      cf_env: ${{ needs.deploy-staging-env.outputs.cf_env }}
+      git_sha: ${{ needs.deploy-staging-env.outputs.git_sha }}
+      node_version: "20"
+    secrets: inherit
+
+  validate-staging-scenarios:
     needs: deploy-staging-env
     uses: ./.github/workflows/_validate_post_deploy.yml
     with:
       environment_name: staging
-      deploy_url: ${{ needs.deploy-staging-env.outputs.deploy_url }}
-      operator_agent_base_url: ${{ needs.deploy-staging-env.outputs.operator_agent_url }}
       cf_env: ${{ needs.deploy-staging-env.outputs.cf_env }}
       git_sha: ${{ needs.deploy-staging-env.outputs.git_sha }}
       node_version: "20"
@@ -90,8 +118,11 @@ jobs:
   deploy-dashboard-pages:
     needs:
       - deploy-staging-env
-      - validate-staging-smoke
-      - validate-staging-post-deploy
+      - validate-staging-environment
+      - validate-staging-schema
+      - validate-staging-contracts
+      - validate-staging-policy
+      - validate-staging-scenarios
     uses: ./.github/workflows/_deploy-dashboard-pages.yml
     with:
       environment_name: staging
@@ -103,8 +134,11 @@ jobs:
   final-summary:
     needs:
       - deploy-staging-env
-      - validate-staging-smoke
-      - validate-staging-post-deploy
+      - validate-staging-environment
+      - validate-staging-schema
+      - validate-staging-contracts
+      - validate-staging-policy
+      - validate-staging-scenarios
       - deploy-dashboard-pages
     if: always()
     runs-on: ubuntu-latest
@@ -114,39 +148,40 @@ jobs:
           echo "## Staging aggregate summary" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "- Deploy environment: ${{ needs.deploy-staging-env.result }}" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Control-plane smoke: ${{ needs.validate-staging-smoke.outputs.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Environment layer: ${{ needs.validate-staging-environment.outputs.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Schema layer: ${{ needs.validate-staging-schema.outputs.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Contracts layer: ${{ needs.validate-staging-contracts.outputs.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Policy layer: ${{ needs.validate-staging-policy.outputs.outcome }}" >> "$GITHUB_STEP_SUMMARY"
 
-          if [[ "${{ needs.validate-staging-post-deploy.outputs.enabled }}" != "true" ]]; then
-            echo "- Post-deploy validation: skipped (warning: operator-agent base URL not configured for the staging environment)" >> "$GITHUB_STEP_SUMMARY"
-          elif [[ "${{ needs.validate-staging-post-deploy.outputs.attention }}" == "true" ]]; then
-            echo "- Post-deploy validation: ${{ needs.validate-staging-post-deploy.outputs.outcome }} (attention: WARN/SKIP entries present)" >> "$GITHUB_STEP_SUMMARY"
+          if [[ "${{ needs.validate-staging-scenarios.outputs.enabled }}" != "true" ]]; then
+            echo "- Scenarios layer: skipped (warning: operator-agent base URL not configured for the staging environment)" >> "$GITHUB_STEP_SUMMARY"
+          elif [[ "${{ needs.validate-staging-scenarios.outputs.attention }}" == "true" ]]; then
+            echo "- Scenarios layer: ${{ needs.validate-staging-scenarios.outputs.outcome }} (attention: WARN/SKIP entries present)" >> "$GITHUB_STEP_SUMMARY"
           else
-            echo "- Post-deploy validation: ${{ needs.validate-staging-post-deploy.outputs.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+            echo "- Scenarios layer: ${{ needs.validate-staging-scenarios.outputs.outcome }}" >> "$GITHUB_STEP_SUMMARY"
           fi
-
 
           echo "- Dashboard deploy: ${{ needs.deploy-dashboard-pages.result }}" >> "$GITHUB_STEP_SUMMARY"
-          if [[ "${{ needs.deploy-dashboard-pages.result }}" != "success" ]]; then
-            echo "  - Dashboard deploy failed. Check _deploy-dashboard-pages.yml logs for the exact failing stage." >> "$GITHUB_STEP_SUMMARY"
-            echo "  - Current likely failure class for this lane: missing downstream deploy URL input from deploy-staging-env outputs." >> "$GITHUB_STEP_SUMMARY"
-            echo "  - Dashboard expects control_plane_base_url and operator_agent_base_url from needs.deploy-staging-env.outputs.*." >> "$GITHUB_STEP_SUMMARY"
-            echo "  - Debug next: inspect _deploy_environment.yml summary/output export for the resolved control-plane URL and operator-agent URL." >> "$GITHUB_STEP_SUMMARY"
-          fi
-
 
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "### Lane verdict" >> "$GITHUB_STEP_SUMMARY"
 
           if [[ "${{ needs.deploy-staging-env.result }}" != "success" ]]; then
             echo "- ❌ Staging deploy lane failed during environment bring-up." >> "$GITHUB_STEP_SUMMARY"
-          elif [[ "${{ needs.validate-staging-smoke.outputs.outcome }}" != "success" ]]; then
-            echo "- ❌ Staging environment deployed, but control-plane smoke validation failed." >> "$GITHUB_STEP_SUMMARY"
-          elif [[ "${{ needs.validate-staging-post-deploy.outputs.enabled }}" == "true" && "${{ needs.validate-staging-post-deploy.outputs.outcome }}" != "success" ]]; then
-            echo "- ❌ Staging environment and smoke passed, but post-deploy validation failed." >> "$GITHUB_STEP_SUMMARY"
-          elif [[ "${{ needs.validate-staging-post-deploy.outputs.attention }}" == "true" ]]; then
-            echo "- ⚠️ Staging deploy lane passed with post-deploy warning/skip attention." >> "$GITHUB_STEP_SUMMARY"
+          elif [[ "${{ needs.validate-staging-environment.outputs.outcome }}" != "success" ]]; then
+            echo "- ❌ Staging environment deployed, but environment-layer validation failed." >> "$GITHUB_STEP_SUMMARY"
+          elif [[ "${{ needs.validate-staging-schema.outputs.outcome }}" != "success" ]]; then
+            echo "- ❌ Staging environment and environment-layer checks passed, but schema-layer validation failed." >> "$GITHUB_STEP_SUMMARY"
+          elif [[ "${{ needs.validate-staging-contracts.outputs.outcome }}" != "success" ]]; then
+            echo "- ❌ Staging environment, environment-layer, and schema-layer checks passed, but contracts-layer validation failed." >> "$GITHUB_STEP_SUMMARY"
+          elif [[ "${{ needs.validate-staging-policy.outputs.outcome }}" != "success" ]]; then
+            echo "- ❌ Staging environment through contracts-layer checks passed, but policy-layer validation failed." >> "$GITHUB_STEP_SUMMARY"
+          elif [[ "${{ needs.validate-staging-scenarios.outputs.enabled }}" == "true" && "${{ needs.validate-staging-scenarios.outputs.outcome }}" != "success" ]]; then
+            echo "- ❌ Staging environment through policy-layer checks passed, but scenario-layer validation failed." >> "$GITHUB_STEP_SUMMARY"
+          elif [[ "${{ needs.validate-staging-scenarios.outputs.attention }}" == "true" ]]; then
+            echo "- ⚠️ Staging deploy lane passed with scenario-layer warning/skip attention." >> "$GITHUB_STEP_SUMMARY"
           elif [[ "${{ needs.deploy-dashboard-pages.result }}" != "success" ]]; then
-            echo "- ❌ Staging environment validations passed, but dashboard deployment failed." >> "$GITHUB_STEP_SUMMARY"
+            echo "- ❌ Staging validation layers passed, but dashboard deployment failed." >> "$GITHUB_STEP_SUMMARY"
           else
             echo "- ✅ Staging deploy lane passed." >> "$GITHUB_STEP_SUMMARY"
           fi

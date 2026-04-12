@@ -62,10 +62,10 @@ on:
         default: "8000"
     outputs:
       deploy_url:
-        description: "Resolved control-plane deploy URL"
+        description: "Resolved control-plane deploy URL (diagnostic / compatibility output)"
         value: ${{ jobs.deploy-environment.outputs.deploy_url }}
       operator_agent_url:
-        description: "Resolved operator-agent URL"
+        description: "Resolved operator-agent URL (diagnostic / compatibility output)"
         value: ${{ jobs.deploy-environment.outputs.operator_agent_url }}
       cf_env:
         description: "Cloudflare environment name"
@@ -367,6 +367,8 @@ jobs:
           elif [[ -n "$OPERATOR_AGENT_BASE_URL_FALLBACK" ]]; then
             echo "- Operator-agent URL fallback source: $OPERATOR_AGENT_BASE_URL_SOURCE" >> "$GITHUB_STEP_SUMMARY"
           fi
+          echo "- Note: downstream validation workflows should resolve public URLs from environment configuration; deploy-derived URLs are kept for diagnostics and compatibility." >> "$GITHUB_STEP_SUMMARY"
+
           if [[ -n "$OPERATOR_AGENT_D1_DATABASE_NAME" ]]; then
             echo "- Operator-agent database: $OPERATOR_AGENT_D1_DATABASE_NAME" >> "$GITHUB_STEP_SUMMARY"
           fi

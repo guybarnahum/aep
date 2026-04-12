@@ -146,3 +146,4 @@ jobs:
           echo "- Control-plane URL source: ${DEPLOY_URL_SOURCE:-unknown}" >> "$GITHUB_STEP_SUMMARY"
           echo "- Operator-agent base URL: $OPERATOR_AGENT_BASE_URL" >> "$GITHUB_STEP_SUMMARY"
           echo "- Operator-agent URL source: ${OPERATOR_AGENT_BASE_URL_SOURCE:-unknown}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Layer dependency: dashboard build consumes environment-resolved control-plane and operator-agent public base URLs." >> "$GITHUB_STEP_SUMMARY"

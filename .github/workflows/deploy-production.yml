@@ -71,9 +71,9 @@ jobs:
       readiness_timeout_ms: "8000"
     secrets: inherit
 
-  validate-production-smoke:
+  validate-production-environment:
     needs: deploy-production-env
-    uses: ./.github/workflows/_validate_control_plane_smoke.yml
+    uses: ./.github/workflows/_validate_environment_layer.yml
     with:
       environment_name: production
       cf_env: ${{ needs.deploy-production-env.outputs.cf_env }}
@@ -93,13 +93,41 @@ jobs:
       poll_interval_ms: "3000"
     secrets: inherit
 
-  validate-production-post-deploy:
+  validate-production-schema:
+    needs: deploy-production-env
+    uses: ./.github/workflows/_validate_schema_layer.yml
+    with:
+      environment_name: production
+      cf_env: ${{ needs.deploy-production-env.outputs.cf_env }}
+      git_sha: ${{ needs.deploy-production-env.outputs.git_sha }}
+      node_version: "20"
+    secrets: inherit
+
+  validate-production-contracts:
+    needs: deploy-production-env
+    uses: ./.github/workflows/_validate_contracts_layer.yml
+    with:
+      environment_name: production
+      cf_env: ${{ needs.deploy-production-env.outputs.cf_env }}
+      git_sha: ${{ needs.deploy-production-env.outputs.git_sha }}
+      node_version: "20"
+    secrets: inherit
+
+  validate-production-policy:
+    needs: deploy-production-env
+    uses: ./.github/workflows/_validate_policy_layer.yml
+    with:
+      environment_name: production
+      cf_env: ${{ needs.deploy-production-env.outputs.cf_env }}
+      git_sha: ${{ needs.deploy-production-env.outputs.git_sha }}
+      node_version: "20"
+    secrets: inherit
+
+  validate-production-scenarios:
     needs: deploy-production-env
     uses: ./.github/workflows/_validate_post_deploy.yml
     with:
       environment_name: production
-      deploy_url: ${{ needs.deploy-production-env.outputs.deploy_url }}
-      operator_agent_base_url: ${{ needs.deploy-production-env.outputs.operator_agent_url }}
       cf_env: ${{ needs.deploy-production-env.outputs.cf_env }}
       git_sha: ${{ needs.deploy-production-env.outputs.git_sha }}
       node_version: "20"
@@ -109,8 +137,11 @@ jobs:
   deploy-dashboard-pages:
     needs:
       - deploy-production-env
-      - validate-production-smoke
-      - validate-production-post-deploy
+      - validate-production-environment
+      - validate-production-schema
+      - validate-production-contracts
+      - validate-production-policy
+      - validate-production-scenarios
     uses: ./.github/workflows/_deploy-dashboard-pages.yml
     with:
       environment_name: production
@@ -123,8 +154,11 @@ jobs:
     needs:
       - confirm
       - deploy-production-env
-      - validate-production-smoke
-      - validate-production-post-deploy
+      - validate-production-environment
+      - validate-production-schema
+      - validate-production-contracts
+      - validate-production-policy
+      - validate-production-scenarios
       - deploy-dashboard-pages
     if: always()
     runs-on: ubuntu-latest
@@ -135,22 +169,20 @@ jobs:
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "- Confirmation: ${{ needs.confirm.result }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- Deploy environment: ${{ needs.deploy-production-env.result }}" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Control-plane smoke: ${{ needs.validate-production-smoke.outputs.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Environment layer: ${{ needs.validate-production-environment.outputs.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Schema layer: ${{ needs.validate-production-schema.outputs.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Contracts layer: ${{ needs.validate-production-contracts.outputs.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Policy layer: ${{ needs.validate-production-policy.outputs.outcome }}" >> "$GITHUB_STEP_SUMMARY"
 
-          if [[ "${{ needs.validate-production-post-deploy.outputs.enabled }}" != "true" ]]; then
-            echo "- Post-deploy validation: skipped (warning: operator-agent base URL not configured for the production environment)" >> "$GITHUB_STEP_SUMMARY"
-          elif [[ "${{ needs.validate-production-post-deploy.outputs.attention }}" == "true" ]]; then
-            echo "- Post-deploy validation: ${{ needs.validate-production-post-deploy.outputs.outcome }} (attention: WARN/SKIP entries present)" >> "$GITHUB_STEP_SUMMARY"
+          if [[ "${{ needs.validate-production-scenarios.outputs.enabled }}" != "true" ]]; then
+            echo "- Scenarios layer: skipped (warning: operator-agent base URL not configured for the production environment)" >> "$GITHUB_STEP_SUMMARY"
+          elif [[ "${{ needs.validate-production-scenarios.outputs.attention }}" == "true" ]]; then
+            echo "- Scenarios layer: ${{ needs.validate-production-scenarios.outputs.outcome }} (attention: WARN/SKIP entries present)" >> "$GITHUB_STEP_SUMMARY"
           else
-            echo "- Post-deploy validation: ${{ needs.validate-production-post-deploy.outputs.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+            echo "- Scenarios layer: ${{ needs.validate-production-scenarios.outputs.outcome }}" >> "$GITHUB_STEP_SUMMARY"
           fi
 
           echo "- Dashboard deploy: ${{ needs.deploy-dashboard-pages.result }}" >> "$GITHUB_STEP_SUMMARY"
-          if [[ "${{ needs.deploy-dashboard-pages.result }}" != "success" ]]; then
-            echo "  - Dashboard deploy failed. Check _deploy-dashboard-pages.yml logs for the exact failing stage." >> "$GITHUB_STEP_SUMMARY"
-            echo "  - Production dashboard resolves URLs internally from the production environment config." >> "$GITHUB_STEP_SUMMARY"
-            echo "  - Debug next: inspect _deploy-dashboard-pages.yml summary for resolved DEPLOY_URL and OPERATOR_AGENT_BASE_URL sources." >> "$GITHUB_STEP_SUMMARY"
-          fi
 
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "### Lane verdict" >> "$GITHUB_STEP_SUMMARY"
@@ -159,14 +191,19 @@ jobs:
             echo "- ❌ Production deploy was not confirmed." >> "$GITHUB_STEP_SUMMARY"
           elif [[ "${{ needs.deploy-production-env.result }}" != "success" ]]; then
             echo "- ❌ Production deploy lane failed during environment bring-up." >> "$GITHUB_STEP_SUMMARY"
-          elif [[ "${{ needs.validate-production-smoke.outputs.outcome }}" != "success" ]]; then
-            echo "- ❌ Production environment deployed, but control-plane smoke validation failed." >> "$GITHUB_STEP_SUMMARY"
-          elif [[ "${{ needs.validate-production-post-deploy.outputs.enabled }}" == "true" && "${{ needs.validate-production-post-deploy.outputs.outcome }}" != "success" ]]; then
-            echo "- ❌ Production environment and smoke passed, but post-deploy validation failed." >> "$GITHUB_STEP_SUMMARY"
-          elif [[ "${{ needs.validate-production-post-deploy.outputs.attention }}" == "true" ]]; then
-            echo "- ⚠️ Production deploy lane passed with post-deploy warning/skip attention." >> "$GITHUB_STEP_SUMMARY"
+          elif [[ "${{ needs.validate-production-environment.outputs.outcome }}" != "success" ]]; then
+            echo "- ❌ Production environment deployed, but environment-layer validation failed." >> "$GITHUB_STEP_SUMMARY"
+          elif [[ "${{ needs.validate-production-schema.outputs.outcome }}" != "success" ]]; then
+            echo "- ❌ Production environment and environment-layer checks passed, but schema-layer validation failed." >> "$GITHUB_STEP_SUMMARY"
+          elif [[ "${{ needs.validate-production-contracts.outputs.outcome }}" != "success" ]]; then
+            echo "- ❌ Production environment, environment-layer, and schema-layer checks passed, but contracts-layer validation failed." >> "$GITHUB_STEP_SUMMARY"
+          elif [[ "${{ needs.validate-production-policy.outputs.outcome }}" != "success" ]]; then
+            echo "- ❌ Production environment through contracts-layer checks passed, but policy-layer validation failed." >> "$GITHUB_STEP_SUMMARY"
+          elif [[ "${{ needs.validate-production-scenarios.outputs.enabled }}" == "true" && "${{ needs.validate-production-scenarios.outputs.outcome }}" != "success" ]]; then
+            echo "- ❌ Production environment through policy-layer checks passed, but scenario-layer validation failed." >> "$GITHUB_STEP_SUMMARY"
+          elif [[ "${{ needs.validate-production-scenarios.outputs.attention }}" == "true" ]]; then
+            echo "- ⚠️ Production deploy lane passed with scenario-layer warning/skip attention." >> "$GITHUB_STEP_SUMMARY"
           elif [[ "${{ needs.deploy-dashboard-pages.result }}" != "success" ]]; then
-            echo "- ❌ Production environment validations passed, but dashboard deployment failed." >> "$GITHUB_STEP_SUMMARY"
+            echo "- ❌ Production validation layers passed, but dashboard deployment failed." >> "$GITHUB_STEP_SUMMARY"
           else
             echo "- ✅ Production deploy lane passed." >> "$GITHUB_STEP_SUMMARY"
-          fi

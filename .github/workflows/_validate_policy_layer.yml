@@ -1,0 +1,159 @@
+name: _validate_policy_layer
+
+on:
+  workflow_call:
+    inputs:
+      environment_name:
+        required: true
+        type: string
+      operator_agent_base_url:
+        required: false
+        type: string
+      cf_env:
+        required: true
+        type: string
+      git_sha:
+        required: true
+        type: string
+      node_version:
+        required: false
+        type: string
+        default: "20"
+    outputs:
+      outcome:
+        description: "Outcome of the policy layer validation job"
+        value: ${{ jobs.validate-policy-layer.outputs.outcome }}
+
+permissions:
+  contents: read
+
+jobs:
+  validate-policy-layer:
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ inputs.environment_name }}
+    defaults:
+      run:
+        shell: bash -eo pipefail {0}
+    outputs:
+      outcome: ${{ steps.capture_outcome.outputs.value }}
+    env:
+      ENVIRONMENT_NAME: ${{ inputs.environment_name }}
+      OPERATOR_AGENT_BASE_URL_INPUT: ${{ inputs.operator_agent_base_url }}
+      CF_ENV: ${{ inputs.cf_env }}
+      GIT_SHA: ${{ inputs.git_sha }}
+
+      OPERATOR_AGENT_BASE_URL: ${{ vars.OPERATOR_AGENT_BASE_URL }}
+
+      STAGING_OPERATOR_AGENT_BASE_URL: ${{ secrets.STAGING_OPERATOR_AGENT_BASE_URL }}
+      PRODUCTION_OPERATOR_AGENT_BASE_URL: ${{ secrets.PRODUCTION_OPERATOR_AGENT_BASE_URL }}
+      ASYNC_VALIDATION_OPERATOR_AGENT_BASE_URL: ${{ secrets.ASYNC_VALIDATION_OPERATOR_AGENT_BASE_URL }}
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ inputs.node_version }}
+          cache: npm
+
+      - run: npm ci
+
+      - name: Resolve effective validation URLs
+        run: |
+          eval "$(bash ./scripts/ci/resolve-environment-urls.sh)"
+          echo "OPERATOR_AGENT_BASE_URL=$RESOLVED_OPERATOR_AGENT_BASE_URL" >> "$GITHUB_ENV"
+          echo "OPERATOR_AGENT_BASE_URL_SOURCE=$RESOLVED_OPERATOR_AGENT_BASE_URL_SOURCE" >> "$GITHUB_ENV"
+
+      - name: Check policy layer configuration
+        id: config
+        run: |
+          if [[ -z "$OPERATOR_AGENT_BASE_URL" || ! "$OPERATOR_AGENT_BASE_URL" =~ ^https?://[^[:space:]]+$ ]]; then
+            echo "Invalid or missing OPERATOR_AGENT_BASE_URL for policy layer." >&2
+            exit 1
+          fi
+
+      - name: Run operator-agent behavior check
+        id: operator_agent_behavior
+        run: npx tsx scripts/ci/checks/policy/operator-agent-behavior-check.ts | tee operator-agent-behavior-check.log
+
+      - name: Run manager policy overlay check
+        id: manager_policy_overlay
+        run: npx tsx scripts/ci/checks/policy/manager-policy-overlay-check.ts | tee manager-policy-overlay-check.log
+
+      - name: Run approval state machine check
+        id: approval_state_machine
+        run: npx tsx scripts/ci/checks/policy/approval-state-machine-check.ts | tee approval-state-machine-check.log
+
+      - name: Run escalation lifecycle check
+        id: escalation_lifecycle
+        run: npx tsx scripts/ci/checks/policy/escalation-lifecycle-check.ts | tee escalation-lifecycle-check.log
+
+      - name: Run escalation audit check
+        id: escalation_audit
+        run: npx tsx scripts/ci/checks/policy/escalation-audit-check.ts | tee escalation-audit-check.log
+
+      - name: Run manager advisory check
+        id: manager_advisory
+        run: npx tsx scripts/ci/checks/policy/manager-advisory-check.ts | tee manager-advisory-check.log
+
+      - name: Run scheduled routing check
+        id: scheduled_routing
+        run: npx tsx scripts/ci/checks/policy/scheduled-routing-check.ts | tee scheduled-routing-check.log
+
+      - name: Run validation policy check
+        id: validation_policy
+        run: npx tsx scripts/ci/checks/policy/check-validation-policy.ts | tee validation-policy-check.log
+
+      - name: Capture outcome
+        id: capture_outcome
+        if: always()
+        run: |
+          if [[ \
+            "${{ steps.operator_agent_behavior.outcome }}" == "success" && \
+            "${{ steps.manager_policy_overlay.outcome }}" == "success" && \
+            "${{ steps.approval_state_machine.outcome }}" == "success" && \
+            "${{ steps.escalation_lifecycle.outcome }}" == "success" && \
+            "${{ steps.escalation_audit.outcome }}" == "success" && \
+            "${{ steps.manager_advisory.outcome }}" == "success" && \
+            "${{ steps.scheduled_routing.outcome }}" == "success" && \
+            "${{ steps.validation_policy.outcome }}" == "success" \
+          ]]; then
+            echo "value=success" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=failure" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Write summary
+        if: always()
+        run: |
+          status_emoji() {
+            case "$1" in
+              success) echo "✅" ;;
+              failure) echo "❌" ;;
+              cancelled) echo "⚪" ;;
+              skipped) echo "⚪" ;;
+              *) echo "❓" ;;
+            esac
+          }
+
+          LAYER_OUTCOME="${{ steps.capture_outcome.outputs.value }}"
+
+          echo "## Policy layer validation" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Environment: $CF_ENV" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Operator-agent URL source: ${OPERATOR_AGENT_BASE_URL_SOURCE:-unknown}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- SHA: $GIT_SHA" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "### Checks" >> "$GITHUB_STEP_SUMMARY"
+          echo "- $(status_emoji "${{ steps.operator_agent_behavior.outcome }}") operator-agent-behavior-check: ${{ steps.operator_agent_behavior.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- $(status_emoji "${{ steps.manager_policy_overlay.outcome }}") manager-policy-overlay-check: ${{ steps.manager_policy_overlay.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- $(status_emoji "${{ steps.approval_state_machine.outcome }}") approval-state-machine-check: ${{ steps.approval_state_machine.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- $(status_emoji "${{ steps.escalation_lifecycle.outcome }}") escalation-lifecycle-check: ${{ steps.escalation_lifecycle.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- $(status_emoji "${{ steps.escalation_audit.outcome }}") escalation-audit-check: ${{ steps.escalation_audit.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- $(status_emoji "${{ steps.manager_advisory.outcome }}") manager-advisory-check: ${{ steps.manager_advisory.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- $(status_emoji "${{ steps.scheduled_routing.outcome }}") scheduled-routing-check: ${{ steps.scheduled_routing.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- $(status_emoji "${{ steps.validation_policy.outcome }}") check-validation-policy: ${{ steps.validation_policy.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "### Layer verdict" >> "$GITHUB_STEP_SUMMARY"
+          echo "- $(status_emoji "$LAYER_OUTCOME") Policy layer: $LAYER_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
