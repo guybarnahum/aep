@@ -46,18 +46,11 @@ jobs:
 
     env:
       ENVIRONMENT_NAME: ${{ inputs.environment_name }}
-      DEPLOY_URL_INPUT: ${{ inputs.control_plane_base_url }}
+      CONTROL_PLANE_BASE_URL_INPUT: ${{ inputs.control_plane_base_url }}
       OPERATOR_AGENT_BASE_URL_INPUT: ${{ inputs.operator_agent_base_url }}
 
-      DEPLOY_URL: ${{ vars.DEPLOY_URL }}
+      CONTROL_PLANE_BASE_URL: ${{ vars.CONTROL_PLANE_BASE_URL }}
       OPERATOR_AGENT_BASE_URL: ${{ vars.OPERATOR_AGENT_BASE_URL }}
-
-      STAGING_BASE_URL: ${{ secrets.STAGING_BASE_URL }}
-      STAGING_OPERATOR_AGENT_BASE_URL: ${{ secrets.STAGING_OPERATOR_AGENT_BASE_URL }}
-      PRODUCTION_BASE_URL: ${{ secrets.PRODUCTION_BASE_URL }}
-      PRODUCTION_OPERATOR_AGENT_BASE_URL: ${{ secrets.PRODUCTION_OPERATOR_AGENT_BASE_URL }}
-      ASYNC_VALIDATION_BASE_URL: ${{ secrets.ASYNC_VALIDATION_BASE_URL }}
-      ASYNC_VALIDATION_OPERATOR_AGENT_BASE_URL: ${{ secrets.ASYNC_VALIDATION_OPERATOR_AGENT_BASE_URL }}
 
     steps:
       - name: Checkout
@@ -74,8 +67,8 @@ jobs:
         run: |
           eval "$(bash ./scripts/ci/resolve-environment-urls.sh)"
 
-          echo "DEPLOY_URL=$RESOLVED_DEPLOY_URL" >> "$GITHUB_ENV"
-          echo "DEPLOY_URL_SOURCE=$RESOLVED_DEPLOY_URL_SOURCE" >> "$GITHUB_ENV"
+          echo "CONTROL_PLANE_BASE_URL=$RESOLVED_CONTROL_PLANE_BASE_URL" >> "$GITHUB_ENV"
+          echo "CONTROL_PLANE_BASE_URL_SOURCE=$RESOLVED_CONTROL_PLANE_BASE_URL_SOURCE" >> "$GITHUB_ENV"
           echo "OPERATOR_AGENT_BASE_URL=$RESOLVED_OPERATOR_AGENT_BASE_URL" >> "$GITHUB_ENV"
           echo "OPERATOR_AGENT_BASE_URL_SOURCE=$RESOLVED_OPERATOR_AGENT_BASE_URL_SOURCE" >> "$GITHUB_ENV"
 
@@ -84,14 +77,14 @@ jobs:
           test -n "${{ inputs.environment_name }}" || { echo "Missing inputs.environment_name" >&2; exit 1; }
           test -n "${{ inputs.pages_project_name }}" || { echo "Missing inputs.pages_project_name" >&2; exit 1; }
 
-          if [[ -z "$DEPLOY_URL" ]]; then
-            echo "Missing resolved DEPLOY_URL" >&2
-            echo "Resolution order: input -> vars.DEPLOY_URL -> legacy environment fallback" >&2
+          if [[ -z "$CONTROL_PLANE_BASE_URL" ]]; then
+            echo "Missing resolved CONTROL_PLANE_BASE_URL" >&2
+            echo "Resolution order: input -> vars.CONTROL_PLANE_BASE_URL -> legacy environment fallback" >&2
             exit 1
           fi
 
-          if [[ ! "$DEPLOY_URL" =~ ^https?://[^[:space:]]+$ ]]; then
-            echo "Invalid DEPLOY_URL: '$DEPLOY_URL'" >&2
+          if [[ ! "$CONTROL_PLANE_BASE_URL" =~ ^https?://[^[:space:]]+$ ]]; then
+            echo "Invalid CONTROL_PLANE_BASE_URL: '$CONTROL_PLANE_BASE_URL'" >&2
             exit 1
           fi
 
@@ -110,8 +103,8 @@ jobs:
         run: |
           echo "Environment:              ${{ inputs.environment_name }}"
           echo "Pages project:            ${{ inputs.pages_project_name }}"
-          echo "Control-plane base URL:   $DEPLOY_URL"
-          echo "Control-plane URL source: $DEPLOY_URL_SOURCE"
+          echo "Control-plane base URL:   $CONTROL_PLANE_BASE_URL"
+          echo "Control-plane URL source: $CONTROL_PLANE_BASE_URL_SOURCE"
           echo "Operator-agent base URL:  $OPERATOR_AGENT_BASE_URL"
           echo "Operator-agent URL source:$OPERATOR_AGENT_BASE_URL_SOURCE"
 
@@ -120,7 +113,7 @@ jobs:
 
       - name: Build dashboard
         run: |
-          VITE_CONTROL_PLANE_BASE_URL="$DEPLOY_URL" \
+          VITE_CONTROL_PLANE_BASE_URL="$CONTROL_PLANE_BASE_URL" \
           VITE_OPERATOR_AGENT_BASE_URL="$OPERATOR_AGENT_BASE_URL" \
           VITE_BUILD_COMMIT="${GITHUB_SHA::7}" \
           VITE_BUILD_DATE="$(date -u +"%Y-%m-%d %H:%M:%S UTC")" \
@@ -142,8 +135,8 @@ jobs:
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "- Environment: ${{ inputs.environment_name }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- Pages project: ${{ inputs.pages_project_name }}" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Control-plane base URL: $DEPLOY_URL" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Control-plane URL source: ${DEPLOY_URL_SOURCE:-unknown}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Control-plane base URL: $CONTROL_PLANE_BASE_URL" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Control-plane URL source: ${CONTROL_PLANE_BASE_URL_SOURCE:-unknown}" >> "$GITHUB_STEP_SUMMARY"
           echo "- Operator-agent base URL: $OPERATOR_AGENT_BASE_URL" >> "$GITHUB_STEP_SUMMARY"
           echo "- Operator-agent URL source: ${OPERATOR_AGENT_BASE_URL_SOURCE:-unknown}" >> "$GITHUB_STEP_SUMMARY"
           echo "- Layer dependency: dashboard build consumes environment-resolved control-plane and operator-agent public base URLs." >> "$GITHUB_STEP_SUMMARY"

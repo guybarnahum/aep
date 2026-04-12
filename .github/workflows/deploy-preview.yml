@@ -50,7 +50,7 @@ jobs:
     uses: ./.github/workflows/_validate_control_plane_smoke.yml
     with:
       environment_name: preview
-      deploy_url: ${{ needs.deploy-preview-env.outputs.deploy_url }}
+      control_plane_base_url: ${{ needs.deploy-preview-env.outputs.control_plane_base_url }}
       cf_env: preview
       git_sha: ${{ needs.deploy-preview-env.outputs.git_sha }}
       node_version: "20"
@@ -73,7 +73,7 @@ jobs:
     uses: ./.github/workflows/_validate_post_deploy.yml
     with:
       environment_name: preview
-      deploy_url: ${{ needs.deploy-preview-env.outputs.deploy_url }}
+      control_plane_base_url: ${{ needs.deploy-preview-env.outputs.control_plane_base_url }}
       cf_env: preview
       git_sha: ${{ needs.deploy-preview-env.outputs.git_sha }}
       node_version: "20"
@@ -95,7 +95,7 @@ jobs:
           echo "- Preview key: ${{ needs.deploy-preview-env.outputs.preview_key }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- Worker name: ${{ needs.deploy-preview-env.outputs.worker_name }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- D1 database: ${{ needs.deploy-preview-env.outputs.d1_database_name }}" >> "$GITHUB_STEP_SUMMARY"
-          echo "- URL: ${{ needs.deploy-preview-env.outputs.deploy_url }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- URL: ${{ needs.deploy-preview-env.outputs.control_plane_base_url }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- Lifecycle: ephemeral preview; destroyed on PR close via destroy-preview.yml" >> "$GITHUB_STEP_SUMMARY"
           echo "- Control-plane smoke: ${{ needs.validate-preview-smoke.outputs.outcome }}" >> "$GITHUB_STEP_SUMMARY"
 

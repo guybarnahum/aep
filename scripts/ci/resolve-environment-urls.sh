@@ -5,11 +5,11 @@ set -euo pipefail
 #   ENVIRONMENT_NAME
 #
 # Optional inputs:
-#   DEPLOY_URL_INPUT
+#   CONTROL_PLANE_BASE_URL_INPUT
 #   OPERATOR_AGENT_BASE_URL_INPUT
 #
 # Optional environment-backed values:
-#   DEPLOY_URL
+#   CONTROL_PLANE_BASE_URL
 #   OPERATOR_AGENT_BASE_URL
 #   STAGING_BASE_URL
 #   STAGING_OPERATOR_AGENT_BASE_URL
@@ -20,8 +20,8 @@ set -euo pipefail
 #
 # Output:
 #   Writes the following to stdout as KEY=VALUE lines:
-#     RESOLVED_DEPLOY_URL=...
-#     RESOLVED_DEPLOY_URL_SOURCE=...
+#     RESOLVED_CONTROL_PLANE_BASE_URL=...
+#     RESOLVED_CONTROL_PLANE_BASE_URL_SOURCE=...
 #     RESOLVED_OPERATOR_AGENT_BASE_URL=...
 #     RESOLVED_OPERATOR_AGENT_BASE_URL_SOURCE=...
 
@@ -38,18 +38,18 @@ is_absolute_url() {
   [[ -n "$value" && "$value" =~ ^https?://[^[:space:]]+$ ]]
 }
 
-resolve_deploy_url_from_environment() {
+resolve_control_plane_base_url_from_environment() {
   case "$ENVIRONMENT_NAME" in
     preview)
-      if is_absolute_url "${DEPLOY_URL:-}"; then
-        echo "${DEPLOY_URL}|env.DEPLOY_URL"
+      if is_absolute_url "${CONTROL_PLANE_BASE_URL:-}"; then
+        echo "${CONTROL_PLANE_BASE_URL}|env.CONTROL_PLANE_BASE_URL"
       else
         echo "|missing"
       fi
       ;;
     staging)
-      if is_absolute_url "${DEPLOY_URL:-}"; then
-        echo "${DEPLOY_URL}|env.DEPLOY_URL"
+      if is_absolute_url "${CONTROL_PLANE_BASE_URL:-}"; then
+        echo "${CONTROL_PLANE_BASE_URL}|env.CONTROL_PLANE_BASE_URL"
       elif is_absolute_url "${STAGING_BASE_URL:-}"; then
         echo "${STAGING_BASE_URL}|env.STAGING_BASE_URL"
       else
@@ -57,8 +57,8 @@ resolve_deploy_url_from_environment() {
       fi
       ;;
     production)
-      if is_absolute_url "${DEPLOY_URL:-}"; then
-        echo "${DEPLOY_URL}|env.DEPLOY_URL"
+      if is_absolute_url "${CONTROL_PLANE_BASE_URL:-}"; then
+        echo "${CONTROL_PLANE_BASE_URL}|env.CONTROL_PLANE_BASE_URL"
       elif is_absolute_url "${PRODUCTION_BASE_URL:-}"; then
         echo "${PRODUCTION_BASE_URL}|env.PRODUCTION_BASE_URL"
       else
@@ -66,8 +66,8 @@ resolve_deploy_url_from_environment() {
       fi
       ;;
     async-validation)
-      if is_absolute_url "${DEPLOY_URL:-}"; then
-        echo "${DEPLOY_URL}|env.DEPLOY_URL"
+      if is_absolute_url "${CONTROL_PLANE_BASE_URL:-}"; then
+        echo "${CONTROL_PLANE_BASE_URL}|env.CONTROL_PLANE_BASE_URL"
       elif is_absolute_url "${ASYNC_VALIDATION_BASE_URL:-}"; then
         echo "${ASYNC_VALIDATION_BASE_URL}|env.ASYNC_VALIDATION_BASE_URL"
       else
@@ -124,19 +124,19 @@ resolve_operator_agent_url_from_environment() {
 
 require_env ENVIRONMENT_NAME
 
-DEPLOY_URL_INPUT="${DEPLOY_URL_INPUT:-}"
+CONTROL_PLANE_BASE_URL_INPUT="${CONTROL_PLANE_BASE_URL_INPUT:-}"
 OPERATOR_AGENT_BASE_URL_INPUT="${OPERATOR_AGENT_BASE_URL_INPUT:-}"
 
-RESOLVED_DEPLOY_URL=""
-RESOLVED_DEPLOY_URL_SOURCE="missing"
+RESOLVED_CONTROL_PLANE_BASE_URL=""
+RESOLVED_CONTROL_PLANE_BASE_URL_SOURCE="missing"
 
-if is_absolute_url "$DEPLOY_URL_INPUT"; then
-  RESOLVED_DEPLOY_URL="$DEPLOY_URL_INPUT"
-  RESOLVED_DEPLOY_URL_SOURCE="inputs.deploy_url"
+if is_absolute_url "$CONTROL_PLANE_BASE_URL_INPUT"; then
+  RESOLVED_CONTROL_PLANE_BASE_URL="$CONTROL_PLANE_BASE_URL_INPUT"
+  RESOLVED_CONTROL_PLANE_BASE_URL_SOURCE="inputs.control_plane_base_url"
 else
-  DEPLOY_PAIR="$(resolve_deploy_url_from_environment)"
-  RESOLVED_DEPLOY_URL="${DEPLOY_PAIR%%|*}"
-  RESOLVED_DEPLOY_URL_SOURCE="${DEPLOY_PAIR#*|}"
+  DEPLOY_PAIR="$(resolve_control_plane_base_url_from_environment)"
+  RESOLVED_CONTROL_PLANE_BASE_URL="${DEPLOY_PAIR%%|*}"
+  RESOLVED_CONTROL_PLANE_BASE_URL_SOURCE="${DEPLOY_PAIR#*|}"
 fi
 
 RESOLVED_OPERATOR_AGENT_BASE_URL=""
@@ -151,7 +151,7 @@ else
   RESOLVED_OPERATOR_AGENT_BASE_URL_SOURCE="${OPERATOR_PAIR#*|}"
 fi
 
-printf 'RESOLVED_DEPLOY_URL=%s\n' "$RESOLVED_DEPLOY_URL"
-printf 'RESOLVED_DEPLOY_URL_SOURCE=%s\n' "$RESOLVED_DEPLOY_URL_SOURCE"
+printf 'RESOLVED_CONTROL_PLANE_BASE_URL=%s\n' "$RESOLVED_CONTROL_PLANE_BASE_URL"
+printf 'RESOLVED_CONTROL_PLANE_BASE_URL_SOURCE=%s\n' "$RESOLVED_CONTROL_PLANE_BASE_URL_SOURCE"
 printf 'RESOLVED_OPERATOR_AGENT_BASE_URL=%s\n' "$RESOLVED_OPERATOR_AGENT_BASE_URL"
 printf 'RESOLVED_OPERATOR_AGENT_BASE_URL_SOURCE=%s\n' "$RESOLVED_OPERATOR_AGENT_BASE_URL_SOURCE"

@@ -149,7 +149,7 @@ The canonical model for deploy and validation workflows is:
 URL resolution order inside reusable workflows is:
 
 1. explicit input if supplied
-2. environment vars such as `vars.DEPLOY_URL` and `vars.OPERATOR_AGENT_BASE_URL`
+2. environment vars such as `vars.CONTROL_PLANE_BASE_URL` and `vars.OPERATOR_AGENT_BASE_URL`
 3. environment secrets fallback
 4. fail or skip with summary guidance
 

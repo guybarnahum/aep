@@ -55,7 +55,7 @@ jobs:
     uses: ./.github/workflows/_validate_runtime_read_safety.yml
     with:
       environment_name: async-validation
-      deploy_url: ${{ needs.deploy-async-environment.outputs.deploy_url }}
+      control_plane_base_url: ${{ needs.deploy-async-environment.outputs.control_plane_base_url }}
       cf_env: ${{ needs.deploy-async-environment.outputs.cf_env }}
       git_sha: ${{ needs.deploy-async-environment.outputs.git_sha }}
       health_runtime_env: dev
@@ -70,7 +70,7 @@ jobs:
     uses: ./.github/workflows/_validate_operator_surface.yml
     with:
       environment_name: async-validation
-      deploy_url: ${{ needs.deploy-async-environment.outputs.deploy_url }}
+      control_plane_base_url: ${{ needs.deploy-async-environment.outputs.control_plane_base_url }}
       operator_agent_base_url: ${{ needs.deploy-async-environment.outputs.operator_agent_url }}
       cf_env: ${{ needs.deploy-async-environment.outputs.cf_env }}
       git_sha: ${{ needs.deploy-async-environment.outputs.git_sha }}
@@ -87,7 +87,7 @@ jobs:
     uses: ./.github/workflows/_validate_operator_governance.yml
     with:
       environment_name: async-validation
-      deploy_url: ${{ needs.deploy-async-environment.outputs.deploy_url }}
+      control_plane_base_url: ${{ needs.deploy-async-environment.outputs.control_plane_base_url }}
       operator_agent_base_url: ${{ needs.deploy-async-environment.outputs.operator_agent_url }}
       cf_env: ${{ needs.deploy-async-environment.outputs.cf_env }}
       git_sha: ${{ needs.deploy-async-environment.outputs.git_sha }}
@@ -104,7 +104,7 @@ jobs:
     uses: ./.github/workflows/_validate_paperclip_handoff.yml
     with:
       environment_name: async-validation
-      deploy_url: ${{ needs.deploy-async-environment.outputs.deploy_url }}
+      control_plane_base_url: ${{ needs.deploy-async-environment.outputs.control_plane_base_url }}
       operator_agent_base_url: ${{ needs.deploy-async-environment.outputs.operator_agent_url }}
       cf_env: ${{ needs.deploy-async-environment.outputs.cf_env }}
       git_sha: ${{ needs.deploy-async-environment.outputs.git_sha }}

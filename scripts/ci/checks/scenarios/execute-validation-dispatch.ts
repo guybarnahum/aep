@@ -39,7 +39,7 @@ function parseArgs(argv: string[]) {
     throw new Error("Missing required operator-agent base URL");
   }
 
-  const targetUrl = args.get("target-url") ?? process.env.DEPLOY_URL;
+  const targetUrl = args.get("target-url") ?? process.env.CONTROL_PLANE_BASE_URL;
   if (!targetUrl) {
     throw new Error("Missing required target URL");
   }

@@ -64,10 +64,10 @@ function hasArg(flag: string): boolean {
 }
 
 function requireBaseUrl(): string {
-  const baseUrl = process.env.DEPLOY_URL;
+  const baseUrl = process.env.CONTROL_PLANE_BASE_URL;
   if (!baseUrl) {
     throw new Error(
-      "DEPLOY_URL is required for post-deploy validation checks that call the deployed control-plane.",
+      "CONTROL_PLANE_BASE_URL is required for post-deploy validation checks that call the deployed control-plane.",
     );
   }
 

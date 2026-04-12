@@ -36,14 +36,9 @@ jobs:
       outcome: ${{ steps.capture_outcome.outputs.value }}
     env:
       ENVIRONMENT_NAME: ${{ inputs.environment_name }}
+      CONTROL_PLANE_BASE_URL: ${{ vars.CONTROL_PLANE_BASE_URL }}
       CF_ENV: ${{ inputs.cf_env }}
       GIT_SHA: ${{ inputs.git_sha }}
-
-      DEPLOY_URL: ${{ vars.DEPLOY_URL }}
-
-      STAGING_BASE_URL: ${{ secrets.STAGING_BASE_URL }}
-      PRODUCTION_BASE_URL: ${{ secrets.PRODUCTION_BASE_URL }}
-      ASYNC_VALIDATION_BASE_URL: ${{ secrets.ASYNC_VALIDATION_BASE_URL }}
 
     steps:
       - uses: actions/checkout@v5
@@ -58,8 +53,8 @@ jobs:
       - name: Resolve effective deploy URL
         run: |
           eval "$(bash ./scripts/ci/resolve-environment-urls.sh)"
-          echo "DEPLOY_URL=$RESOLVED_DEPLOY_URL" >> "$GITHUB_ENV"
-          echo "DEPLOY_URL_SOURCE=$RESOLVED_DEPLOY_URL_SOURCE" >> "$GITHUB_ENV"
+          echo "CONTROL_PLANE_BASE_URL=$RESOLVED_CONTROL_PLANE_BASE_URL" >> "$GITHUB_ENV"
+          echo "CONTROL_PLANE_BASE_URL_SOURCE=$RESOLVED_CONTROL_PLANE_BASE_URL_SOURCE" >> "$GITHUB_ENV"
 
       - name: Run org schema check
         id: org_schema
@@ -91,7 +86,7 @@ jobs:
       - name: Run org inventory route check
         id: org_inventory_route
         env:
-          CONTROL_PLANE_BASE_URL: ${{ env.DEPLOY_URL }}
+          CONTROL_PLANE_BASE_URL: ${{ env.CONTROL_PLANE_BASE_URL }}
         run: |
           npx tsx scripts/ci/checks/schema/org-inventory-route-check.ts | tee org-inventory-route-check.log
 
@@ -128,7 +123,7 @@ jobs:
           echo "## Schema layer validation" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "- Environment: $CF_ENV" >> "$GITHUB_STEP_SUMMARY"
-          echo "- URL source: ${DEPLOY_URL_SOURCE:-unknown}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Control-plane URL source: ${CONTROL_PLANE_BASE_URL_SOURCE:-unknown}" >> "$GITHUB_STEP_SUMMARY"
           echo "- SHA: $GIT_SHA" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "### Checks" >> "$GITHUB_STEP_SUMMARY"
