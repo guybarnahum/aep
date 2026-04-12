@@ -58,6 +58,7 @@ jobs:
     uses: ./.github/workflows/_validate_environment_layer.yml
     with:
       environment_name: staging
+      control_plane_base_url: ${{ needs.deploy-staging-env.outputs.control_plane_base_url }}
       cf_env: ${{ needs.deploy-staging-env.outputs.cf_env }}
       git_sha: ${{ needs.deploy-staging-env.outputs.git_sha }}
       node_version: "20"
@@ -90,6 +91,8 @@ jobs:
     uses: ./.github/workflows/_validate_contracts_layer.yml
     with:
       environment_name: staging
+      control_plane_base_url: ${{ needs.deploy-staging-env.outputs.control_plane_base_url }}
+      operator_agent_base_url: ${{ needs.deploy-staging-env.outputs.operator_agent_url }}
       cf_env: ${{ needs.deploy-staging-env.outputs.cf_env }}
       git_sha: ${{ needs.deploy-staging-env.outputs.git_sha }}
       node_version: "20"
@@ -100,6 +103,7 @@ jobs:
     uses: ./.github/workflows/_validate_policy_layer.yml
     with:
       environment_name: staging
+      operator_agent_base_url: ${{ needs.deploy-staging-env.outputs.operator_agent_url }}
       cf_env: ${{ needs.deploy-staging-env.outputs.cf_env }}
       git_sha: ${{ needs.deploy-staging-env.outputs.git_sha }}
       node_version: "20"
@@ -110,6 +114,8 @@ jobs:
     uses: ./.github/workflows/_validate_post_deploy.yml
     with:
       environment_name: staging
+      control_plane_base_url: ${{ needs.deploy-staging-env.outputs.control_plane_base_url }}
+      operator_agent_base_url: ${{ needs.deploy-staging-env.outputs.operator_agent_url }}
       cf_env: ${{ needs.deploy-staging-env.outputs.cf_env }}
       git_sha: ${{ needs.deploy-staging-env.outputs.git_sha }}
       node_version: "20"
@@ -127,6 +133,8 @@ jobs:
     uses: ./.github/workflows/_deploy-dashboard-pages.yml
     with:
       environment_name: staging
+      control_plane_base_url: ${{ needs.deploy-staging-env.outputs.control_plane_base_url }}
+      operator_agent_base_url: ${{ needs.deploy-staging-env.outputs.operator_agent_url }}
       pages_project_name: aep-dashboard-staging
     secrets:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
