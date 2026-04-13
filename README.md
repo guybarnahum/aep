@@ -208,6 +208,10 @@ AEP already has meaningful parts of a digital operations organization.
   - environment-bound variable second
 - deploy outputs are retained for diagnostics and compatibility, but validation is organized around the layered workflow model
 
+<!-- BEGIN: docs/ci-mental-model.md -->
+old content here will be replaced
+<!-- END: docs/ci-mental-model.md -->
+
 ---
 
 ## Current state

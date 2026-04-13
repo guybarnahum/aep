@@ -1441,6 +1441,10 @@ PR7 will be the layer that makes those employees:
 - multi-team validation
 - validation scripts are organized canonically under `scripts/ci/checks/{environment,schema,contracts,policy,scenarios}`
 
+<!-- BEGIN: docs/ci-mental-model.md -->
+old content here will be replaced
+<!-- END: docs/ci-mental-model.md -->
+
 ---
 
 ## ⚠️ Critical Reality
