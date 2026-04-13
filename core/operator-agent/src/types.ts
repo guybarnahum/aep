@@ -97,6 +97,8 @@ export interface MessageThreadRecord {
   createdByEmployeeId?: string;
   relatedTaskId?: string;
   relatedArtifactId?: string;
+  relatedApprovalId?: string;
+  relatedEscalationId?: string;
   visibility: MessageThreadVisibility;
   createdAt?: string;
   updatedAt?: string;
@@ -127,6 +129,18 @@ export interface EmployeeMessageRecord {
 export interface MessageThreadDetailRecord {
   thread: MessageThreadRecord;
   messages: EmployeeMessageRecord[];
+}
+
+export interface ApprovalDetailWithThreadRecord {
+  approval: ApprovalRecord;
+  thread?: MessageThreadRecord;
+  messages?: EmployeeMessageRecord[];
+}
+
+export interface EscalationDetailWithThreadRecord {
+  escalation: EscalationRecord;
+  thread?: MessageThreadRecord;
+  messages?: EmployeeMessageRecord[];
 }
 
 export type EmployeeTrigger = "manual" | "cron" | "paperclip";

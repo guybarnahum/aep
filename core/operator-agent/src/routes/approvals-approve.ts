@@ -1,4 +1,8 @@
 import { createStores } from "@aep/operator-agent/lib/store-factory";
+import {
+  appendSystemMessage,
+  ensureApprovalThread,
+} from "@aep/operator-agent/lib/human-interaction-threads";
 import type { OperatorAgentEnv } from "@aep/operator-agent/types";
 
 function asRecord(value: unknown): Record<string, unknown> {
@@ -71,8 +75,35 @@ export async function handleApproveApproval(
     );
   }
 
+  let threadId: string | undefined;
+
+  if (env && result.approval) {
+    threadId = await ensureApprovalThread({
+      env,
+      approvalId,
+      companyId: result.approval.companyId,
+      requestedByEmployeeId: result.approval.requestedByEmployeeId,
+      topic: `Approval ${approvalId}`,
+      relatedTaskId: result.approval.taskId,
+    });
+
+    await appendSystemMessage({
+      env,
+      threadId,
+      companyId: result.approval.companyId,
+      senderEmployeeId: decidedBy,
+      receiverEmployeeId: result.approval.requestedByEmployeeId,
+      subject: "Approval approved",
+      body: `Approval ${approvalId} was approved by ${decidedBy}${decisionNote ? `: ${decisionNote}` : "."}`,
+      relatedTaskId: result.approval.taskId,
+      relatedApprovalId: approvalId,
+      type: "coordination",
+    });
+  }
+
   return Response.json({
     ok: true,
     approval: result.approval,
+    threadId,
   });
 }

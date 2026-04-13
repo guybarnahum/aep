@@ -66,6 +66,8 @@ type MessageThreadRow = {
   created_by_employee_id: string | null;
   related_task_id: string | null;
   related_artifact_id: string | null;
+  related_approval_id: string | null;
+  related_escalation_id: string | null;
   visibility: string;
   created_at: string | null;
   updated_at: string | null;
@@ -158,6 +160,8 @@ function rowToMessageThread(row: MessageThreadRow): MessageThread {
     createdByEmployeeId: row.created_by_employee_id ?? undefined,
     relatedTaskId: row.related_task_id ?? undefined,
     relatedArtifactId: row.related_artifact_id ?? undefined,
+    relatedApprovalId: row.related_approval_id ?? undefined,
+    relatedEscalationId: row.related_escalation_id ?? undefined,
     visibility: row.visibility as MessageThread["visibility"],
     createdAt: row.created_at ?? undefined,
     updatedAt: row.updated_at ?? undefined,
@@ -694,8 +698,10 @@ export class D1TaskStore implements TaskStore {
           created_by_employee_id,
           related_task_id,
           related_artifact_id,
+          related_approval_id,
+          related_escalation_id,
           visibility
-        ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .bind(
         thread.id,
@@ -704,6 +710,8 @@ export class D1TaskStore implements TaskStore {
         thread.createdByEmployeeId ?? null,
         thread.relatedTaskId ?? null,
         thread.relatedArtifactId ?? null,
+        thread.relatedApprovalId ?? null,
+        thread.relatedEscalationId ?? null,
         thread.visibility,
       )
       .run();
@@ -728,6 +736,14 @@ export class D1TaskStore implements TaskStore {
     if (query.relatedArtifactId) {
       clauses.push(`related_artifact_id = ?`);
       binds.push(query.relatedArtifactId);
+    }
+    if (query.relatedApprovalId) {
+      clauses.push(`related_approval_id = ?`);
+      binds.push(query.relatedApprovalId);
+    }
+    if (query.relatedEscalationId) {
+      clauses.push(`related_escalation_id = ?`);
+      binds.push(query.relatedEscalationId);
     }
     if (query.participantEmployeeId) {
       clauses.push(
@@ -759,6 +775,36 @@ export class D1TaskStore implements TaskStore {
     const row = await this.db
       .prepare(`SELECT * FROM message_threads WHERE thread_id = ? LIMIT 1`)
       .bind(threadId)
+      .first<MessageThreadRow>();
+
+    return row ? rowToMessageThread(row) : null;
+  }
+
+  async findMessageThreadByApprovalId(approvalId: string): Promise<MessageThread | null> {
+    const row = await this.db
+      .prepare(
+        `SELECT *
+         FROM message_threads
+         WHERE related_approval_id = ?
+         ORDER BY created_at DESC
+         LIMIT 1`,
+      )
+      .bind(approvalId)
+      .first<MessageThreadRow>();
+
+    return row ? rowToMessageThread(row) : null;
+  }
+
+  async findMessageThreadByEscalationId(escalationId: string): Promise<MessageThread | null> {
+    const row = await this.db
+      .prepare(
+        `SELECT *
+         FROM message_threads
+         WHERE related_escalation_id = ?
+         ORDER BY created_at DESC
+         LIMIT 1`,
+      )
+      .bind(escalationId)
       .first<MessageThreadRow>();
 
     return row ? rowToMessageThread(row) : null;

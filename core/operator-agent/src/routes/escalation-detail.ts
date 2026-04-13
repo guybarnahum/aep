@@ -2,28 +2,25 @@ import { createStores } from "@aep/operator-agent/lib/store-factory";
 import { getTaskStore } from "@aep/operator-agent/lib/store-factory";
 import type { OperatorAgentEnv } from "@aep/operator-agent/types";
 
-export async function handleApprovalDetail(
+export async function handleEscalationDetail(
   request: Request,
   env: OperatorAgentEnv,
-  approvalId: string
+  escalationId: string,
 ): Promise<Response> {
   if (request.method !== "GET") {
     return new Response("Method Not Allowed", { status: 405 });
   }
 
-  const approvalStore = createStores(env).approvals;
+  const escalationStore = createStores(env).escalations;
   const taskStore = getTaskStore(env);
 
-  const approval = await approvalStore.get(approvalId);
+  const escalation = await escalationStore.get(escalationId);
 
-  if (!approval) {
-    return Response.json(
-      { ok: false, error: "Approval not found" },
-      { status: 404 }
-    );
+  if (!escalation) {
+    return Response.json({ ok: false, error: "Escalation not found" }, { status: 404 });
   }
 
-  const thread = await taskStore.findMessageThreadByApprovalId(approvalId);
+  const thread = await taskStore.findMessageThreadByEscalationId(escalationId);
   const messages = thread
     ? await taskStore.listMessages({
         threadId: thread.id,
@@ -33,7 +30,7 @@ export async function handleApprovalDetail(
 
   return Response.json({
     ok: true,
-    approval,
+    escalation,
     thread,
     messages,
   });

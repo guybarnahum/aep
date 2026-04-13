@@ -1,5 +1,9 @@
 import { createStores } from "@aep/operator-agent/lib/store-factory";
 import { applyResolved } from "@aep/operator-agent/lib/escalation-state";
+import {
+  appendSystemMessage,
+  ensureEscalationThread,
+} from "@aep/operator-agent/lib/human-interaction-threads";
 import type { OperatorAgentEnv } from "@aep/operator-agent/types";
 
 export async function handleResolveEscalation(
@@ -54,5 +58,28 @@ export async function handleResolveEscalation(
 
   await store.put(updated);
 
-  return Response.json({ ok: true, escalation: updated });
+  let threadId: string | undefined;
+
+  if (env && updated) {
+    threadId = await ensureEscalationThread({
+      env,
+      escalationId: updated.escalationId,
+      companyId: updated.companyId,
+      createdByEmployeeId: updated.managerEmployeeId,
+      topic: `Escalation ${updated.escalationId}`,
+    });
+
+    await appendSystemMessage({
+      env,
+      threadId,
+      companyId: updated.companyId,
+      senderEmployeeId: actor,
+      subject: "Escalation resolved",
+      body: `Escalation ${updated.escalationId} was resolved by ${actor}${note ? `: ${note}` : "."}`,
+      relatedEscalationId: updated.escalationId,
+      type: "escalation",
+    });
+  }
+
+  return Response.json({ ok: true, escalation: updated, threadId });
 }

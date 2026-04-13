@@ -186,6 +186,8 @@ export interface MessageThread {
   createdByEmployeeId?: string;
   relatedTaskId?: string;
   relatedArtifactId?: string;
+  relatedApprovalId?: string;
+  relatedEscalationId?: string;
   visibility: MessageThreadVisibility;
   createdAt?: string;
   updatedAt?: string;
@@ -247,6 +249,8 @@ export interface ThreadListQuery {
   createdByEmployeeId?: string;
   relatedTaskId?: string;
   relatedArtifactId?: string;
+  relatedApprovalId?: string;
+  relatedEscalationId?: string;
   participantEmployeeId?: string;
   limit: number;
 }
@@ -312,6 +316,9 @@ export interface TaskStore {
   listMessageThreads(query: ThreadListQuery): Promise<MessageThread[]>;
 
   getMessageThread(threadId: string): Promise<MessageThread | null>;
+
+  findMessageThreadByApprovalId(approvalId: string): Promise<MessageThread | null>;
+  findMessageThreadByEscalationId(escalationId: string): Promise<MessageThread | null>;
 
   createMessage(message: Omit<EmployeeMessage, "createdAt" | "updatedAt">): Promise<void>;
   listMessages(query: MessageListQuery): Promise<EmployeeMessage[]>;

@@ -184,6 +184,22 @@ export function createOperatorAgentClient(
       );
     },
 
+    async approveApproval(body: {
+      approvalId: string;
+      decidedBy?: string;
+      decisionNote?: string;
+    }): Promise<any> {
+      return postJson(buildUrl("/agent/approvals/approve"), body);
+    },
+
+    async rejectApproval(body: {
+      approvalId: string;
+      decidedBy?: string;
+      decisionNote?: string;
+    }): Promise<any> {
+      return postJson(buildUrl("/agent/approvals/reject"), body);
+    },
+
     async listEscalations(params?: {
       limit?: number;
     }): Promise<EscalationsListResponse> {
@@ -196,6 +212,10 @@ export function createOperatorAgentClient(
       return getJson<EscalationsListResponse>(
         buildUrl("/agent/escalations", search),
       );
+    },
+
+    async getEscalation(escalationId: string): Promise<any> {
+      return getJson(buildUrl(`/agent/escalations/${encodeURIComponent(escalationId)}`));
     },
 
     async listControlHistory(params?: {

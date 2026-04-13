@@ -94,6 +94,8 @@ export async function checkCoordinationSchema(db: D1Database): Promise<void> {
     "created_by_employee_id",
     "related_task_id",
     "related_artifact_id",
+    "related_approval_id",
+    "related_escalation_id",
     "visibility",
     "created_at",
     "updated_at",

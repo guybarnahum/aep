@@ -6,6 +6,7 @@ import { handleApprovals } from "./routes/approvals";
 import { handleBuildInfo } from "./routes/build-info";
 import { handleEscalations } from "./routes/escalations";
 import { handleAcknowledgeEscalation } from "./routes/escalations-acknowledge";
+import { handleEscalationDetail } from "./routes/escalation-detail";
 import { handleResolveEscalation } from "./routes/escalations-resolve";
 import { handleHealthz } from "./routes/healthz";
 import { handleEmployeeControls } from "./routes/employee-controls";
@@ -215,6 +216,15 @@ async function dispatch(request: Request, env: OperatorAgentEnv): Promise<Respon
 
   if (url.pathname === "/agent/escalations") {
     return handleEscalations(request, env);
+  }
+
+  const escalationMatch = url.pathname.match(/^\/agent\/escalations\/([^/]+)$/);
+  if (escalationMatch && request.method === "GET") {
+    return handleEscalationDetail(
+      request,
+      env,
+      decodeURIComponent(escalationMatch[1]),
+    );
   }
 
   if (url.pathname === "/agent/approvals") {
