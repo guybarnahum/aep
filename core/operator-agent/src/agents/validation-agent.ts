@@ -15,10 +15,15 @@ function decisionId(taskId: string): string {
   return `dec_${taskId}_${crypto.randomUUID().split("-")[0]}`;
 }
 
-function getRequestedWorkOrderId(
+function getRequestedTaskId(
   context: ResolvedEmployeeRunContext,
 ): string | undefined {
-  return context.request.workOrderId ?? context.executionContext?.workOrderId;
+  return (
+    context.request.taskId
+    ?? context.request.workOrderId
+    ?? context.executionContext?.taskId
+    ?? context.executionContext?.workOrderId
+  );
 }
 
 function getEvidenceTraceId(
@@ -49,13 +54,17 @@ async function loadTasksForRun(
   env: OperatorAgentEnv,
   context: ResolvedEmployeeRunContext,
 ): Promise<Task[]> {
-  const taskStore = getTaskStore(env);
-  const requestedWorkOrderId = getRequestedWorkOrderId(context);
+  if (context.taskContext?.task) {
+    return [context.taskContext.task];
+  }
 
-  if (requestedWorkOrderId) {
-    const task = await taskStore.getTask(requestedWorkOrderId);
+  const taskStore = getTaskStore(env);
+  const requestedTaskId = getRequestedTaskId(context);
+
+  if (requestedTaskId) {
+    const task = await taskStore.getTask(requestedTaskId);
     if (!task) {
-      throw new Error(`Work order ${requestedWorkOrderId} not found`);
+      throw new Error(`Task ${requestedTaskId} not found`);
     }
     return [task];
   }
@@ -224,7 +233,6 @@ async function processValidationTask(args: {
       verdict: healthCheck.verdict,
       reasoning: healthCheck.reasoning,
       statusCode: healthCheck.statusCode,
-      internalMonologue,
     };
 
     logInfo("validation task processed", {
@@ -270,13 +278,13 @@ export async function runValidationAgent(
   }
 
   const tasks = await loadTasksForRun(env, context);
-  const requestedWorkOrderId = getRequestedWorkOrderId(context);
+  const requestedTaskId = getRequestedTaskId(context);
   const decisions: ValidationTaskDecision[] = [];
 
   for (const task of tasks) {
     if (task.taskType !== VALIDATION_TASK_TYPE) {
-      if (requestedWorkOrderId && task.id === requestedWorkOrderId) {
-        const reasoning = `Work order ${task.id} uses unsupported taskType ${task.taskType}`;
+      if (requestedTaskId && task.id === requestedTaskId) {
+        const reasoning = `Task ${task.id} uses unsupported taskType ${task.taskType}`;
         await recordTaskDecision({
           env,
           context,
@@ -299,7 +307,7 @@ export async function runValidationAgent(
         env,
         context,
         task,
-        shouldClaim: !requestedWorkOrderId,
+        shouldClaim: !requestedTaskId,
       }),
     );
   }

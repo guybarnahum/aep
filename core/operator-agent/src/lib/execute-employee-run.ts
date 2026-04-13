@@ -19,6 +19,7 @@ import type {
   OperatorAgentEnv,
   ResolvedEmployeeRunContext,
   ResolvedEmployeeControl,
+  ResolvedTaskExecutionContext,
 } from "@aep/operator-agent/types";
 
 function validateRunRequest(
@@ -186,7 +187,8 @@ async function maybeReturnBlockedByControl(
 export async function executeEmployeeRun(
   request: EmployeeRunRequest,
   env?: OperatorAgentEnv,
-  executionContext?: ExecutionContext
+  executionContext?: ExecutionContext,
+  taskContext?: ResolvedTaskExecutionContext,
 ): Promise<AgentExecutionResponse> {
   const validationError = validateRunRequest(request);
   if (validationError) {
@@ -220,6 +222,7 @@ export async function executeEmployeeRun(
     authority: effectivePolicy.authority,
     budget: effectivePolicy.budget,
     executionContext,
+    taskContext,
   };
 
   switch (resolved.employee.identity.roleId) {

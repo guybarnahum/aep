@@ -74,6 +74,18 @@ export interface CoordinationTaskDependencyRecord {
   createdAt?: string;
 }
 
+export interface CoordinationTaskArtifactRecord {
+  id: string;
+  taskId: string;
+  companyId: CompanyId;
+  artifactType: "plan" | "result" | "evidence";
+  createdByEmployeeId?: string;
+  summary?: string;
+  content: Record<string, unknown>;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export interface EmployeeMessageRecord {
   id: string;
   companyId: CompanyId;
@@ -202,6 +214,13 @@ export interface ResolvedEmployeeRunContext {
   budget: AgentBudget;
   policyVersion: string;
   executionContext?: ExecutionContext;
+  taskContext?: ResolvedTaskExecutionContext;
+}
+
+export interface ResolvedTaskExecutionContext {
+  task: CoordinationTaskRecord;
+  dependencies: CoordinationTaskDependencyRecord[];
+  artifacts: CoordinationTaskArtifactRecord[];
 }
 
 // taskId is the canonical coordination identifier. workOrderId remains only for temporary compatibility.
@@ -674,7 +693,6 @@ export interface ValidationTaskDecision {
   verdict: "pass" | "fail" | "remediate" | "manual_escalation";
   reasoning: string;
   statusCode?: number;
-  internalMonologue?: string; // The "Thinking Trace" from the LLM
 }
 
 export interface ValidationAgentResponse {

@@ -4,13 +4,27 @@ import { executeEmployeeRun, toErrorResponse } from "@aep/operator-agent/lib/exe
 import { getTaskStore } from "@aep/operator-agent/lib/store-factory";
 import { validatePaperclipAuth } from "@aep/operator-agent/lib/paperclip-auth";
 import { validatePaperclipRunRequest } from "@aep/operator-agent/lib/validate-paperclip-request";
+import { COMPANY_INTERNAL_AEP, type CompanyId } from "@aep/operator-agent/org/company";
 import { getEmployeeById } from "@aep/operator-agent/org/employees";
+import {
+  TEAM_INFRA,
+  TEAM_VALIDATION,
+  TEAM_WEB_PRODUCT,
+  type TeamId,
+} from "@aep/operator-agent/org/teams";
+import type {
+  Task,
+  TaskArtifact,
+} from "@aep/operator-agent/lib/store-types";
 import type { ExecutionContext } from "@aep/operator-agent/types/execution-provenance";
 import type {
   AgentExecutionResponse,
+  CoordinationTaskArtifactRecord,
+  CoordinationTaskRecord,
   EmployeeRunRequest,
   OperatorAgentEnv,
   PaperclipRunRequest,
+  ResolvedTaskExecutionContext,
   ValidationAgentResponse,
 } from "@aep/operator-agent/types";
 
@@ -34,11 +48,6 @@ function getRequestedTaskId(body: unknown, executionContext?: ExecutionContext):
     : undefined;
   if (typeof contextTaskId === "string" && contextTaskId.length > 0) {
     return contextTaskId;
-  }
-
-  const value = asRecord(body).workOrderId;
-  if (typeof value === "string" && value.length > 0) {
-    return value;
   }
 
   return executionContext && "workOrderId" in executionContext && typeof executionContext.workOrderId === "string"
@@ -68,6 +77,141 @@ function withTaskId(
 
 function taskDecisionId(taskId: string, employeeId: string): string {
   return `${taskId}:${employeeId}:${Date.now()}`;
+}
+
+function toCompanyId(companyId: string): CompanyId {
+  if (companyId !== COMPANY_INTERNAL_AEP) {
+    throw new Error(`Unsupported companyId in task context: ${companyId}`);
+  }
+
+  return companyId;
+}
+
+function toTeamId(teamId: string): TeamId {
+  const validTeams: TeamId[] = [
+    TEAM_INFRA,
+    TEAM_WEB_PRODUCT,
+    TEAM_VALIDATION,
+  ];
+
+  if (!validTeams.includes(teamId as TeamId)) {
+    throw new Error(`Unsupported teamId in task context: ${teamId}`);
+  }
+
+  return teamId as TeamId;
+}
+
+function toCoordinationTaskRecord(task: Task): CoordinationTaskRecord {
+  return {
+    ...task,
+    companyId: toCompanyId(task.companyId),
+    originatingTeamId: toTeamId(task.originatingTeamId),
+    assignedTeamId: toTeamId(task.assignedTeamId),
+  };
+}
+
+function toCoordinationTaskArtifactRecord(
+  artifact: TaskArtifact,
+): CoordinationTaskArtifactRecord {
+  return {
+    ...artifact,
+    companyId: toCompanyId(artifact.companyId),
+  };
+}
+
+async function loadTaskExecutionContext(
+  env: OperatorAgentEnv | undefined,
+  taskId: string | null,
+): Promise<ResolvedTaskExecutionContext | undefined> {
+  if (!env || !taskId) {
+    return undefined;
+  }
+
+  const taskStore = getTaskStore(env);
+  const task = await taskStore.getTask(taskId);
+
+  if (!task) {
+    return undefined;
+  }
+
+  const [dependencies, artifacts] = await Promise.all([
+    taskStore.listDependencies(taskId),
+    taskStore.listArtifacts({
+      taskId,
+      limit: 50,
+    }),
+  ]);
+
+  return {
+    task: toCoordinationTaskRecord(task),
+    dependencies,
+    artifacts: artifacts.map(toCoordinationTaskArtifactRecord),
+  };
+}
+
+async function createPlanArtifactIfPresent(args: {
+  env?: OperatorAgentEnv;
+  taskContext?: ResolvedTaskExecutionContext;
+  request: EmployeeRunRequest;
+  executionContext: ExecutionContext;
+}): Promise<void> {
+  if (!args.env || !args.taskContext) {
+    return;
+  }
+
+  const taskStore = getTaskStore(args.env);
+
+  await taskStore.createArtifact({
+    id: `art_${crypto.randomUUID().split("-")[0]}`,
+    taskId: args.taskContext.task.id,
+    companyId: args.taskContext.task.companyId,
+    artifactType: "plan",
+    createdByEmployeeId: args.request.employeeId,
+    summary: `Execution plan for ${args.request.roleId}`,
+    content: {
+      employeeId: args.request.employeeId,
+      roleId: args.request.roleId,
+      trigger: args.request.trigger,
+      executionSource: args.executionContext.executionSource,
+      routingTaskId: args.executionContext.taskId ?? args.executionContext.workOrderId ?? null,
+      task: {
+        id: args.taskContext.task.id,
+        taskType: args.taskContext.task.taskType,
+        status: args.taskContext.task.status,
+      },
+      dependencyCount: args.taskContext.dependencies.length,
+      priorArtifactCount: args.taskContext.artifacts.length,
+    },
+  });
+}
+
+async function createResultArtifactIfPresent(args: {
+  env?: OperatorAgentEnv;
+  taskContext?: ResolvedTaskExecutionContext;
+  request: EmployeeRunRequest;
+  result: AgentExecutionResponse;
+}): Promise<void> {
+  if (!args.env || !args.taskContext) {
+    return;
+  }
+
+  const taskStore = getTaskStore(args.env);
+
+  await taskStore.createArtifact({
+    id: `art_${crypto.randomUUID().split("-")[0]}`,
+    taskId: args.taskContext.task.id,
+    companyId: args.taskContext.task.companyId,
+    artifactType: "result",
+    createdByEmployeeId: args.request.employeeId,
+    summary: args.result.message,
+    content: {
+      status: args.result.status,
+      workerRole: "workerRole" in args.result ? args.result.workerRole : undefined,
+      message: args.result.message,
+      summary: "summary" in args.result ? args.result.summary : undefined,
+      decisions: "decisions" in args.result ? args.result.decisions : undefined,
+    },
+  });
 }
 
 function inferEvidenceTraceId(result: AgentExecutionResponse): string | undefined {
@@ -325,6 +469,7 @@ export async function handleRun(
     }
 
     executionContext = taskClaim.executionContext;
+    const taskContext = await loadTaskExecutionContext(env, taskClaim.taskId);
 
     if (executionContext.executionSource === "paperclip") {
       try {
@@ -345,7 +490,19 @@ export async function handleRun(
       const paperclipPayload = body as PaperclipRunRequest;
       const adaptedRequest = adaptPaperclipRequest(paperclipPayload, env);
       try {
-        const result = await executeEmployeeRun(adaptedRequest, env, executionContext);
+        await createPlanArtifactIfPresent({
+          env,
+          taskContext,
+          request: adaptedRequest,
+          executionContext,
+        });
+        const result = await executeEmployeeRun(adaptedRequest, env, executionContext, taskContext);
+        await createResultArtifactIfPresent({
+          env,
+          taskContext,
+          request: adaptedRequest,
+          result,
+        });
         await recordTaskDecisionIfPresent({
           env,
           taskId: taskClaim.taskId,
@@ -362,7 +519,6 @@ export async function handleRun(
 
         return Response.json({
           ...paperclipResult,
-          executionContext,
           routing,
         });
       } catch (error) {
@@ -375,11 +531,24 @@ export async function handleRun(
 
     try {
       const typedBody = body as EmployeeRunRequest;
+      await createPlanArtifactIfPresent({
+        env,
+        taskContext,
+        request: typedBody,
+        executionContext,
+      });
       const result = await executeEmployeeRun(
         typedBody,
         env,
-        executionContext
+        executionContext,
+        taskContext,
       );
+      await createResultArtifactIfPresent({
+        env,
+        taskContext,
+        request: typedBody,
+        result,
+      });
       await recordTaskDecisionIfPresent({
         env,
         taskId: taskClaim.taskId,

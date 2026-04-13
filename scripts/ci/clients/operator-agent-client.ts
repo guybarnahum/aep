@@ -29,6 +29,8 @@ export type RunEmployeeRequest = {
   companyId?: string;
   teamId?: string;
   departmentId?: string;
+  taskId?: string;
+  workOrderId?: string;
   employeeId: string;
   roleId: string;
   trigger: string;
