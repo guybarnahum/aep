@@ -4,19 +4,13 @@ set -euo pipefail
 # Required inputs:
 #   ENVIRONMENT_NAME
 #
-# Optional inputs:
+# Optional explicit override inputs:
 #   CONTROL_PLANE_BASE_URL_INPUT
 #   OPERATOR_AGENT_BASE_URL_INPUT
 #
 # Optional environment-backed values:
 #   CONTROL_PLANE_BASE_URL
 #   OPERATOR_AGENT_BASE_URL
-#   STAGING_BASE_URL
-#   STAGING_OPERATOR_AGENT_BASE_URL
-#   PRODUCTION_BASE_URL
-#   PRODUCTION_OPERATOR_AGENT_BASE_URL
-#   ASYNC_VALIDATION_BASE_URL
-#   ASYNC_VALIDATION_OPERATOR_AGENT_BASE_URL
 #
 # Output:
 #   Writes the following to stdout as KEY=VALUE lines:
@@ -40,36 +34,9 @@ is_absolute_url() {
 
 resolve_control_plane_base_url_from_environment() {
   case "$ENVIRONMENT_NAME" in
-    preview)
+    preview|staging|production|async-validation)
       if is_absolute_url "${CONTROL_PLANE_BASE_URL:-}"; then
         echo "${CONTROL_PLANE_BASE_URL}|env.CONTROL_PLANE_BASE_URL"
-      else
-        echo "|missing"
-      fi
-      ;;
-    staging)
-      if is_absolute_url "${CONTROL_PLANE_BASE_URL:-}"; then
-        echo "${CONTROL_PLANE_BASE_URL}|env.CONTROL_PLANE_BASE_URL"
-      elif is_absolute_url "${STAGING_BASE_URL:-}"; then
-        echo "${STAGING_BASE_URL}|env.STAGING_BASE_URL"
-      else
-        echo "|missing"
-      fi
-      ;;
-    production)
-      if is_absolute_url "${CONTROL_PLANE_BASE_URL:-}"; then
-        echo "${CONTROL_PLANE_BASE_URL}|env.CONTROL_PLANE_BASE_URL"
-      elif is_absolute_url "${PRODUCTION_BASE_URL:-}"; then
-        echo "${PRODUCTION_BASE_URL}|env.PRODUCTION_BASE_URL"
-      else
-        echo "|missing"
-      fi
-      ;;
-    async-validation)
-      if is_absolute_url "${CONTROL_PLANE_BASE_URL:-}"; then
-        echo "${CONTROL_PLANE_BASE_URL}|env.CONTROL_PLANE_BASE_URL"
-      elif is_absolute_url "${ASYNC_VALIDATION_BASE_URL:-}"; then
-        echo "${ASYNC_VALIDATION_BASE_URL}|env.ASYNC_VALIDATION_BASE_URL"
       else
         echo "|missing"
       fi
@@ -80,38 +47,11 @@ resolve_control_plane_base_url_from_environment() {
   esac
 }
 
-resolve_operator_agent_url_from_environment() {
+resolve_operator_agent_base_url_from_environment() {
   case "$ENVIRONMENT_NAME" in
-    preview)
+    preview|staging|production|async-validation)
       if is_absolute_url "${OPERATOR_AGENT_BASE_URL:-}"; then
         echo "${OPERATOR_AGENT_BASE_URL}|env.OPERATOR_AGENT_BASE_URL"
-      else
-        echo "|missing"
-      fi
-      ;;
-    staging)
-      if is_absolute_url "${OPERATOR_AGENT_BASE_URL:-}"; then
-        echo "${OPERATOR_AGENT_BASE_URL}|env.OPERATOR_AGENT_BASE_URL"
-      elif is_absolute_url "${STAGING_OPERATOR_AGENT_BASE_URL:-}"; then
-        echo "${STAGING_OPERATOR_AGENT_BASE_URL}|env.STAGING_OPERATOR_AGENT_BASE_URL"
-      else
-        echo "|missing"
-      fi
-      ;;
-    production)
-      if is_absolute_url "${OPERATOR_AGENT_BASE_URL:-}"; then
-        echo "${OPERATOR_AGENT_BASE_URL}|env.OPERATOR_AGENT_BASE_URL"
-      elif is_absolute_url "${PRODUCTION_OPERATOR_AGENT_BASE_URL:-}"; then
-        echo "${PRODUCTION_OPERATOR_AGENT_BASE_URL}|env.PRODUCTION_OPERATOR_AGENT_BASE_URL"
-      else
-        echo "|missing"
-      fi
-      ;;
-    async-validation)
-      if is_absolute_url "${OPERATOR_AGENT_BASE_URL:-}"; then
-        echo "${OPERATOR_AGENT_BASE_URL}|env.OPERATOR_AGENT_BASE_URL"
-      elif is_absolute_url "${ASYNC_VALIDATION_OPERATOR_AGENT_BASE_URL:-}"; then
-        echo "${ASYNC_VALIDATION_OPERATOR_AGENT_BASE_URL}|env.ASYNC_VALIDATION_OPERATOR_AGENT_BASE_URL"
       else
         echo "|missing"
       fi
@@ -146,7 +86,7 @@ if is_absolute_url "$OPERATOR_AGENT_BASE_URL_INPUT"; then
   RESOLVED_OPERATOR_AGENT_BASE_URL="$OPERATOR_AGENT_BASE_URL_INPUT"
   RESOLVED_OPERATOR_AGENT_BASE_URL_SOURCE="inputs.operator_agent_base_url"
 else
-  OPERATOR_PAIR="$(resolve_operator_agent_url_from_environment)"
+  OPERATOR_PAIR="$(resolve_operator_agent_base_url_from_environment)"
   RESOLVED_OPERATOR_AGENT_BASE_URL="${OPERATOR_PAIR%%|*}"
   RESOLVED_OPERATOR_AGENT_BASE_URL_SOURCE="${OPERATOR_PAIR#*|}"
 fi
