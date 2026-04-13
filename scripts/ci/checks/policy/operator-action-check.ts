@@ -3,7 +3,7 @@
 export {};
 
 /**
- * scripts/ci/commit7-operator-action-check.ts
+ * scripts/ci/checks/policy/operator-action-check.ts
  *
  * Validates Commit 7 operator advance-timeout behavior:
  * - starts a workflow with deploy_mode=async
@@ -16,7 +16,7 @@ export {};
  *
  * Example:
  *
- *   npx tsx scripts/ci/commit7-operator-action-check.ts \
+ *   npx tsx scripts/ci/checks/policy/operator-action-check.ts \
  *     --base-url http://127.0.0.1:8787 \
  *     --env dev \
  *     --provider cloudflare \
@@ -218,7 +218,7 @@ function parseArgs(argv: string[]): CliOptions {
       [
         "Missing required argument: --base-url",
         "Example:",
-        "  npx tsx scripts/ci/commit7-operator-action-check.ts --base-url http://127.0.0.1:8787 --env dev",
+        "  npx tsx scripts/ci/checks/policy/operator-action-check.ts --base-url http://127.0.0.1:8787 --env dev",
       ].join("\n"),
     );
   }

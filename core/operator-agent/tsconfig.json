@@ -5,6 +5,6 @@
   },
   "include": [
     "src/**/*.ts",
-    "../../scripts/ci/company-coordination-schema-check.ts"
+    "../../scripts/ci/checks/schema/company-coordination-schema-check.ts"
   ]
 }

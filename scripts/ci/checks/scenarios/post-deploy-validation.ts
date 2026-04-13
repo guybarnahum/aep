@@ -25,37 +25,37 @@ const CHECKS: ValidationCheck[] = [
   {
     id: "operator-surface",
     label: "Operator surface check",
-    scriptPath: "scripts/ci/operator-surface-check.ts",
+    scriptPath: "scripts/ci/checks/contracts/operator-surface-check.ts",
   },
   {
     id: "paperclip-first-execution",
     label: "Paperclip first execution check",
-    scriptPath: "scripts/ci/paperclip-first-execution-check.ts",
+    scriptPath: "scripts/ci/checks/scenarios/paperclip-first-execution-check.ts",
   },
   {
     id: "scheduled-routing",
     label: "Scheduled routing check",
-    scriptPath: "scripts/ci/scheduled-routing-check.ts",
+    scriptPath: "scripts/ci/checks/policy/scheduled-routing-check.ts",
   },
   {
     id: "dispatch-validation-runs",
     label: "Dispatch validation runs",
-    scriptPath: "scripts/ci/dispatch-validation-runs.ts",
+    scriptPath: "scripts/ci/checks/scenarios/dispatch-validation-runs.ts",
   },
   {
     id: "execute-validation-dispatch",
     label: "Execute dispatched validation runs",
-    scriptPath: "scripts/ci/execute-validation-dispatch.ts",
+    scriptPath: "scripts/ci/checks/scenarios/execute-validation-dispatch.ts",
   },
   {
     id: "validation-verdict",
     label: "Validation verdict check",
-    scriptPath: "scripts/ci/check-validation-verdict.ts",
+    scriptPath: "scripts/ci/checks/scenarios/check-validation-verdict.ts",
   },
   {
     id: "validation-policy",
     label: "Validation policy check",
-    scriptPath: "scripts/ci/check-validation-policy.ts",
+    scriptPath: "scripts/ci/checks/policy/check-validation-policy.ts",
   },
 ];
 

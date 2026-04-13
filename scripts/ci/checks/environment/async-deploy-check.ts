@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * scripts/ci/async-deploy-check.ts
+ * scripts/ci/checks/environment/async-deploy-check.ts
  *
  * Validates async deploy orchestration end-to-end:
  * - starts a workflow with deploy_mode=async
@@ -17,7 +17,7 @@
  * 
  * Example:
  *
- *   npx tsx scripts/ci/async-deploy-check.ts \
+ *   npx tsx scripts/ci/checks/environment/async-deploy-check.ts \
  *     --base-url https://sample-worker-run_stagging.guybubba.workers.dev \
  *     --env dev \
  *     --provider cloudflare \
@@ -215,7 +215,7 @@ function parseArgs(argv: string[]): CliOptions {
       [
         "Missing required argument: --base-url",
         "Example:",
-        "  npx tsx scripts/ci/async-deploy-check.ts --base-url https://staging.example.com --env dev",
+        "  npx tsx scripts/ci/checks/environment/async-deploy-check.ts --base-url https://staging.example.com --env dev",
       ].join("\n"),
     );
   }

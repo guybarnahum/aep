@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * scripts/ci/validate-runtime-read-safety.ts
+ * scripts/ci/checks/contracts/validate-runtime-read-safety.ts
  *
  * Validates Commit 14.1 runtime/read safety guarantees:
  *
@@ -11,7 +11,7 @@
  *    error=runtime_projection_failed (when enabled).
  *
  * Usage:
- *   npx tsx scripts/ci/validate-runtime-read-safety.ts \
+ *   npx tsx scripts/ci/checks/contracts/validate-runtime-read-safety.ts \
  *     --base-url https://your-control-plane.example.com
  *
  * Optional:
@@ -86,7 +86,7 @@ function parseArgs(argv: string[]): CliOptions {
       [
         "Missing required argument: --base-url",
         "Example:",
-        "  npx tsx scripts/ci/validate-runtime-read-safety.ts --base-url https://staging.example.com",
+        "  npx tsx scripts/ci/checks/contracts/validate-runtime-read-safety.ts --base-url https://staging.example.com",
       ].join("\n"),
     );
   }

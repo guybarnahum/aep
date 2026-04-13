@@ -6,6 +6,6 @@
   "scripts": {
     "dev": "wrangler dev",
     "check": "tsc --noEmit",
-    "coordination-schema-check": "tsx ../../scripts/ci/company-coordination-schema-check.ts"
+    "coordination-schema-check": "tsx ../../scripts/ci/checks/schema/company-coordination-schema-check.ts"
   }
 }

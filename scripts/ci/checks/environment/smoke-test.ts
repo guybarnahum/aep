@@ -3,7 +3,7 @@
 export {};
 
 /**
- * scripts/ci/smoke-test.ts
+ * ./scripts/ci/checks/environment/smoke-test.ts
  * A generic smoke test script for testing deployed HTTP endpoints.
  * 
  * This script is intentionally generic:
@@ -18,13 +18,13 @@ export {};
  *
  * Typical usage:
  *
- *   npx tsx scripts/ci/smoke-test.ts \
+ *   npx tsx ./scripts/ci/checks/environment/smoke-test.ts \
  *     --base-url https://staging.example.com \
  *     --env staging
  *
  * More realistic usage:
  *
- *   npx tsx scripts/ci/smoke-test.ts \
+ *   npx tsx ./scripts/ci/checks/environment/smoke-test.ts \
  *     --base-url https://staging.example.com \
  *     --env staging \
  *     --method POST \
@@ -35,7 +35,7 @@ export {};
  *
  * Async poll usage:
  *
- *   npx tsx scripts/ci/smoke-test.ts \
+ *   npx tsx ./scripts/ci/checks/environment/smoke-test.ts \
  *     --base-url https://staging.example.com \
  *     --env staging \
  *     --method POST \
@@ -242,7 +242,7 @@ function parseArgs(argv: string[]): CliOptions {
       [
         "Missing required argument: --base-url",
         "Example:",
-        "  npx tsx scripts/ci/smoke-test.ts --base-url https://staging.example.com --env staging",
+        "  npx tsx ./scripts/ci/checks/environment/smoke-test.ts --base-url https://staging.example.com --env staging",
       ].join("\n"),
     );
   }
