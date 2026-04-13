@@ -1,5 +1,9 @@
 import { getTaskStore } from "@aep/operator-agent/lib/store-factory";
-import type { Decision, TaskStatus } from "@aep/operator-agent/lib/store-types";
+import {
+  TaskDependencyValidationError,
+  type Decision,
+  type TaskStatus,
+} from "@aep/operator-agent/lib/store-types";
 import type { OperatorAgentEnv } from "@aep/operator-agent/types";
 
 type CreateTaskRequest = {
@@ -62,21 +66,36 @@ export async function handleCreateTask(
   const store = getTaskStore(env);
   const taskId = `task_${crypto.randomUUID().split("-")[0]}`;
 
-  await store.createTaskWithDependencies({
-    task: {
-      id: taskId,
-      companyId: body.companyId ?? "company_internal_aep",
-      originatingTeamId: body.originatingTeamId,
-      assignedTeamId: body.assignedTeamId,
-      ownerEmployeeId: body.ownerEmployeeId,
-      assignedEmployeeId: body.assignedEmployeeId,
-      createdByEmployeeId: body.createdByEmployeeId,
-      taskType: body.taskType,
-      title: body.title,
-      payload: body.payload ?? {},
-    },
-    dependsOnTaskIds: body.dependsOnTaskIds ?? [],
-  });
+  try {
+    await store.createTaskWithDependencies({
+      task: {
+        id: taskId,
+        companyId: body.companyId ?? "company_internal_aep",
+        originatingTeamId: body.originatingTeamId,
+        assignedTeamId: body.assignedTeamId,
+        ownerEmployeeId: body.ownerEmployeeId,
+        assignedEmployeeId: body.assignedEmployeeId,
+        createdByEmployeeId: body.createdByEmployeeId,
+        taskType: body.taskType,
+        title: body.title,
+        payload: body.payload ?? {},
+      },
+      dependsOnTaskIds: body.dependsOnTaskIds ?? [],
+    });
+  } catch (error) {
+    if (error instanceof TaskDependencyValidationError) {
+      return Response.json(
+        {
+          ok: false,
+          error: error.message,
+          code: error.code,
+          details: error.details ?? null,
+        },
+        { status: 400 },
+      );
+    }
+    throw error;
+  }
 
   return Response.json({ ok: true, taskId }, { status: 201 });
 }

@@ -138,6 +138,29 @@ export interface TaskDependency {
   createdAt?: string;
 }
 
+export type TaskDependencyValidationErrorCode =
+  | "self_dependency"
+  | "duplicate_dependency"
+  | "dependency_not_found"
+  | "cross_company_dependency"
+  | "dependency_cycle";
+
+export class TaskDependencyValidationError extends Error {
+  readonly code: TaskDependencyValidationErrorCode;
+  readonly details?: Record<string, unknown>;
+
+  constructor(
+    code: TaskDependencyValidationErrorCode,
+    message: string,
+    details?: Record<string, unknown>,
+  ) {
+    super(message);
+    this.name = "TaskDependencyValidationError";
+    this.code = code;
+    this.details = details;
+  }
+}
+
 export interface EmployeeMessage {
   id: string;
   companyId: string;

@@ -1,13 +1,14 @@
 import { fromJson, toJson } from "@aep/operator-agent/lib/d1-json";
-import type {
-  Decision,
-  EmployeeMessage,
-  MessageListQuery,
-  Task,
-  TaskDependency,
-  TaskListQuery,
-  TaskStatus,
-  TaskStore,
+import {
+  TaskDependencyValidationError,
+  type Decision,
+  type EmployeeMessage,
+  type MessageListQuery,
+  type Task,
+  type TaskDependency,
+  type TaskListQuery,
+  type TaskStatus,
+  type TaskStore,
 } from "@aep/operator-agent/lib/store-types";
 import type { OperatorAgentEnv } from "@aep/operator-agent/types";
 
@@ -40,6 +41,11 @@ type TaskDependencyRow = {
   depends_on_task_id: string;
   dependency_type: string;
   created_at: string | null;
+};
+
+type DependencyTaskRow = {
+  id: string;
+  company_id: string;
 };
 
 type EmployeeMessageRow = {
@@ -121,6 +127,164 @@ export class D1TaskStore implements TaskStore {
     this.db = requireDb(env);
   }
 
+  private normalizeDependencyIds(dependsOnTaskIds: string[]): string[] {
+    return dependsOnTaskIds
+      .map((id) => id.trim())
+      .filter((id) => id.length > 0);
+  }
+
+  private assertNoDuplicateDependencies(dependsOnTaskIds: string[]): void {
+    const seen = new Set<string>();
+
+    for (const dependencyId of dependsOnTaskIds) {
+      if (seen.has(dependencyId)) {
+        throw new TaskDependencyValidationError(
+          "duplicate_dependency",
+          `Duplicate dependency task ID: ${dependencyId}`,
+          { dependencyTaskId: dependencyId },
+        );
+      }
+      seen.add(dependencyId);
+    }
+  }
+
+  private assertNoSelfDependency(taskId: string, dependsOnTaskIds: string[]): void {
+    if (dependsOnTaskIds.includes(taskId)) {
+      throw new TaskDependencyValidationError(
+        "self_dependency",
+        `Task ${taskId} cannot depend on itself`,
+        { taskId },
+      );
+    }
+  }
+
+  private async loadDependencyTasks(
+    dependencyIds: string[],
+  ): Promise<Map<string, DependencyTaskRow>> {
+    if (dependencyIds.length === 0) {
+      return new Map();
+    }
+
+    const placeholders = dependencyIds.map(() => "?").join(", ");
+    const rows = await this.db
+      .prepare(
+        `SELECT id, company_id
+         FROM tasks
+         WHERE id IN (${placeholders})`,
+      )
+      .bind(...dependencyIds)
+      .all<DependencyTaskRow>();
+
+    const map = new Map<string, DependencyTaskRow>();
+    for (const row of rows.results ?? []) {
+      map.set(row.id, row);
+    }
+    return map;
+  }
+
+  private assertDependenciesExistAndMatchCompany(args: {
+    companyId: string;
+    dependencyIds: string[];
+    dependencyTaskMap: Map<string, DependencyTaskRow>;
+  }): void {
+    const missingIds = args.dependencyIds.filter(
+      (id) => !args.dependencyTaskMap.has(id),
+    );
+
+    if (missingIds.length > 0) {
+      throw new TaskDependencyValidationError(
+        "dependency_not_found",
+        `Dependency task(s) not found: ${missingIds.join(", ")}`,
+        { missingDependencyTaskIds: missingIds },
+      );
+    }
+
+    const crossCompanyIds = args.dependencyIds.filter((id) => {
+      const task = args.dependencyTaskMap.get(id);
+      return task?.company_id !== args.companyId;
+    });
+
+    if (crossCompanyIds.length > 0) {
+      throw new TaskDependencyValidationError(
+        "cross_company_dependency",
+        `Dependency task(s) belong to a different company: ${crossCompanyIds.join(", ")}`,
+        { crossCompanyDependencyTaskIds: crossCompanyIds },
+      );
+    }
+  }
+
+  private async assertNoDependencyCycles(args: {
+    taskId: string;
+    dependencyIds: string[];
+  }): Promise<void> {
+    for (const dependencyId of args.dependencyIds) {
+      const stack: string[] = [dependencyId];
+      const visited = new Set<string>();
+
+      while (stack.length > 0) {
+        const currentTaskId = stack.pop();
+        if (!currentTaskId) continue;
+
+        if (currentTaskId === args.taskId) {
+          throw new TaskDependencyValidationError(
+            "dependency_cycle",
+            `Dependency cycle detected for task ${args.taskId}`,
+            {
+              taskId: args.taskId,
+              dependencyTaskId: dependencyId,
+            },
+          );
+        }
+
+        if (visited.has(currentTaskId)) {
+          continue;
+        }
+        visited.add(currentTaskId);
+
+        const rows = await this.db
+          .prepare(
+            `SELECT depends_on_task_id
+             FROM task_dependencies
+             WHERE task_id = ?`,
+          )
+          .bind(currentTaskId)
+          .all<{ depends_on_task_id: string }>();
+
+        for (const row of rows.results ?? []) {
+          if (!visited.has(row.depends_on_task_id)) {
+            stack.push(row.depends_on_task_id);
+          }
+        }
+      }
+    }
+  }
+
+  private async validateDependencies(args: {
+    taskId: string;
+    companyId: string;
+    dependsOnTaskIds: string[];
+  }): Promise<string[]> {
+    const dependencyIds = this.normalizeDependencyIds(args.dependsOnTaskIds);
+
+    this.assertNoSelfDependency(args.taskId, dependencyIds);
+    this.assertNoDuplicateDependencies(dependencyIds);
+
+    const dependencyTaskMap = await this.loadDependencyTasks(dependencyIds);
+
+    this.assertDependenciesExistAndMatchCompany({
+      companyId: args.companyId,
+      dependencyIds,
+      dependencyTaskMap,
+    });
+
+    await this.assertNoDependencyCycles({
+      taskId: args.taskId,
+      dependencyIds,
+    });
+
+    return dependencyIds;
+  }
+
   async createTask(
     task: Omit<
       Task,
@@ -149,7 +313,11 @@ export class D1TaskStore implements TaskStore {
     >;
     dependsOnTaskIds?: string[];
   }): Promise<void> {
-    const dependsOnTaskIds = args.dependsOnTaskIds ?? [];
+    const dependsOnTaskIds = await this.validateDependencies({
+      taskId: args.task.id,
+      companyId: args.task.companyId,
+      dependsOnTaskIds: args.dependsOnTaskIds ?? [],
+    });
     const initialStatus: TaskStatus = dependsOnTaskIds.length > 0 ? "blocked" : "ready";
 
     const statements: D1PreparedStatement[] = [

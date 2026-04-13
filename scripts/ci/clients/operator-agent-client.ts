@@ -36,6 +36,19 @@ export type RunEmployeeRequest = {
   targetEmployeeIdOverride?: string;
 };
 
+export type CreateTaskRequest = {
+  companyId?: string;
+  originatingTeamId: string;
+  assignedTeamId: string;
+  ownerEmployeeId?: string;
+  assignedEmployeeId?: string;
+  createdByEmployeeId?: string;
+  taskType: string;
+  title: string;
+  payload?: Record<string, unknown>;
+  dependsOnTaskIds?: string[];
+};
+
 export type CreateOperatorAgentClientOptions = {
   baseUrl?: string;
 };
@@ -198,6 +211,48 @@ export function createOperatorAgentClient(
 
       return getJson<WorkLogResponse>(
         buildUrl("/agent/work-log", search),
+      );
+    },
+
+    async createTask(body: CreateTaskRequest): Promise<any> {
+      return postJson(buildUrl("/agent/tasks"), body);
+    },
+
+    async listTasks(params?: {
+      companyId?: string;
+      assignedTeamId?: string;
+      assignedEmployeeId?: string;
+      status?: string;
+      limit?: number;
+    }): Promise<any> {
+      const search = new URLSearchParams();
+
+      if (params?.companyId) {
+        search.set("companyId", params.companyId);
+      }
+
+      if (params?.assignedTeamId) {
+        search.set("assignedTeamId", params.assignedTeamId);
+      }
+
+      if (params?.assignedEmployeeId) {
+        search.set("assignedEmployeeId", params.assignedEmployeeId);
+      }
+
+      if (params?.status) {
+        search.set("status", params.status);
+      }
+
+      if (typeof params?.limit === "number") {
+        search.set("limit", String(params.limit));
+      }
+
+      return getJson(buildUrl("/agent/tasks", search));
+    },
+
+    async getTask(taskId: string): Promise<any> {
+      return getJson(
+        buildUrl(`/agent/tasks/${encodeURIComponent(taskId)}`),
       );
     },
 
