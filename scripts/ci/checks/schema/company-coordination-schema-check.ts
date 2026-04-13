@@ -10,7 +10,12 @@ type PragmaColumnRow = {
 };
 
 export async function checkCoordinationSchema(db: D1Database): Promise<void> {
-  const requiredTables = ["tasks", "task_dependencies", "employee_messages"];
+  const requiredTables = [
+    "tasks",
+    "task_dependencies",
+    "employee_messages",
+    "task_artifacts",
+  ];
 
   for (const table of requiredTables) {
     const row = await db
@@ -46,8 +51,36 @@ export async function checkCoordinationSchema(db: D1Database): Promise<void> {
     assert.ok(columnNames.has(column), `Missing column in tasks: ${column}`);
   }
 
+  const artifactPragma = await db
+    .prepare(`PRAGMA table_info(task_artifacts)`)
+    .all<PragmaColumnRow>();
+
+  const artifactColumnNames = new Set(
+    (artifactPragma.results ?? []).map((row: PragmaColumnRow) => row.name),
+  );
+
+  const requiredArtifactColumns = [
+    "id",
+    "task_id",
+    "company_id",
+    "artifact_type",
+    "created_by_employee_id",
+    "summary",
+    "content_json",
+    "created_at",
+    "updated_at",
+  ];
+
+  for (const column of requiredArtifactColumns) {
+    assert.ok(
+      artifactColumnNames.has(column),
+      `Missing column in task_artifacts: ${column}`,
+    );
+  }
+
   console.log("company-coordination-schema-check passed", {
     requiredTables,
     requiredTaskColumns,
+    requiredArtifactColumns,
   });
 }

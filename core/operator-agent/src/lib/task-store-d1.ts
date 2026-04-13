@@ -5,6 +5,8 @@ import {
   type EmployeeMessage,
   type MessageListQuery,
   type Task,
+  type TaskArtifact,
+  type TaskArtifactListQuery,
   type TaskDependency,
   type TaskListQuery,
   type TaskStatus,
@@ -41,6 +43,18 @@ type TaskDependencyRow = {
   depends_on_task_id: string;
   dependency_type: string;
   created_at: string | null;
+};
+
+type TaskArtifactRow = {
+  id: string;
+  task_id: string;
+  company_id: string;
+  artifact_type: string;
+  created_by_employee_id: string | null;
+  summary: string | null;
+  content_json: string | null;
+  created_at: string | null;
+  updated_at: string | null;
 };
 
 type DependencyTaskRow = {
@@ -99,6 +113,20 @@ function rowToDependency(row: TaskDependencyRow): TaskDependency {
     dependsOnTaskId: row.depends_on_task_id,
     dependencyType: "completion",
     createdAt: row.created_at ?? undefined,
+  };
+}
+
+function rowToArtifact(row: TaskArtifactRow): TaskArtifact {
+  return {
+    id: row.id,
+    taskId: row.task_id,
+    companyId: row.company_id,
+    artifactType: row.artifact_type as TaskArtifact["artifactType"],
+    createdByEmployeeId: row.created_by_employee_id ?? undefined,
+    summary: row.summary ?? undefined,
+    content: fromJson<Record<string, unknown>>(row.content_json) ?? {},
+    createdAt: row.created_at ?? undefined,
+    updatedAt: row.updated_at ?? undefined,
   };
 }
 
@@ -283,6 +311,17 @@ export class D1TaskStore implements TaskStore {
     });
 
     return dependencyIds;
+  }
+
+  private async assertTaskExists(taskId: string): Promise<void> {
+    const row = await this.db
+      .prepare(`SELECT id FROM tasks WHERE id = ? LIMIT 1`)
+      .bind(taskId)
+      .first<{ id: string }>();
+
+    if (!row?.id) {
+      throw new Error(`Task not found: ${taskId}`);
+    }
   }
 
   async createTask(
@@ -548,6 +587,59 @@ export class D1TaskStore implements TaskStore {
     ]);
 
     await this.releaseCompletedDependency(decision.taskId);
+  }
+
+  async createArtifact(
+    artifact: Omit<TaskArtifact, "createdAt" | "updatedAt">,
+  ): Promise<void> {
+    await this.assertTaskExists(artifact.taskId);
+
+    await this.db
+      .prepare(
+        `INSERT INTO task_artifacts (
+          id,
+          task_id,
+          company_id,
+          artifact_type,
+          created_by_employee_id,
+          summary,
+          content_json
+        ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .bind(
+        artifact.id,
+        artifact.taskId,
+        artifact.companyId,
+        artifact.artifactType,
+        artifact.createdByEmployeeId ?? null,
+        artifact.summary ?? null,
+        toJson(artifact.content),
+      )
+      .run();
+  }
+
+  async listArtifacts(query: TaskArtifactListQuery): Promise<TaskArtifact[]> {
+    const clauses: string[] = [`task_id = ?`];
+    const binds: Array<string | number> = [query.taskId];
+
+    if (query.artifactType) {
+      clauses.push(`artifact_type = ?`);
+      binds.push(query.artifactType);
+    }
+
+    const where = `WHERE ${clauses.join(" AND ")}`;
+    const rows = await this.db
+      .prepare(
+        `SELECT *
+         FROM task_artifacts
+         ${where}
+         ORDER BY created_at DESC
+         LIMIT ?`,
+      )
+      .bind(...binds, query.limit)
+      .all<TaskArtifactRow>();
+
+    return (rows.results ?? []).map(rowToArtifact);
   }
 
   async createMessage(

@@ -49,6 +49,14 @@ export type CreateTaskRequest = {
   dependsOnTaskIds?: string[];
 };
 
+export type CreateTaskArtifactRequest = {
+  companyId?: string;
+  createdByEmployeeId?: string;
+  artifactType: "plan" | "result" | "evidence";
+  summary?: string;
+  content?: Record<string, unknown>;
+};
+
 export type CreateOperatorAgentClientOptions = {
   baseUrl?: string;
 };
@@ -253,6 +261,38 @@ export function createOperatorAgentClient(
     async getTask(taskId: string): Promise<any> {
       return getJson(
         buildUrl(`/agent/tasks/${encodeURIComponent(taskId)}`),
+      );
+    },
+
+    async createTaskArtifact(
+      taskId: string,
+      body: CreateTaskArtifactRequest,
+    ): Promise<any> {
+      return postJson(
+        buildUrl(`/agent/tasks/${encodeURIComponent(taskId)}/artifacts`),
+        body,
+      );
+    },
+
+    async listTaskArtifacts(
+      taskId: string,
+      params?: {
+        artifactType?: string;
+        limit?: number;
+      },
+    ): Promise<any> {
+      const search = new URLSearchParams();
+
+      if (params?.artifactType) {
+        search.set("artifactType", params.artifactType);
+      }
+
+      if (typeof params?.limit === "number") {
+        search.set("limit", String(params.limit));
+      }
+
+      return getJson(
+        buildUrl(`/agent/tasks/${encodeURIComponent(taskId)}/artifacts`, search),
       );
     },
 

@@ -157,6 +157,10 @@ export async function handleGetTask(
   }
 
   const dependencies = await store.listDependencies(taskId);
+  const artifacts = await store.listArtifacts({
+    taskId,
+    limit: 50,
+  });
 
   let decision: DecisionRow | null = null;
   if (task.status === "completed" || task.status === "failed") {
@@ -180,5 +184,5 @@ export async function handleGetTask(
     decision = row ?? null;
   }
 
-  return Response.json({ ok: true, task, dependencies, decision });
+  return Response.json({ ok: true, task, dependencies, artifacts, decision });
 }

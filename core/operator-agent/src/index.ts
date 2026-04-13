@@ -22,6 +22,10 @@ import {
   handleListTasks,
 } from "./routes/tasks";
 import {
+  handleCreateTaskArtifact,
+  handleListTaskArtifacts,
+} from "./routes/task-artifacts";
+import {
   handleCreateMessage,
   handleListMessages,
   handleListMessagesForEmployee,
@@ -101,6 +105,23 @@ async function dispatch(request: Request, env: OperatorAgentEnv): Promise<Respon
   const taskMatch = url.pathname.match(/^\/agent\/tasks\/([^/]+)$/);
   if (taskMatch && request.method === "GET") {
     return handleGetTask(request, env, decodeURIComponent(taskMatch[1]));
+  }
+
+  const taskArtifactsMatch = url.pathname.match(/^\/agent\/tasks\/([^/]+)\/artifacts$/);
+  if (taskArtifactsMatch && request.method === "GET") {
+    return handleListTaskArtifacts(
+      request,
+      env,
+      decodeURIComponent(taskArtifactsMatch[1]),
+    );
+  }
+
+  if (taskArtifactsMatch && request.method === "POST") {
+    return handleCreateTaskArtifact(
+      request,
+      env,
+      decodeURIComponent(taskArtifactsMatch[1]),
+    );
   }
 
   if (url.pathname === "/agent/messages" && request.method === "GET") {

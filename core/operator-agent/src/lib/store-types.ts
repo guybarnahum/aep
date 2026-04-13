@@ -161,6 +161,20 @@ export class TaskDependencyValidationError extends Error {
   }
 }
 
+export type TaskArtifactType = "plan" | "result" | "evidence";
+
+export interface TaskArtifact {
+  id: string;
+  taskId: string;
+  companyId: string;
+  artifactType: TaskArtifactType;
+  createdByEmployeeId?: string;
+  summary?: string;
+  content: Record<string, unknown>;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export interface EmployeeMessage {
   id: string;
   companyId: string;
@@ -203,6 +217,12 @@ export interface MessageListQuery {
   limit: number;
 }
 
+export interface TaskArtifactListQuery {
+  taskId: string;
+  artifactType?: TaskArtifactType;
+  limit: number;
+}
+
 export interface TaskStore {
   createTask(
     task: Omit<
@@ -239,6 +259,12 @@ export interface TaskStore {
 
   updateTaskStatus(taskId: string, status: TaskStatus): Promise<void>;
   recordDecision(decision: Decision): Promise<void>;
+
+  createArtifact(
+    artifact: Omit<TaskArtifact, "createdAt" | "updatedAt">,
+  ): Promise<void>;
+
+  listArtifacts(query: TaskArtifactListQuery): Promise<TaskArtifact[]>;
 
   createMessage(message: Omit<EmployeeMessage, "createdAt" | "updatedAt">): Promise<void>;
   listMessages(query: MessageListQuery): Promise<EmployeeMessage[]>;
