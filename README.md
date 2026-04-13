@@ -72,6 +72,30 @@ The future company layer will add:
 - strategy
 - higher-level organizational behavior
 
+### CI / validation architecture
+
+The CI system is now structured as a layered validation model rather than a flat collection of one-off scripts.
+
+The main reusable workflows are organized by validation layer:
+
+- environment
+- schema
+- contracts
+- policy
+- scenarios
+
+Top-level workflows such as staging, production, preview, and async-validation compose those reusable layers into full deploy-and-validate lanes.
+
+The `scripts/ci` directory has also been refactored to match this structure. Validation scripts now live primarily under:
+
+- `scripts/ci/checks/environment`
+- `scripts/ci/checks/schema`
+- `scripts/ci/checks/contracts`
+- `scripts/ci/checks/policy`
+- `scripts/ci/checks/scenarios`
+
+Shared orchestration helpers live under `scripts/ci/tasks` and common utilities under `scripts/ci/shared`.
+
 ---
 
 ## How the system works
@@ -164,10 +188,25 @@ AEP already has meaningful parts of a digital operations organization.
 - roadmap and scheduler visibility
 
 ### CI / validation
-- health checks
-- deploy validation
-- operator surface checks
-- org shape checks
+- layered reusable workflows under `.github/workflows/_validate_*`
+- validation split into five layers:
+  - environment
+  - schema
+  - contracts
+  - policy
+  - scenarios
+- top-level lanes for:
+  - staging
+  - production
+  - preview
+  - async-validation
+- public URL contract based on:
+  - `CONTROL_PLANE_BASE_URL`
+  - `OPERATOR_AGENT_BASE_URL`
+- reusable workflows resolve URLs through a consistent contract:
+  - explicit workflow input first
+  - environment-bound variable second
+- deploy outputs are retained for diagnostics and compatibility, but validation is organized around the layered workflow model
 
 ---
 

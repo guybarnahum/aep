@@ -3,9 +3,10 @@
 Repository (source of truth):
 👉 https://github.com/guybarnahum/aep
 
-at commit 66f6520a775b254b5aff254857b6df82c40cbb87 we have:
+at commit 6469d24e820c61151c3add6377d3fe9cdbad1c91 we have:
 ```bash
-titan@Titans-MacBook-Pro aep % tree . --gitignore
+titan@Titans-MacBook-Pro aep % tree . --gitignore 
+
 .
 ├── apps
 │   ├── dashboard
@@ -244,51 +245,82 @@ titan@Titans-MacBook-Pro aep % tree . --gitignore
 ├── scripts
 │   ├── backfill
 │   ├── ci
-│   │   ├── agent-timeout-recovery-check.ts
 │   │   ├── apply-d1-migrations.sh
-│   │   ├── approval-state-machine-check.ts
-│   │   ├── async-deploy-check.ts
-│   │   ├── check-health.ts
 │   │   ├── check-operator-agent-coordination-schema.sh
-│   │   ├── check-validation-policy.ts
-│   │   ├── check-validation-verdict.ts
-│   │   ├── company-coordination-schema-check.ts
+│   │   ├── checks
+│   │   │   ├── contracts
+│   │   │   │   ├── employee-scope-check.ts
+│   │   │   │   ├── operator-agent-contract-check.ts
+│   │   │   │   ├── operator-surface-check.ts
+│   │   │   │   ├── provider-provenance-check.ts
+│   │   │   │   ├── runtime-projection-check.ts
+│   │   │   │   ├── runtime-provenance-check.ts
+│   │   │   │   ├── runtime-tenant-catalog-check.ts
+│   │   │   │   ├── service-provider-check.ts
+│   │   │   │   └── validate-runtime-read-safety.ts
+│   │   │   ├── environment
+│   │   │   │   ├── async-deploy-check.ts
+│   │   │   │   ├── check-health.ts
+│   │   │   │   ├── smoke-test.ts
+│   │   │   │   └── wait-for-url.ts
+│   │   │   ├── policy
+│   │   │   │   ├── approval-state-machine-check.ts
+│   │   │   │   ├── check-validation-policy.ts
+│   │   │   │   ├── escalation-audit-check.ts
+│   │   │   │   ├── escalation-lifecycle-check.ts
+│   │   │   │   ├── manager-advisory-check.ts
+│   │   │   │   ├── manager-policy-overlay-check.ts
+│   │   │   │   ├── operator-action-check.ts
+│   │   │   │   ├── operator-agent-behavior-check.ts
+│   │   │   │   └── scheduled-routing-check.ts
+│   │   │   ├── scenarios
+│   │   │   │   ├── agent-timeout-recovery-check.ts
+│   │   │   │   ├── check-validation-verdict.ts
+│   │   │   │   ├── dispatch-validation-runs.ts
+│   │   │   │   ├── execute-validation-dispatch.ts
+│   │   │   │   ├── execute-validation-work-order.ts
+│   │   │   │   ├── multi-worker-department-check.ts
+│   │   │   │   ├── paperclip-company-handoff-check.ts
+│   │   │   │   ├── paperclip-first-execution-check.ts
+│   │   │   │   ├── post-deploy-validation.ts
+│   │   │   │   ├── run-recurring-validation.ts
+│   │   │   │   ├── strategic-dispatch-test.ts
+│   │   │   │   └── synthetic-failure-test.ts
+│   │   │   └── schema
+│   │   │       ├── company-coordination-schema-check.ts
+│   │   │       ├── operator-agent-org-schema-check.ts
+│   │   │       ├── org-inventory-route-check.ts
+│   │   │       └── org-schema-check.ts
+│   │   ├── clients
+│   │   │   └── operator-agent-client.ts
+│   │   ├── contracts
+│   │   │   ├── approvals.ts
+│   │   │   ├── employees.ts
+│   │   │   ├── escalations.ts
+│   │   │   ├── manager.ts
+│   │   │   └── work-log.ts
 │   │   ├── create-preview-wrangler-config.sh
 │   │   ├── destroy-preview-resources.sh
-│   │   ├── dispatch-validation-runs.ts
-│   │   ├── employee-scope-check.ts
 │   │   ├── ensure-d1-database.sh
-│   │   ├── escalation-audit-check.ts
-│   │   ├── escalation-lifecycle-check.ts
-│   │   ├── execute-validation-dispatch.ts
-│   │   ├── execute-validation-work-order.ts
 │   │   ├── free-leaked-resources.sh
 │   │   ├── generate-build-meta.sh
-│   │   ├── manager-advisory-check.ts
-│   │   ├── manager-policy-overlay-check.ts
-│   │   ├── multi-worker-department-check.ts
-│   │   ├── operator-action-check.ts
-│   │   ├── operator-agent-org-schema-check.ts
-│   │   ├── operator-surface-check.ts
-│   │   ├── org-inventory-route-check.ts
-│   │   ├── org-schema-check.ts
-│   │   ├── paperclip-company-handoff-check.ts
-│   │   ├── paperclip-first-execution-check.ts
-│   │   ├── post-deploy-validation.ts
-│   │   ├── provider-provenance-check.ts
 │   │   ├── resolve-environment-urls.sh
-│   │   ├── run-recurring-validation.ts
-│   │   ├── runtime-projection-check.ts
-│   │   ├── runtime-provenance-check.ts
-│   │   ├── runtime-tenant-catalog-check.ts
-│   │   ├── scheduled-routing-check.ts
-│   │   ├── service-provider-check.ts
-│   │   ├── smoke-test.ts
-│   │   ├── stage127-runtime-matrix.mjs
-│   │   ├── strategic-dispatch-test.ts
-│   │   ├── synthetic-failure-test.ts
-│   │   ├── validate-runtime-read-safety.ts
-│   │   └── wait-for-url.ts
+│   │   ├── setup
+│   │   ├── shared
+│   │   │   ├── assert.ts
+│   │   │   ├── env.ts
+│   │   │   ├── http.ts
+│   │   │   ├── operator-agent-check-helpers.ts
+│   │   │   ├── service-map.ts
+│   │   │   └── soft-skip.ts
+│   │   ├── tasks
+│   │   │   ├── poll.ts
+│   │   │   ├── result-lines.ts
+│   │   │   ├── retry.ts
+│   │   │   ├── run-checks.ts
+│   │   │   ├── run-observe.ts
+│   │   │   └── validation-dispatch.ts
+│   │   └── verify-staging-layered.sh
 │   ├── deploy
 │   │   ├── run-node-deploy.ts
 │   │   └── run-node-teardown.ts
