@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 
 /**
- * scripts/ci/check-health.ts
+ * scripts/ci/checks/environment/check-health.ts
  * A script to validate the health of a deployed service by calling its /healthz endpoint and checking the response.
  * 
  * Usage:
- *   npx tsx scripts/ci/check-health.ts \
+ *   npx tsx scripts/ci/checks/environment/check-health.ts \
  *     --url https://staging.example.com/healthz \
  *     --env staging \
  *     --sha 0123456789abcdef \
@@ -83,7 +83,7 @@ function parseArgs(argv: string[]): CliOptions {
       [
         "Missing required argument: --url",
         "Example:",
-        "  npx tsx scripts/ci/check-health.ts --url https://staging.example.com/healthz --env staging --sha 0123456789abcdef --service control-plane",
+        "  npx tsx scripts/ci/checks/environment/check-health.ts --url https://staging.example.com/healthz --env staging --sha 0123456789abcdef --service control-plane",
       ].join("\n"),
     );
   }

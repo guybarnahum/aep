@@ -274,7 +274,7 @@ jobs:
             VERSION_MISMATCH_FLAG="--insecure-allow-version-mismatch true"
           fi
 
-          npx tsx scripts/ci/check-health.ts \
+          npx tsx scripts/ci/checks/environment/check-health.ts \
             --url "$CONTROL_PLANE_BASE_URL/healthz" \
             --env "$HEALTH_RUNTIME_ENV" \
             --sha "$GIT_SHA" \

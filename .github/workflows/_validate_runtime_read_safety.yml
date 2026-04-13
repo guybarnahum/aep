@@ -114,7 +114,7 @@ jobs:
       - name: Control-plane health check
         id: health_check
         run: |
-          npx tsx scripts/ci/check-health.ts \
+          npx tsx scripts/ci/checks/environment/check-health.ts \
             --url "$CONTROL_PLANE_BASE_URL/healthz" \
             --env "$HEALTH_RUNTIME_ENV" \
             --sha "$GIT_SHA" \
