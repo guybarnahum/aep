@@ -62,11 +62,18 @@ async function main(): Promise<void> {
   const hasSystemDecisionMessage = (approvalDetail as any).messages.some(
     (message: any) =>
       message.source === "system"
-      && message.relatedApprovalId === approvalId,
+      && message.relatedApprovalId === approvalId
+      && typeof message.subject === "string"
+      && message.subject.length > 0
+      && typeof message.body === "string"
+      && message.body.length > 0
+      && /approved|rejected/i.test(message.body),
   );
 
   if (!hasSystemDecisionMessage) {
-    throw new Error(`Expected system approval decision message: ${JSON.stringify((approvalDetail as any).messages)}`);
+    throw new Error(
+      `Expected system approval decision message with subject/body/outcome text: ${JSON.stringify((approvalDetail as any).messages)}`,
+    );
   }
 
   console.log("approval-thread-contract-check passed", {

@@ -200,6 +200,21 @@ export function createOperatorAgentClient(
       return postJson(buildUrl("/agent/approvals/reject"), body);
     },
 
+    async acknowledgeEscalation(body: {
+      escalationId: string;
+      actor?: string;
+    }): Promise<any> {
+      return postJson(buildUrl("/agent/escalations/acknowledge"), body);
+    },
+
+    async resolveEscalation(body: {
+      escalationId: string;
+      actor?: string;
+      note?: string;
+    }): Promise<any> {
+      return postJson(buildUrl("/agent/escalations/resolve"), body);
+    },
+
     async listEscalations(params?: {
       limit?: number;
     }): Promise<EscalationsListResponse> {
