@@ -1,4 +1,4 @@
-name: _Deploy Dashboard Pages
+name: _deploy_dashboard_pages
 
 on:
   workflow_call:

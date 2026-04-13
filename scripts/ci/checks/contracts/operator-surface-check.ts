@@ -1,6 +1,6 @@
 /* eslint-disable no-console */
 
-import { runChecks } from "./tasks/run-checks";
+import { runChecks } from "../../tasks/run-checks";
 
 runChecks([
   {
