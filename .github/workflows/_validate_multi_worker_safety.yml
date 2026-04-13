@@ -50,21 +50,13 @@ jobs:
         shell: bash -eo pipefail {0}
     env:
       ENVIRONMENT_NAME: ${{ inputs.environment_name }}
+      CONTROL_PLANE_BASE_URL: ${{ vars.CONTROL_PLANE_BASE_URL }}
+      OPERATOR_AGENT_BASE_URL: ${{ vars.OPERATOR_AGENT_BASE_URL }}
       CONTROL_PLANE_BASE_URL_INPUT: ${{ inputs.control_plane_base_url }}
       OPERATOR_AGENT_BASE_URL_INPUT: ${{ inputs.operator_agent_base_url }}
       CF_ENV: ${{ inputs.cf_env }}
       GIT_SHA: ${{ inputs.git_sha }}
       HEALTH_RUNTIME_ENV: ${{ inputs.health_runtime_env }}
-
-      CONTROL_PLANE_BASE_URL: ${{ vars.CONTROL_PLANE_BASE_URL }}
-      OPERATOR_AGENT_BASE_URL: ${{ vars.OPERATOR_AGENT_BASE_URL }}
-
-      STAGING_BASE_URL: ${{ secrets.STAGING_BASE_URL }}
-      STAGING_OPERATOR_AGENT_BASE_URL: ${{ secrets.STAGING_OPERATOR_AGENT_BASE_URL }}
-      PRODUCTION_BASE_URL: ${{ secrets.PRODUCTION_BASE_URL }}
-      PRODUCTION_OPERATOR_AGENT_BASE_URL: ${{ secrets.PRODUCTION_OPERATOR_AGENT_BASE_URL }}
-      ASYNC_VALIDATION_BASE_URL: ${{ secrets.ASYNC_VALIDATION_BASE_URL }}
-      ASYNC_VALIDATION_OPERATOR_AGENT_BASE_URL: ${{ secrets.ASYNC_VALIDATION_OPERATOR_AGENT_BASE_URL }}
     outputs:
       enabled: ${{ steps.capture.outputs.enabled }}
       outcome: ${{ steps.capture.outputs.outcome }}
