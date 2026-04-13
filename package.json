@@ -29,9 +29,9 @@
     "deploy:node": "tsx scripts/deploy/run-node-deploy.ts",
     "teardown:node": "tsx scripts/deploy/run-node-teardown.ts",
 
-    "wait:url": "tsx scripts/ci/wait-for-url.ts",
-    "check:health": "tsx scripts/ci/check-health.ts",
-    "smoke:test": "tsx scripts/ci/smoke-test.ts",
+    "wait:url": "tsx scripts/ci/checks/environment/wait-for-url.ts",
+    "check:health": "tsx scripts/ci/checks/environment/check-health.ts",
+    "smoke:test": "tsx scripts/ci/checks/environment/smoke-test.ts",
 
     "ci:agent-timeout-recovery-check": "tsx scripts/ci/checks/scenarios/agent-timeout-recovery-check.ts",
     "ci:approval-state-machine-check": "tsx scripts/ci/checks/policy/approval-state-machine-check.ts",

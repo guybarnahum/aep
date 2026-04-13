@@ -260,7 +260,7 @@ jobs:
       - name: Wait for control-plane readiness
         id: wait_control_plane
         run: |
-          npx tsx scripts/ci/wait-for-url.ts \
+          npx tsx scripts/ci/checks/environment/wait-for-url.ts \
             --url "$CONTROL_PLANE_BASE_URL/healthz" \
             --attempts "${{ inputs.readiness_attempts }}" \
             --interval-ms "${{ inputs.readiness_interval_ms }}" \
@@ -303,7 +303,7 @@ jobs:
         id: wait_operator_agent
         if: steps.operator_agent_config.outputs.enabled == 'true'
         run: |
-          npx tsx scripts/ci/wait-for-url.ts \
+          npx tsx scripts/ci/checks/environment/wait-for-url.ts \
             --url "${{ steps.operator_agent_url.outputs.url }}/healthz" \
             --attempts "${{ inputs.readiness_attempts }}" \
             --interval-ms "${{ inputs.readiness_interval_ms }}" \

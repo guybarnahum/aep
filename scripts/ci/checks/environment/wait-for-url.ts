@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * scripts/ci/wait-for-url.ts
+ * scripts/ci/checks/environment/wait-for-url.ts
  * A simple script to poll a public URL until it becomes ready, with configurable expectations and timeouts.
  * 
  * Purpose:
@@ -11,12 +11,12 @@
  *
  * Typical usage:
  *
- *   npx tsx scripts/ci/wait-for-url.ts \
+ *   npx tsx scripts/ci/checks/environment/wait-for-url.ts \
  *     --url https://staging.example.com/healthz
  *
  * With stricter rules:
  *
- *   npx tsx scripts/ci/wait-for-url.ts \
+ *   npx tsx scripts/ci/checks/environment/wait-for-url.ts \
  *     --url https://staging.example.com/healthz \
  *     --expect-status 200 \
  *     --expect-body-substring '"ok":true' \
@@ -26,7 +26,7 @@
  *
  * GET is default. HEAD can be useful if your endpoint supports it:
  *
- *   npx tsx scripts/ci/wait-for-url.ts \
+ *   npx tsx scripts/ci/checks/environment/wait-for-url.ts \
  *     --url https://staging.example.com/healthz \
  *     --method HEAD
  *
@@ -121,7 +121,7 @@ function parseArgs(argv: string[]): CliOptions {
       [
         "Missing required argument: --url",
         "Example:",
-        "  npx tsx scripts/ci/wait-for-url.ts --url https://staging.example.com/healthz",
+        "  npx tsx scripts/ci/checks/environment/wait-for-url.ts --url https://staging.example.com/healthz",
       ].join("\n"),
     );
   }

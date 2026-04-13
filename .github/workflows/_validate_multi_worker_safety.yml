@@ -135,7 +135,7 @@ jobs:
         id: wait_operator_agent
         if: steps.operator_agent_config.outputs.enabled == 'true'
         run: |
-          npx tsx scripts/ci/wait-for-url.ts \
+          npx tsx scripts/ci/checks/environment/wait-for-url.ts \
             --url "$OPERATOR_AGENT_BASE_URL/healthz" \
             --attempts 24 \
             --interval-ms 5000 \
