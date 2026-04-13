@@ -2,7 +2,7 @@
 
 AEP is the **infra department of a zero-employee company**.
 
-It is a system for modeling and operating digital employees: teams, managers, tasks, governance, and eventually cognition. Today, AEP is evolving from an execution-oriented control plane into the kernel of a real agentic organization.
+It is a system for modeling and operating digital employees: teams, managers, tasks, governance, and cognition. AEP is intended to serve as the kernel of a real agentic organization.
 
 ---
 
@@ -21,11 +21,11 @@ AEP models:
 
 ---
 
-## What AEP is becoming
+## What AEP is
 
 AEP is not just a workflow runner or a bot framework.
 
-It is becoming an **operating system for digital employees**, with core primitives such as:
+It is an **operating system for digital employees**, with core primitives such as:
 
 - identity
 - authority
@@ -36,7 +36,7 @@ It is becoming an **operating system for digital employees**, with core primitiv
 - escalation
 - observability
 
-The long-term goal is a company where software systems can:
+The goal is a company where software systems can:
 - deploy, validate, and operate software
 - coordinate work across teams
 - reason about tasks and outcomes
@@ -100,7 +100,7 @@ Shared orchestration helpers live under `scripts/ci/tasks` and common utilities 
 
 ## How the system works
 
-AEP is moving toward a simple organizational model:
+AEP uses a simple organizational model:
 
 ```text
 task → assigned employee → execution → decision → result
@@ -156,57 +156,6 @@ A core rule of AEP is:
 There is no global shared agent mind.
 
 ---
-
-## What exists today
-
-AEP already has meaningful parts of a digital operations organization.
-
-### Organization model
-- company
-- teams
-- employees
-- managers
-- planned and implemented employee types
-
-### Control plane
-- async execution
-- run / job / attempt lifecycle
-- retries and timeouts
-- trace-oriented observability
-
-### Governance
-- approvals
-- escalations
-- manager logs
-- control history
-- budget and authority enforcement
-
-### Dashboard
-- organization and department view
-- employee visibility
-- approvals and escalations
-- roadmap and scheduler visibility
-
-### CI / validation
-- layered reusable workflows under `.github/workflows/_validate_*`
-- validation split into five layers:
-  - environment
-  - schema
-  - contracts
-  - policy
-  - scenarios
-- top-level lanes for:
-  - staging
-  - production
-  - preview
-  - async-validation
-- public URL contract based on:
-  - `CONTROL_PLANE_BASE_URL`
-  - `OPERATOR_AGENT_BASE_URL`
-- reusable workflows resolve URLs through a consistent contract:
-  - explicit workflow input first
-  - environment-bound variable second
-- deploy outputs are retained for diagnostics and compatibility, but validation is organized around the layered workflow model
 
 <!-- BEGIN: docs/ci-mental-model.md -->
 # CI / Validation Mental Model (Canonical)
@@ -429,55 +378,6 @@ It enforces correctness across all of them.
 
 > Build CI as part of the system, not around the system.
 <!-- END: docs/ci-mental-model.md -->
-
----
-
-## Current state
-
-AEP is now a **structured, observable agentic infra department**.
-
-It already models:
-- teams
-- employees
-- supervision
-- governance
-- task-based work coordination
-
-The next major step is to make those employees truly **cognitive and collaborative**.
-
----
-
-## Roadmap
-
-### PR6 — Organization kernel
-PR6 is about making the organization real and operational.
-
-It includes:
-- org surface and seeding
-- employee runtime boundary
-- task coordination
-- task dependencies and orchestration
-- durable task artifacts such as plans and results
-- documentation lock
-
-The goal of PR6 is:
-
-> a clean structural kernel for an operating digital organization
-
-### PR7 — Cognitive organization
-PR7 is the next major phase.
-
-It will introduce:
-- employee reasoning loops
-- internal communication and message threads
-- planning and delegation
-- result publishing
-- natural human collaboration
-- Slack and email adapters
-
-The goal of PR7 is:
-
-> employees that can think, communicate, assign, and collaborate
 
 ---
 
