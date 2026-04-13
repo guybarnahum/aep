@@ -4,7 +4,13 @@ Repository (source of truth):
 👉 https://github.com/guybarnahum/aep
 
 The tree below reflects the repo state as of 6469d24e820c61151c3add6377d3fe9cdbad1c91.
-Architectural guidance below remains the source of truth for current CI structure.
+This document defines the intended and current system model.
+
+However:
+
+👉 The repository code is the source of truth.
+
+This document must be updated to reflect actual repo state.
 
 ```bash
 titan@Titans-MacBook-Pro aep % tree . --gitignore 
@@ -516,7 +522,7 @@ This is the **foundational shift**.
 
 ## PR6C.2 — Task Dependencies & Orchestration
 
-🟡 PARTIALLY IMPLEMENTED (core mechanics exist in repo)
+✅ IMPLEMENTED (core orchestration mechanics complete)
 
 Move from:
 > independent tasks
@@ -525,7 +531,7 @@ to:
 
 ### Current implementation (repo-verified)
 
-The following are already implemented in the codebase:
+The system implements task-level orchestration with dependency awareness:
 
 - Tasks can declare `dependsOnTaskIds`
 - Dependencies are stored in `task_dependencies`
@@ -539,82 +545,99 @@ The following are already implemented in the codebase:
   - `queued`
   - `ready`
 
-👉 This means **basic orchestration is already functional**
+Dependency integrity is enforced at write time:
 
-### Missing pieces
+- self-dependency rejected
+- duplicate dependency IDs rejected
+- missing dependency tasks rejected
+- cross-company dependencies rejected
+- cycles rejected
 
-The following are NOT implemented yet:
+👉 This provides a complete **task-level orchestration substrate**
 
-- Dependency validation:
-  - no cycle detection
-  - no validation that dependency task exists
-  - no enforcement of company/task boundaries
+### Remaining limitations (intentional for PR6)
 
-- Graph-level capabilities:
-  - no DAG introspection
-  - no reverse dependency queries
-  - no orchestration-level visibility APIs
+- No DAG-level introspection APIs
+- No reverse dependency graph queries
+- No global orchestration engine (task graph execution layer)
 
----
-
-## PR6C.x — Task Artifacts (MISSING IN REPO)
-
-The current system does NOT implement a durable task artifact model.
-
-What exists today:
-
-- task payload
-- decisions (with reasoning)
-- messages
-
-What is missing:
-
-- structured, durable outputs tied to tasks
-
-Missing concept:
-
-```
-task_artifacts
-```
-
-Expected types:
-
-- `plan`
-- `result`
-- `evidence`
-
-Why this matters:
-
-- PR7 requires loading structured outputs from previous work
-- decisions are insufficient as a general output model
-- payload is input, not output
-
-👉 This is the largest remaining structural gap before PR7
+👉 These are deferred to PR7+ if needed
 
 ---
 
-### IMPORTANT: Messages are low-level primitives
+## PR6C.x — Task Artifacts
+
+✅ IMPLEMENTED (durable task output layer)
+
+The system includes a durable task artifact layer.
+
+Schema:
+
+`task_artifacts`
+
+Artifact types:
+
+- plan
+- result
+- evidence
+
+Artifacts are:
+
+- tied to a task (`taskId`)
+- attributed to an employee (`createdByEmployeeId`)
+- stored as structured JSON (`content`)
+- optionally summarized (`summary`)
+
+APIs:
+
+- `POST /agent/tasks/:id/artifacts`
+- `GET /agent/tasks/:id/artifacts`
+
+Task detail now includes:
+
+- artifacts alongside task, dependencies, and decision
+
+Store support:
+
+- `TaskStore.createArtifact(...)`
+- `TaskStore.listArtifacts(...)`
+
+👉 This provides the minimal durable output substrate required for PR7
+
+### Artifacts vs Decisions
+
+- Decisions represent:
+  → outcome and reasoning of task completion
+
+- Artifacts represent:
+  → structured outputs produced during or after execution
+
+Artifacts are NOT:
+
+- replacements for decisions
+- internal monologue storage
+- communication threads
+
+They are:
+
+👉 durable, inspectable work products
+
+---
+
+### IMPORTANT: Messages are coordination primitives
 
 The system includes `employee_messages`, which support:
 
 - coordination signals
-- linking to tasks / escalations / approvals
+- linking to tasks, escalations, approvals
 
-However, this is NOT yet:
+However, this is NOT:
 
 - inbox/outbox UX
-- conversation threads
+- threaded conversations
 - human-agent communication system
 
-👉 Full communication is part of PR7, not PR6
-
----
-Core dependency and blocking semantics are already implemented.
-Remaining work is validation and higher-level orchestration capabilities.
-Scheduler only executes tasks in `queued` or `ready` states.
-Tasks in `blocked` state are not scheduled.
-- dependencies implemented
-- dependencies implemented and validated
+👉 Full communication systems are part of PR7
 
 ## Goal
 Move from a modeled organization to an **operating organization**
@@ -696,6 +719,17 @@ This replaces the legacy:
 - `taskId` is now the **primary identifier**
 - `workOrderId` is deprecated and removed from CI paths
 
+Task detail route:
+
+`GET /agent/tasks/:id`
+
+returns:
+
+- task
+- dependencies
+- artifacts
+- decision
+
 ---
 
 ### 3. Task lifecycle (expanded)
@@ -775,14 +809,14 @@ This is the first point where:
 
 ---
 
-# PR6C.2 — NEXT PHASE
+# PR6C.2 — FINAL STATE
 
 ## Theme
 
 > **Task orchestration and dependency awareness**
 
-PR6C.1 introduced tasks.  
-PR6C.2 introduces:
+PR6C.1 introduced tasks.
+PR6C.2 completed:
 
 > **how tasks relate to each other and move through the org**
 
@@ -855,19 +889,17 @@ Expose:
 
 ---
 
-## Expected schema additions (directional)
+## Implemented schema
 
-- `task_dependencies` table OR embedded JSON
-- `blocked_reason` field
-- `resolved_at` timestamps
+- `task_dependencies`
+- `task_artifacts`
 
----
+## Implemented API surface
 
-## Expected API additions
-
-- `GET /agent/tasks/:id/dependencies`
-- `GET /agent/tasks/:id/blockers`
-- `POST /agent/tasks/:id/unblock` (optional/system-driven)
+- `POST /agent/tasks`
+- `GET /agent/tasks/:id`
+- `POST /agent/tasks/:id/artifacts`
+- `GET /agent/tasks/:id/artifacts`
 
 ---
 
@@ -886,6 +918,8 @@ Expose:
 - Blocked tasks do not execute
 - Tasks transition automatically when dependencies complete
 - CI can model a multi-step validation flow using dependencies
+
+This is now complete at the PR6 scope.
 
 ---
 
@@ -926,7 +960,7 @@ Not just triggers.
 
 ## Why this is needed
 
-A key gap in the current PR6 model is that tasks have identity and lifecycle, but do not yet have a clean, durable, reviewable **artifact model**.
+A key gap in the current PR6 model was that tasks had identity and lifecycle, but did not yet have a clean, durable, reviewable **artifact model**.
 
 Without this, PR7 cognition would degenerate into:
 - LLM outputs as transient strings
@@ -935,7 +969,7 @@ Without this, PR7 cognition would degenerate into:
 - weak reviewability
 - weak human observability
 
-So before PR7, PR6 should add one minimal primitive:
+PR6 now includes that minimal primitive:
 
 > **task artifacts**
 
@@ -952,18 +986,19 @@ Every task may produce one or more artifacts:
 - `result`
 - `evidence`
 
-### Directional schema
+### Implemented schema
 
 ```ts
 TaskArtifact = {
-  artifactId: string
+  id: string
   taskId: string
-  type: "plan" | "result" | "evidence"
+  companyId: string
+  artifactType: "plan" | "result" | "evidence"
   createdByEmployeeId?: string
-  summary: string
+  summary?: string
   content: Record<string, unknown>
-  visibility: "internal" | "org" | "public"
   createdAt: string
+  updatedAt: string
 }
 ```
 
@@ -983,17 +1018,55 @@ They make PR7 possible without smearing reasoning into unstructured logs.
 
 ---
 
-## PR6 completion criteria (updated)
+## PR6 exit criteria
 
-PR6 is considered structurally complete when:
+PR6 is complete when:
 
-- employees are bounded and projected cleanly
+- org model exists
+- employees are bounded
 - tasks are first-class
-- task dependencies work
-- scheduler understands blocked vs ready
-- tasks can produce durable artifacts
+- dependency orchestration works
+- dependency validation is enforced
+- scheduler respects blocking semantics
+- tasks produce durable artifacts
+- artifacts are accessible via API and task detail
+- schema and contract checks enforce the model
+- documentation matches repo reality
 
-At that point, the org model is ready for cognition.
+## PR6 Status
+
+PR6 is COMPLETE.
+
+The system now provides:
+
+- organization structure (companies, teams, employees)
+- task-based coordination
+- dependency-aware orchestration
+- validated task graph integrity
+- durable task outputs (artifacts)
+- stable API and CI enforcement
+
+👉 This is a complete **organizational execution substrate**
+
+PR7 begins at:
+
+- cognition (reasoning loops)
+- communication (inbox, threads, human interaction)
+- delegation protocols
+
+## PR7 Boundary (Do Not Cross in PR6)
+
+PR6 intentionally does NOT include:
+
+- inbox/outbox UX
+- threaded conversations
+- agent chat
+- reasoning memory systems
+- search or knowledge layers
+- artifact editing/deleting
+- UI overhaul
+
+These belong to PR7.
 
 ---
 
