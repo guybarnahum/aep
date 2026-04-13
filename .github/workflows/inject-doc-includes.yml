@@ -1,4 +1,4 @@
-name: inject-doc-includes
+name: Inject Doc Includes
 
 on:
   push:
@@ -36,6 +36,24 @@ jobs:
             echo "changed=false" >> "$GITHUB_OUTPUT"
           else
             echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Write workflow summary
+        run: |
+          if [[ "${{ steps.changes.outputs.changed }}" == "true" ]]; then
+            echo "✅ Injected shared markdown includes into LLM.md and README.md" >> $GITHUB_STEP_SUMMARY
+            git diff --stat LLM.md README.md >> $GITHUB_STEP_SUMMARY
+          else
+            echo "ℹ️ No changes were needed in LLM.md or README.md" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Set job status output
+        id: status
+        run: |
+          if [[ "${{ steps.changes.outputs.changed }}" == "true" ]]; then
+            echo "status=updated" >> $GITHUB_OUTPUT
+          else
+            echo "status=unchanged" >> $GITHUB_OUTPUT
           fi
 
       - name: Commit updated docs

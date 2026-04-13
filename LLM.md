@@ -514,6 +514,108 @@ This is the **foundational shift**.
 
 # 🔷 PR6C — Company Coordination (CURRENT PR FAMILY)
 
+## PR6C.2 — Task Dependencies & Orchestration
+
+🟡 PARTIALLY IMPLEMENTED (core mechanics exist in repo)
+
+Move from:
+> independent tasks
+to:
+> coordinated task graphs across teams
+
+### Current implementation (repo-verified)
+
+The following are already implemented in the codebase:
+
+- Tasks can declare `dependsOnTaskIds`
+- Dependencies are stored in `task_dependencies`
+- Tasks with dependencies are initialized as:
+  - `status = "blocked"`
+  - `blockingDependencyCount = N`
+- When a dependency completes:
+  - remaining dependency count is recomputed
+  - if zero → task transitions to `ready`
+- Scheduler only executes tasks in:
+  - `queued`
+  - `ready`
+
+👉 This means **basic orchestration is already functional**
+
+### Missing pieces
+
+The following are NOT implemented yet:
+
+- Dependency validation:
+  - no cycle detection
+  - no validation that dependency task exists
+  - no enforcement of company/task boundaries
+
+- Graph-level capabilities:
+  - no DAG introspection
+  - no reverse dependency queries
+  - no orchestration-level visibility APIs
+
+---
+
+## PR6C.x — Task Artifacts (MISSING IN REPO)
+
+The current system does NOT implement a durable task artifact model.
+
+What exists today:
+
+- task payload
+- decisions (with reasoning)
+- messages
+
+What is missing:
+
+- structured, durable outputs tied to tasks
+
+Missing concept:
+
+```
+task_artifacts
+```
+
+Expected types:
+
+- `plan`
+- `result`
+- `evidence`
+
+Why this matters:
+
+- PR7 requires loading structured outputs from previous work
+- decisions are insufficient as a general output model
+- payload is input, not output
+
+👉 This is the largest remaining structural gap before PR7
+
+---
+
+### IMPORTANT: Messages are low-level primitives
+
+The system includes `employee_messages`, which support:
+
+- coordination signals
+- linking to tasks / escalations / approvals
+
+However, this is NOT yet:
+
+- inbox/outbox UX
+- conversation threads
+- human-agent communication system
+
+👉 Full communication is part of PR7, not PR6
+
+---
+Core dependency and blocking semantics are already implemented.
+Remaining work is validation and higher-level orchestration capabilities.
+Scheduler only executes tasks in `queued` or `ready` states.
+Tasks in `blocked` state are not scheduled.
+- dependencies implemented
+- dependencies implemented and validated
+
 ## Goal
 Move from a modeled organization to an **operating organization**
 
