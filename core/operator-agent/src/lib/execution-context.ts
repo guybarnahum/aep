@@ -21,8 +21,8 @@ export async function parseExecutionContext(
       | null;
 
     const companyId = body?.companyId;
+    const taskId = body?.taskId ?? body?.workOrderId;
     const workOrderId = body?.workOrderId;
-    const taskId = body?.taskId;
     const heartbeatId = body?.heartbeatId;
     const workflowKind = body?.workflowKind;
     const requestedBy = body?.requestedBy;
@@ -53,10 +53,14 @@ export async function parseExecutionContext(
 
   if (sourceHeader === "operator") {
     const actor = request.headers.get("x-actor") ?? undefined;
+    const taskId = request.headers.get("x-aep-task-id") ?? undefined;
+    const workOrderId = request.headers.get("x-aep-work-order-id") ?? undefined;
 
     const ctx: OperatorExecutionContext = {
       executionSource: "operator",
       actor,
+      taskId: isNonEmptyString(taskId) ? taskId : undefined,
+      workOrderId: isNonEmptyString(workOrderId) ? workOrderId : undefined,
       receivedAt: Date.now(),
     };
 
@@ -64,8 +68,13 @@ export async function parseExecutionContext(
   }
 
   if (sourceHeader === "test") {
+    const taskId = request.headers.get("x-aep-task-id") ?? undefined;
+    const workOrderId = request.headers.get("x-aep-work-order-id") ?? undefined;
+
     const ctx: TestExecutionContext = {
       executionSource: "test",
+      taskId: isNonEmptyString(taskId) ? taskId : undefined,
+      workOrderId: isNonEmptyString(workOrderId) ? workOrderId : undefined,
       receivedAt: Date.now(),
     };
 

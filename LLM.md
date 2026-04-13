@@ -3,14 +3,8 @@
 Repository (source of truth):
 👉 https://github.com/guybarnahum/aep
 
-The tree below reflects the repo state as of 6469d24e820c61151c3add6377d3fe9cdbad1c91.
-This document defines the intended and current system model.
-
-However:
-
-👉 The repository code is the source of truth.
-
-This document must be updated to reflect actual repo state.
+The repository code is the source of truth.
+This document is aligned to commit cea73598a22087da16d3314d1f2a747f7f5c1819.
 
 ```bash
 titan@Titans-MacBook-Pro aep % tree . --gitignore 
@@ -524,85 +518,55 @@ This is the **foundational shift**.
 
 ✅ IMPLEMENTED (core orchestration mechanics complete)
 
-Move from:
-> independent tasks
-to:
-> coordinated task graphs across teams
-
 ### Current implementation (repo-verified)
+
+PR6C.2 is complete.
 
 The system implements task-level orchestration with dependency awareness:
 
-- Tasks can declare `dependsOnTaskIds`
+- Tasks support `dependsOnTaskIds`
 - Dependencies are stored in `task_dependencies`
-- Tasks with dependencies are initialized as:
-  - `status = "blocked"`
-  - `blockingDependencyCount = N`
-- When a dependency completes:
-  - remaining dependency count is recomputed
-  - if zero → task transitions to `ready`
-- Scheduler only executes tasks in:
-  - `queued`
-  - `ready`
+- Dependent tasks start as `blocked`
+- `blockingDependencyCount` is tracked
+- Completing a dependency releases blocked dependents to `ready`
+- Scheduler executes only `queued` or `ready`
 
-Dependency integrity is enforced at write time:
+Dependency validation rejects:
 
-- self-dependency rejected
-- duplicate dependency IDs rejected
-- missing dependency tasks rejected
-- cross-company dependencies rejected
-- cycles rejected
+- self-dependency
+- duplicate dependency
+- missing dependency
+- cross-company dependency
+- dependency cycle
 
-👉 This provides a complete **task-level orchestration substrate**
-
-### Remaining limitations (intentional for PR6)
-
-- No DAG-level introspection APIs
-- No reverse dependency graph queries
-- No global orchestration engine (task graph execution layer)
-
-👉 These are deferred to PR7+ if needed
+This is all repo-verified in the task store and task types.
 
 ---
 
 ## PR6C.x — Task Artifacts
 
-✅ IMPLEMENTED (durable task output layer)
+PR6 closeout added `task_artifacts`.
 
-The system includes a durable task artifact layer.
+Artifact types are:
 
-Schema:
-
-`task_artifacts`
-
-Artifact types:
-
-- plan
-- result
-- evidence
-
-Artifacts are:
-
-- tied to a task (`taskId`)
-- attributed to an employee (`createdByEmployeeId`)
-- stored as structured JSON (`content`)
-- optionally summarized (`summary`)
+- `plan`
+- `result`
+- `evidence`
 
 APIs:
 
 - `POST /agent/tasks/:id/artifacts`
 - `GET /agent/tasks/:id/artifacts`
 
-Task detail now includes:
+`GET /agent/tasks/:id` now returns:
 
-- artifacts alongside task, dependencies, and decision
+- `task`
+- `dependencies`
+- `artifacts`
+- `decision`
 
-Store support:
-
-- `TaskStore.createArtifact(...)`
-- `TaskStore.listArtifacts(...)`
-
-👉 This provides the minimal durable output substrate required for PR7
+Schema check requires `task_artifacts`.
+Artifact contract check exists.
 
 ### Artifacts vs Decisions
 
@@ -718,17 +682,6 @@ This replaces the legacy:
 
 - `taskId` is now the **primary identifier**
 - `workOrderId` is deprecated and removed from CI paths
-
-Task detail route:
-
-`GET /agent/tasks/:id`
-
-returns:
-
-- task
-- dependencies
-- artifacts
-- decision
 
 ---
 
@@ -932,9 +885,7 @@ Historically this doc previewed a possible PR6C.3 for:
 
 That remains directionally valid, but the current clarified plan is:
 
-- finish PR6C.2 cleanly
-- add the minimal work artifact primitive required to support real agentic execution
-- then move to **PR7**
+- move to **PR7**
 
 This means PR6 should end in a structurally clean state before cognition is added.
 
@@ -2201,27 +2152,15 @@ Additional important rule:
 
 ---
 
-# 10. Immediate Next Step
-
-👉 Finish **PR6C.2** and add the minimal task artifact primitive required for PR7.
-
-Specifically:
-
-1. add task dependencies
-2. add blocked/ready orchestration semantics
-3. add scheduler awareness for dependencies
-4. add dependency observability
-5. add durable task artifacts (`plan`, `result`, `evidence`)
-6. then begin PR7
-
 ## Updated immediate next step after PR6
 👉 Start **PR7.1 — Cognitive Execution Loop**
 
 Specifically:
-1. load task + artifact context in `/agent/run`
-2. invoke employee-scoped LLM reasoning
-3. emit plan/result artifacts
-4. preserve private vs public cognitive boundary
+1. load task + dependencies + artifacts in `/agent/run`
+2. preserve task as the first-class execution primitive
+3. emit `plan` artifact before execution
+4. emit `result` artifact after execution
+5. keep communication, inbox/outbox, and adapters out of scope for PR7.1
 
 ---
 

@@ -180,8 +180,8 @@ export interface EmployeeRunRequest {
   tenantId?: string;
   serviceId?: string;
   environmentName?: string;
-  workOrderId?: string;
   taskId?: string;
+  workOrderId?: string; // Legacy compatibility alias
   employeeId: string;
   roleId: AgentRoleId;
   trigger: EmployeeTrigger;
@@ -204,6 +204,8 @@ export interface ResolvedEmployeeRunContext {
   executionContext?: ExecutionContext;
 }
 
+// taskId is the canonical coordination identifier. workOrderId remains only for temporary compatibility.
+
 export interface PaperclipRunRequest {
   companyId: string;
   teamId?: TeamId;
@@ -213,8 +215,8 @@ export interface PaperclipRunRequest {
   budgetOverride?: Partial<AgentBudget>;
   authorityOverride?: Partial<AgentAuthority>;
   trigger?: "paperclip";
-  workOrderId?: string;
   taskId: string;
+  workOrderId?: string; // Legacy compatibility alias
   heartbeatId: string;
   workflowKind?: string;
   requestedBy?: string;
@@ -228,8 +230,8 @@ export interface PaperclipRunResponse {
   ok: true;
   status: "completed";
   companyId: string;
-  workOrderId?: string;
   taskId: string;
+  workOrderId?: string; // Legacy compatibility alias
   heartbeatId: string;
   request: EmployeeRunRequest;
   result: AgentExecutionResponse;

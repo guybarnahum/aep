@@ -26,7 +26,9 @@ export function validatePaperclipRunRequest(
   }
 
   if (typed.workOrderId != null && !isNonEmptyString(typed.workOrderId)) {
-    throw new Error("Paperclip request workOrderId must be a non-empty string");
+    throw new Error(
+      "Paperclip request workOrderId, when present for legacy compatibility, must be a non-empty string",
+    );
   }
 
   if (typed.employeeId != null && !isNonEmptyString(typed.employeeId)) {

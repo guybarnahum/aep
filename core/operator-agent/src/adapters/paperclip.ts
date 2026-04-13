@@ -33,8 +33,8 @@ export function adaptPaperclipRequest(
   return {
     companyId: payload.companyId,
     teamId: payload.teamId,
-    workOrderId: payload.workOrderId,
     taskId: payload.taskId,
+    workOrderId: payload.workOrderId, // Legacy compatibility alias.
     employeeId: payload.employeeId,
     roleId: payload.roleId,
     trigger: "paperclip",
@@ -56,8 +56,8 @@ export function adaptPaperclipResponse(args: {
     ok: true,
     status: "completed",
     companyId: args.payload.companyId,
-    workOrderId: args.payload.workOrderId,
     taskId: args.payload.taskId,
+    ...(args.payload.workOrderId ? { workOrderId: args.payload.workOrderId } : {}),
     heartbeatId: args.payload.heartbeatId,
     request: args.request,
     result: args.result,

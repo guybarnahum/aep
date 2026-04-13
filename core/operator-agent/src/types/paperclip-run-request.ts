@@ -1,7 +1,7 @@
 export interface PaperclipRunRequestEnvelope {
   companyId: string;
-  workOrderId?: string;
   taskId: string;
+  workOrderId?: string; // Legacy compatibility alias
   heartbeatId: string;
   workflowKind?: string;
   requestedBy?: string;
