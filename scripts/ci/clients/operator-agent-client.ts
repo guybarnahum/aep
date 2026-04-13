@@ -59,6 +59,34 @@ export type CreateTaskArtifactRequest = {
   content?: Record<string, unknown>;
 };
 
+export type CreateMessageThreadRequest = {
+  companyId?: string;
+  topic: string;
+  createdByEmployeeId?: string;
+  relatedTaskId?: string;
+  relatedArtifactId?: string;
+  visibility?: "internal" | "org";
+};
+
+export type CreateMessageRequest = {
+  companyId?: string;
+  threadId?: string;
+  topic?: string;
+  senderEmployeeId: string;
+  receiverEmployeeId?: string;
+  receiverTeamId?: string;
+  type: "task" | "escalation" | "coordination";
+  source?: "internal" | "dashboard" | "system";
+  subject?: string;
+  body: string;
+  payload?: Record<string, unknown>;
+  requiresResponse?: boolean;
+  relatedTaskId?: string;
+  relatedArtifactId?: string;
+  relatedEscalationId?: string;
+  relatedApprovalId?: string;
+};
+
 export type CreateOperatorAgentClientOptions = {
   baseUrl?: string;
 };
@@ -296,6 +324,72 @@ export function createOperatorAgentClient(
       return getJson(
         buildUrl(`/agent/tasks/${encodeURIComponent(taskId)}/artifacts`, search),
       );
+    },
+
+    async createMessageThread(body: CreateMessageThreadRequest): Promise<any> {
+      return postJson(buildUrl("/agent/message-threads"), body);
+    },
+
+    async listMessageThreads(params?: {
+      companyId?: string;
+      createdByEmployeeId?: string;
+      relatedTaskId?: string;
+      relatedArtifactId?: string;
+      participantEmployeeId?: string;
+      limit?: number;
+    }): Promise<any> {
+      const search = new URLSearchParams();
+
+      if (params?.companyId) search.set("companyId", params.companyId);
+      if (params?.createdByEmployeeId) search.set("createdByEmployeeId", params.createdByEmployeeId);
+      if (params?.relatedTaskId) search.set("relatedTaskId", params.relatedTaskId);
+      if (params?.relatedArtifactId) search.set("relatedArtifactId", params.relatedArtifactId);
+      if (params?.participantEmployeeId) search.set("participantEmployeeId", params.participantEmployeeId);
+      if (typeof params?.limit === "number") search.set("limit", String(params.limit));
+
+      return getJson(buildUrl("/agent/message-threads", search));
+    },
+
+    async getMessageThread(threadId: string): Promise<any> {
+      return getJson(buildUrl(`/agent/message-threads/${encodeURIComponent(threadId)}`));
+    },
+
+    async createMessage(body: CreateMessageRequest): Promise<any> {
+      return postJson(buildUrl("/agent/messages"), body);
+    },
+
+    async listMessages(params?: {
+      threadId?: string;
+      senderEmployeeId?: string;
+      receiverEmployeeId?: string;
+      receiverTeamId?: string;
+      relatedTaskId?: string;
+      relatedArtifactId?: string;
+      limit?: number;
+    }): Promise<any> {
+      const search = new URLSearchParams();
+
+      if (params?.threadId) search.set("threadId", params.threadId);
+      if (params?.senderEmployeeId) search.set("senderEmployeeId", params.senderEmployeeId);
+      if (params?.receiverEmployeeId) search.set("receiverEmployeeId", params.receiverEmployeeId);
+      if (params?.receiverTeamId) search.set("receiverTeamId", params.receiverTeamId);
+      if (params?.relatedTaskId) search.set("relatedTaskId", params.relatedTaskId);
+      if (params?.relatedArtifactId) search.set("relatedArtifactId", params.relatedArtifactId);
+      if (typeof params?.limit === "number") search.set("limit", String(params.limit));
+
+      return getJson(buildUrl("/agent/messages", search));
+    },
+
+    async getInbox(employeeId: string, params?: { limit?: number }): Promise<any> {
+      const search = new URLSearchParams();
+      if (typeof params?.limit === "number") search.set("limit", String(params.limit));
+      return getJson(buildUrl(`/agent/inbox/${encodeURIComponent(employeeId)}`, search));
+    },
+
+    async getOutbox(employeeId: string, params?: { limit?: number }): Promise<any> {
+      const search = new URLSearchParams();
+      if (typeof params?.limit === "number") search.set("limit", String(params.limit));
+      return getJson(buildUrl(`/agent/outbox/${encodeURIComponent(employeeId)}`, search));
     },
 
     async endpointExists(path: string): Promise<boolean> {

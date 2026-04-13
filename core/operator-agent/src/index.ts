@@ -27,8 +27,12 @@ import {
 } from "./routes/task-artifacts";
 import {
   handleCreateMessage,
+  handleCreateMessageThread,
+  handleGetMessageThread,
+  handleListInbox,
+  handleListMessageThreads,
   handleListMessages,
-  handleListMessagesForEmployee,
+  handleListOutbox,
 } from "./routes/messages";
 import { handleSeedApproval } from "./routes/te-seed-approval";
 import { handleSeedWorkLog } from "./routes/te-seed-work-log";
@@ -132,12 +136,38 @@ async function dispatch(request: Request, env: OperatorAgentEnv): Promise<Respon
     return handleCreateMessage(request, env);
   }
 
-  const employeeMessagesMatch = url.pathname.match(/^\/agent\/messages\/([^/]+)$/);
-  if (employeeMessagesMatch && request.method === "GET") {
-    return handleListMessagesForEmployee(
+  if (url.pathname === "/agent/message-threads" && request.method === "GET") {
+    return handleListMessageThreads(request, env);
+  }
+
+  if (url.pathname === "/agent/message-threads" && request.method === "POST") {
+    return handleCreateMessageThread(request, env);
+  }
+
+  const messageThreadMatch = url.pathname.match(/^\/agent\/message-threads\/([^/]+)$/);
+  if (messageThreadMatch && request.method === "GET") {
+    return handleGetMessageThread(
       request,
       env,
-      decodeURIComponent(employeeMessagesMatch[1]),
+      decodeURIComponent(messageThreadMatch[1]),
+    );
+  }
+
+  const inboxMatch = url.pathname.match(/^\/agent\/inbox\/([^/]+)$/);
+  if (inboxMatch && request.method === "GET") {
+    return handleListInbox(
+      request,
+      env,
+      decodeURIComponent(inboxMatch[1]),
+    );
+  }
+
+  const outboxMatch = url.pathname.match(/^\/agent\/outbox\/([^/]+)$/);
+  if (outboxMatch && request.method === "GET") {
+    return handleListOutbox(
+      request,
+      env,
+      decodeURIComponent(outboxMatch[1]),
     );
   }
 

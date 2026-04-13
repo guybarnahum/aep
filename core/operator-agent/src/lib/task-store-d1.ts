@@ -3,7 +3,9 @@ import {
   TaskDependencyValidationError,
   type Decision,
   type EmployeeMessage,
+  type MessageThread,
   type MessageListQuery,
+  type ThreadListQuery,
   type Task,
   type TaskArtifact,
   type TaskArtifactListQuery,
@@ -57,6 +59,18 @@ type TaskArtifactRow = {
   updated_at: string | null;
 };
 
+type MessageThreadRow = {
+  thread_id: string;
+  company_id: string;
+  topic: string;
+  created_by_employee_id: string | null;
+  related_task_id: string | null;
+  related_artifact_id: string | null;
+  visibility: string;
+  created_at: string | null;
+  updated_at: string | null;
+};
+
 type DependencyTaskRow = {
   id: string;
   company_id: string;
@@ -64,14 +78,20 @@ type DependencyTaskRow = {
 
 type EmployeeMessageRow = {
   message_id: string;
+  thread_id: string | null;
   company_id: string;
   sender_employee_id: string;
   receiver_employee_id: string | null;
   receiver_team_id: string | null;
   message_type: string;
   status: string;
+  source: string | null;
+  subject: string | null;
+  body: string | null;
   payload_json: string | null;
+  requires_response: number | null;
   related_task_id: string | null;
+  related_artifact_id: string | null;
   related_escalation_id: string | null;
   related_approval_id: string | null;
   created_at: string | null;
@@ -130,17 +150,37 @@ function rowToArtifact(row: TaskArtifactRow): TaskArtifact {
   };
 }
 
+function rowToMessageThread(row: MessageThreadRow): MessageThread {
+  return {
+    id: row.thread_id,
+    companyId: row.company_id,
+    topic: row.topic,
+    createdByEmployeeId: row.created_by_employee_id ?? undefined,
+    relatedTaskId: row.related_task_id ?? undefined,
+    relatedArtifactId: row.related_artifact_id ?? undefined,
+    visibility: row.visibility as MessageThread["visibility"],
+    createdAt: row.created_at ?? undefined,
+    updatedAt: row.updated_at ?? undefined,
+  };
+}
+
 function rowToMessage(row: EmployeeMessageRow): EmployeeMessage {
   return {
     id: row.message_id,
+    threadId: row.thread_id ?? "",
     companyId: row.company_id,
     senderEmployeeId: row.sender_employee_id,
     receiverEmployeeId: row.receiver_employee_id ?? undefined,
     receiverTeamId: row.receiver_team_id ?? undefined,
     type: row.message_type as EmployeeMessage["type"],
     status: row.status as EmployeeMessage["status"],
+    source: (row.source ?? "internal") as EmployeeMessage["source"],
+    subject: row.subject ?? undefined,
+    body: row.body ?? "",
     payload: fromJson<Record<string, unknown>>(row.payload_json) ?? {},
+    requiresResponse: Number(row.requires_response ?? 0) === 1,
     relatedTaskId: row.related_task_id ?? undefined,
+    relatedArtifactId: row.related_artifact_id ?? undefined,
     relatedEscalationId: row.related_escalation_id ?? undefined,
     relatedApprovalId: row.related_approval_id ?? undefined,
     createdAt: row.created_at ?? undefined,
@@ -642,6 +682,88 @@ export class D1TaskStore implements TaskStore {
     return (rows.results ?? []).map(rowToArtifact);
   }
 
+  async createMessageThread(
+    thread: Omit<MessageThread, "createdAt" | "updatedAt">,
+  ): Promise<void> {
+    await this.db
+      .prepare(
+        `INSERT INTO message_threads (
+          thread_id,
+          company_id,
+          topic,
+          created_by_employee_id,
+          related_task_id,
+          related_artifact_id,
+          visibility
+        ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .bind(
+        thread.id,
+        thread.companyId,
+        thread.topic,
+        thread.createdByEmployeeId ?? null,
+        thread.relatedTaskId ?? null,
+        thread.relatedArtifactId ?? null,
+        thread.visibility,
+      )
+      .run();
+  }
+
+  async listMessageThreads(query: ThreadListQuery): Promise<MessageThread[]> {
+    const clauses: string[] = [];
+    const binds: Array<string | number> = [];
+
+    if (query.companyId) {
+      clauses.push(`company_id = ?`);
+      binds.push(query.companyId);
+    }
+    if (query.createdByEmployeeId) {
+      clauses.push(`created_by_employee_id = ?`);
+      binds.push(query.createdByEmployeeId);
+    }
+    if (query.relatedTaskId) {
+      clauses.push(`related_task_id = ?`);
+      binds.push(query.relatedTaskId);
+    }
+    if (query.relatedArtifactId) {
+      clauses.push(`related_artifact_id = ?`);
+      binds.push(query.relatedArtifactId);
+    }
+    if (query.participantEmployeeId) {
+      clauses.push(
+        `thread_id IN (
+          SELECT DISTINCT thread_id
+          FROM employee_messages
+          WHERE sender_employee_id = ? OR receiver_employee_id = ?
+        )`,
+      );
+      binds.push(query.participantEmployeeId, query.participantEmployeeId);
+    }
+
+    const where = clauses.length > 0 ? `WHERE ${clauses.join(" AND ")}` : "";
+    const rows = await this.db
+      .prepare(
+        `SELECT *
+         FROM message_threads
+         ${where}
+         ORDER BY created_at DESC
+         LIMIT ?`,
+      )
+      .bind(...binds, query.limit)
+      .all<MessageThreadRow>();
+
+    return (rows.results ?? []).map(rowToMessageThread);
+  }
+
+  async getMessageThread(threadId: string): Promise<MessageThread | null> {
+    const row = await this.db
+      .prepare(`SELECT * FROM message_threads WHERE thread_id = ? LIMIT 1`)
+      .bind(threadId)
+      .first<MessageThreadRow>();
+
+    return row ? rowToMessageThread(row) : null;
+  }
+
   async createMessage(
     message: Omit<EmployeeMessage, "createdAt" | "updatedAt">,
   ): Promise<void> {
@@ -649,28 +771,40 @@ export class D1TaskStore implements TaskStore {
       .prepare(
         `INSERT INTO employee_messages (
           message_id,
+          thread_id,
           company_id,
           sender_employee_id,
           receiver_employee_id,
           receiver_team_id,
           message_type,
           status,
+          source,
+          subject,
+          body,
           payload_json,
+          requires_response,
           related_task_id,
+          related_artifact_id,
           related_escalation_id,
           related_approval_id
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .bind(
         message.id,
+        message.threadId,
         message.companyId,
         message.senderEmployeeId,
         message.receiverEmployeeId ?? null,
         message.receiverTeamId ?? null,
         message.type,
         message.status,
+        message.source,
+        message.subject ?? null,
+        message.body,
         toJson(message.payload),
+        message.requiresResponse ? 1 : 0,
         message.relatedTaskId ?? null,
+        message.relatedArtifactId ?? null,
         message.relatedEscalationId ?? null,
         message.relatedApprovalId ?? null,
       )
@@ -681,6 +815,14 @@ export class D1TaskStore implements TaskStore {
     const clauses: string[] = [];
     const binds: Array<string | number> = [];
 
+    if (query.threadId) {
+      clauses.push(`thread_id = ?`);
+      binds.push(query.threadId);
+    }
+    if (query.senderEmployeeId) {
+      clauses.push(`sender_employee_id = ?`);
+      binds.push(query.senderEmployeeId);
+    }
     if (query.receiverEmployeeId) {
       clauses.push(`receiver_employee_id = ?`);
       binds.push(query.receiverEmployeeId);
@@ -693,6 +835,10 @@ export class D1TaskStore implements TaskStore {
       clauses.push(`related_task_id = ?`);
       binds.push(query.relatedTaskId);
     }
+    if (query.relatedArtifactId) {
+      clauses.push(`related_artifact_id = ?`);
+      binds.push(query.relatedArtifactId);
+    }
 
     const where = clauses.length > 0 ? `WHERE ${clauses.join(" AND ")}` : "";
     const rows = await this.db
@@ -700,7 +846,7 @@ export class D1TaskStore implements TaskStore {
         `SELECT *
          FROM employee_messages
          ${where}
-         ORDER BY created_at DESC
+         ORDER BY created_at ASC
          LIMIT ?`,
       )
       .bind(...binds, query.limit)

@@ -15,6 +15,7 @@ export async function checkCoordinationSchema(db: D1Database): Promise<void> {
     "task_dependencies",
     "employee_messages",
     "task_artifacts",
+    "message_threads",
   ];
 
   for (const table of requiredTables) {
@@ -78,9 +79,75 @@ export async function checkCoordinationSchema(db: D1Database): Promise<void> {
     );
   }
 
+  const threadPragma = await db
+    .prepare(`PRAGMA table_info(message_threads)`)
+    .all<PragmaColumnRow>();
+
+  const threadColumnNames = new Set(
+    (threadPragma.results ?? []).map((row: PragmaColumnRow) => row.name),
+  );
+
+  const requiredThreadColumns = [
+    "thread_id",
+    "company_id",
+    "topic",
+    "created_by_employee_id",
+    "related_task_id",
+    "related_artifact_id",
+    "visibility",
+    "created_at",
+    "updated_at",
+  ];
+
+  for (const column of requiredThreadColumns) {
+    assert.ok(
+      threadColumnNames.has(column),
+      `Missing column in message_threads: ${column}`,
+    );
+  }
+
+  const messagePragma = await db
+    .prepare(`PRAGMA table_info(employee_messages)`)
+    .all<PragmaColumnRow>();
+
+  const messageColumnNames = new Set(
+    (messagePragma.results ?? []).map((row: PragmaColumnRow) => row.name),
+  );
+
+  const requiredMessageColumns = [
+    "message_id",
+    "thread_id",
+    "company_id",
+    "sender_employee_id",
+    "receiver_employee_id",
+    "receiver_team_id",
+    "message_type",
+    "status",
+    "source",
+    "subject",
+    "body",
+    "payload_json",
+    "requires_response",
+    "related_task_id",
+    "related_artifact_id",
+    "related_escalation_id",
+    "related_approval_id",
+    "created_at",
+    "updated_at",
+  ];
+
+  for (const column of requiredMessageColumns) {
+    assert.ok(
+      messageColumnNames.has(column),
+      `Missing column in employee_messages: ${column}`,
+    );
+  }
+
   console.log("company-coordination-schema-check passed", {
     requiredTables,
     requiredTaskColumns,
     requiredArtifactColumns,
+    requiredThreadColumns,
+    requiredMessageColumns,
   });
 }

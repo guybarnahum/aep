@@ -111,6 +111,10 @@ export type MessageType = "task" | "escalation" | "coordination";
 
 export type MessageStatus = "pending" | "delivered" | "acknowledged";
 
+export type MessageSource = "internal" | "dashboard" | "system";
+
+export type MessageThreadVisibility = "internal" | "org";
+
 export interface Task {
   id: string;
   companyId: string;
@@ -175,16 +179,34 @@ export interface TaskArtifact {
   updatedAt?: string;
 }
 
+export interface MessageThread {
+  id: string;
+  companyId: string;
+  topic: string;
+  createdByEmployeeId?: string;
+  relatedTaskId?: string;
+  relatedArtifactId?: string;
+  visibility: MessageThreadVisibility;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export interface EmployeeMessage {
   id: string;
+  threadId: string;
   companyId: string;
   senderEmployeeId: string;
   receiverEmployeeId?: string;
   receiverTeamId?: string;
   type: MessageType;
   status: MessageStatus;
+  source: MessageSource;
+  subject?: string;
+  body: string;
   payload: Record<string, unknown>;
+  requiresResponse: boolean;
   relatedTaskId?: string;
+  relatedArtifactId?: string;
   relatedEscalationId?: string;
   relatedApprovalId?: string;
   createdAt?: string;
@@ -211,10 +233,27 @@ export interface TaskListQuery {
 }
 
 export interface MessageListQuery {
+  threadId?: string;
+  senderEmployeeId?: string;
   receiverEmployeeId?: string;
   receiverTeamId?: string;
   relatedTaskId?: string;
+  relatedArtifactId?: string;
   limit: number;
+}
+
+export interface ThreadListQuery {
+  companyId?: string;
+  createdByEmployeeId?: string;
+  relatedTaskId?: string;
+  relatedArtifactId?: string;
+  participantEmployeeId?: string;
+  limit: number;
+}
+
+export interface MessageThreadDetail {
+  thread: MessageThread;
+  messages: EmployeeMessage[];
 }
 
 export interface TaskArtifactListQuery {
@@ -265,6 +304,14 @@ export interface TaskStore {
   ): Promise<void>;
 
   listArtifacts(query: TaskArtifactListQuery): Promise<TaskArtifact[]>;
+
+  createMessageThread(
+    thread: Omit<MessageThread, "createdAt" | "updatedAt">,
+  ): Promise<void>;
+
+  listMessageThreads(query: ThreadListQuery): Promise<MessageThread[]>;
+
+  getMessageThread(threadId: string): Promise<MessageThread | null>;
 
   createMessage(message: Omit<EmployeeMessage, "createdAt" | "updatedAt">): Promise<void>;
   listMessages(query: MessageListQuery): Promise<EmployeeMessage[]>;

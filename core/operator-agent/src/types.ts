@@ -47,6 +47,10 @@ export type EmployeeMessageType = "task" | "escalation" | "coordination";
 
 export type EmployeeMessageStatus = "pending" | "delivered" | "acknowledged";
 
+export type EmployeeMessageSource = "internal" | "dashboard" | "system";
+
+export type MessageThreadVisibility = "internal" | "org";
+
 export interface CoordinationTaskRecord {
   id: string;
   companyId: CompanyId;
@@ -86,20 +90,43 @@ export interface CoordinationTaskArtifactRecord {
   updatedAt?: string;
 }
 
+export interface MessageThreadRecord {
+  id: string;
+  companyId: CompanyId;
+  topic: string;
+  createdByEmployeeId?: string;
+  relatedTaskId?: string;
+  relatedArtifactId?: string;
+  visibility: MessageThreadVisibility;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export interface EmployeeMessageRecord {
   id: string;
+  threadId: string;
   companyId: CompanyId;
   senderEmployeeId: string;
   receiverEmployeeId?: string;
   receiverTeamId?: TeamId;
   type: EmployeeMessageType;
   status: EmployeeMessageStatus;
+  source: EmployeeMessageSource;
+  subject?: string;
+  body: string;
   payload: Record<string, unknown>;
+  requiresResponse: boolean;
   relatedTaskId?: string;
+  relatedArtifactId?: string;
   relatedEscalationId?: string;
   relatedApprovalId?: string;
   createdAt?: string;
   updatedAt?: string;
+}
+
+export interface MessageThreadDetailRecord {
+  thread: MessageThreadRecord;
+  messages: EmployeeMessageRecord[];
 }
 
 export type EmployeeTrigger = "manual" | "cron" | "paperclip";
