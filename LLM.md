@@ -3,7 +3,9 @@
 Repository (source of truth):
 👉 https://github.com/guybarnahum/aep
 
-at commit 6469d24e820c61151c3add6377d3fe9cdbad1c91 we have:
+The tree below reflects the repo state as of 6469d24e820c61151c3add6377d3fe9cdbad1c91.
+Architectural guidance below remains the source of truth for current CI structure.
+
 ```bash
 titan@Titans-MacBook-Pro aep % tree . --gitignore 
 
@@ -366,6 +368,18 @@ titan@Titans-MacBook-Pro aep % tree . --gitignore
 └── tsconfig.base.json
 ```
 
+
+⚠️ CI note:
+
+The tree below is a repository inventory, not the architectural source of truth.
+
+For CI and validation behavior, the canonical model is:
+
+- layered reusable workflows
+- five validation layers: environment, schema, contracts, policy, scenarios
+- layered script layout under `scripts/ci/checks/...`
+- URL contract based on `CONTROL_PLANE_BASE_URL` and `OPERATOR_AGENT_BASE_URL`
+
 ---
 
 # What AEP Is
@@ -626,6 +640,18 @@ CI is now:
 
 > an organizational workflow, not a direct system call
 
+⚠️ Important:
+
+If a reference uses:
+
+`scripts/ci/<file>.ts`
+
+for a validation check, it is likely outdated.
+
+Validation scripts should be referenced from:
+
+`scripts/ci/checks/<layer>/...`
+
 ---
 
 ## What this means (important)
@@ -875,6 +901,16 @@ After PR6C:
 - freeze architecture
 - finalize README + LLM.md
 - ensure no future re-interpretation needed
+
+## Additional PR6D requirement
+
+The CI / validation system is now part of the locked structural architecture.
+
+That includes:
+- reusable workflow layering
+- layered script structure under `scripts/ci/checks/...`
+- URL contract using `CONTROL_PLANE_BASE_URL` and `OPERATOR_AGENT_BASE_URL`
+- removal of the legacy flat validation script model
 
 ## Updated interpretation
 
@@ -1403,6 +1439,7 @@ PR7 will be the layer that makes those employees:
 - org schema validation
 - operator surface checks
 - multi-team validation
+- validation scripts are organized canonically under `scripts/ci/checks/{environment,schema,contracts,policy,scenarios}`
 
 ---
 
@@ -1759,6 +1796,11 @@ Additional important rule:
 - do not let reasoning outputs live only in transient logs
 - do not blur task assignment with free-form chat
 - do not expose raw cognition when summarized rationale is sufficient
+
+## CI constraints
+
+- do not reintroduce flat CI validation entrypoints under `scripts/ci/*.ts`
+- all new validation references must point directly to `scripts/ci/checks/<layer>/...`
 
 ---
 
