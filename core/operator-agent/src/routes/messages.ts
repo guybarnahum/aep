@@ -14,6 +14,9 @@ type CreateMessageRequest = {
   body?: string;
   payload?: Record<string, unknown>;
   requiresResponse?: boolean;
+  responseActionType?: string;
+  responseActionStatus?: "requested" | "applied" | "rejected";
+  causedStateTransition?: boolean;
   relatedTaskId?: string;
   relatedArtifactId?: string;
   relatedEscalationId?: string;
@@ -100,6 +103,9 @@ export async function handleCreateMessage(
     body: body.body,
     payload: body.payload ?? {},
     requiresResponse: body.requiresResponse === true,
+    responseActionType: body.responseActionType,
+    responseActionStatus: body.responseActionStatus,
+    causedStateTransition: body.causedStateTransition === true,
     relatedTaskId: body.relatedTaskId,
     relatedArtifactId: body.relatedArtifactId,
     relatedEscalationId: body.relatedEscalationId,

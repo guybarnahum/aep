@@ -207,6 +207,9 @@ export interface EmployeeMessage {
   body: string;
   payload: Record<string, unknown>;
   requiresResponse: boolean;
+  responseActionType?: string;
+  responseActionStatus?: "requested" | "applied" | "rejected";
+  causedStateTransition?: boolean;
   relatedTaskId?: string;
   relatedArtifactId?: string;
   relatedEscalationId?: string;

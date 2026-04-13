@@ -35,6 +35,14 @@ import {
   handleListMessages,
   handleListOutbox,
 } from "./routes/messages";
+import {
+  handleApproveFromThread,
+  handleRejectFromThread,
+} from "./routes/thread-approval-actions";
+import {
+  handleAcknowledgeFromThread,
+  handleResolveFromThread,
+} from "./routes/thread-escalation-actions";
 import { handleSeedApproval } from "./routes/te-seed-approval";
 import { handleSeedWorkLog } from "./routes/te-seed-work-log";
 import { handleWorkLog } from "./routes/work-log";
@@ -151,6 +159,42 @@ async function dispatch(request: Request, env: OperatorAgentEnv): Promise<Respon
       request,
       env,
       decodeURIComponent(messageThreadMatch[1]),
+    );
+  }
+
+  const approveFromThreadMatch = url.pathname.match(/^\/agent\/message-threads\/([^/]+)\/approve$/);
+  if (approveFromThreadMatch && request.method === "POST") {
+    return handleApproveFromThread(
+      request,
+      env,
+      decodeURIComponent(approveFromThreadMatch[1]),
+    );
+  }
+
+  const rejectFromThreadMatch = url.pathname.match(/^\/agent\/message-threads\/([^/]+)\/reject$/);
+  if (rejectFromThreadMatch && request.method === "POST") {
+    return handleRejectFromThread(
+      request,
+      env,
+      decodeURIComponent(rejectFromThreadMatch[1]),
+    );
+  }
+
+  const acknowledgeFromThreadMatch = url.pathname.match(/^\/agent\/message-threads\/([^/]+)\/acknowledge-escalation$/);
+  if (acknowledgeFromThreadMatch && request.method === "POST") {
+    return handleAcknowledgeFromThread(
+      request,
+      env,
+      decodeURIComponent(acknowledgeFromThreadMatch[1]),
+    );
+  }
+
+  const resolveFromThreadMatch = url.pathname.match(/^\/agent\/message-threads\/([^/]+)\/resolve-escalation$/);
+  if (resolveFromThreadMatch && request.method === "POST") {
+    return handleResolveFromThread(
+      request,
+      env,
+      decodeURIComponent(resolveFromThreadMatch[1]),
     );
   }
 

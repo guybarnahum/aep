@@ -81,6 +81,9 @@ export type CreateMessageRequest = {
   body: string;
   payload?: Record<string, unknown>;
   requiresResponse?: boolean;
+  responseActionType?: string;
+  responseActionStatus?: "requested" | "applied" | "rejected";
+  causedStateTransition?: boolean;
   relatedTaskId?: string;
   relatedArtifactId?: string;
   relatedEscalationId?: string;
@@ -200,11 +203,45 @@ export function createOperatorAgentClient(
       return postJson(buildUrl("/agent/approvals/reject"), body);
     },
 
+    async approveFromThread(threadId: string, body?: {
+      actor?: string;
+      note?: string;
+    }): Promise<any> {
+      return postJson(
+        buildUrl(`/agent/message-threads/${encodeURIComponent(threadId)}/approve`),
+        body ?? {},
+      );
+    },
+
+    async rejectFromThread(threadId: string, body?: {
+      actor?: string;
+      note?: string;
+    }): Promise<any> {
+      return postJson(
+        buildUrl(`/agent/message-threads/${encodeURIComponent(threadId)}/reject`),
+        body ?? {},
+      );
+    },
+
     async acknowledgeEscalation(body: {
       escalationId: string;
       actor?: string;
     }): Promise<any> {
-      return postJson(buildUrl("/agent/escalations/acknowledge"), body);
+      const search = new URLSearchParams({
+        id: body.escalationId,
+      });
+
+      return postJson(
+        buildUrl("/agent/escalations/acknowledge", search),
+        {},
+        {
+          headers: body.actor
+            ? {
+                "x-actor": body.actor,
+              }
+            : undefined,
+        },
+      );
     },
 
     async resolveEscalation(body: {
@@ -212,7 +249,39 @@ export function createOperatorAgentClient(
       actor?: string;
       note?: string;
     }): Promise<any> {
-      return postJson(buildUrl("/agent/escalations/resolve"), body);
+      return postJson(
+        buildUrl("/agent/escalations/resolve"),
+        {
+          id: body.escalationId,
+          note: body.note,
+        },
+        {
+          headers: body.actor
+            ? {
+                "x-actor": body.actor,
+              }
+            : undefined,
+        },
+      );
+    },
+
+    async acknowledgeEscalationFromThread(threadId: string, body?: {
+      actor?: string;
+    }): Promise<any> {
+      return postJson(
+        buildUrl(`/agent/message-threads/${encodeURIComponent(threadId)}/acknowledge-escalation`),
+        body ?? {},
+      );
+    },
+
+    async resolveEscalationFromThread(threadId: string, body?: {
+      actor?: string;
+      note?: string;
+    }): Promise<any> {
+      return postJson(
+        buildUrl(`/agent/message-threads/${encodeURIComponent(threadId)}/resolve-escalation`),
+        body ?? {},
+      );
     },
 
     async listEscalations(params?: {

@@ -92,6 +92,9 @@ type EmployeeMessageRow = {
   body: string | null;
   payload_json: string | null;
   requires_response: number | null;
+  response_action_type: string | null;
+  response_action_status: string | null;
+  caused_state_transition: number | null;
   related_task_id: string | null;
   related_artifact_id: string | null;
   related_escalation_id: string | null;
@@ -183,6 +186,10 @@ function rowToMessage(row: EmployeeMessageRow): EmployeeMessage {
     body: row.body ?? "",
     payload: fromJson<Record<string, unknown>>(row.payload_json) ?? {},
     requiresResponse: Number(row.requires_response ?? 0) === 1,
+    responseActionType: row.response_action_type ?? undefined,
+    responseActionStatus:
+      (row.response_action_status as EmployeeMessage["responseActionStatus"]) ?? undefined,
+    causedStateTransition: Number(row.caused_state_transition ?? 0) === 1,
     relatedTaskId: row.related_task_id ?? undefined,
     relatedArtifactId: row.related_artifact_id ?? undefined,
     relatedEscalationId: row.related_escalation_id ?? undefined,
@@ -829,11 +836,14 @@ export class D1TaskStore implements TaskStore {
           body,
           payload_json,
           requires_response,
+          response_action_type,
+          response_action_status,
+          caused_state_transition,
           related_task_id,
           related_artifact_id,
           related_escalation_id,
           related_approval_id
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .bind(
         message.id,
@@ -849,6 +859,9 @@ export class D1TaskStore implements TaskStore {
         message.body,
         toJson(message.payload),
         message.requiresResponse ? 1 : 0,
+        message.responseActionType ?? null,
+        message.responseActionStatus ?? null,
+        message.causedStateTransition ? 1 : 0,
         message.relatedTaskId ?? null,
         message.relatedArtifactId ?? null,
         message.relatedEscalationId ?? null,
