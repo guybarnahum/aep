@@ -9,6 +9,12 @@ const POLICY_VERSION = "commit10-stageD";
 const TEAM_ID = "team_infra";
 const EXECUTION_COMPANY_ID = "company_internal_aep";
 
+type CreateTaskResponse = {
+  ok?: boolean;
+  taskId?: string;
+  error?: string;
+};
+
 type ApprovalEntry = {
   approvalId: string;
   requestedByEmployeeId: string;
@@ -86,6 +92,27 @@ function requireEnv(name: string): string {
   return value;
 }
 
+async function createTask(
+  agentBaseUrl: string,
+  body: Record<string, unknown>,
+): Promise<string> {
+  const response = await fetch(`${agentBaseUrl}/agent/tasks`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+
+  const parsed = await readJson<CreateTaskResponse>(response);
+
+  if (!parsed.ok || !parsed.taskId) {
+    throw new Error(`Task creation failed: ${JSON.stringify(parsed)}`);
+  }
+
+  return parsed.taskId;
+}
+
 async function readJson<T>(response: Response): Promise<T> {
   if (!response.ok) {
     const body = await response.text();
@@ -98,6 +125,19 @@ async function main(): Promise<void> {
   const agentBaseUrl = resolveServiceBaseUrl({
     envVar: "OPERATOR_AGENT_BASE_URL",
     serviceName: "operator-agent",
+  });
+
+  const taskId = await createTask(agentBaseUrl, {
+    companyId: EXECUTION_COMPANY_ID,
+    originatingTeamId: TEAM_ID,
+    assignedTeamId: TEAM_ID,
+    createdByEmployeeId: "emp_infra_ops_manager_01",
+    assignedEmployeeId: "emp_infra_ops_manager_01",
+    taskType: "paperclip-company-handoff-check",
+    title: "paperclip company handoff check",
+    payload: {
+      scenario: "paperclip-company-handoff-check",
+    },
   });
 
   const response = await fetch(`${agentBaseUrl}/agent/run`, {
@@ -118,7 +158,7 @@ async function main(): Promise<void> {
       ],
       companyId: EXECUTION_COMPANY_ID,
       heartbeatId: "hb-" + Date.now(),
-      taskId: "task-" + Date.now(),
+      taskId,
     }),
   });
 
@@ -261,7 +301,7 @@ async function main(): Promise<void> {
     routing: result.routing,
     hasExecutionContext: Boolean(result.executionContext),
     companyId: result.companyId,
-    taskId: result.taskId,
+    taskId: result.taskId ?? taskId,
     heartbeatId: result.heartbeatId,
     approvalsWithCompanyProvenance,
     totalApprovalsInSystem: approvalEntries.length,
