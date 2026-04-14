@@ -4,7 +4,7 @@ Repository (source of truth):
 👉 https://github.com/guybarnahum/aep
 
 The repository code is the source of truth.
-This document is aligned to commit cea73598a22087da16d3314d1f2a747f7f5c1819.
+This document is aligned to commit afc18dd73c02c0fb5f563cb268a758d5ad275d60.
 
 ```bash
 titan@Titans-MacBook-Pro aep % tree . --gitignore 
@@ -1053,7 +1053,7 @@ PR6D should explicitly **not** attempt to absorb PR7 cognition work.
 
 ---
 
-# 🔷 PR7 — Cognitive Execution + Communication Layer (NEW)
+# 🔷 PR7 — Cognitive Execution + Communication Layer (ACTIVE PR FAMILY)
 
 ## Why PR7, not PR6E
 
@@ -1096,21 +1096,20 @@ into:
 
 ### 1. Employee reasoning loop
 
-Each `/agent/run` should evolve toward:
+Each `/agent/run` has now begun evolving toward:
 
 1. load identity and runtime boundary
 2. load assigned tasks
-3. load inbox / communication context
-4. load recent artifacts, plans, and results
-5. load relevant org and governance context
-6. invoke LLM
-7. emit:
-   - private reasoning
-   - plan
-   - messages
-   - decisions
-   - task updates
-   - result artifacts
+3. load dependencies + artifacts
+4. emit durable `plan` / `result` artifacts
+5. (next) load inbox / communication context
+6. (next) invoke LLM
+7. (next) emit:
+  - private reasoning
+  - messages
+  - decisions
+  - task updates
+  - result artifacts
 8. commit outputs
 9. optionally notify humans through adapters
 10. wait for next trigger
@@ -1119,18 +1118,21 @@ Each `/agent/run` should evolve toward:
 
 ### 2. Internal canonical communication layer
 
-AEP should first implement its own internal message model.
+AEP now has the first real internal communication substrate.
 
-That means:
+Implemented so far:
 - internal inbox
 - internal outbox
-- threads
+- message threads
 - task-linked communication
 - durable message history
+- approval-linked threads
+- escalation-linked threads
+- thread-based human action messages
 
-This should exist **before** or **independent of** Slack/email mirroring.
+This exists **before** Slack/email mirroring and remains canonical.
 
-AEP must remain the source of truth for:
+AEP remains the source of truth for:
 - work
 - communication state
 - plans
@@ -1150,6 +1152,12 @@ Employees, especially managers, should be able to:
 
 This turns teams into actual operating units.
 
+Current status:
+- thread-based human actions are implemented
+- deterministic approval-thread flows are implemented
+- conflict-visible thread history is implemented
+- **thread → follow-up task delegation is the next missing capability**
+
 ---
 
 ### 4. Result publishing
@@ -1161,7 +1169,12 @@ Every meaningful task should produce durable result output:
 - reviewer context
 - completion status
 
-This makes agentic work legible to humans and other employees.
+This now exists in minimal form through task artifacts:
+- `plan`
+- `result`
+- `evidence`
+
+and is already integrated into `/agent/run`.
 
 ---
 
@@ -1180,13 +1193,21 @@ Humans should be able to:
 - intervene
 - subscribe to conversations
 
+Implemented so far:
+- inspect task detail
+- inspect artifacts
+- inspect approval/escalation threads
+- approve/reject from thread
+- acknowledge/resolve escalation from thread
+- inspect durable message history for both applied and conflict paths
+
 But humans should not need raw private chain-of-thought to understand the company.
 
 ---
 
 ### 6. Slack and email adapters
 
-Slack and email may be used, but as **adapters**, not the canonical substrate.
+Slack and email remain **future adapters**, not the canonical substrate.
 
 That means:
 - messages/tasks/results originate in AEP
@@ -1387,29 +1408,58 @@ Neither should become the source of truth.
 
 ## PR7 phased execution plan
 
-### PR7.1 — cognitive execution loop
-- add reasoning-capable `/agent/run`
-- load task context
-- write plan/result artifacts
-- no heavy adapter work yet
+### ✅ PR7.1 — cognitive execution loop
+- `/agent/run` loads task context
+- `/agent/run` writes `plan` / `result` artifacts
+- task-backed execution is canonical
+- public/private decision boundary is preserved
 
-### PR7.2 — internal communication
-- add message threads
-- add inbox/outbox model
-- add dashboard visibility
+### ✅ PR7.2 — internal communication
+- message threads
+- inbox / outbox
+- thread detail
+- task/artifact-linked message model
 
-### PR7.3 — delegation and planning
-- manager planning
-- child task creation
-- structured assignment flow
-- result review
+### ✅ PR7.3 — human interaction threads
+- approval-linked threads
+- escalation-linked threads
+- system lifecycle messages
+- thread-enriched approval / escalation detail
 
-### PR7.4 — human collaboration + adapters
-- comments
-- subscriptions
-- Slack mirroring
-- email summaries
-- approval bridges
+### ✅ PR7.4 — contract hardening
+- approval thread contract
+- escalation thread contract
+- linkage invariants
+
+### ✅ PR7.5 — thread-based human actions
+- approve / reject from thread
+- acknowledge / resolve escalation from thread
+- structured action metadata on messages
+
+### ✅ PR7.6 — deterministic interaction hardening
+- deterministic approval-thread seeding
+- durable dashboard action messages for success + conflict
+- approval thread action contracts now prove real first transition
+
+### 🔜 PR7.7 — thread → task delegation
+- create follow-up tasks from approval/escalation thread outcomes
+- link tasks to source thread + action message
+- preserve provenance across delegation
+
+### 🔜 PR7.8 — LLM-powered agents
+- introduce real LLM invocation in employee execution
+- task-aware prompts
+- artifact-producing reasoning
+
+### 🔜 PR7.9 — agents as persons
+- stronger persona continuity
+- identity / behavior consistency
+- employee-specific voice and working style
+
+### 🔜 PR7.10 — external communication adapters
+- email bridge
+- Slack bridge
+- AEP remains source of truth; adapters mirror structured threads/messages
 
 This is directional and may be compressed or regrouped, but the conceptual order is important.
 
@@ -1418,11 +1468,15 @@ This is directional and may be compressed or regrouped, but the conceptual order
 # 🔮 Next Phase (Post PR6)
 
 ## Cognitive Execution Layer
-Each employee will:
+Each employee will increasingly:
 1. observe
 2. reason (LLM)
-3. emit: decisions, reasoning, messages
+3. emit: decisions, reasoning, messages, plans, results
 4. act via control-plane APIs
+
+Current state:
+- tasks, artifacts, threads, approvals, escalations, and thread actions are in place
+- LLM-powered reasoning is the next major capability, not yet fully implemented
 
 ## Future Additions
 - internal monologue (private)
@@ -1432,7 +1486,11 @@ Each employee will:
 - learning loops
 
 ## Updated clarification
-These items remain valid, but they now map more concretely to **PR7**, not to a vague post-PR6 future.
+These items remain valid, but now map concretely to:
+- PR7.7: delegation
+- PR7.8: LLM-powered reasoning
+- PR7.9: agents as persons
+- PR7.10: Slack/email adapters
 
 ---
 
@@ -2152,15 +2210,18 @@ Additional important rule:
 
 ---
 
-## Updated immediate next step after PR6
-👉 Start **PR7.1 — Cognitive Execution Loop**
+## Updated immediate next step
+👉 Start **PR7.7 — Thread → Task Delegation**
 
 Specifically:
-1. load task + dependencies + artifacts in `/agent/run`
-2. preserve task as the first-class execution primitive
-3. emit `plan` artifact before execution
-4. emit `result` artifact after execution
-5. keep communication, inbox/outbox, and adapters out of scope for PR7.1
+1. allow approval / escalation thread outcomes to create follow-up tasks
+2. link created tasks to:
+  - `threadId`
+  - source action message
+  - originating approval or escalation
+3. preserve provenance across the delegation boundary
+4. keep AEP canonical; do not introduce Slack/email as source of truth
+5. prepare the system for PR7.8 LLM-powered agents
 
 ---
 
@@ -2168,20 +2229,25 @@ Specifically:
 
 AEP is now:
 
-> a partially observable agentic organization
+> a structured, observable, task-and-thread-based agentic organization
+
+PR6 is complete.
+
+PR7.1–PR7.6 are complete.
 
 The next structural step is:
 
-> finish the company coordination layer cleanly
+> enable delegation from threaded human interaction into new work
 
-The next major phase after that is:
+The next major steps after that are:
 
-> make employees think, plan, message, assign, and collaborate
+> make employees reason with LLMs, behave as persons, and communicate externally over email/Slack
 
 Everything after that:
-- reasoning
-- messaging
-- autonomy
+- LLM reasoning
+- persona continuity
+- inter-agent collaboration
+- email / Slack adapters
 - seamless human cooperation
 
 depends on that foundation.
@@ -2228,14 +2294,24 @@ Questions:
 - how do they map to employees and departments?
 - what traces and failure kinds are attached?
 
-## Level 6: Cognition and communication (future-facing but planned)
+## Level 6: Cognition and communication
 Questions:
 - what reasoning led to actions?
 - what internal monologue was produced?
 - what messages were exchanged between employees?
 - what evidence and context drove decisions?
 
-This level is not fully implemented yet, but it is part of the plan and should be represented in the architecture and docs now.
+This level is now partially implemented:
+- message threads
+- inbox/outbox
+- approval/escalation threads
+- thread-based human actions
+- durable action history
+
+Still missing:
+- LLM-powered reasoning
+- stronger persona continuity
+- external communication adapters
 
 ## Updated Level 6 interpretation
 Level 6 should eventually separate into:
@@ -2351,12 +2427,62 @@ The LLM is the reasoning engine inside this operating model, not the model itsel
 - PR6D: Documentation lock
 
 ## PR7 — Cognitive Organization
-- PR7.1: Cognitive execution loop
-- PR7.2: Internal communication layer
-- PR7.3: Planning, delegation, and review
-- PR7.4: Human collaboration + Slack/email adapters
+- PR7.1: Cognitive execution loop ✅
+- PR7.2: Internal communication layer ✅
+- PR7.3: Human interaction threads ✅
+- PR7.4: Contract hardening ✅
+- PR7.5: Thread-based human actions ✅
+- PR7.6: Deterministic interaction hardening ✅
+- PR7.7: Thread → task delegation ⏭️
+- PR7.8: LLM-powered agents
+- PR7.9: Agents as persons
+- PR7.10: Email / Slack adapters
 
 This is the current preferred framing and should be treated as the working plan unless code reality forces a concrete adjustment.
+
+---
+
+# 18. Current repo-aligned status (commit afc18dd73c02c0fb5f563cb268a758d5ad275d60)
+
+At this commit, the system already supports:
+
+- task-backed execution with durable `plan` / `result` artifacts
+- message threads as canonical internal coordination substrate
+- inbox / outbox / thread detail
+- approval-linked and escalation-linked threads
+- thread-based human actions
+- deterministic approval-thread seeding for contract tests
+- durable dashboard + system messages for both successful and conflict action paths
+
+Important runtime rule:
+
+> If `/agent/run` receives a `taskId`, that task must exist.
+
+Legacy scenario checks that fabricate `taskId` values are stale and must be updated to create real tasks first.
+
+Important company rule:
+
+> The canonical internal company is `company_internal_aep`.
+
+Older scenario checks or docs referring to legacy company IDs are stale and should be updated.
+
+---
+
+# 19. Near-term direction for the next LLM session
+
+The next LLM session should work from this order:
+
+1. **PR7.7 — thread → task delegation**
+2. **PR7.8 — LLM-powered agents**
+3. **PR7.9 — agents as persons**
+4. **PR7.10 — email / Slack adapters**
+
+Target end-state:
+
+- agents powered by LLMs
+- agents with stable person-like identity
+- agents who communicate with humans and other agents
+- Slack/email as adapters over AEP-native tasks, threads, approvals, escalations, and artifacts
 
 ---
 
