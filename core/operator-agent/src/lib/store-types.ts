@@ -128,6 +128,10 @@ export interface Task {
   status: TaskStatus;
   payload: Record<string, unknown>;
   blockingDependencyCount: number;
+  sourceThreadId?: string;
+  sourceMessageId?: string;
+  sourceApprovalId?: string;
+  sourceEscalationId?: string;
   createdAt?: string;
   updatedAt?: string;
   startedAt?: string;
@@ -320,9 +324,15 @@ export interface TaskStore {
 
   getMessageThread(threadId: string): Promise<MessageThread | null>;
 
+  getMessage(messageId: string): Promise<EmployeeMessage | null>;
+
   findMessageThreadByApprovalId(approvalId: string): Promise<MessageThread | null>;
   findMessageThreadByEscalationId(escalationId: string): Promise<MessageThread | null>;
 
   createMessage(message: Omit<EmployeeMessage, "createdAt" | "updatedAt">): Promise<void>;
   listMessages(query: MessageListQuery): Promise<EmployeeMessage[]>;
+  listTasksBySourceMessageId(args: {
+    sourceMessageId: string;
+    limit: number;
+  }): Promise<Task[]>;
 }

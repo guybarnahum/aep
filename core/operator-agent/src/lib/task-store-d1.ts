@@ -29,6 +29,10 @@ type TaskRow = {
   status: string;
   payload: string | null;
   blocking_dependency_count: number | null;
+  source_thread_id: string | null;
+  source_message_id: string | null;
+  source_approval_id: string | null;
+  source_escalation_id: string | null;
   created_at: string | null;
   updated_at: string | null;
   started_at: string | null;
@@ -124,6 +128,10 @@ function rowToTask(row: TaskRow): Task {
     status: row.status as TaskStatus,
     payload: fromJson<Record<string, unknown>>(row.payload) ?? {},
     blockingDependencyCount: row.blocking_dependency_count ?? 0,
+    sourceThreadId: row.source_thread_id ?? undefined,
+    sourceMessageId: row.source_message_id ?? undefined,
+    sourceApprovalId: row.source_approval_id ?? undefined,
+    sourceEscalationId: row.source_escalation_id ?? undefined,
     createdAt: row.created_at ?? undefined,
     updatedAt: row.updated_at ?? undefined,
     startedAt: row.started_at ?? undefined,
@@ -427,8 +435,12 @@ export class D1TaskStore implements TaskStore {
             title,
             status,
             payload,
-            blocking_dependency_count
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            blocking_dependency_count,
+            source_thread_id,
+            source_message_id,
+            source_approval_id,
+            source_escalation_id
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         )
         .bind(
           args.task.id,
@@ -445,6 +457,10 @@ export class D1TaskStore implements TaskStore {
           initialStatus,
           toJson(args.task.payload),
           dependsOnTaskIds.length,
+          args.task.sourceThreadId ?? null,
+          args.task.sourceMessageId ?? null,
+          args.task.sourceApprovalId ?? null,
+          args.task.sourceEscalationId ?? null,
         ),
     ];
 
@@ -504,6 +520,24 @@ export class D1TaskStore implements TaskStore {
          LIMIT ?`,
       )
       .bind(...binds, query.limit)
+      .all<TaskRow>();
+
+    return (rows.results ?? []).map(rowToTask);
+  }
+
+  async listTasksBySourceMessageId(args: {
+    sourceMessageId: string;
+    limit: number;
+  }): Promise<Task[]> {
+    const rows = await this.db
+      .prepare(
+        `SELECT *
+         FROM tasks
+         WHERE source_message_id = ?
+         ORDER BY created_at DESC
+         LIMIT ?`,
+      )
+      .bind(args.sourceMessageId, args.limit)
       .all<TaskRow>();
 
     return (rows.results ?? []).map(rowToTask);
@@ -785,6 +819,15 @@ export class D1TaskStore implements TaskStore {
       .first<MessageThreadRow>();
 
     return row ? rowToMessageThread(row) : null;
+  }
+
+  async getMessage(messageId: string): Promise<EmployeeMessage | null> {
+    const row = await this.db
+      .prepare(`SELECT * FROM employee_messages WHERE message_id = ? LIMIT 1`)
+      .bind(messageId)
+      .first<EmployeeMessageRow>();
+
+    return row ? rowToMessage(row) : null;
   }
 
   async findMessageThreadByApprovalId(approvalId: string): Promise<MessageThread | null> {

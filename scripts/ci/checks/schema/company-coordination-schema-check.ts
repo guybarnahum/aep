@@ -46,6 +46,10 @@ export async function checkCoordinationSchema(db: D1Database): Promise<void> {
     "status",
     "payload",
     "blocking_dependency_count",
+    "source_thread_id",
+    "source_message_id",
+    "source_approval_id",
+    "source_escalation_id",
   ];
 
   for (const column of requiredTaskColumns) {

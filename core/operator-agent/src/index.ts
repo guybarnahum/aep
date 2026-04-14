@@ -43,6 +43,7 @@ import {
   handleAcknowledgeFromThread,
   handleResolveFromThread,
 } from "./routes/thread-escalation-actions";
+import { handleDelegateTaskFromThread } from "./routes/thread-delegate-task";
 import { handleSeedApproval } from "./routes/te-seed-approval";
 import { handleSeedWorkLog } from "./routes/te-seed-work-log";
 import { handleWorkLog } from "./routes/work-log";
@@ -195,6 +196,15 @@ async function dispatch(request: Request, env: OperatorAgentEnv): Promise<Respon
       request,
       env,
       decodeURIComponent(resolveFromThreadMatch[1]),
+    );
+  }
+
+  const delegateTaskFromThreadMatch = url.pathname.match(/^\/agent\/message-threads\/([^/]+)\/delegate-task$/);
+  if (delegateTaskFromThreadMatch && request.method === "POST") {
+    return handleDelegateTaskFromThread(
+      request,
+      env,
+      decodeURIComponent(delegateTaskFromThreadMatch[1]),
     );
   }
 

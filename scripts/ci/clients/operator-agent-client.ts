@@ -51,6 +51,20 @@ export type CreateTaskRequest = {
   dependsOnTaskIds?: string[];
 };
 
+export type DelegateTaskFromThreadRequest = {
+  companyId?: string;
+  originatingTeamId: string;
+  assignedTeamId: string;
+  ownerEmployeeId?: string;
+  assignedEmployeeId?: string;
+  createdByEmployeeId?: string;
+  taskType: string;
+  title: string;
+  payload?: Record<string, unknown>;
+  dependsOnTaskIds?: string[];
+  sourceMessageId: string;
+};
+
 export type CreateTaskArtifactRequest = {
   companyId?: string;
   createdByEmployeeId?: string;
@@ -472,6 +486,16 @@ export function createOperatorAgentClient(
 
     async getMessageThread(threadId: string): Promise<any> {
       return getJson(buildUrl(`/agent/message-threads/${encodeURIComponent(threadId)}`));
+    },
+
+    async delegateTaskFromThread(
+      threadId: string,
+      body: DelegateTaskFromThreadRequest,
+    ): Promise<any> {
+      return postJson(
+        buildUrl(`/agent/message-threads/${encodeURIComponent(threadId)}/delegate-task`),
+        body,
+      );
     },
 
     async createMessage(body: CreateMessageRequest): Promise<any> {
