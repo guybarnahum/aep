@@ -1700,6 +1700,7 @@ CI is organized as a **layered validation system**.
   - employee scope
   - provider checks
   - operator surface
+  - thread task delegation
 
 - **policy**
   - operator-agent behavior
@@ -1712,6 +1713,7 @@ CI is organized as a **layered validation system**.
 - **scenarios**
   - post-deploy validation
   - dispatch / execution / verdict flows
+  - approval / escalation thread delegation
   - paperclip execution
   - multi-worker coordination
   - synthetic failure testing
@@ -1819,6 +1821,16 @@ CI must NOT be:
 - environment-implicit
 - dependent on hidden behavior
 
+Reusable validation lanes must NOT:
+
+- assume test-only `/agent/te/...` endpoints are enabled
+- depend on seeded setup that exists only in test-mode environments
+
+Reusable validation lanes should:
+
+- prefer existing live approvals / escalations / threads where possible
+- soft-skip cleanly when suitable live data is absent
+
 ---
 
 ## Mental model
@@ -1844,6 +1856,7 @@ in a traditional company
 - workflows compose layers
 - URL contract is explicit
 - deploy and validation are separable but composable
+- reusable workflows must avoid test-only endpoint assumptions
 
 ---
 
