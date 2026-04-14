@@ -31,7 +31,7 @@
   ],
   "ai": {
     "binding": "AI"
-  ],
+  },
   "env": {
     "async_validation": {
       "kv_namespaces": [],
