@@ -1481,8 +1481,14 @@ Neither should become the source of truth.
 - PR7.8A: cognition foundation
 - shared prompt-profile-backed cognition service
 - optional AI binding with deterministic fallback
-- preserve the public/private cognition boundary and keep provenance clean
-- PR7.8B+: deeper task/thread-aware reasoning and richer artifact-producing cognition
+- first normalization of cognition plumbing, not broad rollout
+- no public exposure of private cognition; `executionContext` remains provenance-only
+- PR7.8B: first broader employee reasoning rollout through the shared substrate
+
+Repo reality note:
+- proto-cognition already existed in `validation-agent` before consolidation
+- `decisions.internal_monologue` already existed as private storage
+- PR7.8A consolidates and hardens that existing boundary rather than introducing public cognition surfaces
 
 ### 🔜 PR7.9 — agents as persons
 - stronger persona continuity
@@ -2266,13 +2272,16 @@ Specifically, PR7.8A should:
 2. load private prompt profiles without exposing them on public routes
 3. support optional AI invocation with deterministic fallback
 4. normalize the validation agent onto that shared cognition path
-5. keep `executionContext` provenance-only and free of cognition leakage
-6. continue emitting durable outputs through existing AEP primitives:
+5. establish foundation-only cognition plumbing without broad rollout yet
+6. keep `executionContext` provenance-only and free of cognition leakage
+7. continue emitting durable outputs through existing AEP primitives:
   - tasks
   - task artifacts
   - message threads
   - approvals / escalations when needed
-7. keep Slack/email out of scope except as future adapters
+8. keep Slack/email out of scope except as future adapters
+
+PR7.8B should then expand real employee reasoning behavior beyond the initial foundation work.
 
 ---
 
@@ -2489,7 +2498,7 @@ The LLM is the reasoning engine inside this operating model, not the model itsel
 - PR7.7: Thread → task delegation ✅
 - PR7.75 / PR7.7X: Delegation workflow + environment hardening ✅
 - PR7.8A: Cognition foundation ⏭️
-- PR7.8B+: Deeper LLM-powered reasoning
+- PR7.8B: Broader shared-substrate reasoning rollout
 - PR7.9: Agents as persons
 - PR7.10: Email / Slack adapters
 
@@ -2536,7 +2545,7 @@ Important company rule:
 The next LLM session should work from this order:
 
 1. **PR7.8A — cognition foundation**
-2. **PR7.8B — deeper LLM-powered reasoning**
+2. **PR7.8B — broader employee reasoning rollout**
 3. **PR7.9 — agents as persons**
 4. **PR7.10 — email / Slack adapters**
 

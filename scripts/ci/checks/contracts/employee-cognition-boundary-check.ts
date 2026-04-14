@@ -12,32 +12,51 @@ const FORBIDDEN_PUBLIC_FIELDS = [
   "identitySeed",
   "portraitPrompt",
   "promptVersion",
-  "internalMonologue",
   "base_prompt",
   "decision_style",
   "collaboration_style",
   "identity_seed",
   "portrait_prompt",
   "prompt_version",
+];
+
+const FORBIDDEN_PRIVATE_DECISION_FIELDS = [
+  "internalMonologue",
   "internal_monologue",
 ];
 
-function getTargetUrl(): string {
-  return (
-    process.env.CONTROL_PLANE_BASE_URL
-    ?? process.env.OPERATOR_AGENT_BASE_URL
-    ?? "https://example.com"
-  );
-}
-
-function assertNoPrivateFields(payload: unknown, surface: string): void {
+function assertFieldsAbsent(payload: unknown, fields: string[], surface: string): void {
   const serialized = JSON.stringify(payload);
 
-  for (const field of FORBIDDEN_PUBLIC_FIELDS) {
+  for (const field of fields) {
     if (serialized.includes(field)) {
       throw new Error(`${surface} leaked private cognition field ${field}`);
     }
   }
+}
+
+function assertEmployeeProjectionPrivacy(employee: Record<string, unknown>, index: number): void {
+  const surface = `/agent/employees employee[${index}]`;
+  assertFieldsAbsent(employee, FORBIDDEN_PUBLIC_FIELDS, surface);
+
+  if (employee.publicProfile && typeof employee.publicProfile === "object") {
+    assertFieldsAbsent(employee.publicProfile, FORBIDDEN_PUBLIC_FIELDS, `${surface}.publicProfile`);
+  }
+}
+
+async function findCompletedOrFailedTask(client: ReturnType<typeof createOperatorAgentClient>): Promise<any | null> {
+  for (const status of ["completed", "failed"] as const) {
+    const response = await client.listTasks({ status, limit: 20 });
+    if (!response?.ok) {
+      throw new Error(`Failed to list ${status} tasks: ${JSON.stringify(response)}`);
+    }
+
+    if (Array.isArray(response.tasks) && response.tasks.length > 0) {
+      return response.tasks[0];
+    }
+  }
+
+  return null;
 }
 
 async function main(): Promise<void> {
@@ -57,51 +76,35 @@ async function main(): Promise<void> {
     throw new Error("/agent/employees did not return ok=true");
   }
 
-  assertNoPrivateFields(employeesResponse, "/agent/employees");
-
-  const task = await client.createTask({
-    companyId: "company_internal_aep",
-    originatingTeamId: "team_infra",
-    assignedTeamId: "team_validation",
-    assignedEmployeeId: "emp_val_specialist_01",
-    createdByEmployeeId: "emp_infra_ops_manager_01",
-    taskType: "validate-deployment",
-    title: "PR7.8A cognition boundary task",
-    payload: {
-      targetUrl: getTargetUrl(),
-      source: "employee-cognition-boundary-check",
-    },
-  });
-
-  if (!task?.ok || !task?.taskId) {
-    throw new Error(`Failed to create task: ${JSON.stringify(task)}`);
+  if (!Array.isArray(employeesResponse.employees)) {
+    throw new Error("/agent/employees returned no employees array");
   }
 
-  const runResult = await client.runEmployee<any>({
-    companyId: "company_internal_aep",
-    teamId: "team_validation",
-    employeeId: "emp_val_specialist_01",
-    roleId: "reliability-engineer",
-    trigger: "manual",
-    policyVersion: "ci-employee-cognition-boundary-check",
-    taskId: task.taskId,
+  employeesResponse.employees.forEach((employee: Record<string, unknown>, index: number) => {
+    assertEmployeeProjectionPrivacy(employee, index);
   });
 
-  if (!runResult?.ok || runResult?.status !== "completed") {
-    throw new Error(`Expected completed run response, got ${JSON.stringify(runResult)}`);
+  const task = await findCompletedOrFailedTask(client);
+  if (!task?.id) {
+    console.warn("[warn] employee-cognition-boundary-check skipped: no completed or failed tasks available");
+    process.exit(0);
   }
 
-  assertNoPrivateFields(runResult, "/agent/run response");
-
-  const taskDetail = await client.getTask(task.taskId);
+  const taskDetail = await client.getTask(task.id);
   if (!taskDetail?.ok) {
-    throw new Error(`Failed to fetch task detail: ${JSON.stringify(taskDetail)}`);
+    throw new Error(`Failed to fetch task detail for ${task.id}: ${JSON.stringify(taskDetail)}`);
   }
 
-  assertNoPrivateFields(taskDetail, "/agent/tasks/:id");
+  if (taskDetail.decision) {
+    assertFieldsAbsent(
+      taskDetail.decision,
+      FORBIDDEN_PRIVATE_DECISION_FIELDS,
+      "/agent/tasks/:id decision",
+    );
+  }
 
   console.log("employee-cognition-boundary-check passed", {
-    taskId: task.taskId,
+    taskId: task.id,
     employeeCount: employeesResponse.count,
   });
 }

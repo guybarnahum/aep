@@ -142,6 +142,8 @@ async function loadTaskExecutionContext(
     }),
   ]);
 
+  // Task, dependency, and artifact context form the bounded public substrate
+  // employees can reason over without pushing private cognition into route payloads.
   return {
     task: toCoordinationTaskRecord(task),
     dependencies,
@@ -205,7 +207,7 @@ async function createResultArtifactIfPresent(args: {
     createdByEmployeeId: args.request.employeeId,
     summary: args.result.message,
     content: {
-      // Result artifacts stay reviewable; private cognition remains in internal decision storage only.
+      // Route-level outputs and artifacts remain public/reviewable only.
       status: args.result.status,
       workerRole: "workerRole" in args.result ? args.result.workerRole : undefined,
       message: args.result.message,
