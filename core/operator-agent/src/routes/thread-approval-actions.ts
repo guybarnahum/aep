@@ -1,4 +1,7 @@
-import { appendSystemMessage } from "@aep/operator-agent/lib/human-interaction-threads";
+import {
+  appendDashboardActionMessage,
+  appendSystemMessage,
+} from "@aep/operator-agent/lib/human-interaction-threads";
 import { createStores, getTaskStore } from "@aep/operator-agent/lib/store-factory";
 import type { OperatorAgentEnv } from "@aep/operator-agent/types";
 
@@ -64,24 +67,35 @@ export async function handleApproveFromThread(
   }
 
   if (!result.ok && result.reason === "already_decided") {
+    await appendDashboardActionMessage({
+      env,
+      threadId,
+      companyId: thread.companyId,
+      senderEmployeeId: actor,
+      subject: "Approval action",
+      body: `Approve-from-thread attempted by ${actor}, but approval ${thread.relatedApprovalId} was already decided${note ? `: ${note}` : "."}`,
+      type: "coordination",
+      responseActionType: "approve_approval",
+      responseActionStatus: "rejected",
+      causedStateTransition: false,
+      relatedTaskId: thread.relatedTaskId,
+      relatedApprovalId: thread.relatedApprovalId,
+    });
+
     return Response.json(
-      { ok: false, error: "Approval is no longer pending", approval: result.approval },
+      { ok: false, error: "Approval is no longer pending", approval: result.approval, threadId },
       { status: 409 },
     );
   }
 
-  await taskStore.createMessage({
-    id: `msg_${crypto.randomUUID().split("-")[0]}`,
+  await appendDashboardActionMessage({
+    env,
     threadId,
     companyId: thread.companyId,
     senderEmployeeId: actor,
-    type: "coordination",
-    status: "acknowledged",
-    source: "dashboard",
     subject: "Approval action",
     body: `Approved from thread by ${actor}${note ? `: ${note}` : "."}`,
-    payload: {},
-    requiresResponse: false,
+    type: "coordination",
     responseActionType: "approve_approval",
     responseActionStatus: "applied",
     causedStateTransition: true,
@@ -154,24 +168,35 @@ export async function handleRejectFromThread(
   }
 
   if (!result.ok && result.reason === "already_decided") {
+    await appendDashboardActionMessage({
+      env,
+      threadId,
+      companyId: thread.companyId,
+      senderEmployeeId: actor,
+      subject: "Approval action",
+      body: `Reject-from-thread attempted by ${actor}, but approval ${thread.relatedApprovalId} was already decided${note ? `: ${note}` : "."}`,
+      type: "coordination",
+      responseActionType: "reject_approval",
+      responseActionStatus: "rejected",
+      causedStateTransition: false,
+      relatedTaskId: thread.relatedTaskId,
+      relatedApprovalId: thread.relatedApprovalId,
+    });
+
     return Response.json(
-      { ok: false, error: "Approval is no longer pending", approval: result.approval },
+      { ok: false, error: "Approval is no longer pending", approval: result.approval, threadId },
       { status: 409 },
     );
   }
 
-  await taskStore.createMessage({
-    id: `msg_${crypto.randomUUID().split("-")[0]}`,
+  await appendDashboardActionMessage({
+    env,
     threadId,
     companyId: thread.companyId,
     senderEmployeeId: actor,
-    type: "coordination",
-    status: "acknowledged",
-    source: "dashboard",
     subject: "Approval action",
     body: `Rejected from thread by ${actor}${note ? `: ${note}` : "."}`,
-    payload: {},
-    requiresResponse: false,
+    type: "coordination",
     responseActionType: "reject_approval",
     responseActionStatus: "applied",
     causedStateTransition: true,

@@ -1,5 +1,6 @@
 import { TEAM_INFRA } from "@aep/operator-agent/org/teams";
 import { createStores } from "@aep/operator-agent/lib/store-factory";
+import { getTaskStore } from "@aep/operator-agent/lib/store-factory";
 import type {
   AgentRoleId,
   ApprovalRecord,
@@ -21,6 +22,9 @@ type SeedApprovalBody = {
   payload?: Record<string, unknown>;
   source?: ApprovalSource;
   executionContext?: ExecutionContext;
+  createThread?: boolean;
+  threadTopic?: string;
+  threadReceiverEmployeeId?: string;
 };
 
 const VALID_SOURCES: ApprovalSource[] = ["manager", "policy", "system"];
@@ -113,8 +117,46 @@ export async function handleSeedApproval(
   const store = createStores(env).approvals;
   await store.write(approval);
 
+  let threadId: string | undefined;
+
+  if (body.createThread === true) {
+    const taskStore = getTaskStore(env);
+    threadId = `thr_${crypto.randomUUID().split("-")[0]}`;
+
+    await taskStore.createMessageThread({
+      id: threadId,
+      companyId: body.companyId ?? "company_internal_aep",
+      topic: body.threadTopic ?? `Approval ${approval.approvalId}`,
+      createdByEmployeeId: body.requestedByEmployeeId,
+      relatedTaskId: body.taskId,
+      relatedApprovalId: approval.approvalId,
+      visibility: "internal",
+    });
+
+    await taskStore.createMessage({
+      id: `msg_${crypto.randomUUID().split("-")[0]}`,
+      threadId,
+      companyId: body.companyId ?? "company_internal_aep",
+      senderEmployeeId: body.requestedByEmployeeId,
+      receiverEmployeeId: body.threadReceiverEmployeeId ?? body.requestedByEmployeeId,
+      type: "coordination",
+      status: "pending",
+      source: "system",
+      subject: "Approval requested",
+      body: body.message,
+      payload: {},
+      requiresResponse: true,
+      responseActionType: "approve_approval",
+      responseActionStatus: "requested",
+      causedStateTransition: false,
+      relatedTaskId: body.taskId,
+      relatedApprovalId: approval.approvalId,
+    });
+  }
+
   return Response.json({
     ok: true,
     approval,
+    threadId,
   });
 }

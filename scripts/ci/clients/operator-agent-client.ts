@@ -203,6 +203,22 @@ export function createOperatorAgentClient(
       return postJson(buildUrl("/agent/approvals/reject"), body);
     },
 
+    async seedApproval(body: {
+      requestedByEmployeeId: string;
+      requestedByRoleId: string;
+      actionType: string;
+      reason: string;
+      message: string;
+      requestedByEmployeeName?: string;
+      companyId?: string;
+      taskId?: string;
+      createThread?: boolean;
+      threadTopic?: string;
+      threadReceiverEmployeeId?: string;
+    }): Promise<any> {
+      return postJson(buildUrl("/agent/te/seed-approval"), body);
+    },
+
     async approveFromThread(threadId: string, body?: {
       actor?: string;
       note?: string;

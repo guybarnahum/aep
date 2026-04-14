@@ -73,7 +73,7 @@ export async function appendSystemMessage(args: {
     threadId: args.threadId,
     companyId: args.companyId ?? "company_internal_aep",
     senderEmployeeId: args.senderEmployeeId,
-    receiverEmployeeId: args.receiverEmployeeId,
+    receiverEmployeeId: args.receiverEmployeeId ?? args.senderEmployeeId,
     receiverTeamId: args.receiverTeamId,
     type: args.type ?? "coordination",
     status: "pending",
@@ -82,6 +82,48 @@ export async function appendSystemMessage(args: {
     body: args.body,
     payload: {},
     requiresResponse: false,
+    relatedTaskId: args.relatedTaskId,
+    relatedApprovalId: args.relatedApprovalId,
+    relatedEscalationId: args.relatedEscalationId,
+  });
+
+  return messageId;
+}
+
+export async function appendDashboardActionMessage(args: {
+  env: OperatorAgentEnv;
+  threadId: string;
+  companyId?: string;
+  senderEmployeeId: string;
+  subject?: string;
+  body: string;
+  type?: "task" | "escalation" | "coordination";
+  responseActionType: string;
+  responseActionStatus: "requested" | "applied" | "rejected";
+  causedStateTransition: boolean;
+  relatedTaskId?: string;
+  relatedApprovalId?: string;
+  relatedEscalationId?: string;
+}): Promise<string> {
+  const store = getTaskStore(args.env);
+  const messageId = `msg_${crypto.randomUUID().split("-")[0]}`;
+
+  await store.createMessage({
+    id: messageId,
+    threadId: args.threadId,
+    companyId: args.companyId ?? "company_internal_aep",
+    senderEmployeeId: args.senderEmployeeId,
+    receiverEmployeeId: args.senderEmployeeId,
+    type: args.type ?? "coordination",
+    status: "acknowledged",
+    source: "dashboard",
+    subject: args.subject,
+    body: args.body,
+    payload: {},
+    requiresResponse: false,
+    responseActionType: args.responseActionType,
+    responseActionStatus: args.responseActionStatus,
+    causedStateTransition: args.causedStateTransition,
     relatedTaskId: args.relatedTaskId,
     relatedApprovalId: args.relatedApprovalId,
     relatedEscalationId: args.relatedEscalationId,

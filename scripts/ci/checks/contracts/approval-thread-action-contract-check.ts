@@ -17,46 +17,41 @@ async function main(): Promise<void> {
     throw err;
   }
 
-  const approvals = await client.listApprovals({ limit: 20 });
-
-  const entries = Array.isArray((approvals as any)?.entries)
-    ? (approvals as any).entries
-    : Array.isArray((approvals as any)?.approvals)
-      ? (approvals as any).approvals
-      : [];
-
-  const pendingApproval = entries.find((entry: any) => entry.status === "pending");
-
-  if (!pendingApproval) {
-    console.log("approval-thread-action-contract-check skipped", {
-      reason: "no pending approvals available",
-    });
-    process.exit(0);
-  }
-
-  const approvalId = pendingApproval.approvalId ?? pendingApproval.id;
-
-  await client.approveApproval({
-    approvalId,
-    decidedBy: "seed_thread_operator",
-    decisionNote: "Seed thread for PR7.5 thread-action check",
+  const seeded = await client.seedApproval({
+    requestedByEmployeeId: "emp_infra_ops_manager_01",
+    requestedByRoleId: "infra-ops-manager",
+    actionType: "deploy-change",
+    reason: "PR7.6 deterministic thread action test",
+    message: "Please approve this seeded request from the thread.",
+    createThread: true,
+    threadTopic: "PR7.6 approval thread action",
+    threadReceiverEmployeeId: "emp_val_specialist_01",
   });
 
-  const detail = await client.getApproval(approvalId);
-
-  if (!(detail as any)?.ok || !(detail as any).thread?.id) {
-    throw new Error(`Expected approval thread to exist: ${JSON.stringify(detail)}`);
+  if (!(seeded as any)?.ok || !(seeded as any).approval?.approvalId || !(seeded as any).threadId) {
+    throw new Error(`Failed to seed approval with thread: ${JSON.stringify(seeded)}`);
   }
 
-  const threadId = (detail as any).thread.id;
+  const approvalId = (seeded as any).approval.approvalId;
+  const threadId = (seeded as any).threadId;
 
   const actionResult = await client.approveFromThread(threadId, {
     actor: "human_thread_actor",
     note: "Thread approval action",
   });
 
-  if (!(actionResult as any)?.ok && (actionResult as any)?.status !== 409) {
+  if (!(actionResult as any)?.ok) {
     throw new Error(`Unexpected thread approval action result: ${JSON.stringify(actionResult)}`);
+  }
+
+  const detail = await client.getApproval(approvalId);
+
+  if (!(detail as any)?.ok || !(detail as any).approval) {
+    throw new Error(`Failed to fetch approval detail: ${JSON.stringify(detail)}`);
+  }
+
+  if ((detail as any).approval.status !== "approved") {
+    throw new Error(`Expected approval to be approved by thread action: ${JSON.stringify(detail)}`);
   }
 
   const threadDetail = await client.getMessageThread(threadId);
@@ -69,11 +64,14 @@ async function main(): Promise<void> {
     (message: any) =>
       message.source === "dashboard"
       && message.responseActionType === "approve_approval"
-      && message.responseActionStatus === "applied",
+      && message.responseActionStatus === "applied"
+      && message.causedStateTransition === true,
   );
 
   if (!hasActionMessage) {
-    throw new Error(`Expected dashboard action message in thread: ${JSON.stringify((threadDetail as any).messages)}`);
+    throw new Error(
+      `Expected dashboard approval action message in thread: ${JSON.stringify((threadDetail as any).messages)}`,
+    );
   }
 
   console.log("approval-thread-action-contract-check passed", {
