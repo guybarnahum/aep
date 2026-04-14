@@ -525,24 +525,6 @@ export class D1TaskStore implements TaskStore {
     return (rows.results ?? []).map(rowToTask);
   }
 
-  async listTasksBySourceMessageId(args: {
-    sourceMessageId: string;
-    limit: number;
-  }): Promise<Task[]> {
-    const rows = await this.db
-      .prepare(
-        `SELECT *
-         FROM tasks
-         WHERE source_message_id = ?
-         ORDER BY created_at DESC
-         LIMIT ?`,
-      )
-      .bind(args.sourceMessageId, args.limit)
-      .all<TaskRow>();
-
-    return (rows.results ?? []).map(rowToTask);
-  }
-
   async listDependencies(taskId: string): Promise<TaskDependency[]> {
     const rows = await this.db
       .prepare(

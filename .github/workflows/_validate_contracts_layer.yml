@@ -113,6 +113,10 @@ jobs:
         id: runtime_tenant_catalog
         run: npx tsx scripts/ci/checks/contracts/runtime-tenant-catalog-check.ts | tee runtime-tenant-catalog-check.log
 
+      - name: Run thread task delegation contract check
+        id: thread_task_delegation_contract
+        run: npx tsx scripts/ci/checks/contracts/thread-task-delegation-contract-check.ts | tee thread-task-delegation-contract-check.log
+
       - name: Capture outcome
         id: capture_outcome
         if: always()
@@ -124,7 +128,8 @@ jobs:
             "${{ steps.service_provider.outcome }}" == "success" && \
             "${{ steps.provider_provenance.outcome }}" == "success" && \
             "${{ steps.runtime_provenance.outcome }}" == "success" && \
-            "${{ steps.runtime_tenant_catalog.outcome }}" == "success" \
+            "${{ steps.runtime_tenant_catalog.outcome }}" == "success" && \
+            "${{ steps.thread_task_delegation_contract.outcome }}" == "success" \
           ]]; then
             echo "value=success" >> "$GITHUB_OUTPUT"
           else
@@ -161,6 +166,7 @@ jobs:
           echo "- $(status_emoji "${{ steps.provider_provenance.outcome }}") provider-provenance-check: ${{ steps.provider_provenance.outcome }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- $(status_emoji "${{ steps.runtime_provenance.outcome }}") runtime-provenance-check: ${{ steps.runtime_provenance.outcome }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- $(status_emoji "${{ steps.runtime_tenant_catalog.outcome }}") runtime-tenant-catalog-check: ${{ steps.runtime_tenant_catalog.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- $(status_emoji \"${{ steps.thread_task_delegation_contract.outcome }}\") thread-task-delegation-contract-check: ${{ steps.thread_task_delegation_contract.outcome }}" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "### Layer verdict" >> "$GITHUB_STEP_SUMMARY"
           echo "- $(status_emoji "$LAYER_OUTCOME") Contracts layer: $LAYER_OUTCOME" >> "$GITHUB_STEP_SUMMARY"

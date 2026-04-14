@@ -126,6 +126,13 @@ jobs:
 
           npx tsx scripts/ci/checks/scenarios/check-validation-verdict.ts "$OPERATOR_AGENT_BASE_URL" "$TASK_ID" 2>&1 | tee -a post-deploy-validation.log
 
+      - name: Run thread delegation scenarios
+        id: thread_delegation_scenarios
+        if: steps.config.outputs.enabled == 'true' && steps.post_deploy_validation.outcome == 'success'
+        run: |
+          npx tsx scripts/ci/checks/scenarios/approval-thread-delegation-check.ts 2>&1 | tee -a post-deploy-validation.log
+          npx tsx scripts/ci/checks/scenarios/escalation-thread-delegation-check.ts 2>&1 | tee -a post-deploy-validation.log
+
       - name: Capture outputs
         id: capture
         if: always()
@@ -135,7 +142,15 @@ jobs:
           ATTENTION="false"
 
           if [[ "$ENABLED" == "true" ]]; then
-            OUTCOME="${{ steps.post_deploy_validation.outcome }}"
+            if [[ \
+              "${{ steps.post_deploy_validation.outcome }}" == "success" && \
+              ( "${{ steps.thread_delegation_scenarios.outcome }}" == "success" || "${{ steps.thread_delegation_scenarios.outcome }}" == "skipped" ) \
+            ]]; then
+              OUTCOME="success"
+            else
+              OUTCOME="failure"
+            fi
+
             if [[ -f post-deploy-validation.log ]] && grep -Eq '^- (WARN|SKIP): ' post-deploy-validation.log; then
               ATTENTION="true"
             fi
@@ -181,6 +196,10 @@ jobs:
             fi
             exit 0
           fi
+                      echo "" >> "$GITHUB_STEP_SUMMARY"
+                      echo "### Scenario checks" >> "$GITHUB_STEP_SUMMARY"
+                      echo "- $(status_emoji \"${{ steps.post_deploy_validation.outcome }}\") post-deploy validation dispatch/verdict: ${{ steps.post_deploy_validation.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+                      echo "- $(status_emoji \"${{ steps.thread_delegation_scenarios.outcome }}\") thread delegation scenarios: ${{ steps.thread_delegation_scenarios.outcome }}" >> "$GITHUB_STEP_SUMMARY"
 
           echo "### Result" >> "$GITHUB_STEP_SUMMARY"
           echo "- $(status_emoji "$OUTCOME") Post-deploy validation: $OUTCOME" >> "$GITHUB_STEP_SUMMARY"

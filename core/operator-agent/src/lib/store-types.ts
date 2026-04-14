@@ -331,8 +331,4 @@ export interface TaskStore {
 
   createMessage(message: Omit<EmployeeMessage, "createdAt" | "updatedAt">): Promise<void>;
   listMessages(query: MessageListQuery): Promise<EmployeeMessage[]>;
-  listTasksBySourceMessageId(args: {
-    sourceMessageId: string;
-    limit: number;
-  }): Promise<Task[]>;
 }
