@@ -1804,20 +1804,6 @@ All deploy and validation workflows operate on:
 
 ## Design principles
 
-## Additional repo-aligned note
-
-Reusable validation lanes must not assume test-only endpoints are enabled.
-
-If a contract or scenario check depends on seeded setup through `/agent/te/...`,
-that check is not safe for reusable validation workflows unless the workflow
-explicitly enables test endpoints.
-
-Live-environment reusable checks should prefer:
-- existing approvals / escalations / threads
-- soft-skip when suitable live data is absent
-
-This became especially important during PR7.7 delegation hardening.
-
 CI must be:
 
 - **layered**
