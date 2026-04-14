@@ -1,11 +1,13 @@
-import { getTaskStore } from "../lib/store-factory";
-import { logInfo } from "../lib/logger";
 import { getConfig } from "../config";
+import { thinkWithinEmployeeBoundary } from "../lib/employee-cognition";
+import { logInfo } from "../lib/logger";
+import { getEmployeePromptProfile } from "../lib/employee-prompt-profile-store-d1";
+import { getTaskStore } from "../lib/store-factory";
 import type {
+  ManagerDecision,
+  ManagerDecisionResponse,
   OperatorAgentEnv,
   ResolvedEmployeeRunContext,
-  ManagerDecisionResponse,
-  ManagerDecision,
 } from "../types";
 
 const TEAM_WEB_PRODUCT = "team_web_product";
@@ -46,6 +48,35 @@ export async function runPmAgent(
     throw new Error("No active roadmap objective found for PM Agent.");
   }
 
+  const promptProfile = await getEmployeePromptProfile(
+    env,
+    context.employee.identity.employeeId,
+  );
+
+  const cognition = await thinkWithinEmployeeBoundary(
+    {
+      employee: context.employee.identity,
+      promptProfile,
+      taskContext: context.taskContext,
+      executionContext: context.executionContext,
+      observations: [
+        `Roadmap objective: ${roadmap.objective_title}`,
+        `Current visible run count: ${currentRuns.length}`,
+        "Primary PM responsibility: translate strategic intent into structured execution.",
+      ],
+      additionalContext: {
+        roadmap: {
+          id: roadmap.id ?? null,
+          title: roadmap.objective_title,
+          strategicContext: roadmap.strategic_context ?? null,
+          priority: roadmap.priority ?? null,
+          status: roadmap.status ?? null,
+        },
+      },
+    },
+    env,
+  );
+
   // 2. ACT
   const taskId = `task_pm_${crypto.randomUUID().split("-")[0]}`;
 
@@ -77,6 +108,9 @@ export async function runPmAgent(
   const now = new Date().toISOString();
   const displayName =
     context.employee.identity.employeeName ?? context.employee.identity.employeeId;
+  const publicSummary = cognition.publicSummary?.trim().length
+    ? cognition.publicSummary.trim()
+    : `Delegated validation task ${taskId} based on objective: ${roadmap.objective_title}`;
 
   const strategicDecision: ManagerDecision = {
     timestamp: now,
@@ -89,7 +123,7 @@ export async function runPmAgent(
     reason: "frequent_budget_exhaustion",
     recommendation: "rebalance_team_capacity",
     severity: "warning",
-    message: `Delegated validation task ${taskId} based on objective: ${roadmap.objective_title}`,
+    message: publicSummary,
     evidence: {
       windowEntryCount: 1,
       resultCounts: {},
@@ -102,6 +136,9 @@ export async function runPmAgent(
     objective: roadmap.objective_title,
     originatingTeamId: context.employee.identity.teamId,
     assignedTeamId: TEAM_VALIDATION,
+    cognitionMode: cognition.mode,
+    cognitionIntent: cognition.structured?.intent,
+    cognitionRiskLevel: cognition.structured?.riskLevel,
   });
 
   return {
@@ -133,7 +170,7 @@ export async function runPmAgent(
     },
     perEmployee: [],
     decisions: [strategicDecision],
-    message: `Strategic objective "${roadmap.objective_title}" processed. Task ${taskId} created.`,
+    message: `${publicSummary} Task ${taskId} created.`,
     controlPlaneBaseUrl: config.controlPlaneTarget || "",
   };
 }

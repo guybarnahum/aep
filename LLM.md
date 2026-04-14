@@ -1483,7 +1483,9 @@ Neither should become the source of truth.
 - optional AI binding with deterministic fallback
 - first normalization of cognition plumbing, not broad rollout
 - no public exposure of private cognition; `executionContext` remains provenance-only
-- PR7.8B: first broader employee reasoning rollout through the shared substrate
+- PR7.8B: controlled cognition rollout to additional employees, with PM first
+- PR7.8B introduces structured cognition outputs for internal-only use
+- PR7.8B does not add public rationale artifacts, chat workflows, or route-level cognition
 
 Repo reality note:
 - proto-cognition already existed in `validation-agent` before consolidation
@@ -2281,7 +2283,7 @@ Specifically, PR7.8A should:
   - approvals / escalations when needed
 8. keep Slack/email out of scope except as future adapters
 
-PR7.8B should then expand real employee reasoning behavior beyond the initial foundation work.
+PR7.8B should then expand real employee reasoning behavior beyond the initial foundation work, starting with PM while preserving the same hard privacy boundary.
 
 ---
 
@@ -2497,8 +2499,8 @@ The LLM is the reasoning engine inside this operating model, not the model itsel
 - PR7.6: Deterministic interaction hardening ✅
 - PR7.7: Thread → task delegation ✅
 - PR7.75 / PR7.7X: Delegation workflow + environment hardening ✅
-- PR7.8A: Cognition foundation ⏭️
-- PR7.8B: Broader shared-substrate reasoning rollout
+- PR7.8A: Cognition foundation ✅
+- PR7.8B: Controlled cognition rollout ⏭️
 - PR7.9: Agents as persons
 - PR7.10: Email / Slack adapters
 
@@ -2544,8 +2546,8 @@ Important company rule:
 
 The next LLM session should work from this order:
 
-1. **PR7.8A — cognition foundation**
-2. **PR7.8B — broader employee reasoning rollout**
+1. **PR7.8B — controlled cognition rollout**
+2. **PR7.8C — public rationale surfaces, if boundary remains intact**
 3. **PR7.9 — agents as persons**
 4. **PR7.10 — email / Slack adapters**
 

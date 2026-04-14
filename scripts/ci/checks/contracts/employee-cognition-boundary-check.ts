@@ -1,9 +1,4 @@
-/* eslint-disable no-console */
-
 import { createOperatorAgentClient } from "../../clients/operator-agent-client";
-import { handleOperatorAgentSoftSkip } from "../../shared/soft-skip";
-
-export {};
 
 const FORBIDDEN_PUBLIC_FIELDS = [
   "basePrompt",
@@ -18,11 +13,25 @@ const FORBIDDEN_PUBLIC_FIELDS = [
   "identity_seed",
   "portrait_prompt",
   "prompt_version",
+
+  // PR7.8B structured cognition fields must remain private/internal.
+  "intent",
+  "riskLevel",
+  "suggestedNextAction",
+  "risk_level",
+  "suggested_next_action",
 ];
 
 const FORBIDDEN_PRIVATE_DECISION_FIELDS = [
   "internalMonologue",
   "internal_monologue",
+
+  // Defensive: these also must not surface via public task detail.
+  "intent",
+  "riskLevel",
+  "suggestedNextAction",
+  "risk_level",
+  "suggested_next_action",
 ];
 
 function assertFieldsAbsent(payload: unknown, fields: string[], surface: string): void {
@@ -37,14 +46,37 @@ function assertFieldsAbsent(payload: unknown, fields: string[], surface: string)
 
 function assertEmployeeProjectionPrivacy(employee: Record<string, unknown>, index: number): void {
   const surface = `/agent/employees employee[${index}]`;
+
   assertFieldsAbsent(employee, FORBIDDEN_PUBLIC_FIELDS, surface);
 
   if (employee.publicProfile && typeof employee.publicProfile === "object") {
-    assertFieldsAbsent(employee.publicProfile, FORBIDDEN_PUBLIC_FIELDS, `${surface}.publicProfile`);
+    assertFieldsAbsent(
+      employee.publicProfile,
+      FORBIDDEN_PUBLIC_FIELDS,
+      `${surface}.publicProfile`,
+    );
+  }
+
+  if (employee.identity && typeof employee.identity === "object") {
+    assertFieldsAbsent(
+      employee.identity,
+      FORBIDDEN_PUBLIC_FIELDS,
+      `${surface}.identity`,
+    );
+  }
+
+  if (employee.runtime && typeof employee.runtime === "object") {
+    assertFieldsAbsent(
+      employee.runtime,
+      FORBIDDEN_PUBLIC_FIELDS,
+      `${surface}.runtime`,
+    );
   }
 }
 
-async function findCompletedOrFailedTask(client: ReturnType<typeof createOperatorAgentClient>): Promise<any | null> {
+async function findCompletedOrFailedTask(
+  client: ReturnType<typeof createOperatorAgentClient>,
+): Promise<Record<string, unknown> | null> {
   for (const status of ["completed", "failed"] as const) {
     const response = await client.listTasks({ status, limit: 20 });
     if (!response?.ok) {
@@ -52,7 +84,7 @@ async function findCompletedOrFailedTask(client: ReturnType<typeof createOperato
     }
 
     if (Array.isArray(response.tasks) && response.tasks.length > 0) {
-      return response.tasks[0];
+      return response.tasks[0] as Record<string, unknown>;
     }
   }
 
@@ -62,18 +94,9 @@ async function findCompletedOrFailedTask(client: ReturnType<typeof createOperato
 async function main(): Promise<void> {
   const client = createOperatorAgentClient();
 
-  let employeesResponse;
-  try {
-    employeesResponse = await client.listEmployees();
-  } catch (err) {
-    if (handleOperatorAgentSoftSkip("employee-cognition-boundary-check", err)) {
-      process.exit(0);
-    }
-    throw err;
-  }
-
-  if (!employeesResponse.ok) {
-    throw new Error("/agent/employees did not return ok=true");
+  const employeesResponse = await client.listEmployees();
+  if (!employeesResponse?.ok) {
+    throw new Error(`/agent/employees did not return ok=true`);
   }
 
   if (!Array.isArray(employeesResponse.employees)) {
@@ -85,8 +108,10 @@ async function main(): Promise<void> {
   });
 
   const task = await findCompletedOrFailedTask(client);
-  if (!task?.id) {
-    console.warn("[warn] employee-cognition-boundary-check skipped: no completed or failed tasks available");
+  if (!task?.id || typeof task.id !== "string") {
+    console.warn(
+      "[warn] employee-cognition-boundary-check skipped: no completed or failed tasks available",
+    );
     process.exit(0);
   }
 
@@ -94,6 +119,13 @@ async function main(): Promise<void> {
   if (!taskDetail?.ok) {
     throw new Error(`Failed to fetch task detail for ${task.id}: ${JSON.stringify(taskDetail)}`);
   }
+
+  // The whole public task-detail payload must not leak structured cognition.
+  assertFieldsAbsent(
+    taskDetail,
+    FORBIDDEN_PUBLIC_FIELDS,
+    "/agent/tasks/:id",
+  );
 
   if (taskDetail.decision) {
     assertFieldsAbsent(
@@ -110,7 +142,6 @@ async function main(): Promise<void> {
 }
 
 main().catch((error) => {
-  console.error("employee-cognition-boundary-check failed");
-  console.error(error);
+  console.error("employee-cognition-boundary-check failed", error);
   process.exit(1);
 });

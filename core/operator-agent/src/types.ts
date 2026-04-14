@@ -27,6 +27,12 @@ export interface EmployeePromptProfile {
   updatedAt: string;
 }
 
+export interface EmployeeCognitionStructured {
+  intent?: string;
+  riskLevel?: "low" | "medium" | "high";
+  suggestedNextAction?: string;
+}
+
 export interface EmployeeProjection {
   identity: {
     employeeId: string;
