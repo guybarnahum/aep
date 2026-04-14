@@ -46,12 +46,7 @@ export async function runPmAgent(
     throw new Error("No active roadmap objective found for PM Agent.");
   }
 
-  // 2. THINK
-  const thought =
-    `Roadmap objective: "${roadmap.objective_title}". ` +
-    `Targeting staging baseline. Creating a validation task to verify current deploy health.`;
-
-  // 3. ACT
+  // 2. ACT
   const taskId = `task_pm_${crypto.randomUUID().split("-")[0]}`;
 
   await taskStore.createTask({
@@ -99,10 +94,7 @@ export async function runPmAgent(
       windowEntryCount: 1,
       resultCounts: {},
     },
-    executionContext: {
-      ...context.executionContext,
-      internalMonologue: thought,
-    } as any,
+    executionContext: context.executionContext,
   };
 
   logInfo("strategic task created", {

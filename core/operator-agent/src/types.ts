@@ -14,6 +14,19 @@ export interface EmployeePublicProfile {
   avatarUrl?: string;
 }
 
+export interface EmployeePromptProfile {
+  employeeId: string;
+  basePrompt: string;
+  decisionStyle?: string;
+  collaborationStyle?: string;
+  identitySeed?: string;
+  portraitPrompt?: string;
+  promptVersion: string;
+  status: "draft" | "approved";
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface EmployeeProjection {
   identity: {
     employeeId: string;
@@ -193,6 +206,10 @@ export interface AgentIdentity {
   tone?: string;       // The agent's communication tone
   skills?: string[];   // The agent's core competencies
   photoUrl?: string;   // The agent's photo URL
+}
+
+export interface OperatorAgentAiBinding {
+  run(model: string, inputs: Record<string, unknown>): Promise<unknown>;
 }
 
 export interface AgentAuthority {
@@ -792,11 +809,14 @@ export interface OperatorAgentEnv extends Record<string, unknown> {
   OPERATOR_AGENT_DB?: D1Database;
   OPERATOR_AGENT_STORE_BACKEND?: string;
   CONTROL_PLANE?: Fetcher;
+  AI?: OperatorAgentAiBinding;
   CONTROL_PLANE_BASE_URL?: string;
   APP_ENV?: string;
   GIT_SHA?: string;
   SERVICE_NAME?: string;
   AEP_CRON_FALLBACK_ENABLED?: string;
+  AEP_AI_ENABLED?: string;
+  AEP_AI_MODEL?: string;
   PAPERCLIP_SHARED_SECRET?: string;
   PAPERCLIP_AUTH_REQUIRED?: string;
   ENABLE_TEST_ENDPOINTS?: string;

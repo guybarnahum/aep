@@ -113,6 +113,10 @@ jobs:
         id: runtime_tenant_catalog
         run: npx tsx scripts/ci/checks/contracts/runtime-tenant-catalog-check.ts | tee runtime-tenant-catalog-check.log
 
+      - name: Run employee cognition boundary check
+        id: employee_cognition_boundary
+        run: npx tsx scripts/ci/checks/contracts/employee-cognition-boundary-check.ts | tee employee-cognition-boundary-check.log
+
       - name: Run thread task delegation contract check
         id: thread_task_delegation_contract
         run: npx tsx scripts/ci/checks/contracts/thread-task-delegation-contract-check.ts | tee thread-task-delegation-contract-check.log
@@ -129,6 +133,7 @@ jobs:
             "${{ steps.provider_provenance.outcome }}" == "success" && \
             "${{ steps.runtime_provenance.outcome }}" == "success" && \
             "${{ steps.runtime_tenant_catalog.outcome }}" == "success" && \
+            "${{ steps.employee_cognition_boundary.outcome }}" == "success" && \
             "${{ steps.thread_task_delegation_contract.outcome }}" == "success" \
           ]]; then
             echo "value=success" >> "$GITHUB_OUTPUT"
@@ -166,6 +171,7 @@ jobs:
           echo "- $(status_emoji "${{ steps.provider_provenance.outcome }}") provider-provenance-check: ${{ steps.provider_provenance.outcome }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- $(status_emoji "${{ steps.runtime_provenance.outcome }}") runtime-provenance-check: ${{ steps.runtime_provenance.outcome }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- $(status_emoji "${{ steps.runtime_tenant_catalog.outcome }}") runtime-tenant-catalog-check: ${{ steps.runtime_tenant_catalog.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- $(status_emoji "${{ steps.employee_cognition_boundary.outcome }}") employee-cognition-boundary-check: ${{ steps.employee_cognition_boundary.outcome }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- $(status_emoji \"${{ steps.thread_task_delegation_contract.outcome }}\") thread-task-delegation-contract-check: ${{ steps.thread_task_delegation_contract.outcome }}" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "### Layer verdict" >> "$GITHUB_STEP_SUMMARY"

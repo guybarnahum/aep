@@ -221,6 +221,7 @@ export async function executeEmployeeRun(
     ...resolved,
     authority: effectivePolicy.authority,
     budget: effectivePolicy.budget,
+    // Execution context carries routing provenance only; cognition belongs in private agent state.
     executionContext,
     taskContext,
   };

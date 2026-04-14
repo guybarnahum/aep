@@ -1,3 +1,5 @@
+// ExecutionContext is provenance-only metadata used for routing and auditability.
+// Private cognition, prompt material, and internal monologue must not be stored here.
 export type ExecutionSource =
   | "paperclip"
   | "cron_fallback"

@@ -1,4 +1,5 @@
 import { logInfo } from "@aep/operator-agent/lib/logger";
+import { generateEmployeeInternalMonologue } from "@aep/operator-agent/lib/employee-cognition";
 import { getTaskStore } from "@aep/operator-agent/lib/store-factory";
 import type { Task } from "@aep/operator-agent/lib/store-types";
 import type {
@@ -129,43 +130,6 @@ async function runHealthCheck(args: {
   }
 }
 
-// Deliberation Helper: Generates the internal monologue (Thinking Trace)
-async function deliberate(args: {
-  context: ResolvedEmployeeRunContext;
-  task: Task;
-  observation: string;
-}): Promise<string> {
-  const { employee } = args.context;
-  const displayName = employee.identity.employeeName ?? employee.identity.employeeId;
-  const bio = employee.identity.bio || "No bio set.";
-  const tone = employee.identity.tone || "Professional";
-  const skills = Array.isArray(employee.identity.skills) && employee.identity.skills.length > 0
-    ? employee.identity.skills.join(", ")
-    : "Generalist";
-  const persona = `Name: ${displayName}\nRole: ${employee.identity.roleId}\nBio: ${bio}\nTone: ${tone}\nSkills: ${skills}`;
-
-  const prompt = `
-[SYSTEM: COGNITIVE IDENTITY]
-${persona}
-
-[STRATEGIC CONTEXT]
-Roadmap: Platform Stability 1.0
-Objective: Ensure 99.9% uptime for preview deployments.
-
-[OBSERVATION]
-I am validating Task: ${args.task.id} (${args.task.taskType}).
-Current Observation: ${args.observation}
-
-[TASK]
-Generate a 1-2 sentence internal monologue (Thinking Trace) about how you interpret this result relative to your goals. \nWrite in your specific persona tone. Do not use filler.
-`;
-
-  // Placeholder for LLM call. In Cloudflare: return await env.AI.run(...)
-  // For now, we simulate the "Thought" if AI isn't bound, or use a simple heuristic.
-  return `Observed ${args.observation}. As an SRE, I must ensure this doesn't degrade the core substrate. Verdict is determined by my strict reliability threshold.`;
-}
-
-// Updated recordTaskDecision to accept internalMonologue
 async function recordTaskDecision(args: {
   env: OperatorAgentEnv;
   context: ResolvedEmployeeRunContext;
@@ -209,14 +173,13 @@ async function processValidationTask(args: {
       useControlPlaneBinding: shouldUseControlPlaneBinding(args.task),
     });
 
-    // THINK: Generate the Internal Monologue
-    const internalMonologue = await deliberate({
-      context: args.context,
+    const internalMonologue = await generateEmployeeInternalMonologue({
+      env: args.env,
+      employee: args.context.employee,
       task: args.task,
       observation: healthCheck.reasoning,
     });
 
-    // ACT: Record Decision with Thought Trace
     await recordTaskDecision({
       env: args.env,
       context: args.context,

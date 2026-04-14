@@ -205,6 +205,7 @@ async function createResultArtifactIfPresent(args: {
     createdByEmployeeId: args.request.employeeId,
     summary: args.result.message,
     content: {
+      // Result artifacts stay reviewable; private cognition remains in internal decision storage only.
       status: args.result.status,
       workerRole: "workerRole" in args.result ? args.result.workerRole : undefined,
       message: args.result.message,
