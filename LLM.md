@@ -4,7 +4,7 @@ Repository (source of truth):
 👉 https://github.com/guybarnahum/aep
 
 The repository code is the source of truth.
-This document is aligned to commit a646866828571fb4f09664b885b391df773f8aa4.
+This document is aligned to commit f500b221d0d7b1a1e7520d319cb727d23d70e44f.
 
 ```bash
 titan@Titans-MacBook-Pro aep % tree . --gitignore 
@@ -1486,6 +1486,11 @@ Neither should become the source of truth.
 - PR7.8B: controlled cognition rollout to additional employees, with PM first
 - PR7.8B introduces structured cognition outputs for internal-only use
 - PR7.8B does not add public rationale artifacts, chat workflows, or route-level cognition
+- PR7.8B validation should prove:
+  - PM runs correctly through the shared cognition substrate
+  - AI-disabled fallback still works
+  - public routes do not leak `internalMonologue` or structured cognition fields
+  - `/agent/run` and execution provenance remain orchestration-only
 
 Repo reality note:
 - proto-cognition already existed in `validation-agent` before consolidation
@@ -2265,25 +2270,29 @@ Additional important rule:
 ---
 
 ## Updated immediate next step
-👉 Start **PR7.8A — cognition foundation**
+👉 Start **PR7.8B — controlled cognition rollout**
 
 PR7.7 is complete, including delegation hardening.
+PR7.8A is complete as the cognition-foundation milestone.
 
-Specifically, PR7.8A should:
-1. add a shared cognition service inside the employee boundary
-2. load private prompt profiles without exposing them on public routes
-3. support optional AI invocation with deterministic fallback
-4. normalize the validation agent onto that shared cognition path
-5. establish foundation-only cognition plumbing without broad rollout yet
+Specifically, PR7.8B should:
+1. extend shared cognition to at least one additional employee, with PM first
+2. keep cognition inside the employee boundary using private prompt profiles
+3. preserve deterministic fallback when AI is disabled or unavailable
+4. preserve the same hard privacy boundary:
+  - no `internalMonologue` on public routes
+  - no prompt-profile leakage
+  - no structured cognition leakage on public surfaces
+5. keep `/agent/run` orchestration-only
 6. keep `executionContext` provenance-only and free of cognition leakage
-7. continue emitting durable outputs through existing AEP primitives:
+7. keep outputs AEP-native through existing primitives:
   - tasks
   - task artifacts
   - message threads
   - approvals / escalations when needed
-8. keep Slack/email out of scope except as future adapters
+8. avoid public rationale artifacts, chat workflows, or route-level cognition in PR7.8B
 
-PR7.8B should then expand real employee reasoning behavior beyond the initial foundation work, starting with PM while preserving the same hard privacy boundary.
+PR7.8C can then introduce public rationale surfaces only if the same hard privacy boundary remains intact.
 
 ---
 
@@ -2550,6 +2559,13 @@ The next LLM session should work from this order:
 2. **PR7.8C — public rationale surfaces, if boundary remains intact**
 3. **PR7.9 — agents as persons**
 4. **PR7.10 — email / Slack adapters**
+
+PR7.8B should be validated with:
+- the cognition-boundary contract checks
+- cognitive task-run contract checks
+- provenance/route regression checks
+- one PM run with AI disabled
+- one PM run with AI enabled
 
 PR7.7, PR7.75, and PR7.7X should now be treated as complete.
 
