@@ -44,6 +44,7 @@
     "ci:task-run-cognitive-contract-check": "tsx scripts/ci/checks/contracts/task-run-cognitive-contract-check.ts",
     "ci:employee-cognition-boundary-check": "tsx scripts/ci/checks/contracts/employee-cognition-boundary-check.ts",
     "ci:public-rationale-artifact-check": "tsx scripts/ci/checks/contracts/public-rationale-artifact-check.ts",
+    "ci:thread-rationale-publication-check": "tsx scripts/ci/checks/contracts/thread-rationale-publication-check.ts",
     "ci:message-thread-contract-check": "tsx scripts/ci/checks/contracts/message-thread-contract-check.ts",
     "ci:approval-thread-contract-check": "tsx scripts/ci/checks/contracts/approval-thread-contract-check.ts",
     "ci:escalation-thread-contract-check": "tsx scripts/ci/checks/contracts/escalation-thread-contract-check.ts",

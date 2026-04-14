@@ -149,6 +149,40 @@ async function main(): Promise<void> {
     });
   }
 
+  const relatedThreads = await client.listMessageThreads({
+    relatedTaskId: task.id,
+    limit: 20,
+  });
+
+  if (relatedThreads?.ok && Array.isArray(relatedThreads.threads)) {
+    for (const thread of relatedThreads.threads) {
+      if (!thread?.id) continue;
+
+      const threadDetail = await client.getMessageThread(thread.id);
+      if (!threadDetail?.ok || !Array.isArray(threadDetail.messages)) {
+        continue;
+      }
+
+      threadDetail.messages.forEach((message: Record<string, unknown>, messageIndex: number) => {
+        if (typeof message.body === "string") {
+          assertFieldsAbsent(
+            message.body,
+            [...FORBIDDEN_PUBLIC_FIELDS, "privateReasoning", "private_reasoning"],
+            `/agent/message-threads/${thread.id} messages[${messageIndex}].body`,
+          );
+        }
+
+        if (message.payload && typeof message.payload === "object") {
+          assertFieldsAbsent(
+            message.payload,
+            [...FORBIDDEN_PUBLIC_FIELDS, "privateReasoning", "private_reasoning"],
+            `/agent/message-threads/${thread.id} messages[${messageIndex}].payload`,
+          );
+        }
+      });
+    }
+  }
+
   console.log("employee-cognition-boundary-check passed", {
     taskId: task.id,
     employeeCount: employeesResponse.count,

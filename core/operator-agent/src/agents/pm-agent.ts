@@ -5,6 +5,7 @@ import {
 } from "../lib/employee-cognition";
 import { logInfo } from "../lib/logger";
 import { getEmployeePromptProfile } from "../lib/employee-prompt-profile-store-d1";
+import { publishTaskRationaleToThread } from "../lib/rationale-thread-publisher";
 import { getTaskStore } from "../lib/store-factory";
 import type {
   ManagerDecision,
@@ -29,11 +30,12 @@ async function createPublicRationaleArtifact(args: {
   summary: string;
   rationale: string;
   recommendedNextAction?: string;
-}): Promise<void> {
+}): Promise<string> {
   const taskStore = getTaskStore(args.env);
+  const artifactId = publicRationaleArtifactId(args.taskId);
 
   await taskStore.createArtifact({
-    id: publicRationaleArtifactId(args.taskId),
+    id: artifactId,
     taskId: args.taskId,
     companyId: args.companyId,
     artifactType: "result",
@@ -46,6 +48,8 @@ async function createPublicRationaleArtifact(args: {
       recommendedNextAction: args.recommendedNextAction,
     },
   });
+
+  return artifactId;
 }
 
 export async function runPmAgent(
@@ -140,7 +144,7 @@ export async function runPmAgent(
 
   const publicRationale = derivePublicRationale(cognition);
 
-  await createPublicRationaleArtifact({
+  const artifactId = await createPublicRationaleArtifact({
     env,
     taskId,
     companyId: context.employee.identity.companyId,
@@ -148,6 +152,15 @@ export async function runPmAgent(
     summary: publicRationale.summary,
     rationale: publicRationale.rationale,
     recommendedNextAction: publicRationale.recommendedNextAction,
+  });
+
+  await publishTaskRationaleToThread({
+    env,
+    companyId: context.employee.identity.companyId,
+    taskId,
+    artifactId,
+    employeeId: context.employee.identity.employeeId,
+    rationale: publicRationale,
   });
 
   // 4. GENERATE COMPLIANT RESPONSE

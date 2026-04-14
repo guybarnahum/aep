@@ -38,6 +38,11 @@ export interface EmployeePublicRationale {
   recommendedNextAction?: string;
 }
 
+export interface EmployeeThreadRationaleMessage {
+  subject?: string;
+  body: string;
+}
+
 type GenerateEmployeeInternalMonologueArgs = {
   env?: OperatorAgentEnv;
   employee: AgentEmployeeDefinition;
@@ -350,6 +355,23 @@ export function derivePublicRationale(
     summary,
     rationale,
     recommendedNextAction: cognition.structured?.suggestedNextAction,
+  };
+}
+
+export function deriveThreadRationaleMessage(
+  rationale: EmployeePublicRationale,
+): EmployeeThreadRationaleMessage {
+  const lines: string[] = [rationale.summary];
+
+  if (rationale.recommendedNextAction) {
+    lines.push(`Recommended next action: ${rationale.recommendedNextAction}`);
+  }
+
+  lines.push("See task artifacts for the durable reviewable rationale.");
+
+  return {
+    subject: "Rationale summary",
+    body: lines.join("\n"),
   };
 }
 

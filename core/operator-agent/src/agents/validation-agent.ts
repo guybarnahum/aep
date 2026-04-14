@@ -4,6 +4,7 @@ import {
 } from "@aep/operator-agent/lib/employee-cognition";
 import { getEmployeePromptProfile } from "@aep/operator-agent/lib/employee-prompt-profile-store-d1";
 import { logInfo } from "@aep/operator-agent/lib/logger";
+import { publishTaskRationaleToThread } from "@aep/operator-agent/lib/rationale-thread-publisher";
 import { getTaskStore } from "@aep/operator-agent/lib/store-factory";
 import type { Task } from "@aep/operator-agent/lib/store-types";
 import type {
@@ -165,11 +166,12 @@ async function createPublicRationaleArtifact(args: {
   summary: string;
   rationale: string;
   recommendedNextAction?: string;
-}): Promise<void> {
+}): Promise<string> {
   const taskStore = getTaskStore(args.env);
+  const artifactId = publicRationaleArtifactId(args.task.id);
 
   await taskStore.createArtifact({
-    id: publicRationaleArtifactId(args.task.id),
+    id: artifactId,
     taskId: args.task.id,
     companyId: args.task.companyId,
     artifactType: "result",
@@ -182,6 +184,8 @@ async function createPublicRationaleArtifact(args: {
       recommendedNextAction: args.recommendedNextAction,
     },
   });
+
+  return artifactId;
 }
 
 // Sense-Think-Act: Thought Loop
@@ -231,13 +235,22 @@ async function processValidationTask(args: {
 
     const publicRationale = derivePublicRationale(cognition);
 
-    await createPublicRationaleArtifact({
+    const artifactId = await createPublicRationaleArtifact({
       env: args.env,
       context: args.context,
       task: args.task,
       summary: publicRationale.summary,
       rationale: publicRationale.rationale,
       recommendedNextAction: publicRationale.recommendedNextAction,
+    });
+
+    await publishTaskRationaleToThread({
+      env: args.env,
+      companyId: args.task.companyId,
+      taskId: args.task.id,
+      artifactId,
+      employeeId: args.context.employee.identity.employeeId,
+      rationale: publicRationale,
     });
 
     await recordTaskDecision({
