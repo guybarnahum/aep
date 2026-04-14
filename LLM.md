@@ -4,7 +4,7 @@ Repository (source of truth):
 👉 https://github.com/guybarnahum/aep
 
 The repository code is the source of truth.
-This document is aligned to commit afc18dd73c02c0fb5f563cb268a758d5ad275d60.
+This document is aligned to commit a646866828571fb4f09664b885b391df773f8aa4.
 
 ```bash
 titan@Titans-MacBook-Pro aep % tree . --gitignore 
@@ -154,6 +154,9 @@ titan@Titans-MacBook-Pro aep % tree . --gitignore
 │   │   │   │   ├── run.ts
 │   │   │   │   ├── scheduler-status.ts
 │   │   │   │   ├── tasks.ts
+│   │   │   │   ├── thread-approval-actions.ts
+│   │   │   │   ├── thread-delegate-task.ts
+│   │   │   │   ├── thread-escalation-actions.ts
 │   │   │   │   ├── te-seed-approval.ts
 │   │   │   │   ├── te-seed-work-log.ts
 │   │   │   │   └── work-log.ts
@@ -223,7 +226,12 @@ titan@Titans-MacBook-Pro aep % tree . --gitignore
 │   │   │       ├── 0008_cognitive_identities.sql
 │   │   │       ├── 0009_add_internal_monologue_to_decisions.sql
 │   │   │       ├── 0010_employee_prompt_profiles.sql
-│   │   │       └── 0011_operator_agent_coordination.sql
+│   │   │       ├── 0011_operator_agent_coordination.sql
+│   │   │       ├── 0012_operator_agent_task_artifacts.sql
+│   │   │       ├── 0013_operator_agent_message_threads.sql
+│   │   │       ├── 0014_operator_agent_human_interaction_threads.sql
+│   │   │       ├── 0015_operator_agent_thread_response_actions.sql
+│   │   │       └── 0016_thread_task_delegation.sql
 │   │   └── wrangler
 │   │       └── README.md
 │   └── github
@@ -251,7 +259,10 @@ titan@Titans-MacBook-Pro aep % tree . --gitignore
 │   │   ├── check-operator-agent-coordination-schema.sh
 │   │   ├── checks
 │   │   │   ├── contracts
+│   │   │   │   ├── approval-thread-action-contract-check.ts
+│   │   │   │   ├── approval-thread-conflict-contract-check.ts
 │   │   │   │   ├── employee-scope-check.ts
+│   │   │   │   ├── escalation-thread-action-contract-check.ts
 │   │   │   │   ├── operator-agent-contract-check.ts
 │   │   │   │   ├── operator-surface-check.ts
 │   │   │   │   ├── provider-provenance-check.ts
@@ -259,6 +270,7 @@ titan@Titans-MacBook-Pro aep % tree . --gitignore
 │   │   │   │   ├── runtime-provenance-check.ts
 │   │   │   │   ├── runtime-tenant-catalog-check.ts
 │   │   │   │   ├── service-provider-check.ts
+│   │   │   │   ├── thread-task-delegation-contract-check.ts
 │   │   │   │   └── validate-runtime-read-safety.ts
 │   │   │   ├── environment
 │   │   │   │   ├── async-deploy-check.ts
@@ -277,8 +289,10 @@ titan@Titans-MacBook-Pro aep % tree . --gitignore
 │   │   │   │   └── scheduled-routing-check.ts
 │   │   │   ├── scenarios
 │   │   │   │   ├── agent-timeout-recovery-check.ts
+│   │   │   │   ├── approval-thread-delegation-check.ts
 │   │   │   │   ├── check-validation-verdict.ts
 │   │   │   │   ├── dispatch-validation-runs.ts
+│   │   │   │   ├── escalation-thread-delegation-check.ts
 │   │   │   │   ├── execute-validation-dispatch.ts
 │   │   │   │   ├── execute-validation-work-order.ts
 │   │   │   │   ├── multi-worker-department-check.ts
@@ -1156,7 +1170,14 @@ Current status:
 - thread-based human actions are implemented
 - deterministic approval-thread flows are implemented
 - conflict-visible thread history is implemented
-- **thread → follow-up task delegation is the next missing capability**
+- thread → follow-up task delegation is implemented
+- delegated tasks preserve explicit provenance:
+  - `sourceThreadId`
+  - `sourceMessageId`
+  - `sourceApprovalId`
+  - `sourceEscalationId`
+- delegation appends durable dashboard + system messages back into the source thread
+- contracts and post-deploy workflows now include delegation coverage
 
 ---
 
@@ -1441,15 +1462,26 @@ Neither should become the source of truth.
 - durable dashboard action messages for success + conflict
 - approval thread action contracts now prove real first transition
 
-### 🔜 PR7.7 — thread → task delegation
+### ✅ PR7.7 — thread → task delegation
 - create follow-up tasks from approval/escalation thread outcomes
 - link tasks to source thread + action message
 - preserve provenance across delegation
+- append durable delegation messages back into source threads
+- expose delegated-task provenance through task detail
+- add schema, contract, and scenario coverage
+
+### ✅ PR7.75 / PR7.7X — delegation hardening
+- wire delegation checks into reusable validation workflows
+- remove unused delegation-support store surface
+- fix delegation contract/scenario checks to avoid test-only seed endpoint assumptions
+- use live approvals in reusable validation lanes where required
+- soft-skip cleanly when suitable live approval/thread data is absent
 
 ### 🔜 PR7.8 — LLM-powered agents
 - introduce real LLM invocation in employee execution
 - task-aware prompts
 - artifact-producing reasoning
+- use the existing task/thread/artifact substrate as the canonical cognition boundary
 
 ### 🔜 PR7.9 — agents as persons
 - stronger persona continuity
@@ -1771,6 +1803,20 @@ All deploy and validation workflows operate on:
 ---
 
 ## Design principles
+
+## Additional repo-aligned note
+
+Reusable validation lanes must not assume test-only endpoints are enabled.
+
+If a contract or scenario check depends on seeded setup through `/agent/te/...`,
+that check is not safe for reusable validation workflows unless the workflow
+explicitly enables test endpoints.
+
+Live-environment reusable checks should prefer:
+- existing approvals / escalations / threads
+- soft-skip when suitable live data is absent
+
+This became especially important during PR7.7 delegation hardening.
 
 CI must be:
 
@@ -2211,17 +2257,20 @@ Additional important rule:
 ---
 
 ## Updated immediate next step
-👉 Start **PR7.7 — Thread → Task Delegation**
+👉 Start **PR7.8 — LLM-powered agents**
 
-Specifically:
-1. allow approval / escalation thread outcomes to create follow-up tasks
-2. link created tasks to:
-  - `threadId`
-  - source action message
-  - originating approval or escalation
-3. preserve provenance across the delegation boundary
-4. keep AEP canonical; do not introduce Slack/email as source of truth
-5. prepare the system for PR7.8 LLM-powered agents
+PR7.7 is complete, including delegation hardening.
+
+Specifically, PR7.8 should:
+1. introduce real LLM invocation inside the employee boundary
+2. load task + dependency + artifact + thread context for reasoning
+3. emit durable outputs through existing AEP primitives:
+  - tasks
+  - task artifacts
+  - message threads
+  - approvals / escalations when needed
+4. preserve the public/private cognition boundary
+5. keep Slack/email out of scope except as future adapters
 
 ---
 
@@ -2233,13 +2282,15 @@ AEP is now:
 
 PR6 is complete.
 
-PR7.1–PR7.6 are complete.
+PR7.1–PR7.7 are complete.
 
-The next structural step is:
+PR7.75 / PR7.7X hardening is complete.
 
-> enable delegation from threaded human interaction into new work
+The latest completed structural step is:
 
-The next major steps after that are:
+> enable delegation from threaded human interaction into new work with durable provenance
+
+The next major steps are:
 
 > make employees reason with LLMs, behave as persons, and communicate externally over email/Slack
 
@@ -2433,8 +2484,9 @@ The LLM is the reasoning engine inside this operating model, not the model itsel
 - PR7.4: Contract hardening ✅
 - PR7.5: Thread-based human actions ✅
 - PR7.6: Deterministic interaction hardening ✅
-- PR7.7: Thread → task delegation ⏭️
-- PR7.8: LLM-powered agents
+- PR7.7: Thread → task delegation ✅
+- PR7.75 / PR7.7X: Delegation workflow + environment hardening ✅
+- PR7.8: LLM-powered agents ⏭️
 - PR7.9: Agents as persons
 - PR7.10: Email / Slack adapters
 
@@ -2442,29 +2494,37 @@ This is the current preferred framing and should be treated as the working plan 
 
 ---
 
-# 18. Current repo-aligned status (commit afc18dd73c02c0fb5f563cb268a758d5ad275d60)
+# 18. Current repo-aligned status (commit a646866828571fb4f09664b885b391df773f8aa4)
 
-At this commit, the system already supports:
+At this commit, the system supports:
 
-- task-backed execution with durable `plan` / `result` artifacts
+- task-backed execution with durable `plan` / `result` / `evidence` artifacts
 - message threads as canonical internal coordination substrate
 - inbox / outbox / thread detail
 - approval-linked and escalation-linked threads
 - thread-based human actions
-- deterministic approval-thread seeding for contract tests
-- durable dashboard + system messages for both successful and conflict action paths
+- deterministic approval-thread hardening
+- explicit thread → task delegation with durable provenance on the task row:
+  - `sourceThreadId`
+  - `sourceMessageId`
+  - `sourceApprovalId`
+  - `sourceEscalationId`
+- durable dashboard + system messages for delegation append-back into the source thread
+- reusable workflow coverage for delegation contracts and post-deploy scenarios
+
+Delegation validation has also been hardened for real environments:
+
+- reusable validation lanes must not assume test-only seed endpoints
+- delegation contract/scenario checks use live approvals where required
+- these checks soft-skip cleanly when suitable live approval/thread data is absent
 
 Important runtime rule:
 
 > If `/agent/run` receives a `taskId`, that task must exist.
 
-Legacy scenario checks that fabricate `taskId` values are stale and must be updated to create real tasks first.
-
 Important company rule:
 
 > The canonical internal company is `company_internal_aep`.
-
-Older scenario checks or docs referring to legacy company IDs are stale and should be updated.
 
 ---
 
@@ -2472,10 +2532,11 @@ Older scenario checks or docs referring to legacy company IDs are stale and shou
 
 The next LLM session should work from this order:
 
-1. **PR7.7 — thread → task delegation**
-2. **PR7.8 — LLM-powered agents**
-3. **PR7.9 — agents as persons**
-4. **PR7.10 — email / Slack adapters**
+1. **PR7.8 — LLM-powered agents**
+2. **PR7.9 — agents as persons**
+3. **PR7.10 — email / Slack adapters**
+
+PR7.7, PR7.75, and PR7.7X should now be treated as complete.
 
 Target end-state:
 
