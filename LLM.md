@@ -4,7 +4,7 @@ Repository (source of truth):
 👉 https://github.com/guybarnahum/aep
 
 The repository code is the source of truth.
-This document is aligned to commit f500b221d0d7b1a1e7520d319cb727d23d70e44f.
+This document is aligned to commit c751a1972ea5378fe0d72d7120b2cd045c0e6202.
 
 ```bash
 titan@Titans-MacBook-Pro aep % tree . --gitignore 
@@ -2278,21 +2278,22 @@ Additional important rule:
 ---
 
 ## Updated immediate next step
-👉 Start **PR7.8D — richer rationale publication / thread surfacing**
+👉 Start **PR7.9 — agents as persons**
 
 PR7.7 is complete, including delegation hardening.
 PR7.8A is complete as the cognition-foundation milestone.
 PR7.8B is complete as the controlled internal rollout milestone.
 PR7.8C is complete as the durable public-rationale artifact milestone.
+PR7.8D is complete as the bounded rationale publication into canonical threads milestone.
 
-Specifically, PR7.8D should:
-1. publish already-safe public rationale into canonical related threads when such threads exist
-2. keep rationale artifacts canonical and publish thread summaries on top of them
-3. skip safely when no related thread exists
+Specifically, PR7.9 should:
+1. strengthen employee-specific persona continuity across runs
+2. preserve employee-specific voice and working style without introducing a global shared persona layer
+3. keep cognition inside the employee boundary using private prompt profiles and identity seeds
 4. preserve the same hard privacy boundary:
   - no `internalMonologue` on public routes
   - no prompt-profile leakage
-  - no raw `privateReasoning` in thread messages or payloads
+  - no raw `privateReasoning` on public surfaces
 5. keep `/agent/run` orchestration-only
 6. keep `executionContext` provenance-only and free of cognition leakage
 7. keep outputs AEP-native through existing primitives:
@@ -2300,9 +2301,9 @@ Specifically, PR7.8D should:
   - task artifacts
   - message threads
   - approvals / escalations when needed
-8. avoid chat workflows or route-level cognition in PR7.8D
+8. avoid chat workflows, free-form global memory, or route-level cognition in PR7.9
 
-PR7.9 can then strengthen persona continuity on top of the same hard privacy boundary.
+PR7.10 can then add email / Slack adapters on top of stable agent identity and the same hard privacy boundary.
 
 ---
 
@@ -2324,11 +2325,11 @@ The latest completed structural step is:
 
 The next major steps are:
 
-> make employees reason with LLMs, behave as persons, and communicate externally over email/Slack
+> strengthen employee personhood / identity continuity, then add external communication adapters
 
 Everything after that:
-- LLM reasoning
 - persona continuity
+- stronger employee-specific voice and working style
 - inter-agent collaboration
 - email / Slack adapters
 - seamless human cooperation
@@ -2519,7 +2520,9 @@ The LLM is the reasoning engine inside this operating model, not the model itsel
 - PR7.7: Thread → task delegation ✅
 - PR7.75 / PR7.7X: Delegation workflow + environment hardening ✅
 - PR7.8A: Cognition foundation ✅
-- PR7.8B: Controlled cognition rollout ⏭️
+- PR7.8B: Controlled cognition rollout ✅
+- PR7.8C: Durable public rationale artifacts ✅
+- PR7.8D: Bounded rationale publication into canonical threads ✅
 - PR7.9: Agents as persons
 - PR7.10: Email / Slack adapters
 
@@ -2527,7 +2530,7 @@ This is the current preferred framing and should be treated as the working plan 
 
 ---
 
-# 18. Current repo-aligned status (commit a646866828571fb4f09664b885b391df773f8aa4)
+# 18. Current repo-aligned status (commit c751a1972ea5378fe0d72d7120b2cd045c0e6202)
 
 At this commit, the system supports:
 
@@ -2544,6 +2547,19 @@ At this commit, the system supports:
   - `sourceEscalationId`
 - durable dashboard + system messages for delegation append-back into the source thread
 - reusable workflow coverage for delegation contracts and post-deploy scenarios
+- shared employee cognition with optional AI binding and deterministic fallback
+- controlled cognition rollout beyond validation into PM execution
+- durable bounded public rationale artifacts linked to cognitive task execution
+- bounded rationale publication into canonical related message threads
+- cognition-boundary contract checks covering:
+  - employee projection privacy
+  - task detail privacy
+  - artifact content privacy
+  - related thread message body and payload privacy
+- reusable contracts workflow coverage for:
+  - employee cognition boundary
+  - public rationale artifact publication
+  - thread rationale publication
 
 Delegation validation has also been hardened for real environments:
 
@@ -2565,18 +2581,17 @@ Important company rule:
 
 The next LLM session should work from this order:
 
-1. **PR7.8D — richer rationale publication / thread surfacing**
-2. **PR7.9 — agents as persons**
-3. **PR7.10 — email / Slack adapters**
+1. **PR7.9 — agents as persons**
+2. **PR7.10 — email / Slack adapters**
 
-PR7.8D should be validated with:
+PR7.9 should be validated with:
 - the cognition-boundary contract checks
 - cognitive task-run contract checks
 - public-rationale artifact contract checks
 - thread-rationale publication contract checks
 - provenance/route regression checks
-- one validation-agent run with a related thread
-- one PM run confirming thread publication remains bounded and durable
+- one validation-agent run confirming stable employee-specific rationale style across repeated runs
+- one PM run confirming employee-specific style continuity without leaking private cognition
 
 PR7.7, PR7.75, and PR7.7X should now be treated as complete.
 
