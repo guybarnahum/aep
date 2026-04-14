@@ -52,6 +52,12 @@ type SeedEnvelope = {
   raw?: string;
 };
 
+type CreateTaskEnvelope = {
+  ok?: boolean;
+  taskId?: string;
+  error?: string;
+};
+
 const MANAGER_CRON = "*/5 * * * *";
 
 function requireEnv(name: string): string {
@@ -329,6 +335,27 @@ async function seedWorkLog(
   );
 }
 
+async function createTask(
+  agentBaseUrl: string,
+  body: Record<string, unknown>,
+): Promise<string> {
+  const response = await fetch(`${agentBaseUrl}/agent/tasks`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
+
+  const parsed = (await readJson(response)) as CreateTaskEnvelope;
+
+  if (response.status !== 201 || !parsed?.ok || !parsed.taskId) {
+    throw new Error(
+      `Task creation failed: status=${response.status}, body=${summarizeForError(parsed)}`
+    );
+  }
+
+  return parsed.taskId;
+}
+
 async function triggerScheduled(
   agentBaseUrl: string,
   cron: string
@@ -390,14 +417,30 @@ async function main(): Promise<void> {
     );
   }
 
+  const companyId = "company_internal_aep";
+
+  const managerTaskId = await createTask(agentBaseUrl, {
+    companyId,
+    originatingTeamId: "team_infra",
+    assignedTeamId: "team_infra",
+    createdByEmployeeId: "emp_infra_ops_manager_01",
+    assignedEmployeeId: "emp_infra_ops_manager_01",
+    taskType: "paperclip-manager-check",
+    title: "paperclip first execution manager check",
+    payload: {
+      scenario: "paperclip-first-execution-check",
+      phase: "manager",
+    },
+  });
+
   const validBody = {
     teamId: "team_infra",
     employeeId: "emp_infra_ops_manager_01",
     roleId: "infra-ops-manager",
     trigger: "paperclip",
     policyVersion: "commit10-stageD",
-    companyId: "company-1",
-    taskId: `task-${Date.now()}`,
+    companyId,
+    taskId: managerTaskId,
     heartbeatId: `hb-${Date.now()}`,
     targetEmployeeIdsOverride: [
       "emp_timeout_recovery_01",
@@ -417,8 +460,8 @@ async function main(): Promise<void> {
   if (validPayload.executionContext?.executionSource !== "paperclip") {
     throw new Error("Expected executionContext.executionSource=paperclip");
   }
-  if (validPayload.executionContext?.companyId !== "company-1") {
-    throw new Error("Expected executionContext.companyId=company-1");
+  if (validPayload.executionContext?.companyId !== companyId) {
+    throw new Error(`Expected executionContext.companyId=${companyId}`);
   }
 
   const managerSignals = managerSignalsFromRun(validPayload);
@@ -437,7 +480,7 @@ async function main(): Promise<void> {
       return (envelope.entries ?? []).some(
         (decision) =>
           decision.executionContext?.executionSource === "paperclip" &&
-          decision.executionContext?.companyId === "company-1"
+          decision.executionContext?.companyId === companyId
       );
     },
   });
@@ -445,7 +488,7 @@ async function main(): Promise<void> {
   const paperclipDecision = (managerLog.entries ?? []).find(
     (decision) =>
       decision.executionContext?.executionSource === "paperclip" &&
-      decision.executionContext?.companyId === "company-1"
+      decision.executionContext?.companyId === companyId
   );
 
   if (!paperclipDecision) {
@@ -464,7 +507,7 @@ async function main(): Promise<void> {
       return (envelope.entries ?? []).some(
         (entry) =>
           entry.executionContext?.executionSource === "paperclip" &&
-          entry.executionContext?.companyId === "company-1"
+          entry.executionContext?.companyId === companyId
       );
     },
   });
@@ -472,7 +515,7 @@ async function main(): Promise<void> {
   const paperclipEscalation = (escalations.entries ?? []).find(
     (entry) =>
       entry.executionContext?.executionSource === "paperclip" &&
-      entry.executionContext?.companyId === "company-1"
+      entry.executionContext?.companyId === companyId
   );
 
   if (!paperclipEscalation) {
@@ -481,13 +524,32 @@ async function main(): Promise<void> {
     );
   }
 
-  if (paperclipEscalation.companyId !== "company-1") {
+  if (paperclipEscalation.companyId !== companyId) {
     throw new Error(
-      `Expected escalation.companyId=company-1, got ${String(paperclipEscalation.companyId)}`
+      `Expected escalation.companyId=${companyId}, got ${String(paperclipEscalation.companyId)}`
     );
   }
 
   const paperclipEscalationProvenanceVerified = true;
+
+  const workerTaskId = await createTask(agentBaseUrl, {
+    companyId,
+    originatingTeamId: "team_infra",
+    assignedTeamId: "team_infra",
+    createdByEmployeeId: "emp_infra_ops_manager_01",
+    assignedEmployeeId: "emp_timeout_recovery_01",
+    taskType: "paperclip-worker-check",
+    title: "paperclip first execution worker check",
+    payload: {
+      scenario: "paperclip-first-execution-check",
+      phase: "worker",
+      targetEmployeeId: "emp_timeout_recovery_01",
+    },
+  });
+
+  if (!workerTaskId) {
+    throw new Error("Expected worker task creation to return a taskId");
+  }
 
   const workerPaperclip = await postRunUntilStatus({
     agentBaseUrl,
@@ -497,8 +559,8 @@ async function main(): Promise<void> {
       roleId: "timeout-recovery-operator",
       trigger: "paperclip",
       policyVersion: "commit10-stageD",
-      companyId: "company-1",
-      taskId: `task-worker-${Date.now()}`,
+      companyId,
+      taskId: workerTaskId,
       heartbeatId: `hb-worker-${Date.now()}`,
     },
     headers: {
@@ -522,7 +584,7 @@ async function main(): Promise<void> {
       return (envelope.entries ?? []).some(
         (entry) =>
           entry.executionContext?.executionSource === "paperclip" &&
-          entry.executionContext?.companyId === "company-1"
+          entry.executionContext?.companyId === companyId
       );
     },
   });
@@ -530,7 +592,7 @@ async function main(): Promise<void> {
   const paperclipWorkEntry = (workLog.entries ?? []).find(
     (entry) =>
       entry.executionContext?.executionSource === "paperclip" &&
-      entry.executionContext?.companyId === "company-1"
+      entry.executionContext?.companyId === companyId
   );
 
   if (!paperclipWorkEntry) {
