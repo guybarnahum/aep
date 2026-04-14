@@ -1,5 +1,9 @@
+import {
+  derivePublicRationale,
+  thinkWithinEmployeeBoundary,
+} from "@aep/operator-agent/lib/employee-cognition";
+import { getEmployeePromptProfile } from "@aep/operator-agent/lib/employee-prompt-profile-store-d1";
 import { logInfo } from "@aep/operator-agent/lib/logger";
-import { generateEmployeeInternalMonologue } from "@aep/operator-agent/lib/employee-cognition";
 import { getTaskStore } from "@aep/operator-agent/lib/store-factory";
 import type { Task } from "@aep/operator-agent/lib/store-types";
 import type {
@@ -14,6 +18,10 @@ const HEALTH_CHECK_TIMEOUT_MS = 5_000;
 
 function decisionId(taskId: string): string {
   return `dec_${taskId}_${crypto.randomUUID().split("-")[0]}`;
+}
+
+function publicRationaleArtifactId(taskId: string): string {
+  return `art_pubrat_${taskId}_${crypto.randomUUID().split("-")[0]}`;
 }
 
 function getRequestedTaskId(
@@ -150,6 +158,32 @@ async function recordTaskDecision(args: {
   });
 }
 
+async function createPublicRationaleArtifact(args: {
+  env: OperatorAgentEnv;
+  context: ResolvedEmployeeRunContext;
+  task: Task;
+  summary: string;
+  rationale: string;
+  recommendedNextAction?: string;
+}): Promise<void> {
+  const taskStore = getTaskStore(args.env);
+
+  await taskStore.createArtifact({
+    id: publicRationaleArtifactId(args.task.id),
+    taskId: args.task.id,
+    companyId: args.task.companyId,
+    artifactType: "result",
+    createdByEmployeeId: args.context.employee.identity.employeeId,
+    summary: args.summary,
+    content: {
+      kind: "public_rationale",
+      summary: args.summary,
+      rationale: args.rationale,
+      recommendedNextAction: args.recommendedNextAction,
+    },
+  });
+}
+
 // Sense-Think-Act: Thought Loop
 async function processValidationTask(args: {
   env: OperatorAgentEnv;
@@ -173,11 +207,37 @@ async function processValidationTask(args: {
       useControlPlaneBinding: shouldUseControlPlaneBinding(args.task),
     });
 
-    const internalMonologue = await generateEmployeeInternalMonologue({
+    const promptProfile = await getEmployeePromptProfile(
+      args.env,
+      args.context.employee.identity.employeeId,
+    );
+
+    const cognition = await thinkWithinEmployeeBoundary(
+      {
+        employee: args.context.employee.identity,
+        promptProfile,
+        taskContext: args.context.taskContext,
+        executionContext: args.context.executionContext,
+        observations: [
+          `Task ID: ${args.task.id}`,
+          `Task type: ${args.task.taskType}`,
+          `Task title: ${args.task.title}`,
+          `Task payload: ${JSON.stringify(args.task.payload)}`,
+          healthCheck.reasoning,
+        ],
+      },
+      args.env,
+    );
+
+    const publicRationale = derivePublicRationale(cognition);
+
+    await createPublicRationaleArtifact({
       env: args.env,
-      employee: args.context.employee,
+      context: args.context,
       task: args.task,
-      observation: healthCheck.reasoning,
+      summary: publicRationale.summary,
+      rationale: publicRationale.rationale,
+      recommendedNextAction: publicRationale.recommendedNextAction,
     });
 
     await recordTaskDecision({
@@ -186,7 +246,7 @@ async function processValidationTask(args: {
       task: args.task,
       verdict: healthCheck.verdict,
       reasoning: healthCheck.reasoning,
-      internalMonologue,
+      internalMonologue: cognition.privateReasoning,
     });
 
     const decision: ValidationTaskDecision = {

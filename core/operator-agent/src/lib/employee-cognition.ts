@@ -32,6 +32,12 @@ export interface EmployeeCognitionResult {
   model?: string;
 }
 
+export interface EmployeePublicRationale {
+  summary: string;
+  rationale: string;
+  recommendedNextAction?: string;
+}
+
 type GenerateEmployeeInternalMonologueArgs = {
   env?: OperatorAgentEnv;
   employee: AgentEmployeeDefinition;
@@ -308,6 +314,43 @@ async function invokeModelIfAvailable(
   } catch {
     return null;
   }
+}
+
+function truncateAtWordBoundary(value: string, maxLength: number): string {
+  if (value.length <= maxLength) {
+    return value;
+  }
+
+  const sliced = value.slice(0, maxLength);
+  const lastSpace = sliced.lastIndexOf(" ");
+  return `${(lastSpace > 0 ? sliced.slice(0, lastSpace) : sliced).trim()}...`;
+}
+
+function firstSentence(value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return trimmed;
+  }
+
+  const punctuationIndex = trimmed.search(/[.!?](\s|$)/);
+  if (punctuationIndex === -1) {
+    return truncateAtWordBoundary(trimmed, 140);
+  }
+
+  return truncateAtWordBoundary(trimmed.slice(0, punctuationIndex + 1).trim(), 140);
+}
+
+export function derivePublicRationale(
+  cognition: EmployeeCognitionResult,
+): EmployeePublicRationale {
+  const rationale = cognition.publicSummary.trim();
+  const summary = firstSentence(rationale) || truncateAtWordBoundary(rationale, 140);
+
+  return {
+    summary,
+    rationale,
+    recommendedNextAction: cognition.structured?.suggestedNextAction,
+  };
 }
 
 export async function thinkWithinEmployeeBoundary(

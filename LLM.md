@@ -1491,6 +1491,10 @@ Neither should become the source of truth.
   - AI-disabled fallback still works
   - public routes do not leak `internalMonologue` or structured cognition fields
   - `/agent/run` and execution provenance remain orchestration-only
+- PR7.8C: durable public rationale surfaces
+- PR7.8C emits bounded reviewable rationale through AEP-native artifacts
+- PR7.8C may optionally append concise rationale summaries to canonical threads
+- PR7.8C must never expose raw private reasoning, prompt profiles, or internal monologue
 
 Repo reality note:
 - proto-cognition already existed in `validation-agent` before consolidation
@@ -2270,19 +2274,20 @@ Additional important rule:
 ---
 
 ## Updated immediate next step
-👉 Start **PR7.8B — controlled cognition rollout**
+👉 Start **PR7.8C — public rationale surfaces**
 
 PR7.7 is complete, including delegation hardening.
 PR7.8A is complete as the cognition-foundation milestone.
+PR7.8B is complete as the controlled internal rollout milestone.
 
-Specifically, PR7.8B should:
-1. extend shared cognition to at least one additional employee, with PM first
-2. keep cognition inside the employee boundary using private prompt profiles
-3. preserve deterministic fallback when AI is disabled or unavailable
+Specifically, PR7.8C should:
+1. derive bounded public rationale from cognition without exposing private reasoning
+2. emit durable public rationale through existing AEP-native primitives
+3. attach rationale to task execution through artifacts first
 4. preserve the same hard privacy boundary:
   - no `internalMonologue` on public routes
   - no prompt-profile leakage
-  - no structured cognition leakage on public surfaces
+  - no raw `privateReasoning` on public surfaces
 5. keep `/agent/run` orchestration-only
 6. keep `executionContext` provenance-only and free of cognition leakage
 7. keep outputs AEP-native through existing primitives:
@@ -2290,9 +2295,9 @@ Specifically, PR7.8B should:
   - task artifacts
   - message threads
   - approvals / escalations when needed
-8. avoid public rationale artifacts, chat workflows, or route-level cognition in PR7.8B
+8. avoid chat workflows or route-level cognition in PR7.8C
 
-PR7.8C can then introduce public rationale surfaces only if the same hard privacy boundary remains intact.
+PR7.8D can then expand rationale publication into richer human-readable collaboration surfaces only if the same hard privacy boundary remains intact.
 
 ---
 
@@ -2555,17 +2560,19 @@ Important company rule:
 
 The next LLM session should work from this order:
 
-1. **PR7.8B — controlled cognition rollout**
-2. **PR7.8C — public rationale surfaces, if boundary remains intact**
+1. **PR7.8C — public rationale surfaces, if boundary remains intact**
+2. **PR7.8D — richer rationale publication / thread surfacing**
 3. **PR7.9 — agents as persons**
 4. **PR7.10 — email / Slack adapters**
 
-PR7.8B should be validated with:
+PR7.8C should be validated with:
 - the cognition-boundary contract checks
 - cognitive task-run contract checks
+- public-rationale artifact contract checks
 - provenance/route regression checks
-- one PM run with AI disabled
-- one PM run with AI enabled
+- one validation-agent run with AI disabled
+- one validation-agent run with AI enabled
+- one PM run confirming public rationale remains bounded and durable
 
 PR7.7, PR7.75, and PR7.7X should now be treated as complete.
 

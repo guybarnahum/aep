@@ -1,5 +1,8 @@
 import { getConfig } from "../config";
-import { thinkWithinEmployeeBoundary } from "../lib/employee-cognition";
+import {
+  derivePublicRationale,
+  thinkWithinEmployeeBoundary,
+} from "../lib/employee-cognition";
 import { logInfo } from "../lib/logger";
 import { getEmployeePromptProfile } from "../lib/employee-prompt-profile-store-d1";
 import { getTaskStore } from "../lib/store-factory";
@@ -13,6 +16,37 @@ import type {
 const TEAM_WEB_PRODUCT = "team_web_product";
 const TEAM_VALIDATION = "team_validation";
 const VALIDATION_EMPLOYEE_ID = "emp_val_specialist_01";
+
+function publicRationaleArtifactId(taskId: string): string {
+  return `art_pubrat_${taskId}_${crypto.randomUUID().split("-")[0]}`;
+}
+
+async function createPublicRationaleArtifact(args: {
+  env: OperatorAgentEnv;
+  taskId: string;
+  companyId: string;
+  employeeId: string;
+  summary: string;
+  rationale: string;
+  recommendedNextAction?: string;
+}): Promise<void> {
+  const taskStore = getTaskStore(args.env);
+
+  await taskStore.createArtifact({
+    id: publicRationaleArtifactId(args.taskId),
+    taskId: args.taskId,
+    companyId: args.companyId,
+    artifactType: "result",
+    createdByEmployeeId: args.employeeId,
+    summary: args.summary,
+    content: {
+      kind: "public_rationale",
+      summary: args.summary,
+      rationale: args.rationale,
+      recommendedNextAction: args.recommendedNextAction,
+    },
+  });
+}
 
 export async function runPmAgent(
   context: ResolvedEmployeeRunContext,
@@ -102,6 +136,18 @@ export async function runPmAgent(
       currentRunCount: currentRuns.length,
       roadmapId: roadmap.id ?? null,
     },
+  });
+
+  const publicRationale = derivePublicRationale(cognition);
+
+  await createPublicRationaleArtifact({
+    env,
+    taskId,
+    companyId: context.employee.identity.companyId,
+    employeeId: context.employee.identity.employeeId,
+    summary: publicRationale.summary,
+    rationale: publicRationale.rationale,
+    recommendedNextAction: publicRationale.recommendedNextAction,
   });
 
   // 4. GENERATE COMPLIANT RESPONSE

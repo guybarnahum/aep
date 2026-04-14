@@ -25,6 +25,8 @@ const FORBIDDEN_PUBLIC_FIELDS = [
 const FORBIDDEN_PRIVATE_DECISION_FIELDS = [
   "internalMonologue",
   "internal_monologue",
+  "privateReasoning",
+  "private_reasoning",
 
   // Defensive: these also must not surface via public task detail.
   "intent",
@@ -133,6 +135,18 @@ async function main(): Promise<void> {
       FORBIDDEN_PRIVATE_DECISION_FIELDS,
       "/agent/tasks/:id decision",
     );
+  }
+
+  if (Array.isArray(taskDetail.artifacts)) {
+    taskDetail.artifacts.forEach((artifact: Record<string, unknown>, index: number) => {
+      if (artifact.content && typeof artifact.content === "object") {
+        assertFieldsAbsent(
+          artifact.content,
+          [...FORBIDDEN_PUBLIC_FIELDS, "privateReasoning", "private_reasoning"],
+          `/agent/tasks/:id artifacts[${index}].content`,
+        );
+      }
+    });
   }
 
   console.log("employee-cognition-boundary-check passed", {

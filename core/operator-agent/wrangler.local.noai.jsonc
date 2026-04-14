@@ -1,0 +1,133 @@
+{
+  "name": "aep-operator-agent",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-03-25",
+  "observability": {
+    "enabled": false,
+    "head_sampling_rate": 1,
+    "logs": {
+      "enabled": true,
+      "head_sampling_rate": 1,
+      "persist": true,
+      "invocation_logs": true
+    },
+    "traces": {
+      "enabled": false,
+      "persist": true,
+      "head_sampling_rate": 1
+    }
+  },
+  "kv_namespaces": [],
+  "d1_databases": [
+    {
+      "binding": "OPERATOR_AGENT_DB",
+      "database_name": "aep-operator-agent-dev",
+      "database_id": "f0708506-25cd-422c-8010-e941d0eb426f",
+      // Operator-agent keeps its own migration track.
+      // Commit 13.4 mirrors the shared org catalog schema here so D1-backed
+      // employee catalog and scope reads work against OPERATOR_AGENT_DB.
+      "migrations_dir": "../../infra/cloudflare/d1/operator-agent-migrations"
+    }
+  ],
+  "env": {
+    "async_validation": {
+      "kv_namespaces": [],
+      "d1_databases": [
+        {
+          "binding": "OPERATOR_AGENT_DB",
+          "database_name": "aep-operator-agent-async-validation",
+          "database_id": "5ce46bde-911f-45fd-bab2-8d919be9c7b4",
+          // Operator-agent keeps its own migration track.
+          // Commit 13.4 mirrors the shared org catalog schema here so D1-backed
+          // employee catalog and scope reads work against OPERATOR_AGENT_DB.
+          "migrations_dir": "../../infra/cloudflare/d1/operator-agent-migrations"
+        }
+      ],
+      "vars": {
+        "AEP_CRON_FALLBACK_ENABLED": "true",
+        "AEP_AI_ENABLED": "false",
+        "AEP_AI_MODEL": "@cf/meta/llama-3.1-8b-instruct",
+        "OPERATOR_AGENT_STORE_BACKEND": "d1",
+        "ENABLE_TEST_ENDPOINTS": "true",
+        "PAPERCLIP_SHARED_SECRET": "",
+        "PAPERCLIP_AUTH_REQUIRED": "false"
+      },
+      "triggers": {
+        "crons": ["* * * * *", "*/5 * * * *"]
+      },
+      "services": [
+        {
+          "binding": "CONTROL_PLANE",
+          "service": "aep-control-plane-async-validation"
+        }
+      ]
+    },
+    "staging": {
+      "kv_namespaces": [],
+      "d1_databases": [
+        {
+          "binding": "OPERATOR_AGENT_DB",
+          "database_name": "aep-operator-agent-staging",
+          "database_id": "b88946bb-4a09-40e1-8327-6ece1152e13e",
+          // Operator-agent keeps its own migration track.
+          // Commit 13.4 mirrors the shared org catalog schema here so D1-backed
+          // employee catalog and scope reads work against OPERATOR_AGENT_DB.
+          "migrations_dir": "../../infra/cloudflare/d1/operator-agent-migrations"
+        }
+      ],
+      "vars": {
+        "AEP_CRON_FALLBACK_ENABLED": "true",
+        "AEP_AI_ENABLED": "false",
+        "AEP_AI_MODEL": "@cf/meta/llama-3.1-8b-instruct",
+        "OPERATOR_AGENT_STORE_BACKEND": "d1",
+        "ENABLE_TEST_ENDPOINTS": "false",
+        "PAPERCLIP_SHARED_SECRET": "",
+        "PAPERCLIP_AUTH_REQUIRED": "false"
+      },
+      "services": [
+        {
+          "binding": "CONTROL_PLANE",
+          "service": "aep-control-plane-staging"
+        }
+      ]
+    },
+    "production": {
+      "kv_namespaces": [],
+      "d1_databases": [
+        {
+          "binding": "OPERATOR_AGENT_DB",
+          "database_name": "aep-operator-agent-production",
+          "database_id": "e342828c-4fa0-4091-90f5-0dc8f77d4df6",
+          // Operator-agent keeps its own migration track.
+          // Commit 13.4 mirrors the shared org catalog schema here so D1-backed
+          // employee catalog and scope reads work against OPERATOR_AGENT_DB.
+          "migrations_dir": "../../infra/cloudflare/d1/operator-agent-migrations"
+        }
+      ],
+      "vars": {
+        "AEP_CRON_FALLBACK_ENABLED": "true",
+        "AEP_AI_ENABLED": "false",
+        "AEP_AI_MODEL": "@cf/meta/llama-3.1-8b-instruct",
+        "OPERATOR_AGENT_STORE_BACKEND": "d1",
+        "PAPERCLIP_SHARED_SECRET": "",
+        "PAPERCLIP_AUTH_REQUIRED": "false",
+        "ENABLE_TEST_ENDPOINTS": "false"
+      },
+      "services": [
+        {
+          "binding": "CONTROL_PLANE",
+          "service": "aep-control-plane-production"
+        }
+      ]
+    }
+  },
+  "vars": {
+    "AEP_CRON_FALLBACK_ENABLED": "true",
+    "AEP_AI_ENABLED": "false",
+    "AEP_AI_MODEL": "@cf/meta/llama-3.1-8b-instruct",
+    "OPERATOR_AGENT_STORE_BACKEND": "d1",
+    "PAPERCLIP_SHARED_SECRET": "",
+    "PAPERCLIP_AUTH_REQUIRED": "false",
+    "ENABLE_TEST_ENDPOINTS": "true"
+  }
+}
