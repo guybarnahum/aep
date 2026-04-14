@@ -5,6 +5,12 @@ import { resolveServiceBaseUrl } from "../../../lib/service-map";
 
 export {};
 
+type CreateTaskResponse = {
+  ok?: boolean;
+  taskId?: string;
+  error?: string;
+};
+
 const STAGE6_POLICY_VERSION = "commit9-stage6";
 const COMPANY_ID = "company_internal_aep";
 const TEAM_ID = "team_infra";
@@ -265,6 +271,27 @@ async function readJson<T>(response: Response): Promise<T> {
   return (await response.json()) as T;
 }
 
+async function createTask(
+  agentBaseUrl: string,
+  body: Record<string, unknown>,
+): Promise<string> {
+  const response = await fetch(`${agentBaseUrl}/agent/tasks`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+
+  const parsed = await readJson<CreateTaskResponse>(response);
+
+  if (!parsed.ok || !parsed.taskId) {
+    throw new Error(`Task creation failed: ${JSON.stringify(parsed)}`);
+  }
+
+  return parsed.taskId;
+}
+
 async function listRuns(baseUrl: string): Promise<RunSummary[]> {
   const response = await fetch(`${baseUrl}/runs`);
   const json = await readJson<unknown>(response);
@@ -428,7 +455,8 @@ async function runAgent(
 }
 
 async function runAgentViaPaperclip(
-  agentBaseUrl: string
+  agentBaseUrl: string,
+  taskId: string
 ): Promise<PaperclipAgentRunResponse> {
   const response = await fetch(`${agentBaseUrl}/agent/run`, {
     method: "POST",
@@ -443,7 +471,7 @@ async function runAgentViaPaperclip(
       roleId: "timeout-recovery-operator",
       policyVersion: STAGE6_POLICY_VERSION,
       trigger: "paperclip",
-      taskId: "task_timeout_recovery_smoke",
+      taskId,
       heartbeatId: "hb_stage2_smoke",
       budgetOverride: {
         maxActionsPerScan: 1,
@@ -582,7 +610,24 @@ async function main(): Promise<void> {
 
   console.log("Verified /agent/run canonical path and budget override merge");
 
-  const paperclipProbe = await runAgentViaPaperclip(agentBaseUrl);
+  const timeoutRecoveryTaskId = await createTask(agentBaseUrl, {
+    companyId: COMPANY_ID,
+    originatingTeamId: TEAM_ID,
+    assignedTeamId: TEAM_ID,
+    createdByEmployeeId: "emp_infra_ops_manager_01",
+    assignedEmployeeId: "emp_timeout_recovery_01",
+    taskType: "agent-timeout-recovery-check",
+    title: "agent timeout recovery check",
+    payload: {
+      scenario: "agent-timeout-recovery-check",
+      employeeId: "emp_timeout_recovery_01",
+    },
+  });
+
+  const paperclipProbe = await runAgentViaPaperclip(
+    agentBaseUrl,
+    timeoutRecoveryTaskId
+  );
 
   if (paperclipProbe.request.trigger !== "paperclip") {
     throw new Error(
@@ -605,7 +650,7 @@ async function main(): Promise<void> {
     );
   }
 
-  if (paperclipProbe.taskId !== "task_timeout_recovery_smoke") {
+  if (paperclipProbe.taskId !== timeoutRecoveryTaskId) {
     throw new Error(
       `Unexpected paperclip taskId in response: ${paperclipProbe.taskId}`
     );
