@@ -29,6 +29,7 @@ import {
 import {
   handleCreateMessage,
   handleCreateMessageThread,
+  handleExternalAction,
   handleGetMessageThread,
   handleIngestExternalMessage,
   handleListInbox,
@@ -149,6 +150,10 @@ async function dispatch(request: Request, env: OperatorAgentEnv): Promise<Respon
 
   if (url.pathname === "/agent/messages/inbound" && request.method === "POST") {
     return handleIngestExternalMessage(request, env);
+  }
+
+  if (url.pathname === "/agent/messages/external-action" && request.method === "POST") {
+    return handleExternalAction(request, env);
   }
 
   if (url.pathname === "/agent/message-threads" && request.method === "GET") {

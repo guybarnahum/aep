@@ -1,6 +1,7 @@
 /* eslint-disable no-console */
 
 import type { InboundExternalMessage } from "../../../core/operator-agent/src/adapters/inbound-types";
+import type { ExternalActionEnvelope } from "../../../core/operator-agent/src/adapters/inbound-action-types";
 import { getJson, postJson } from "../shared/http";
 import { resolveServiceBaseUrl } from "../shared/service-map";
 import type {
@@ -509,6 +510,10 @@ export function createOperatorAgentClient(
 
     async ingestExternalMessage(input: InboundExternalMessage): Promise<any> {
       return postJson(buildUrl("/agent/messages/inbound"), input);
+    },
+
+    async sendExternalAction(input: ExternalActionEnvelope): Promise<any> {
+      return postJson(buildUrl("/agent/messages/external-action"), input);
     },
 
     async listMessages(params?: {

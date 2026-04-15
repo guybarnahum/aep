@@ -30,11 +30,9 @@
     "build:ui": "npm run build:dashboard && npm run build:ops-console",
     "deploy:node": "tsx scripts/deploy/run-node-deploy.ts",
     "teardown:node": "tsx scripts/deploy/run-node-teardown.ts",
-
     "wait:url": "tsx scripts/ci/checks/environment/wait-for-url.ts",
     "check:health": "tsx scripts/ci/checks/environment/check-health.ts",
     "smoke:test": "tsx scripts/ci/checks/environment/smoke-test.ts",
-
     "ci:agent-timeout-recovery-check": "tsx scripts/ci/checks/scenarios/agent-timeout-recovery-check.ts",
     "ci:approval-state-machine-check": "tsx scripts/ci/checks/policy/approval-state-machine-check.ts",
     "ci:scheduled-routing-check": "tsx scripts/ci/checks/policy/scheduled-routing-check.ts",
@@ -84,11 +82,14 @@
     "ci:inbound-reply-correlation-contract-check": "tsx scripts/ci/checks/contracts/inbound-reply-correlation-contract-check.ts",
     "ci:inbound-reply-ingestion-check": "tsx scripts/ci/checks/scenarios/inbound-reply-ingestion-check.ts",
     "ci:inbound-duplicate-delivery-check": "tsx scripts/ci/checks/scenarios/inbound-duplicate-delivery-check.ts",
+    "ci:external-action-contract-check": "tsx scripts/ci/checks/contracts/external-action-contract-check.ts",
+    "ci:external-approval-action-check": "tsx scripts/ci/checks/scenarios/external-approval-action-check.ts",
+    "ci:external-escalation-action-check": "tsx scripts/ci/checks/scenarios/external-escalation-action-check.ts",
+    "ci:external-action-idempotency-check": "tsx scripts/ci/checks/scenarios/external-action-idempotency-check.ts",
     "ci:escalation-audit-check": "tsx scripts/ci/checks/policy/escalation-audit-check.ts",
     "ci:escalation-lifecycle-check": "tsx scripts/ci/checks/policy/escalation-lifecycle-check.ts",
     "ci:paperclip-first-execution-check": "tsx scripts/ci/checks/scenarios/paperclip-first-execution-check.ts",
     "ci:synthetic-failure-test": "tsx scripts/ci/checks/scenarios/synthetic-failure-test.ts",
-
     "ci:check-health:layered": "tsx scripts/ci/checks/environment/check-health.ts",
     "ci:org-schema-check:layered": "tsx scripts/ci/checks/schema/org-schema-check.ts",
     "ci:runtime-projection-check:layered": "tsx scripts/ci/checks/contracts/runtime-projection-check.ts",
@@ -102,7 +103,7 @@
     "@types/node": "^25.5.0",
     "tsx": "^4.21.0",
     "typescript": "^5.8.0",
-    "wrangler": "^4.8.0"
+    "wrangler": "^4.83.0"
   },
   "dependencies": {
     "undici": "^7.24.5"

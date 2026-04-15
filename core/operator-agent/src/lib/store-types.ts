@@ -355,6 +355,10 @@ export interface TaskStore {
     externalThreadId: string;
     target?: string;
   }): Promise<ExternalThreadProjection[]>;
+  findThreadByExternalThreadId(input: {
+    externalThreadId: string;
+    source: "slack" | "email";
+  }): Promise<MessageThread | null>;
   createExternalMessageProjection(projection: ExternalMessageProjection): Promise<void>;
   getExternalMessageProjection(args: {
     messageId: string;
@@ -362,6 +366,12 @@ export interface TaskStore {
     target: string;
   }): Promise<ExternalMessageProjection | null>;
   listExternalMessageProjections(messageId: string): Promise<ExternalMessageProjection[]>;
+  createExternalActionRecord(input: {
+    externalActionId: string;
+    source: "slack" | "email";
+    threadId: string;
+    actionType: string;
+  }): Promise<{ alreadyExists: boolean }>;
 
   findMessageThreadByApprovalId(approvalId: string): Promise<MessageThread | null>;
   findMessageThreadByEscalationId(escalationId: string): Promise<MessageThread | null>;

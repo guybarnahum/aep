@@ -1,7 +1,14 @@
+import { resolveCanonicalThreadForExternalAction } from "../adapters/inbound-action-correlation";
+import type {
+  ExternalActionEnvelope,
+  ExternalActionType,
+} from "../adapters/inbound-action-types";
 import { resolveCanonicalThreadForInbound } from "../adapters/inbound-correlation";
 import type { InboundExternalMessage } from "../adapters/inbound-types";
 import { getTaskStore } from "@aep/operator-agent/lib/store-factory";
 import type { EmployeeMessage } from "@aep/operator-agent/lib/store-types";
+import { approveFromThreadAction, rejectFromThreadAction } from "./thread-approval-actions";
+import { acknowledgeFromThreadAction, resolveFromThreadAction } from "./thread-escalation-actions";
 import type { OperatorAgentEnv } from "@aep/operator-agent/types";
 
 type CreateMessageRequest = {
@@ -42,6 +49,15 @@ type CreateMessageThreadRequest = {
 function syntheticExternalSenderEmployeeId(channel: "slack" | "email", externalAuthorId?: string): string {
   const normalizedAuthor = (externalAuthorId?.trim() || "unknown").replace(/[^a-zA-Z0-9_-]/g, "_");
   return `external_${channel}_${normalizedAuthor}`;
+}
+
+function isExternalActionType(value: unknown): value is ExternalActionType {
+  return (
+    value === "approval_approve" ||
+    value === "approval_reject" ||
+    value === "escalation_acknowledge" ||
+    value === "escalation_resolve"
+  );
 }
 
 type MessageWithMirrorDeliveries = EmployeeMessage & {
@@ -368,6 +384,102 @@ export async function handleIngestExternalMessage(
     },
     { status: 200 },
   );
+}
+
+export async function handleExternalAction(
+  request: Request,
+  env?: OperatorAgentEnv,
+): Promise<Response> {
+  if (request.method !== "POST") {
+    return new Response("Method Not Allowed", { status: 405 });
+  }
+
+  if (!env) {
+    return Response.json({ ok: false, error: "Missing operator-agent environment" }, { status: 500 });
+  }
+
+  let body: ExternalActionEnvelope;
+  try {
+    body = (await request.json()) as ExternalActionEnvelope;
+  } catch {
+    return Response.json({ ok: false, error: "Request body must be valid JSON" }, { status: 400 });
+  }
+
+  if (
+    (body.source !== "slack" && body.source !== "email") ||
+    typeof body.externalActionId !== "string" ||
+    body.externalActionId.trim().length === 0 ||
+    typeof body.externalThreadId !== "string" ||
+    body.externalThreadId.trim().length === 0 ||
+    typeof body.externalAuthorId !== "string" ||
+    body.externalAuthorId.trim().length === 0 ||
+    typeof body.receivedAt !== "string" ||
+    body.receivedAt.trim().length === 0
+  ) {
+    return Response.json({ ok: false, error: "invalid external action" }, { status: 400 });
+  }
+
+  if (!isExternalActionType(body.actionType)) {
+    return Response.json({ ok: false, error: "unsupported_action_type" }, { status: 400 });
+  }
+
+  if (
+    typeof body.metadata !== "undefined" &&
+    (!body.metadata || typeof body.metadata !== "object" || Array.isArray(body.metadata))
+  ) {
+    return Response.json({ ok: false, error: "invalid external action" }, { status: 400 });
+  }
+
+  const store = getTaskStore(env);
+  const resolved = await resolveCanonicalThreadForExternalAction(
+    store,
+    body.externalThreadId,
+    body.source,
+  );
+
+  if (!resolved.ok) {
+    return Response.json({ ok: false, error: resolved.error }, { status: 404 });
+  }
+
+  const idempotency = await store.createExternalActionRecord({
+    externalActionId: body.externalActionId,
+    source: body.source,
+    threadId: resolved.thread.id,
+    actionType: body.actionType,
+  });
+
+  if (idempotency.alreadyExists) {
+    return Response.json({ ok: true, deduped: true, threadId: resolved.thread.id });
+  }
+
+  const actor = syntheticExternalSenderEmployeeId(body.source, body.externalAuthorId);
+
+  switch (body.actionType) {
+    case "approval_approve":
+      return approveFromThreadAction({
+        env,
+        threadId: resolved.thread.id,
+        actor,
+      });
+    case "approval_reject":
+      return rejectFromThreadAction({
+        env,
+        threadId: resolved.thread.id,
+        actor,
+      });
+    case "escalation_acknowledge":
+      return acknowledgeFromThreadAction({
+        env,
+        threadId: resolved.thread.id,
+        actor,
+      });
+    case "escalation_resolve":
+      return resolveFromThreadAction({
+        env,
+        threadId: resolved.thread.id,
+        actor,
+      });
+  }
 }
 
 export async function handleListMessages(

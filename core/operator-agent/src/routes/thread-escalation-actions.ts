@@ -19,6 +19,139 @@ async function parseBody(request: Request): Promise<Record<string, unknown> | Re
   }
 }
 
+async function acknowledgeFromThreadAction(args: {
+  env: OperatorAgentEnv;
+  threadId: string;
+  actor: string;
+}): Promise<Response> {
+  const taskStore = getTaskStore(args.env);
+  const thread = await taskStore.getMessageThread(args.threadId);
+
+  if (!thread || !thread.relatedEscalationId) {
+    return Response.json({ ok: false, error: "Escalation thread not found" }, { status: 404 });
+  }
+
+  const escalationStore = createStores(args.env).escalations;
+  const escalation = await escalationStore.get(thread.relatedEscalationId);
+
+  if (!escalation) {
+    return Response.json({ ok: false, error: "Escalation not found" }, { status: 404 });
+  }
+
+  let updated;
+  try {
+    updated = applyAcknowledged(escalation, args.actor);
+  } catch (err) {
+    return Response.json({ ok: false, error: (err as Error).message }, { status: 400 });
+  }
+
+  await escalationStore.put(updated);
+
+  await taskStore.createMessage({
+    id: `msg_${crypto.randomUUID().split("-")[0]}`,
+    threadId: args.threadId,
+    companyId: thread.companyId,
+    senderEmployeeId: args.actor,
+    receiverEmployeeId: thread.createdByEmployeeId ?? escalation.managerEmployeeId,
+    type: "escalation",
+    status: "acknowledged",
+    source: "dashboard",
+    subject: "Escalation action",
+    body: `Acknowledged from thread by ${args.actor}.`,
+    payload: {},
+    requiresResponse: false,
+    responseActionType: "acknowledge_escalation",
+    responseActionStatus: "applied",
+    causedStateTransition: true,
+    relatedEscalationId: thread.relatedEscalationId,
+  });
+
+  await appendSystemMessage({
+    env: args.env,
+    threadId: args.threadId,
+    companyId: thread.companyId,
+    senderEmployeeId: args.actor,
+    subject: "Escalation acknowledged",
+    body: `Escalation ${thread.relatedEscalationId} was acknowledged from thread by ${args.actor}.`,
+    relatedEscalationId: thread.relatedEscalationId,
+    type: "escalation",
+  });
+
+  return Response.json({
+    ok: true,
+    escalation: updated,
+    threadId: args.threadId,
+  });
+}
+
+async function resolveFromThreadAction(args: {
+  env: OperatorAgentEnv;
+  threadId: string;
+  actor: string;
+  note?: string;
+}): Promise<Response> {
+  const taskStore = getTaskStore(args.env);
+  const thread = await taskStore.getMessageThread(args.threadId);
+
+  if (!thread || !thread.relatedEscalationId) {
+    return Response.json({ ok: false, error: "Escalation thread not found" }, { status: 404 });
+  }
+
+  const escalationStore = createStores(args.env).escalations;
+  const escalation = await escalationStore.get(thread.relatedEscalationId);
+
+  if (!escalation) {
+    return Response.json({ ok: false, error: "Escalation not found" }, { status: 404 });
+  }
+
+  let updated;
+  try {
+    updated = applyResolved(escalation, args.actor, args.note);
+  } catch (err) {
+    return Response.json({ ok: false, error: (err as Error).message }, { status: 400 });
+  }
+
+  await escalationStore.put(updated);
+
+  await taskStore.createMessage({
+    id: `msg_${crypto.randomUUID().split("-")[0]}`,
+    threadId: args.threadId,
+    companyId: thread.companyId,
+    senderEmployeeId: args.actor,
+    receiverEmployeeId: thread.createdByEmployeeId ?? escalation.managerEmployeeId,
+    type: "escalation",
+    status: "acknowledged",
+    source: "dashboard",
+    subject: "Escalation action",
+    body: `Resolved from thread by ${args.actor}${args.note ? `: ${args.note}` : "."}`,
+    payload: {},
+    requiresResponse: false,
+    responseActionType: "resolve_escalation",
+    responseActionStatus: "applied",
+    causedStateTransition: true,
+    relatedEscalationId: thread.relatedEscalationId,
+  });
+
+  await appendSystemMessage({
+    env: args.env,
+    threadId: args.threadId,
+    companyId: thread.companyId,
+    senderEmployeeId: args.actor,
+    subject: "Escalation resolved",
+    body: `Escalation ${thread.relatedEscalationId} was resolved from thread by ${args.actor}${args.note ? `: ${args.note}` : "."}`,
+    relatedEscalationId: thread.relatedEscalationId,
+    type: "escalation",
+  });
+
+  return Response.json({
+    ok: true,
+    escalation: updated,
+    threadId: args.threadId,
+  });
+}
+
+export { acknowledgeFromThreadAction, resolveFromThreadAction };
+
 export async function handleAcknowledgeFromThread(
   request: Request,
   env?: OperatorAgentEnv,
@@ -40,63 +173,7 @@ export async function handleAcknowledgeFromThread(
       ? body.actor
       : "human";
 
-  const taskStore = getTaskStore(env);
-  const thread = await taskStore.getMessageThread(threadId);
-
-  if (!thread || !thread.relatedEscalationId) {
-    return Response.json({ ok: false, error: "Escalation thread not found" }, { status: 404 });
-  }
-
-  const escalationStore = createStores(env).escalations;
-  const escalation = await escalationStore.get(thread.relatedEscalationId);
-
-  if (!escalation) {
-    return Response.json({ ok: false, error: "Escalation not found" }, { status: 404 });
-  }
-
-  let updated;
-  try {
-    updated = applyAcknowledged(escalation, actor);
-  } catch (err) {
-    return Response.json({ ok: false, error: (err as Error).message }, { status: 400 });
-  }
-
-  await escalationStore.put(updated);
-
-  await taskStore.createMessage({
-    id: `msg_${crypto.randomUUID().split("-")[0]}`,
-    threadId,
-    companyId: thread.companyId,
-    senderEmployeeId: actor,
-    type: "escalation",
-    status: "acknowledged",
-    source: "dashboard",
-    subject: "Escalation action",
-    body: `Acknowledged from thread by ${actor}.`,
-    payload: {},
-    requiresResponse: false,
-    responseActionType: "acknowledge_escalation",
-    responseActionStatus: "applied",
-    causedStateTransition: true,
-    relatedEscalationId: thread.relatedEscalationId,
-  });
-
-  await appendSystemMessage({
-    env,
-    threadId,
-    companyId: thread.companyId,
-    senderEmployeeId: actor,
-    subject: "Escalation acknowledged",
-    body: `Escalation ${thread.relatedEscalationId} was acknowledged from thread by ${actor}.`,
-    relatedEscalationId: thread.relatedEscalationId,
-    type: "escalation",
-  });
-
-  return Response.json({
-    ok: true,
-    escalation: updated,
-    threadId,
-  });
+  return acknowledgeFromThreadAction({ env, threadId, actor });
 }
 
 export async function handleResolveFromThread(
@@ -125,61 +202,5 @@ export async function handleResolveFromThread(
       ? body.note
       : undefined;
 
-  const taskStore = getTaskStore(env);
-  const thread = await taskStore.getMessageThread(threadId);
-
-  if (!thread || !thread.relatedEscalationId) {
-    return Response.json({ ok: false, error: "Escalation thread not found" }, { status: 404 });
-  }
-
-  const escalationStore = createStores(env).escalations;
-  const escalation = await escalationStore.get(thread.relatedEscalationId);
-
-  if (!escalation) {
-    return Response.json({ ok: false, error: "Escalation not found" }, { status: 404 });
-  }
-
-  let updated;
-  try {
-    updated = applyResolved(escalation, actor, note);
-  } catch (err) {
-    return Response.json({ ok: false, error: (err as Error).message }, { status: 400 });
-  }
-
-  await escalationStore.put(updated);
-
-  await taskStore.createMessage({
-    id: `msg_${crypto.randomUUID().split("-")[0]}`,
-    threadId,
-    companyId: thread.companyId,
-    senderEmployeeId: actor,
-    type: "escalation",
-    status: "acknowledged",
-    source: "dashboard",
-    subject: "Escalation action",
-    body: `Resolved from thread by ${actor}${note ? `: ${note}` : "."}`,
-    payload: {},
-    requiresResponse: false,
-    responseActionType: "resolve_escalation",
-    responseActionStatus: "applied",
-    causedStateTransition: true,
-    relatedEscalationId: thread.relatedEscalationId,
-  });
-
-  await appendSystemMessage({
-    env,
-    threadId,
-    companyId: thread.companyId,
-    senderEmployeeId: actor,
-    subject: "Escalation resolved",
-    body: `Escalation ${thread.relatedEscalationId} was resolved from thread by ${actor}${note ? `: ${note}` : "."}`,
-    relatedEscalationId: thread.relatedEscalationId,
-    type: "escalation",
-  });
-
-  return Response.json({
-    ok: true,
-    escalation: updated,
-    threadId,
-  });
+  return resolveFromThreadAction({ env, threadId, actor, note });
 }

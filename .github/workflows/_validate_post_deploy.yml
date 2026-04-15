@@ -199,6 +199,30 @@ jobs:
         run: |
           npx tsx scripts/ci/checks/scenarios/inbound-duplicate-delivery-check.ts 2>&1 | tee -a post-deploy-validation.log
 
+      - name: External action contract check
+        id: external_action_contract
+        if: steps.config.outputs.enabled == 'true' && steps.post_deploy_validation.outcome == 'success'
+        run: |
+          npx tsx scripts/ci/checks/contracts/external-action-contract-check.ts 2>&1 | tee -a post-deploy-validation.log
+
+      - name: External approval action check
+        id: external_approval_action
+        if: steps.config.outputs.enabled == 'true' && steps.post_deploy_validation.outcome == 'success'
+        run: |
+          npx tsx scripts/ci/checks/scenarios/external-approval-action-check.ts 2>&1 | tee -a post-deploy-validation.log
+
+      - name: External escalation action check
+        id: external_escalation_action
+        if: steps.config.outputs.enabled == 'true' && steps.post_deploy_validation.outcome == 'success'
+        run: |
+          npx tsx scripts/ci/checks/scenarios/external-escalation-action-check.ts 2>&1 | tee -a post-deploy-validation.log
+
+      - name: External action idempotency check
+        id: external_action_idempotency
+        if: steps.config.outputs.enabled == 'true' && steps.post_deploy_validation.outcome == 'success'
+        run: |
+          npx tsx scripts/ci/checks/scenarios/external-action-idempotency-check.ts 2>&1 | tee -a post-deploy-validation.log
+
       - name: Capture outputs
         id: capture
         if: always()
@@ -221,7 +245,11 @@ jobs:
               ( "${{ steps.threaded_mirror_continuity.outcome }}" == "success" || "${{ steps.threaded_mirror_continuity.outcome }}" == "skipped" ) && \
               ( "${{ steps.inbound_reply_correlation_contract.outcome }}" == "success" || "${{ steps.inbound_reply_correlation_contract.outcome }}" == "skipped" ) && \
               ( "${{ steps.inbound_reply_ingestion.outcome }}" == "success" || "${{ steps.inbound_reply_ingestion.outcome }}" == "skipped" ) && \
-              ( "${{ steps.inbound_duplicate_delivery.outcome }}" == "success" || "${{ steps.inbound_duplicate_delivery.outcome }}" == "skipped" ) \
+              ( "${{ steps.inbound_duplicate_delivery.outcome }}" == "success" || "${{ steps.inbound_duplicate_delivery.outcome }}" == "skipped" ) && \
+              ( "${{ steps.external_action_contract.outcome }}" == "success" || "${{ steps.external_action_contract.outcome }}" == "skipped" ) && \
+              ( "${{ steps.external_approval_action.outcome }}" == "success" || "${{ steps.external_approval_action.outcome }}" == "skipped" ) && \
+              ( "${{ steps.external_escalation_action.outcome }}" == "success" || "${{ steps.external_escalation_action.outcome }}" == "skipped" ) && \
+              ( "${{ steps.external_action_idempotency.outcome }}" == "success" || "${{ steps.external_action_idempotency.outcome }}" == "skipped" ) \
             ]]; then
               OUTCOME="success"
             else

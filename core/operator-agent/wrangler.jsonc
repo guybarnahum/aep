@@ -30,13 +30,15 @@
     }
   ],
   "ai": {
-    "binding": "AI"
+    "binding": "AI",
+    "remote": true
   },
   "env": {
     "async_validation": {
       "kv_namespaces": [],
       "ai": {
-        "binding": "AI"
+        "binding": "AI",
+        "remote": true
       },
       "d1_databases": [
         {
@@ -76,7 +78,8 @@
     "staging": {
       "kv_namespaces": [],
       "ai": {
-        "binding": "AI"
+        "binding": "AI",
+        "remote": true
       },
       "d1_databases": [
         {
@@ -91,7 +94,7 @@
       ],
       "vars": {
         "AEP_CRON_FALLBACK_ENABLED": "true",
-        "AEP_AI_ENABLED": "false",
+        "AEP_AI_ENABLED": "true",
         "AEP_AI_MODEL": "@cf/meta/llama-3.1-8b-instruct",
         // Configure SLACK_MIRROR_WEBHOOK_URL as an environment secret; do not commit it here.
         "MIRROR_DEFAULT_SLACK_CHANNEL": "aep-agent-feed",
@@ -113,7 +116,8 @@
     "production": {
       "kv_namespaces": [],
       "ai": {
-        "binding": "AI"
+        "binding": "AI",
+        "remote": true
       },
       "d1_databases": [
         {
@@ -128,7 +132,7 @@
       ],
       "vars": {
         "AEP_CRON_FALLBACK_ENABLED": "true",
-        "AEP_AI_ENABLED": "false",
+        "AEP_AI_ENABLED": "true",
         "AEP_AI_MODEL": "@cf/meta/llama-3.1-8b-instruct",
         // Configure SLACK_MIRROR_WEBHOOK_URL as an environment secret; do not commit it here.
         "MIRROR_DEFAULT_SLACK_CHANNEL": "aep-agent-feed",

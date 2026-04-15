@@ -152,6 +152,15 @@ type ExternalMessageProjectionRow = {
   created_at: string;
 };
 
+type ExternalActionRecordRow = {
+  id: string;
+  external_action_id: string;
+  external_channel: string;
+  thread_id: string;
+  action_type: string;
+  created_at: string;
+};
+
 function requireDb(env: OperatorAgentEnv): D1Database {
   if (!env.OPERATOR_AGENT_DB) {
     throw new Error("Missing OPERATOR_AGENT_DB binding");
@@ -1057,6 +1066,28 @@ export class D1TaskStore implements TaskStore {
     return (rows.results ?? []).map(rowToExternalThreadProjection);
   }
 
+  async findThreadByExternalThreadId(input: {
+    externalThreadId: string;
+    source: "slack" | "email";
+  }): Promise<MessageThread | null> {
+    const row = await this.db
+      .prepare(
+        `SELECT thread_id
+         FROM external_thread_projections
+         WHERE external_thread_id = ?
+           AND channel = ?
+         LIMIT 1`,
+      )
+      .bind(input.externalThreadId, input.source)
+      .first<{ thread_id: string }>();
+
+    if (!row?.thread_id) {
+      return null;
+    }
+
+    return this.getMessageThread(row.thread_id);
+  }
+
   async createExternalMessageProjection(projection: ExternalMessageProjection): Promise<void> {
     const existing = await this.getExternalMessageProjection({
       messageId: projection.messageId,
@@ -1138,6 +1169,37 @@ export class D1TaskStore implements TaskStore {
       .all<ExternalMessageProjectionRow>();
 
     return (rows.results ?? []).map(rowToExternalMessageProjection);
+  }
+
+  async createExternalActionRecord(input: {
+    externalActionId: string;
+    source: "slack" | "email";
+    threadId: string;
+    actionType: string;
+  }): Promise<{ alreadyExists: boolean }> {
+    const result = await this.db
+      .prepare(
+        `INSERT INTO external_action_records (
+          id,
+          external_action_id,
+          external_channel,
+          thread_id,
+          action_type
+        ) VALUES (?, ?, ?, ?, ?)
+        ON CONFLICT(external_action_id, external_channel) DO NOTHING`,
+      )
+      .bind(
+        `ear_${input.source}_${crypto.randomUUID().split("-")[0]}`,
+        input.externalActionId,
+        input.source,
+        input.threadId,
+        input.actionType,
+      )
+      .run();
+
+    return {
+      alreadyExists: Number(result.meta.changes ?? 0) === 0,
+    };
   }
 
   private async getMessageByExternalId(args: {

@@ -1601,6 +1601,9 @@ Pre-PR10 note:
 - external replies are ingested into AEP as canonical thread messages
 - inbound correlation uses PR10B external thread projections
 - ingestion is idempotent and order-tolerant on the PR7.9D substrate
+- PR10D adds explicit structured external approval and escalation actions over canonical threads
+- PR10D action execution reuses the existing canonical thread action handlers
+- PR10D persists external action idempotency records canonically before executing the action
 - no implicit action execution is introduced
 - no external system becomes canonical
 - first real transport may be Slack, while email can remain a structured failure stub until implemented
