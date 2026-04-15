@@ -6,6 +6,7 @@ import type {
   AgentIdentity,
   EmployeeCognitionStructured,
   EmployeePromptProfile,
+  EmployeePublicRationalePresentationStyle,
   OperatorAgentEnv,
   ResolvedTaskExecutionContext,
 } from "@aep/operator-agent/types";
@@ -32,11 +33,6 @@ export interface EmployeeCognitionResult {
   promptVersion?: string;
   model?: string;
 }
-
-export type EmployeePublicRationalePresentationStyle =
-  | "operational_evidence"
-  | "structured_alignment"
-  | "conservative_general";
 
 export interface EmployeePublicRationale {
   presentationStyle: EmployeePublicRationalePresentationStyle;

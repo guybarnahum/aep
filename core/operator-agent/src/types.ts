@@ -33,6 +33,11 @@ export interface EmployeeCognitionStructured {
   suggestedNextAction?: string;
 }
 
+export type EmployeePublicRationalePresentationStyle =
+  | "operational_evidence"
+  | "structured_alignment"
+  | "conservative_general";
+
 export interface EmployeeProjection {
   identity: {
     employeeId: string;

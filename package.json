@@ -12,7 +12,9 @@
   "scripts": {
     "bootstrap": "bash scripts/dev/bootstrap.sh",
     "build": "npm run typecheck && npm run build:ui",
-    "typecheck": "tsc -p core/control-plane/tsconfig.json --noEmit",
+    "typecheck": "npm run typecheck:control-plane && npm run typecheck:operator-agent",
+    "typecheck:control-plane": "tsc -p core/control-plane/tsconfig.json --noEmit",
+    "typecheck:operator-agent": "tsc -p core/operator-agent/tsconfig.json --noEmit",
     "test": "npm run typecheck && npm run build:ui",
     "dev:control-plane": "wrangler dev --config core/control-plane/wrangler.jsonc",
     "dev:sample-worker": "wrangler dev --config examples/sample-worker/wrangler.toml",
