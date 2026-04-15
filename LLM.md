@@ -1636,6 +1636,81 @@ Therefore PR11 should focus on loop behavior, not on inventing new primitives.
 
 ## PR11 phased plan
 
+### ✅ PR11A — employee loop ignition (COMPLETE)
+
+PR11A introduces a bounded employee work-loop layer over the canonical AEP substrate.
+
+What is implemented:
+
+- employees load canonical context:
+  - pending tasks
+  - related threads
+  - recent messages
+
+- employees select exactly one governed action:
+  - execute_task:<taskId>
+  - publish_message:<threadId>
+  - noop
+
+- action selection uses existing employee cognition
+- execution remains deterministic and AEP-native:
+  - task execution -> existing task/run flow
+  - no direct LLM mutation of state
+
+- validation agent is the first employee fully wired into the loop:
+  - processes one task per run (bounded loop step)
+  - preserves decision, artifact, and rationale publication behavior
+
+What is explicitly NOT introduced:
+
+- no orchestration engine
+- no multi-step loop
+- no task graph planning
+- no shared cognition layer
+- no chat-based work model
+
+PR11A establishes the loop substrate.
+
+PR11B will introduce planning and task graph creation on top of this.
+
+### ✅ PR11B — manager planning and task graph creation (COMPLETE)
+
+PR11B makes manager planning canonical inside AEP-native tasks, artifacts, and threads.
+
+What is implemented:
+
+- PM employees can create a canonical planning root task when invoked without an existing planning task
+- PM employees emit a durable `plan` artifact with:
+  - `kind: execution_plan`
+  - ordered plan steps
+  - child task IDs
+  - explicit dependency structure
+- PM employees create canonical child tasks using `createTaskWithDependencies(...)`
+- the initial PR11B planning graph covers website-style delivery work:
+  - website-design
+  - website-implementation
+  - website-deployment
+  - validate-deployment
+- PM planning creates or reuses a canonical planning thread on the planning root task
+- bounded public rationale is still published canonically through task artifacts and thread publication
+- the planning root task is completed explicitly via canonical task decision recording
+
+Important repo-reality note:
+
+- runtime validation execution still uses employee ID `emp_val_specialist_01`
+- PR11B follows repo reality rather than planned/catalog naming elsewhere
+
+What is explicitly NOT introduced:
+
+- no second orchestration engine
+- no hidden planner state outside tasks/artifacts/threads
+- no free-form chat planning model
+- no direct LLM mutation outside canonical store operations
+
+PR11B establishes canonical manager planning.
+
+PR11C will wire worker execution and visible progress/result output more broadly over the created task graph.
+
 ### PR11A — employee loop ignition
 - add bounded employee loop behavior over inbox, tasks, and related thread/task context
 - allow employees to select the next governed action using existing cognition

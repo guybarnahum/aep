@@ -7,20 +7,55 @@ import { logInfo } from "../lib/logger";
 import { getEmployeePromptProfile } from "../lib/employee-prompt-profile-store-d1";
 import { publishTaskRationaleToThread } from "../lib/rationale-thread-publisher";
 import { getTaskStore } from "../lib/store-factory";
+import type { MessageThread, Task } from "../lib/store-types";
 import type {
+  EmployeePublicRationalePresentationStyle,
   ManagerDecision,
   ManagerDecisionResponse,
-  EmployeePublicRationalePresentationStyle,
   OperatorAgentEnv,
   ResolvedEmployeeRunContext,
 } from "../types";
 
+const TEAM_INFRA = "team_infra";
 const TEAM_WEB_PRODUCT = "team_web_product";
 const TEAM_VALIDATION = "team_validation";
 const VALIDATION_EMPLOYEE_ID = "emp_val_specialist_01";
 
+type WebsitePlanStep = {
+  id: string;
+  title: string;
+  taskType: string;
+  assignedTeamId: string;
+  assignedEmployeeId?: string;
+  dependsOnStepIds?: string[];
+  payload?: Record<string, unknown>;
+};
+
+type WebsitePlan = {
+  objectiveTitle: string;
+  planningTaskTitle: string;
+  targetUrl: string;
+  steps: WebsitePlanStep[];
+};
+
 function publicRationaleArtifactId(taskId: string): string {
   return `art_pubrat_${taskId}_${crypto.randomUUID().split("-")[0]}`;
+}
+
+function executionPlanArtifactId(taskId: string): string {
+  return `art_plan_${taskId}_${crypto.randomUUID().split("-")[0]}`;
+}
+
+function planningThreadId(taskId: string): string {
+  return `thr_plan_${taskId}_${crypto.randomUUID().split("-")[0]}`;
+}
+
+function planningMessageId(threadId: string): string {
+  return `msg_plan_${threadId}_${crypto.randomUUID().split("-")[0]}`;
+}
+
+function taskDecisionId(taskId: string, employeeId: string): string {
+  return `${taskId}:${employeeId}:${Date.now()}`;
 }
 
 async function createPublicRationaleArtifact(args: {
@@ -55,6 +90,300 @@ async function createPublicRationaleArtifact(args: {
   return artifactId;
 }
 
+function deriveTargetUrl(
+  context: ResolvedEmployeeRunContext,
+  roadmap: any,
+): string {
+  const payloadTargetUrl =
+    typeof context.taskContext?.task.payload?.targetUrl === "string"
+      ? String(context.taskContext?.task.payload?.targetUrl)
+      : undefined;
+
+  return payloadTargetUrl ?? "https://staging.aep.internal";
+}
+
+function deriveObjectiveTitle(
+  context: ResolvedEmployeeRunContext,
+  roadmap: any,
+): string {
+  const payloadObjective =
+    typeof context.taskContext?.task.payload?.objectiveTitle === "string"
+      ? String(context.taskContext?.task.payload?.objectiveTitle)
+      : undefined;
+
+  return payloadObjective ?? roadmap?.objective_title ?? "Website delivery objective";
+}
+
+function buildWebsitePlan(args: {
+  context: ResolvedEmployeeRunContext;
+  roadmap: any;
+}): WebsitePlan {
+  const objectiveTitle = deriveObjectiveTitle(args.context, args.roadmap);
+  const targetUrl = deriveTargetUrl(args.context, args.roadmap);
+
+  return {
+    objectiveTitle,
+    planningTaskTitle: `Plan website delivery: ${objectiveTitle}`,
+    targetUrl,
+    steps: [
+      {
+        id: "design",
+        title: `Design website scope for ${objectiveTitle}`,
+        taskType: "website-design",
+        assignedTeamId: TEAM_WEB_PRODUCT,
+        payload: {
+          objectiveTitle,
+          targetUrl,
+          phase: "design",
+        },
+      },
+      {
+        id: "implement",
+        title: `Implement website for ${objectiveTitle}`,
+        taskType: "website-implementation",
+        assignedTeamId: TEAM_WEB_PRODUCT,
+        dependsOnStepIds: ["design"],
+        payload: {
+          objectiveTitle,
+          targetUrl,
+          phase: "implementation",
+        },
+      },
+      {
+        id: "deploy",
+        title: `Deploy website for ${objectiveTitle}`,
+        taskType: "website-deployment",
+        assignedTeamId: TEAM_INFRA,
+        dependsOnStepIds: ["implement"],
+        payload: {
+          objectiveTitle,
+          targetUrl,
+          phase: "deployment",
+        },
+      },
+      {
+        id: "validate",
+        title: `Validate website deployment for ${objectiveTitle}`,
+        taskType: "validate-deployment",
+        assignedTeamId: TEAM_VALIDATION,
+        assignedEmployeeId: VALIDATION_EMPLOYEE_ID,
+        dependsOnStepIds: ["deploy"],
+        payload: {
+          objectiveTitle,
+          targetUrl,
+          phase: "validation",
+          useControlPlaneBinding: false,
+        },
+      },
+    ],
+  };
+}
+
+async function ensurePlanningRootTask(args: {
+  env: OperatorAgentEnv;
+  context: ResolvedEmployeeRunContext;
+  plan: WebsitePlan;
+}): Promise<{ task: Task; createdNew: boolean }> {
+  const taskStore = getTaskStore(args.env);
+
+  if (args.context.taskContext?.task) {
+    const existing = await taskStore.getTask(args.context.taskContext.task.id);
+    if (!existing) {
+      throw new Error(
+        `Planning root task ${args.context.taskContext.task.id} not found`,
+      );
+    }
+    return { task: existing, createdNew: false };
+  }
+
+  const planningTaskId = `task_pm_plan_${crypto.randomUUID().split("-")[0]}`;
+
+  await taskStore.createTask({
+    id: planningTaskId,
+    companyId: args.context.employee.identity.companyId,
+    originatingTeamId: args.context.employee.identity.teamId ?? TEAM_WEB_PRODUCT,
+    assignedTeamId: args.context.employee.identity.teamId ?? TEAM_WEB_PRODUCT,
+    ownerEmployeeId: args.context.employee.identity.employeeId,
+    assignedEmployeeId: args.context.employee.identity.employeeId,
+    createdByEmployeeId: args.context.employee.identity.employeeId,
+    taskType: "plan-website-delivery",
+    title: args.plan.planningTaskTitle,
+    payload: {
+      objectiveTitle: args.plan.objectiveTitle,
+      targetUrl: args.plan.targetUrl,
+      kind: "website_delivery_plan_root",
+    },
+  });
+
+  const task = await taskStore.getTask(planningTaskId);
+  if (!task) {
+    throw new Error(`Failed to load planning root task ${planningTaskId}`);
+  }
+
+  return { task, createdNew: true };
+}
+
+async function ensurePlanningThread(args: {
+  env: OperatorAgentEnv;
+  rootTask: Task;
+  employeeId: string;
+  objectiveTitle: string;
+}): Promise<MessageThread> {
+  const taskStore = getTaskStore(args.env);
+
+  const existing = await taskStore.listMessageThreads({
+    companyId: args.rootTask.companyId,
+    relatedTaskId: args.rootTask.id,
+    limit: 5,
+  });
+
+  if (existing[0]) {
+    return existing[0];
+  }
+
+  const threadId = planningThreadId(args.rootTask.id);
+  await taskStore.createMessageThread({
+    id: threadId,
+    companyId: args.rootTask.companyId,
+    topic: `Planning thread: ${args.objectiveTitle}`,
+    createdByEmployeeId: args.employeeId,
+    relatedTaskId: args.rootTask.id,
+    visibility: "org",
+  });
+
+  const thread = await taskStore.getMessageThread(threadId);
+  if (!thread) {
+    throw new Error(`Failed to load planning thread ${threadId}`);
+  }
+
+  return thread;
+}
+
+async function createExecutionPlanArtifact(args: {
+  env: OperatorAgentEnv;
+  rootTask: Task;
+  employeeId: string;
+  plan: WebsitePlan;
+  stepTaskIds: Record<string, string>;
+}): Promise<string> {
+  const taskStore = getTaskStore(args.env);
+  const artifactId = executionPlanArtifactId(args.rootTask.id);
+
+  await taskStore.createArtifact({
+    id: artifactId,
+    taskId: args.rootTask.id,
+    companyId: args.rootTask.companyId,
+    artifactType: "plan",
+    createdByEmployeeId: args.employeeId,
+    summary: `Execution plan for ${args.plan.objectiveTitle}`,
+    content: {
+      kind: "execution_plan",
+      objectiveTitle: args.plan.objectiveTitle,
+      targetUrl: args.plan.targetUrl,
+      planningTaskId: args.rootTask.id,
+      steps: args.plan.steps.map((step) => ({
+        id: step.id,
+        title: step.title,
+        taskType: step.taskType,
+        assignedTeamId: step.assignedTeamId,
+        assignedEmployeeId: step.assignedEmployeeId,
+        dependsOnStepIds: step.dependsOnStepIds ?? [],
+        childTaskId: args.stepTaskIds[step.id],
+      })),
+    },
+  });
+
+  return artifactId;
+}
+
+async function createChildTaskGraph(args: {
+  env: OperatorAgentEnv;
+  context: ResolvedEmployeeRunContext;
+  rootTask: Task;
+  plan: WebsitePlan;
+}): Promise<Record<string, string>> {
+  const taskStore = getTaskStore(args.env);
+  const stepTaskIds: Record<string, string> = {};
+
+  for (const step of args.plan.steps) {
+    stepTaskIds[step.id] = `task_${step.id}_${crypto.randomUUID().split("-")[0]}`;
+  }
+
+  for (const step of args.plan.steps) {
+    const dependsOnTaskIds = (step.dependsOnStepIds ?? []).map(
+      (id) => stepTaskIds[id],
+    );
+
+    await taskStore.createTaskWithDependencies({
+      task: {
+        id: stepTaskIds[step.id],
+        companyId: args.context.employee.identity.companyId,
+        originatingTeamId: args.context.employee.identity.teamId ?? TEAM_WEB_PRODUCT,
+        assignedTeamId: step.assignedTeamId,
+        ownerEmployeeId: args.context.employee.identity.employeeId,
+        assignedEmployeeId: step.assignedEmployeeId,
+        createdByEmployeeId: args.context.employee.identity.employeeId,
+        taskType: step.taskType,
+        title: step.title,
+        payload: {
+          ...step.payload,
+          planningRootTaskId: args.rootTask.id,
+          planningRootTaskTitle: args.rootTask.title,
+        },
+      },
+      dependsOnTaskIds,
+    });
+  }
+
+  return stepTaskIds;
+}
+
+async function createPlanningThreadMessage(args: {
+  env: OperatorAgentEnv;
+  threadId: string;
+  companyId: string;
+  employeeId: string;
+  rootTaskId: string;
+  body: string;
+}): Promise<void> {
+  const taskStore = getTaskStore(args.env);
+
+  await taskStore.createMessage({
+    id: planningMessageId(args.threadId),
+    threadId: args.threadId,
+    companyId: args.companyId,
+    senderEmployeeId: args.employeeId,
+    receiverEmployeeId: args.employeeId,
+    type: "coordination",
+    status: "delivered",
+    source: "system",
+    subject: "Planning graph created",
+    body: args.body,
+    payload: {
+      kind: "planning_graph_created",
+    },
+    requiresResponse: false,
+    relatedTaskId: args.rootTaskId,
+  });
+}
+
+async function markPlanningRootCompleted(args: {
+  env: OperatorAgentEnv;
+  rootTaskId: string;
+  employeeId: string;
+  reasoning: string;
+}): Promise<void> {
+  const taskStore = getTaskStore(args.env);
+
+  await taskStore.recordDecision({
+    id: taskDecisionId(args.rootTaskId, args.employeeId),
+    taskId: args.rootTaskId,
+    employeeId: args.employeeId,
+    verdict: "pass",
+    reasoning: args.reasoning,
+  });
+}
+
 export async function runPmAgent(
   context: ResolvedEmployeeRunContext,
   env?: OperatorAgentEnv,
@@ -64,10 +393,8 @@ export async function runPmAgent(
     throw new Error("PM Agent requires OPERATOR_AGENT_DB");
   }
 
-  const taskStore = getTaskStore(env);
   const config = getConfig(env);
 
-  // 1. SENSE: Query the roadmap and current runs
   const roadmap = await env.OPERATOR_AGENT_DB.prepare(
     "SELECT * FROM team_roadmaps WHERE status = 'active' ORDER BY priority DESC LIMIT 1",
   ).first<any>();
@@ -85,10 +412,6 @@ export async function runPmAgent(
     );
   }
 
-  if (!roadmap) {
-    throw new Error("No active roadmap objective found for PM Agent.");
-  }
-
   const promptProfile = await getEmployeePromptProfile(
     env,
     context.employee.identity.employeeId,
@@ -101,55 +424,62 @@ export async function runPmAgent(
       taskContext: context.taskContext,
       executionContext: context.executionContext,
       observations: [
-        `Roadmap objective: ${roadmap.objective_title}`,
+        `Roadmap objective: ${roadmap?.objective_title ?? "none"}`,
         `Current visible run count: ${currentRuns.length}`,
         "Primary PM responsibility: translate strategic intent into structured execution.",
+        "For PR11B, produce canonical plan artifacts and explicit child task graphs.",
       ],
       additionalContext: {
         roadmap: {
-          id: roadmap.id ?? null,
-          title: roadmap.objective_title,
-          strategicContext: roadmap.strategic_context ?? null,
-          priority: roadmap.priority ?? null,
-          status: roadmap.status ?? null,
+          id: roadmap?.id ?? null,
+          title: roadmap?.objective_title ?? null,
+          strategicContext: roadmap?.strategic_context ?? null,
+          priority: roadmap?.priority ?? null,
+          status: roadmap?.status ?? null,
         },
       },
     },
     env,
   );
 
-  // 2. ACT
-  const taskId = `task_pm_${crypto.randomUUID().split("-")[0]}`;
+  const plan = buildWebsitePlan({
+    context,
+    roadmap,
+  });
 
-  await taskStore.createTask({
-    id: taskId,
-    companyId: context.employee.identity.companyId,
+  const root = await ensurePlanningRootTask({
+    env,
+    context,
+    plan,
+  });
 
-    // PR6C coordination semantics:
-    // originatingTeamId = who asked for the work
-    // assignedTeamId    = who is responsible for executing it
-    originatingTeamId: context.employee.identity.teamId ?? TEAM_WEB_PRODUCT,
-    assignedTeamId: TEAM_VALIDATION,
+  const planningThread = await ensurePlanningThread({
+    env,
+    rootTask: root.task,
+    employeeId: context.employee.identity.employeeId,
+    objectiveTitle: plan.objectiveTitle,
+  });
 
-    ownerEmployeeId: context.employee.identity.employeeId,
-    assignedEmployeeId: VALIDATION_EMPLOYEE_ID,
-    createdByEmployeeId: context.employee.identity.employeeId,
+  const stepTaskIds = await createChildTaskGraph({
+    env,
+    context,
+    rootTask: root.task,
+    plan,
+  });
 
-    taskType: "validate-deployment",
-    title: "Validate staging deployment health",
-    payload: {
-      targetUrl: "https://staging.aep.internal",
-      reason: roadmap.objective_title,
-      currentRunCount: currentRuns.length,
-      roadmapId: roadmap.id ?? null,
-    },
+  const planArtifactId = await createExecutionPlanArtifact({
+    env,
+    rootTask: root.task,
+    employeeId: context.employee.identity.employeeId,
+    plan,
+    stepTaskIds,
   });
 
   const publicRationale = derivePublicRationale(cognition);
 
-  const artifactId = await createPublicRationaleArtifact({
+  const rationaleArtifactId = await createPublicRationaleArtifact({
     env,
-    taskId,
+    taskId: root.task.id,
     companyId: context.employee.identity.companyId,
     employeeId: context.employee.identity.employeeId,
     presentationStyle: publicRationale.presentationStyle,
@@ -161,19 +491,39 @@ export async function runPmAgent(
   await publishTaskRationaleToThread({
     env,
     companyId: context.employee.identity.companyId,
-    taskId,
-    artifactId,
+    taskId: root.task.id,
+    artifactId: rationaleArtifactId,
     employeeId: context.employee.identity.employeeId,
     rationale: publicRationale,
   });
 
-  // 4. GENERATE COMPLIANT RESPONSE
+  await createPlanningThreadMessage({
+    env,
+    threadId: planningThread.id,
+    companyId: root.task.companyId,
+    employeeId: context.employee.identity.employeeId,
+    rootTaskId: root.task.id,
+    body: [
+      `Created canonical execution plan for ${plan.objectiveTitle}.`,
+      `Planning root task: ${root.task.id}.`,
+      `Plan artifact: ${planArtifactId}.`,
+      `Child task count: ${Object.keys(stepTaskIds).length}.`,
+    ].join(" "),
+  });
+
+  await markPlanningRootCompleted({
+    env,
+    rootTaskId: root.task.id,
+    employeeId: context.employee.identity.employeeId,
+    reasoning: `Created planning graph for ${plan.objectiveTitle}.`,
+  });
+
   const now = new Date().toISOString();
   const displayName =
     context.employee.identity.employeeName ?? context.employee.identity.employeeId;
   const publicSummary = cognition.publicSummary?.trim().length
     ? cognition.publicSummary.trim()
-    : `Delegated validation task ${taskId} based on objective: ${roadmap.objective_title}`;
+    : `Created planning graph for ${plan.objectiveTitle}.`;
 
   const strategicDecision: ManagerDecision = {
     timestamp: now,
@@ -182,7 +532,7 @@ export async function runPmAgent(
     teamId: context.employee.identity.teamId,
     roleId: context.employee.identity.roleId,
     policyVersion: context.policyVersion,
-    employeeId: VALIDATION_EMPLOYEE_ID,
+    employeeId: context.employee.identity.employeeId,
     reason: "frequent_budget_exhaustion",
     recommendation: "rebalance_team_capacity",
     severity: "warning",
@@ -194,11 +544,11 @@ export async function runPmAgent(
     executionContext: context.executionContext,
   };
 
-  logInfo("strategic task created", {
-    taskId,
-    objective: roadmap.objective_title,
-    originatingTeamId: context.employee.identity.teamId,
-    assignedTeamId: TEAM_VALIDATION,
+  logInfo("pm planning graph created", {
+    rootTaskId: root.task.id,
+    createdNewRootTask: root.createdNew,
+    objectiveTitle: plan.objectiveTitle,
+    stepTaskIds,
     cognitionMode: cognition.mode,
     cognitionIntent: cognition.structured?.intent,
     cognitionRiskLevel: cognition.structured?.riskLevel,
@@ -233,7 +583,7 @@ export async function runPmAgent(
     },
     perEmployee: [],
     decisions: [strategicDecision],
-    message: `${publicSummary} Task ${taskId} created.`,
+    message: `${publicSummary} Planning root ${root.task.id} created with ${Object.keys(stepTaskIds).length} child tasks.`,
     controlPlaneBaseUrl: config.controlPlaneTarget || "",
   };
 }

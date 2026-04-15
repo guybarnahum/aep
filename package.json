@@ -73,6 +73,7 @@
     "ci:escalation-thread-delegation-check": "tsx scripts/ci/checks/scenarios/escalation-thread-delegation-check.ts",
     "ci:repeated-validation-persona-continuity-check": "tsx scripts/ci/checks/scenarios/repeated-validation-persona-continuity-check.ts",
     "ci:repeated-pm-persona-continuity-check": "tsx scripts/ci/checks/scenarios/repeated-pm-persona-continuity-check.ts",
+    "ci:pm-planning-task-graph-check": "tsx scripts/ci/checks/scenarios/pm-planning-task-graph-check.ts",
     "ci:external-style-message-idempotency-check": "tsx scripts/ci/checks/scenarios/external-style-message-idempotency-check.ts",
     "ci:external-style-message-order-tolerance-check": "tsx scripts/ci/checks/scenarios/external-style-message-order-tolerance-check.ts",
     "ci:mirror-routing-contract-check": "tsx scripts/ci/checks/contracts/mirror-routing-contract-check.ts",

@@ -2,6 +2,9 @@ import {
   derivePublicRationale,
   thinkWithinEmployeeBoundary,
 } from "@aep/operator-agent/lib/employee-cognition";
+import {
+  selectNextEmployeeLoopAction,
+} from "@aep/operator-agent/lib/employee-work-loop";
 import { getEmployeePromptProfile } from "@aep/operator-agent/lib/employee-prompt-profile-store-d1";
 import { logInfo } from "@aep/operator-agent/lib/logger";
 import { publishTaskRationaleToThread } from "@aep/operator-agent/lib/rationale-thread-publisher";
@@ -317,8 +320,45 @@ export async function runValidationAgent(
     throw new Error("Reliability Engineer requires OPERATOR_AGENT_DB-backed execution");
   }
 
-  const tasks = await loadTasksForRun(env, context);
   const requestedTaskId = getRequestedTaskId(context);
+  let tasks: Task[] = [];
+
+  if (requestedTaskId || context.taskContext?.task) {
+    tasks = await loadTasksForRun(env, context);
+  } else {
+    const loop = await selectNextEmployeeLoopAction(context, env);
+
+    if (loop.action.type === "noop") {
+      return {
+        ok: true,
+        status: "completed",
+        policyVersion: context.policyVersion,
+        trigger: context.request.trigger,
+        employee: context.employee.identity,
+        workerRole: "reliability-engineer",
+        baseAuthority: context.employee.authority,
+        baseBudget: context.employee.budget,
+        authority: context.authority,
+        budget: context.budget,
+        dryRun: false,
+        scanned: { tasks: loop.loadedContext.pendingTasks.length, eligibleTasks: 0 },
+        decisions: [],
+        summary: { processed: 0, passed: 0, failed: 0, remediations: 0, ignored: 0 },
+        message: "No bounded loop action selected.",
+      };
+    }
+
+    if (loop.action.type === "execute_task") {
+      const { taskId } = loop.action;
+      const task = loop.loadedContext.pendingTasks.find(
+        (entry) => entry.id === taskId,
+      );
+      if (task) {
+        tasks = [task];
+      }
+    }
+  }
+
   const decisions: ValidationTaskDecision[] = [];
 
   for (const task of tasks) {
