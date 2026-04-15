@@ -7,7 +7,9 @@ import type {
   MirrorDeliveryRecord,
 } from "@aep/operator-agent/adapters/types";
 import {
+  type ExternalInteractionAuditRecord,
   TaskDependencyValidationError,
+  type ThreadExternalInteractionPolicy,
   type Decision,
   type EmployeeMessage,
   type MessageThread,
@@ -161,6 +163,30 @@ type ExternalActionRecordRow = {
   created_at: string;
 };
 
+type ThreadExternalInteractionPolicyRow = {
+  thread_id: string;
+  inbound_replies_allowed: number;
+  external_actions_allowed: number;
+  allowed_channels_json: string | null;
+  allowed_targets_json: string | null;
+  allowed_external_actors_json: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+type ExternalInteractionAuditRow = {
+  audit_id: string;
+  thread_id: string | null;
+  channel: string;
+  interaction_kind: string;
+  external_actor_id: string | null;
+  external_message_id: string | null;
+  external_action_id: string | null;
+  decision: string;
+  reason_code: string;
+  created_at: string;
+};
+
 function requireDb(env: OperatorAgentEnv): D1Database {
   if (!env.OPERATOR_AGENT_DB) {
     throw new Error("Missing OPERATOR_AGENT_DB binding");
@@ -305,6 +331,40 @@ function rowToExternalMessageProjection(
     target: row.target,
     externalThreadId: row.external_thread_id,
     externalMessageId: row.external_message_id,
+    createdAt: row.created_at,
+  };
+}
+
+function rowToThreadExternalInteractionPolicy(
+  row: ThreadExternalInteractionPolicyRow,
+): ThreadExternalInteractionPolicy {
+  return {
+    threadId: row.thread_id,
+    inboundRepliesAllowed: Number(row.inbound_replies_allowed) === 1,
+    externalActionsAllowed: Number(row.external_actions_allowed) === 1,
+    allowedChannels:
+      fromJson<Array<"slack" | "email">>(row.allowed_channels_json) ?? undefined,
+    allowedTargets: fromJson<string[]>(row.allowed_targets_json) ?? undefined,
+    allowedExternalActors:
+      fromJson<string[]>(row.allowed_external_actors_json) ?? undefined,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function rowToExternalInteractionAuditRecord(
+  row: ExternalInteractionAuditRow,
+): ExternalInteractionAuditRecord {
+  return {
+    id: row.audit_id,
+    threadId: row.thread_id ?? undefined,
+    channel: row.channel as ExternalInteractionAuditRecord["channel"],
+    interactionKind: row.interaction_kind as ExternalInteractionAuditRecord["interactionKind"],
+    externalActorId: row.external_actor_id ?? undefined,
+    externalMessageId: row.external_message_id ?? undefined,
+    externalActionId: row.external_action_id ?? undefined,
+    decision: row.decision as ExternalInteractionAuditRecord["decision"],
+    reasonCode: row.reason_code,
     createdAt: row.created_at,
   };
 }
@@ -1088,6 +1148,58 @@ export class D1TaskStore implements TaskStore {
     return this.getMessageThread(row.thread_id);
   }
 
+  async getThreadExternalInteractionPolicy(
+    threadId: string,
+  ): Promise<ThreadExternalInteractionPolicy | null> {
+    const row = await this.db
+      .prepare(
+        `SELECT *
+         FROM thread_external_interaction_policy
+         WHERE thread_id = ?
+         LIMIT 1`,
+      )
+      .bind(threadId)
+      .first<ThreadExternalInteractionPolicyRow>();
+
+    return row ? rowToThreadExternalInteractionPolicy(row) : null;
+  }
+
+  async upsertThreadExternalInteractionPolicy(
+    policy: ThreadExternalInteractionPolicy,
+  ): Promise<void> {
+    await this.db
+      .prepare(
+        `INSERT INTO thread_external_interaction_policy (
+          thread_id,
+          inbound_replies_allowed,
+          external_actions_allowed,
+          allowed_channels_json,
+          allowed_targets_json,
+          allowed_external_actors_json,
+          created_at,
+          updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(thread_id) DO UPDATE SET
+          inbound_replies_allowed = excluded.inbound_replies_allowed,
+          external_actions_allowed = excluded.external_actions_allowed,
+          allowed_channels_json = excluded.allowed_channels_json,
+          allowed_targets_json = excluded.allowed_targets_json,
+          allowed_external_actors_json = excluded.allowed_external_actors_json,
+          updated_at = excluded.updated_at`,
+      )
+      .bind(
+        policy.threadId,
+        policy.inboundRepliesAllowed ? 1 : 0,
+        policy.externalActionsAllowed ? 1 : 0,
+        policy.allowedChannels ? toJson(policy.allowedChannels) : null,
+        policy.allowedTargets ? toJson(policy.allowedTargets) : null,
+        policy.allowedExternalActors ? toJson(policy.allowedExternalActors) : null,
+        policy.createdAt,
+        policy.updatedAt,
+      )
+      .run();
+  }
+
   async createExternalMessageProjection(projection: ExternalMessageProjection): Promise<void> {
     const existing = await this.getExternalMessageProjection({
       messageId: projection.messageId,
@@ -1200,6 +1312,55 @@ export class D1TaskStore implements TaskStore {
     return {
       alreadyExists: Number(result.meta.changes ?? 0) === 0,
     };
+  }
+
+  async createExternalInteractionAudit(
+    record: ExternalInteractionAuditRecord,
+  ): Promise<void> {
+    await this.db
+      .prepare(
+        `INSERT INTO external_interaction_audit (
+          audit_id,
+          thread_id,
+          channel,
+          interaction_kind,
+          external_actor_id,
+          external_message_id,
+          external_action_id,
+          decision,
+          reason_code,
+          created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .bind(
+        record.id,
+        record.threadId ?? null,
+        record.channel,
+        record.interactionKind,
+        record.externalActorId ?? null,
+        record.externalMessageId ?? null,
+        record.externalActionId ?? null,
+        record.decision,
+        record.reasonCode,
+        record.createdAt,
+      )
+      .run();
+  }
+
+  async listExternalInteractionAudit(
+    threadId: string,
+  ): Promise<ExternalInteractionAuditRecord[]> {
+    const rows = await this.db
+      .prepare(
+        `SELECT *
+         FROM external_interaction_audit
+         WHERE thread_id = ?
+         ORDER BY created_at ASC`,
+      )
+      .bind(threadId)
+      .all<ExternalInteractionAuditRow>();
+
+    return (rows.results ?? []).map(rowToExternalInteractionAuditRecord);
   }
 
   private async getMessageByExternalId(args: {

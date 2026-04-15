@@ -1,3 +1,7 @@
+import {
+  authorizeExternalAction,
+  authorizeInboundExternalReply,
+} from "../adapters/external-policy";
 import { resolveCanonicalThreadForExternalAction } from "../adapters/inbound-action-correlation";
 import type {
   ExternalActionEnvelope,
@@ -6,7 +10,10 @@ import type {
 import { resolveCanonicalThreadForInbound } from "../adapters/inbound-correlation";
 import type { InboundExternalMessage } from "../adapters/inbound-types";
 import { getTaskStore } from "@aep/operator-agent/lib/store-factory";
-import type { EmployeeMessage } from "@aep/operator-agent/lib/store-types";
+import type {
+  EmployeeMessage,
+  ThreadExternalInteractionPolicy,
+} from "@aep/operator-agent/lib/store-types";
 import { approveFromThreadAction, rejectFromThreadAction } from "./thread-approval-actions";
 import { acknowledgeFromThreadAction, resolveFromThreadAction } from "./thread-escalation-actions";
 import type { OperatorAgentEnv } from "@aep/operator-agent/types";
@@ -43,7 +50,16 @@ type CreateMessageThreadRequest = {
   createdByEmployeeId?: string;
   relatedTaskId?: string;
   relatedArtifactId?: string;
+  relatedApprovalId?: string;
+  relatedEscalationId?: string;
   visibility?: "internal" | "org";
+  externalInteractionPolicy?: {
+    inboundRepliesAllowed?: boolean;
+    externalActionsAllowed?: boolean;
+    allowedChannels?: Array<"slack" | "email">;
+    allowedTargets?: string[];
+    allowedExternalActors?: string[];
+  };
 };
 
 function syntheticExternalSenderEmployeeId(channel: "slack" | "email", externalAuthorId?: string): string {
@@ -58,6 +74,39 @@ function isExternalActionType(value: unknown): value is ExternalActionType {
     value === "escalation_acknowledge" ||
     value === "escalation_resolve"
   );
+}
+
+function isAllowedChannelList(value: unknown): value is Array<"slack" | "email"> {
+  return (
+    Array.isArray(value) &&
+    value.every((entry) => entry === "slack" || entry === "email")
+  );
+}
+
+function isStringList(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every((entry) => typeof entry === "string");
+}
+
+function buildThreadExternalInteractionPolicy(args: {
+  threadId: string;
+  input?: CreateMessageThreadRequest["externalInteractionPolicy"];
+}): ThreadExternalInteractionPolicy | null {
+  if (!args.input) {
+    return null;
+  }
+
+  const now = new Date().toISOString();
+
+  return {
+    threadId: args.threadId,
+    inboundRepliesAllowed: args.input.inboundRepliesAllowed !== false,
+    externalActionsAllowed: args.input.externalActionsAllowed !== false,
+    allowedChannels: args.input.allowedChannels,
+    allowedTargets: args.input.allowedTargets,
+    allowedExternalActors: args.input.allowedExternalActors,
+    createdAt: now,
+    updatedAt: now,
+  };
 }
 
 type MessageWithMirrorDeliveries = EmployeeMessage & {
@@ -249,6 +298,37 @@ export async function handleCreateMessageThread(
     return Response.json({ ok: false, error: "topic is required" }, { status: 400 });
   }
 
+  if (
+    typeof body.relatedApprovalId !== "undefined" &&
+    typeof body.relatedApprovalId !== "string"
+  ) {
+    return Response.json({ ok: false, error: "invalid external interaction policy" }, { status: 400 });
+  }
+
+  if (
+    typeof body.relatedEscalationId !== "undefined" &&
+    typeof body.relatedEscalationId !== "string"
+  ) {
+    return Response.json({ ok: false, error: "invalid external interaction policy" }, { status: 400 });
+  }
+
+  if (typeof body.externalInteractionPolicy !== "undefined") {
+    const policy = body.externalInteractionPolicy;
+
+    if (
+      !policy ||
+      typeof policy !== "object" ||
+      Array.isArray(policy) ||
+      (typeof policy.inboundRepliesAllowed !== "undefined" && typeof policy.inboundRepliesAllowed !== "boolean") ||
+      (typeof policy.externalActionsAllowed !== "undefined" && typeof policy.externalActionsAllowed !== "boolean") ||
+      (typeof policy.allowedChannels !== "undefined" && !isAllowedChannelList(policy.allowedChannels)) ||
+      (typeof policy.allowedTargets !== "undefined" && !isStringList(policy.allowedTargets)) ||
+      (typeof policy.allowedExternalActors !== "undefined" && !isStringList(policy.allowedExternalActors))
+    ) {
+      return Response.json({ ok: false, error: "invalid external interaction policy" }, { status: 400 });
+    }
+  }
+
   const store = getTaskStore(env);
   const threadId = `thr_${crypto.randomUUID().split("-")[0]}`;
 
@@ -259,8 +339,19 @@ export async function handleCreateMessageThread(
     createdByEmployeeId: body.createdByEmployeeId,
     relatedTaskId: body.relatedTaskId,
     relatedArtifactId: body.relatedArtifactId,
+      relatedApprovalId: body.relatedApprovalId,
+      relatedEscalationId: body.relatedEscalationId,
     visibility: body.visibility ?? "internal",
   });
+
+  const policy = buildThreadExternalInteractionPolicy({
+    threadId,
+    input: body.externalInteractionPolicy,
+  });
+
+  if (policy) {
+    await store.upsertThreadExternalInteractionPolicy(policy);
+  }
 
   return Response.json({ ok: true, threadId }, { status: 201 });
 }
@@ -334,6 +425,30 @@ export async function handleIngestExternalMessage(
       },
       { status: 404 },
     );
+  }
+
+  const authorization = await authorizeInboundExternalReply({
+    store,
+    threadId: resolved.threadId,
+    channel: body.channel,
+    externalActorId: body.externalAuthorId,
+    target: body.target,
+  });
+
+  await store.createExternalInteractionAudit({
+    id: `eia_${crypto.randomUUID().split("-")[0]}`,
+    threadId: resolved.threadId,
+    channel: body.channel,
+    interactionKind: "reply",
+    externalActorId: body.externalAuthorId,
+    externalMessageId: body.externalMessageId,
+    decision: authorization.ok ? "allowed" : "denied",
+    reasonCode: authorization.ok ? "allowed" : authorization.reasonCode,
+    createdAt: new Date().toISOString(),
+  });
+
+  if (!authorization.ok) {
+    return Response.json({ ok: false, error: authorization.reasonCode }, { status: 403 });
   }
 
   const threadMessages = await store.listMessages({
@@ -439,6 +554,30 @@ export async function handleExternalAction(
 
   if (!resolved.ok) {
     return Response.json({ ok: false, error: resolved.error }, { status: 404 });
+  }
+
+  const authorization = await authorizeExternalAction({
+    store,
+    threadId: resolved.thread.id,
+    channel: body.source,
+    externalActorId: body.externalAuthorId,
+    actionType: body.actionType,
+  });
+
+  await store.createExternalInteractionAudit({
+    id: `eia_${crypto.randomUUID().split("-")[0]}`,
+    threadId: resolved.thread.id,
+    channel: body.source,
+    interactionKind: "action",
+    externalActorId: body.externalAuthorId,
+    externalActionId: body.externalActionId,
+    decision: authorization.ok ? "allowed" : "denied",
+    reasonCode: authorization.ok ? "allowed" : authorization.reasonCode,
+    createdAt: new Date().toISOString(),
+  });
+
+  if (!authorization.ok) {
+    return Response.json({ ok: false, error: authorization.reasonCode }, { status: 403 });
   }
 
   const idempotency = await store.createExternalActionRecord({
@@ -648,11 +787,15 @@ export async function handleGetMessageThread(
     messages,
   );
   const externalThreadProjections = await store.listExternalThreadProjections(thread.id);
+  const externalInteractionPolicy = await store.getThreadExternalInteractionPolicy(thread.id);
+  const externalInteractionAudit = await store.listExternalInteractionAudit(thread.id);
 
   return Response.json({
     ok: true,
     thread,
     externalThreadProjections,
+    externalInteractionPolicy,
+    externalInteractionAudit,
     messages: messagesWithDeliveries,
   });
 }

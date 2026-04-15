@@ -238,6 +238,30 @@ export interface EmployeeMessage {
   updatedAt?: string;
 }
 
+export type ThreadExternalInteractionPolicy = {
+  threadId: string;
+  inboundRepliesAllowed: boolean;
+  externalActionsAllowed: boolean;
+  allowedChannels?: Array<"slack" | "email">;
+  allowedTargets?: string[];
+  allowedExternalActors?: string[];
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ExternalInteractionAuditRecord = {
+  id: string;
+  threadId?: string;
+  channel: "slack" | "email";
+  interactionKind: "reply" | "action";
+  externalActorId?: string;
+  externalMessageId?: string;
+  externalActionId?: string;
+  decision: "allowed" | "denied";
+  reasonCode: string;
+  createdAt: string;
+};
+
 export interface Decision {
   id: string;
   taskId: string;
@@ -359,6 +383,8 @@ export interface TaskStore {
     externalThreadId: string;
     source: "slack" | "email";
   }): Promise<MessageThread | null>;
+  getThreadExternalInteractionPolicy(threadId: string): Promise<ThreadExternalInteractionPolicy | null>;
+  upsertThreadExternalInteractionPolicy(policy: ThreadExternalInteractionPolicy): Promise<void>;
   createExternalMessageProjection(projection: ExternalMessageProjection): Promise<void>;
   getExternalMessageProjection(args: {
     messageId: string;
@@ -372,6 +398,8 @@ export interface TaskStore {
     threadId: string;
     actionType: string;
   }): Promise<{ alreadyExists: boolean }>;
+  createExternalInteractionAudit(record: ExternalInteractionAuditRecord): Promise<void>;
+  listExternalInteractionAudit(threadId: string): Promise<ExternalInteractionAuditRecord[]>;
 
   findMessageThreadByApprovalId(approvalId: string): Promise<MessageThread | null>;
   findMessageThreadByEscalationId(escalationId: string): Promise<MessageThread | null>;

@@ -1604,14 +1604,17 @@ Pre-PR10 note:
 - PR10D adds explicit structured external approval and escalation actions over canonical threads
 - PR10D action execution reuses the existing canonical thread action handlers
 - PR10D persists external action idempotency records canonically before executing the action
+- PR10E adds external interaction policy, permissions, and audit hardening
+- inbound replies and explicit external actions require thread-level authorization checks before canonical mutation
+- denied external interactions return explicit 403 reason codes and are durably audited canonically
+- denied external actions do not create idempotency side effects or hidden state changes
 - no implicit action execution is introduced
 - no external system becomes canonical
 - first real transport may be Slack, while email can remain a structured failure stub until implemented
 - mirror targets are resolved from thread, task, and message policy
 - delivery outcomes are persisted canonically
 - successful deliveries persist external conversation and message linkage canonically
-- no inbound reply ingestion yet
-- no external actions yet
+- PR10 ordering is: PR10A outbound mirroring, PR10B external mapping, PR10C inbound replies, PR10D explicit external actions, PR10E policy-permission-audit hardening
 
 This is directional and may be compressed or regrouped, but the conceptual order is important.
 

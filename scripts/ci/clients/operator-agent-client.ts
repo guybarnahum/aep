@@ -81,7 +81,16 @@ export type CreateMessageThreadRequest = {
   createdByEmployeeId?: string;
   relatedTaskId?: string;
   relatedArtifactId?: string;
+  relatedApprovalId?: string;
+  relatedEscalationId?: string;
   visibility?: "internal" | "org";
+  externalInteractionPolicy?: {
+    inboundRepliesAllowed?: boolean;
+    externalActionsAllowed?: boolean;
+    allowedChannels?: Array<"slack" | "email">;
+    allowedTargets?: string[];
+    allowedExternalActors?: string[];
+  };
 };
 
 export type CreateMessageRequest = {

@@ -223,6 +223,24 @@ jobs:
         run: |
           npx tsx scripts/ci/checks/scenarios/external-action-idempotency-check.ts 2>&1 | tee -a post-deploy-validation.log
 
+      - name: External interaction policy contract check
+        id: external_interaction_policy_contract
+        if: steps.config.outputs.enabled == 'true' && steps.post_deploy_validation.outcome == 'success'
+        run: |
+          npx tsx scripts/ci/checks/contracts/external-interaction-policy-contract-check.ts 2>&1 | tee -a post-deploy-validation.log
+
+      - name: External reply policy enforcement check
+        id: external_reply_policy_enforcement
+        if: steps.config.outputs.enabled == 'true' && steps.post_deploy_validation.outcome == 'success'
+        run: |
+          npx tsx scripts/ci/checks/scenarios/external-reply-policy-enforcement-check.ts 2>&1 | tee -a post-deploy-validation.log
+
+      - name: External action policy enforcement check
+        id: external_action_policy_enforcement
+        if: steps.config.outputs.enabled == 'true' && steps.post_deploy_validation.outcome == 'success'
+        run: |
+          npx tsx scripts/ci/checks/scenarios/external-action-policy-enforcement-check.ts 2>&1 | tee -a post-deploy-validation.log
+
       - name: Capture outputs
         id: capture
         if: always()
@@ -249,7 +267,10 @@ jobs:
               ( "${{ steps.external_action_contract.outcome }}" == "success" || "${{ steps.external_action_contract.outcome }}" == "skipped" ) && \
               ( "${{ steps.external_approval_action.outcome }}" == "success" || "${{ steps.external_approval_action.outcome }}" == "skipped" ) && \
               ( "${{ steps.external_escalation_action.outcome }}" == "success" || "${{ steps.external_escalation_action.outcome }}" == "skipped" ) && \
-              ( "${{ steps.external_action_idempotency.outcome }}" == "success" || "${{ steps.external_action_idempotency.outcome }}" == "skipped" ) \
+              ( "${{ steps.external_action_idempotency.outcome }}" == "success" || "${{ steps.external_action_idempotency.outcome }}" == "skipped" ) && \
+              ( "${{ steps.external_interaction_policy_contract.outcome }}" == "success" || "${{ steps.external_interaction_policy_contract.outcome }}" == "skipped" ) && \
+              ( "${{ steps.external_reply_policy_enforcement.outcome }}" == "success" || "${{ steps.external_reply_policy_enforcement.outcome }}" == "skipped" ) && \
+              ( "${{ steps.external_action_policy_enforcement.outcome }}" == "success" || "${{ steps.external_action_policy_enforcement.outcome }}" == "skipped" ) \
             ]]; then
               OUTCOME="success"
             else
