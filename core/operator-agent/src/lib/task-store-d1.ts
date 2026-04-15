@@ -1,6 +1,11 @@
 import { fromJson, toJson } from "@aep/operator-agent/lib/d1-json";
 import { dispatchMessageMirrors } from "@aep/operator-agent/adapters/mirror-dispatcher";
-import type { MirrorDeliveryRecord } from "@aep/operator-agent/adapters/types";
+import type {
+  ExternalMessageProjection,
+  ExternalThreadProjection,
+  MirrorChannel,
+  MirrorDeliveryRecord,
+} from "@aep/operator-agent/adapters/types";
 import {
   TaskDependencyValidationError,
   type Decision,
@@ -126,6 +131,27 @@ type MessageMirrorDeliveryRow = {
   created_at: string;
 };
 
+type ExternalThreadProjectionRow = {
+  projection_id: string;
+  thread_id: string;
+  channel: string;
+  target: string;
+  external_thread_id: string;
+  created_at: string;
+  updated_at: string;
+};
+
+type ExternalMessageProjectionRow = {
+  projection_id: string;
+  message_id: string;
+  thread_id: string;
+  channel: string;
+  target: string;
+  external_thread_id: string;
+  external_message_id: string;
+  created_at: string;
+};
+
 function requireDb(env: OperatorAgentEnv): D1Database {
   if (!env.OPERATOR_AGENT_DB) {
     throw new Error("Missing OPERATOR_AGENT_DB binding");
@@ -241,6 +267,35 @@ function rowToMirrorDelivery(row: MessageMirrorDeliveryRow): MirrorDeliveryRecor
     externalMessageId: row.external_message_id ?? undefined,
     failureCode: row.failure_code ?? undefined,
     failureReason: row.failure_reason ?? undefined,
+    createdAt: row.created_at,
+  };
+}
+
+function rowToExternalThreadProjection(
+  row: ExternalThreadProjectionRow,
+): ExternalThreadProjection {
+  return {
+    id: row.projection_id,
+    threadId: row.thread_id,
+    channel: row.channel as MirrorChannel,
+    target: row.target,
+    externalThreadId: row.external_thread_id,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function rowToExternalMessageProjection(
+  row: ExternalMessageProjectionRow,
+): ExternalMessageProjection {
+  return {
+    id: row.projection_id,
+    messageId: row.message_id,
+    threadId: row.thread_id,
+    channel: row.channel as MirrorChannel,
+    target: row.target,
+    externalThreadId: row.external_thread_id,
+    externalMessageId: row.external_message_id,
     createdAt: row.created_at,
   };
 }
@@ -893,6 +948,170 @@ export class D1TaskStore implements TaskStore {
       .all<MessageMirrorDeliveryRow>();
 
     return (rows.results ?? []).map(rowToMirrorDelivery);
+  }
+
+  async createExternalThreadProjection(projection: ExternalThreadProjection): Promise<void> {
+    const existing = await this.getExternalThreadProjection({
+      threadId: projection.threadId,
+      channel: projection.channel,
+      target: projection.target,
+    });
+
+    if (existing) {
+      return;
+    }
+
+    try {
+      await this.db
+        .prepare(
+          `INSERT INTO external_thread_projections (
+            projection_id,
+            thread_id,
+            channel,
+            target,
+            external_thread_id,
+            created_at,
+            updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        )
+        .bind(
+          projection.id,
+          projection.threadId,
+          projection.channel,
+          projection.target,
+          projection.externalThreadId,
+          projection.createdAt,
+          projection.updatedAt,
+        )
+        .run();
+    } catch {
+      const current = await this.getExternalThreadProjection({
+        threadId: projection.threadId,
+        channel: projection.channel,
+        target: projection.target,
+      });
+
+      if (!current) {
+        throw new Error(`Failed to create external thread projection for ${projection.threadId}`);
+      }
+    }
+  }
+
+  async getExternalThreadProjection(args: {
+    threadId: string;
+    channel: MirrorChannel;
+    target: string;
+  }): Promise<ExternalThreadProjection | null> {
+    const row = await this.db
+      .prepare(
+        `SELECT *
+         FROM external_thread_projections
+         WHERE thread_id = ?
+           AND channel = ?
+           AND target = ?
+         LIMIT 1`,
+      )
+      .bind(args.threadId, args.channel, args.target)
+      .first<ExternalThreadProjectionRow>();
+
+    return row ? rowToExternalThreadProjection(row) : null;
+  }
+
+  async listExternalThreadProjections(threadId: string): Promise<ExternalThreadProjection[]> {
+    const rows = await this.db
+      .prepare(
+        `SELECT *
+         FROM external_thread_projections
+         WHERE thread_id = ?
+         ORDER BY created_at ASC`,
+      )
+      .bind(threadId)
+      .all<ExternalThreadProjectionRow>();
+
+    return (rows.results ?? []).map(rowToExternalThreadProjection);
+  }
+
+  async createExternalMessageProjection(projection: ExternalMessageProjection): Promise<void> {
+    const existing = await this.getExternalMessageProjection({
+      messageId: projection.messageId,
+      channel: projection.channel,
+      target: projection.target,
+    });
+
+    if (existing) {
+      return;
+    }
+
+    try {
+      await this.db
+        .prepare(
+          `INSERT INTO external_message_projections (
+            projection_id,
+            message_id,
+            thread_id,
+            channel,
+            target,
+            external_thread_id,
+            external_message_id,
+            created_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        )
+        .bind(
+          projection.id,
+          projection.messageId,
+          projection.threadId,
+          projection.channel,
+          projection.target,
+          projection.externalThreadId,
+          projection.externalMessageId,
+          projection.createdAt,
+        )
+        .run();
+    } catch {
+      const current = await this.getExternalMessageProjection({
+        messageId: projection.messageId,
+        channel: projection.channel,
+        target: projection.target,
+      });
+
+      if (!current) {
+        throw new Error(`Failed to create external message projection for ${projection.messageId}`);
+      }
+    }
+  }
+
+  async getExternalMessageProjection(args: {
+    messageId: string;
+    channel: MirrorChannel;
+    target: string;
+  }): Promise<ExternalMessageProjection | null> {
+    const row = await this.db
+      .prepare(
+        `SELECT *
+         FROM external_message_projections
+         WHERE message_id = ?
+           AND channel = ?
+           AND target = ?
+         LIMIT 1`,
+      )
+      .bind(args.messageId, args.channel, args.target)
+      .first<ExternalMessageProjectionRow>();
+
+    return row ? rowToExternalMessageProjection(row) : null;
+  }
+
+  async listExternalMessageProjections(messageId: string): Promise<ExternalMessageProjection[]> {
+    const rows = await this.db
+      .prepare(
+        `SELECT *
+         FROM external_message_projections
+         WHERE message_id = ?
+         ORDER BY created_at ASC`,
+      )
+      .bind(messageId)
+      .all<ExternalMessageProjectionRow>();
+
+    return (rows.results ?? []).map(rowToExternalMessageProjection);
   }
 
   private async getMessageByExternalId(args: {

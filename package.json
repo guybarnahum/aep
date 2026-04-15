@@ -79,6 +79,8 @@
     "ci:external-style-message-order-tolerance-check": "tsx scripts/ci/checks/scenarios/external-style-message-order-tolerance-check.ts",
     "ci:mirror-routing-contract-check": "tsx scripts/ci/checks/contracts/mirror-routing-contract-check.ts",
     "ci:agent-message-mirroring-check": "tsx scripts/ci/checks/scenarios/agent-message-mirroring-check.ts",
+    "ci:external-thread-mapping-contract-check": "tsx scripts/ci/checks/contracts/external-thread-mapping-contract-check.ts",
+    "ci:threaded-mirror-continuity-check": "tsx scripts/ci/checks/scenarios/threaded-mirror-continuity-check.ts",
     "ci:escalation-audit-check": "tsx scripts/ci/checks/policy/escalation-audit-check.ts",
     "ci:escalation-lifecycle-check": "tsx scripts/ci/checks/policy/escalation-lifecycle-check.ts",
     "ci:paperclip-first-execution-check": "tsx scripts/ci/checks/scenarios/paperclip-first-execution-check.ts",

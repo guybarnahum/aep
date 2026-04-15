@@ -169,6 +169,18 @@ jobs:
         run: |
           npx tsx scripts/ci/checks/scenarios/agent-message-mirroring-check.ts 2>&1 | tee -a post-deploy-validation.log
 
+      - name: External thread mapping contract check
+        id: external_thread_mapping_contract
+        if: steps.config.outputs.enabled == 'true' && steps.post_deploy_validation.outcome == 'success'
+        run: |
+          npx tsx scripts/ci/checks/contracts/external-thread-mapping-contract-check.ts 2>&1 | tee -a post-deploy-validation.log
+
+      - name: Threaded mirror continuity check
+        id: threaded_mirror_continuity
+        if: steps.config.outputs.enabled == 'true' && steps.post_deploy_validation.outcome == 'success'
+        run: |
+          npx tsx scripts/ci/checks/scenarios/threaded-mirror-continuity-check.ts 2>&1 | tee -a post-deploy-validation.log
+
       - name: Capture outputs
         id: capture
         if: always()
@@ -186,7 +198,9 @@ jobs:
               ( "${{ steps.external_style_message_idempotency.outcome }}" == "success" || "${{ steps.external_style_message_idempotency.outcome }}" == "skipped" ) && \
               ( "${{ steps.external_style_message_order_tolerance.outcome }}" == "success" || "${{ steps.external_style_message_order_tolerance.outcome }}" == "skipped" ) && \
               ( "${{ steps.mirror_routing_contract.outcome }}" == "success" || "${{ steps.mirror_routing_contract.outcome }}" == "skipped" ) && \
-              ( "${{ steps.agent_message_mirroring.outcome }}" == "success" || "${{ steps.agent_message_mirroring.outcome }}" == "skipped" ) \
+              ( "${{ steps.agent_message_mirroring.outcome }}" == "success" || "${{ steps.agent_message_mirroring.outcome }}" == "skipped" ) && \
+              ( "${{ steps.external_thread_mapping_contract.outcome }}" == "success" || "${{ steps.external_thread_mapping_contract.outcome }}" == "skipped" ) && \
+              ( "${{ steps.threaded_mirror_continuity.outcome }}" == "success" || "${{ steps.threaded_mirror_continuity.outcome }}" == "skipped" ) \
             ]]; then
               OUTCOME="success"
             else
@@ -248,6 +262,8 @@ jobs:
           echo "- $(status_emoji "${{ steps.external_style_message_order_tolerance.outcome }}") external-style message order tolerance check: ${{ steps.external_style_message_order_tolerance.outcome }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- $(status_emoji "${{ steps.mirror_routing_contract.outcome }}") mirror routing contract check: ${{ steps.mirror_routing_contract.outcome }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- $(status_emoji "${{ steps.agent_message_mirroring.outcome }}") agent message mirroring check: ${{ steps.agent_message_mirroring.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- $(status_emoji "${{ steps.external_thread_mapping_contract.outcome }}") external thread mapping contract check: ${{ steps.external_thread_mapping_contract.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- $(status_emoji "${{ steps.threaded_mirror_continuity.outcome }}") threaded mirror continuity check: ${{ steps.threaded_mirror_continuity.outcome }}" >> "$GITHUB_STEP_SUMMARY"
 
           echo "### Result" >> "$GITHUB_STEP_SUMMARY"
           echo "- $(status_emoji "$OUTCOME") Post-deploy validation: $OUTCOME" >> "$GITHUB_STEP_SUMMARY"

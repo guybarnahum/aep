@@ -1,8 +1,11 @@
+import type { MirrorTransportFailure, MirrorTransportSuccess } from "./types";
+
 export async function sendEmailMirror(args: {
   recipientGroup: string;
   subject: string;
   body: string;
-}): Promise<{ ok: true; externalMessageId?: string } | { ok: false; code: string; reason: string }> {
+  externalThreadId?: string;
+}): Promise<MirrorTransportSuccess | MirrorTransportFailure> {
   void args;
   return {
     ok: false,

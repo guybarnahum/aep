@@ -1,8 +1,11 @@
+import type { MirrorTransportFailure, MirrorTransportSuccess } from "./types";
+
 export async function sendSlackMirror(args: {
   webhookUrl: string;
   channelId: string;
   text: string;
-}): Promise<{ ok: true; externalMessageId?: string } | { ok: false; code: string; reason: string }> {
+  externalThreadId?: string;
+}): Promise<MirrorTransportSuccess | MirrorTransportFailure> {
   if (!args.webhookUrl || args.webhookUrl.trim().length === 0) {
     return {
       ok: false,
@@ -32,7 +35,12 @@ export async function sendSlackMirror(args: {
       };
     }
 
-    return { ok: true };
+    return {
+      ok: true,
+      externalThreadId:
+        args.externalThreadId ?? `slack-thread:${args.channelId}:${crypto.randomUUID().split("-")[0]}`,
+      externalMessageId: `slack-message:${args.channelId}:${crypto.randomUUID()}`,
+    };
   } catch (error) {
     return {
       ok: false,

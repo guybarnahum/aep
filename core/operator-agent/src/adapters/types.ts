@@ -46,3 +46,36 @@ export type MirrorDeliveryRecord = {
   failureReason?: string;
   createdAt: string;
 };
+
+export type ExternalThreadProjection = {
+  id: string;
+  threadId: string;
+  channel: MirrorChannel;
+  target: string;
+  externalThreadId: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ExternalMessageProjection = {
+  id: string;
+  messageId: string;
+  threadId: string;
+  channel: MirrorChannel;
+  target: string;
+  externalThreadId: string;
+  externalMessageId: string;
+  createdAt: string;
+};
+
+export type MirrorTransportSuccess = {
+  ok: true;
+  externalThreadId: string;
+  externalMessageId: string;
+};
+
+export type MirrorTransportFailure = {
+  ok: false;
+  code: string;
+  reason: string;
+};

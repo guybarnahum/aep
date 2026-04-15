@@ -4,7 +4,7 @@ Repository (source of truth):
 👉 https://github.com/guybarnahum/aep
 
 The repository code is the source of truth.
-This document is aligned to commit 7336ee01088da4a3693b4b7b51c0601efb89b756.
+This document is aligned to commit 4fe4759f3676bdd53d11a14f78cb9bce7005a523.
 
 ```bash
 titan@Titans-MacBook-Pro aep % tree . --gitignore 
@@ -1592,10 +1592,15 @@ Pre-PR10 note:
 - Slack and email are projection surfaces only
 - AEP remains canonical
 - missing channel config must produce observable delivery failure, not silent no-op
-- PR10A is the outbound-only mirroring foundation
+- PR10A is outbound mirroring plus delivery observability
+- PR10B adds delivery provenance plus durable external thread and external message mapping
+- repeated mirrored messages on one canonical thread must reuse the same external thread projection
+- external linkage remains projection metadata only; AEP threads and messages remain canonical
+- PR10B prepares PR10C inbound reply ingestion but does not implement it yet
 - first real transport may be Slack, while email can remain a structured failure stub until implemented
 - mirror targets are resolved from thread, task, and message policy
 - delivery outcomes are persisted canonically
+- successful deliveries persist external conversation and message linkage canonically
 - no inbound reply ingestion yet
 - no external actions yet
 

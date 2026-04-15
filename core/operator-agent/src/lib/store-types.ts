@@ -10,7 +10,12 @@ import type {
   ManagerDecision,
   ResolvedEmployeeControl,
 } from "@aep/operator-agent/types";
-import type { MirrorDeliveryRecord } from "@aep/operator-agent/adapters/types";
+import type {
+  ExternalMessageProjection,
+  ExternalThreadProjection,
+  MirrorChannel,
+  MirrorDeliveryRecord,
+} from "@aep/operator-agent/adapters/types";
 
 export interface IApprovalStore {
   write(record: ApprovalRecord): Promise<void>;
@@ -338,6 +343,20 @@ export interface TaskStore {
   getMessage(messageId: string): Promise<EmployeeMessage | null>;
   createMessageMirrorDelivery(delivery: MirrorDeliveryRecord): Promise<void>;
   listMessageMirrorDeliveries(messageId: string): Promise<MirrorDeliveryRecord[]>;
+  createExternalThreadProjection(projection: ExternalThreadProjection): Promise<void>;
+  getExternalThreadProjection(args: {
+    threadId: string;
+    channel: MirrorChannel;
+    target: string;
+  }): Promise<ExternalThreadProjection | null>;
+  listExternalThreadProjections(threadId: string): Promise<ExternalThreadProjection[]>;
+  createExternalMessageProjection(projection: ExternalMessageProjection): Promise<void>;
+  getExternalMessageProjection(args: {
+    messageId: string;
+    channel: MirrorChannel;
+    target: string;
+  }): Promise<ExternalMessageProjection | null>;
+  listExternalMessageProjections(messageId: string): Promise<ExternalMessageProjection[]>;
 
   findMessageThreadByApprovalId(approvalId: string): Promise<MessageThread | null>;
   findMessageThreadByEscalationId(escalationId: string): Promise<MessageThread | null>;

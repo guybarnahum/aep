@@ -2,7 +2,11 @@
 
 import { dispatchMessageMirrors } from "../../../../core/operator-agent/src/adapters/mirror-dispatcher";
 import { resolveMirrorTargets } from "../../../../core/operator-agent/src/adapters/mirror-routing-policy";
-import type { MirrorDeliveryRecord } from "../../../../core/operator-agent/src/adapters/types";
+import type {
+  ExternalMessageProjection,
+  ExternalThreadProjection,
+  MirrorDeliveryRecord,
+} from "../../../../core/operator-agent/src/adapters/types";
 
 export {};
 
@@ -68,11 +72,22 @@ async function main(): Promise<void> {
   );
 
   const deliveries: MirrorDeliveryRecord[] = [];
+  const threadProjections: ExternalThreadProjection[] = [];
+  const messageProjections: ExternalMessageProjection[] = [];
   await dispatchMessageMirrors({
     env: {} as any,
     store: {
       async createMessageMirrorDelivery(delivery: MirrorDeliveryRecord) {
         deliveries.push(delivery);
+      },
+      async getExternalThreadProjection() {
+        return null;
+      },
+      async createExternalThreadProjection(projection: ExternalThreadProjection) {
+        threadProjections.push(projection);
+      },
+      async createExternalMessageProjection(projection: ExternalMessageProjection) {
+        messageProjections.push(projection);
       },
     } as any,
     input: {

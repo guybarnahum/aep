@@ -4,7 +4,14 @@ import type { OperatorAgentEnv } from "@aep/operator-agent/types";
 import { sendEmailMirror } from "./email-adapter";
 import { resolveMirrorTargets } from "./mirror-routing-policy";
 import { sendSlackMirror } from "./slack-webhook-adapter";
-import type { MirrorChannel, MirrorDeliveryRecord, MirrorDispatchInput, MirrorTarget } from "./types";
+import type {
+  ExternalMessageProjection,
+  ExternalThreadProjection,
+  MirrorChannel,
+  MirrorDeliveryRecord,
+  MirrorDispatchInput,
+  MirrorTarget,
+} from "./types";
 
 function renderSlackMirrorText(input: MirrorDispatchInput): string {
   const lines = [
@@ -80,11 +87,49 @@ function unresolvedFailureTarget(channel: MirrorChannel): string {
   return channel === "email" ? "unresolved_email_group" : "unresolved_slack_channel";
 }
 
+function targetKey(target: MirrorTarget): { channel: MirrorChannel; target: string } {
+  if (target.kind === "slack") {
+    return { channel: "slack", target: target.channelId };
+  }
+
+  return { channel: "email", target: target.recipientGroup };
+}
+
+function syntheticExternalThreadId(args: {
+  channel: MirrorChannel;
+  target: string;
+  threadId: string;
+}): string {
+  return `${args.channel}-thread:${args.target}:${args.threadId}`;
+}
+
+function threadProjectionId(threadId: string, channel: MirrorChannel, target: string): string {
+  return `etp_${threadId}_${channel}_${target.replace(/[^a-zA-Z0-9_-]/g, "_")}`;
+}
+
+function messageProjectionId(messageId: string, channel: MirrorChannel, target: string): string {
+  return `emp_${messageId}_${channel}_${target.replace(/[^a-zA-Z0-9_-]/g, "_")}`;
+}
+
 async function dispatchToTarget(args: {
   env: OperatorAgentEnv;
   target: MirrorTarget;
+  externalThreadId?: string;
   input: MirrorDispatchInput;
-}): Promise<MirrorDeliveryRecord> {
+}): Promise<
+  | {
+      ok: true;
+      channel: MirrorChannel;
+      target: string;
+      externalThreadId: string;
+      externalMessageId: string;
+      createdAt: string;
+    }
+  | {
+      ok: false;
+      delivery: MirrorDeliveryRecord;
+    }
+> {
   const createdAt = new Date().toISOString();
 
   if (args.target.kind === "slack") {
@@ -92,65 +137,77 @@ async function dispatchToTarget(args: {
       webhookUrl: args.env.SLACK_MIRROR_WEBHOOK_URL ?? "",
       channelId: args.target.channelId,
       text: renderSlackMirrorText(args.input),
+      externalThreadId: args.externalThreadId,
     });
 
     if (result.ok) {
-      return buildDeliveryRecord({
+      return {
+        ok: true,
+        channel: "slack",
+        target: args.target.channelId,
+        externalThreadId: result.externalThreadId,
+        externalMessageId: result.externalMessageId,
+        createdAt,
+      };
+    }
+
+    return {
+      ok: false,
+      delivery: buildDeliveryRecord({
         messageId: args.input.messageId,
         threadId: args.input.threadId,
         channel: "slack",
         target: args.target.channelId,
-        status: "delivered",
-        externalMessageId: result.externalMessageId,
+        status: "failed",
+        failureCode: result.code,
+        failureReason: result.reason,
         createdAt,
-      });
-    }
-
-    return buildDeliveryRecord({
-      messageId: args.input.messageId,
-      threadId: args.input.threadId,
-      channel: "slack",
-      target: args.target.channelId,
-      status: "failed",
-      failureCode: result.code,
-      failureReason: result.reason,
-      createdAt,
-    });
+      }),
+    };
   }
 
   const result = await sendEmailMirror({
     recipientGroup: args.target.recipientGroup,
     subject: renderEmailMirrorSubject(args.input),
     body: renderEmailMirrorBody(args.input),
+    externalThreadId: args.externalThreadId,
   });
 
   if (result.ok) {
-    return buildDeliveryRecord({
+    return {
+      ok: true,
+      channel: "email",
+      target: args.target.recipientGroup,
+      externalThreadId: result.externalThreadId,
+      externalMessageId: result.externalMessageId,
+      createdAt,
+    };
+  }
+
+  return {
+    ok: false,
+    delivery: buildDeliveryRecord({
       messageId: args.input.messageId,
       threadId: args.input.threadId,
       channel: "email",
       target: args.target.recipientGroup,
-      status: "delivered",
-      externalMessageId: result.externalMessageId,
+      status: "failed",
+      failureCode: result.code,
+      failureReason: result.reason,
       createdAt,
-    });
-  }
-
-  return buildDeliveryRecord({
-    messageId: args.input.messageId,
-    threadId: args.input.threadId,
-    channel: "email",
-    target: args.target.recipientGroup,
-    status: "failed",
-    failureCode: result.code,
-    failureReason: result.reason,
-    createdAt,
-  });
+    }),
+  };
 }
 
 export async function dispatchMessageMirrors(args: {
   env: OperatorAgentEnv;
-  store: Pick<TaskStore, "createMessageMirrorDelivery">;
+  store: Pick<
+    TaskStore,
+    | "createMessageMirrorDelivery"
+    | "getExternalThreadProjection"
+    | "createExternalThreadProjection"
+    | "createExternalMessageProjection"
+  >;
   input: MirrorDispatchInput;
 }): Promise<void> {
   const targets = resolveMirrorTargets(args.env, args.input.routing);
@@ -173,12 +230,67 @@ export async function dispatchMessageMirrors(args: {
   }
 
   for (const target of targets) {
-    const delivery = await dispatchToTarget({
+    const routingTarget = targetKey(target);
+    const existingThreadProjection = await args.store.getExternalThreadProjection({
+      threadId: args.input.threadId,
+      channel: routingTarget.channel,
+      target: routingTarget.target,
+    });
+
+    const dispatchResult = await dispatchToTarget({
       env: args.env,
       target,
+      externalThreadId:
+        existingThreadProjection?.externalThreadId ??
+        syntheticExternalThreadId({
+          channel: routingTarget.channel,
+          target: routingTarget.target,
+          threadId: args.input.threadId,
+        }),
       input: args.input,
     });
 
-    await args.store.createMessageMirrorDelivery(delivery);
+    if (!dispatchResult.ok) {
+      await args.store.createMessageMirrorDelivery(dispatchResult.delivery);
+      continue;
+    }
+
+    if (!existingThreadProjection) {
+      const threadProjection: ExternalThreadProjection = {
+        id: threadProjectionId(args.input.threadId, dispatchResult.channel, dispatchResult.target),
+        threadId: args.input.threadId,
+        channel: dispatchResult.channel,
+        target: dispatchResult.target,
+        externalThreadId: dispatchResult.externalThreadId,
+        createdAt: dispatchResult.createdAt,
+        updatedAt: dispatchResult.createdAt,
+      };
+
+      await args.store.createExternalThreadProjection(threadProjection);
+    }
+
+    const messageProjection: ExternalMessageProjection = {
+      id: messageProjectionId(args.input.messageId, dispatchResult.channel, dispatchResult.target),
+      messageId: args.input.messageId,
+      threadId: args.input.threadId,
+      channel: dispatchResult.channel,
+      target: dispatchResult.target,
+      externalThreadId: dispatchResult.externalThreadId,
+      externalMessageId: dispatchResult.externalMessageId,
+      createdAt: dispatchResult.createdAt,
+    };
+
+    await args.store.createExternalMessageProjection(messageProjection);
+    await args.store.createMessageMirrorDelivery(
+      buildDeliveryRecord({
+        messageId: args.input.messageId,
+        threadId: args.input.threadId,
+        channel: dispatchResult.channel,
+        target: dispatchResult.target,
+        status: "delivered",
+        externalMessageId: dispatchResult.externalMessageId,
+        createdAt: dispatchResult.createdAt,
+      }),
+    );
   }
 }

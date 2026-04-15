@@ -39,6 +39,9 @@ type CreateMessageThreadRequest = {
 
 type MessageWithMirrorDeliveries = EmployeeMessage & {
   mirrorDeliveries: Awaited<ReturnType<ReturnType<typeof getTaskStore>["listMessageMirrorDeliveries"]>>;
+  externalMessageProjections: Awaited<
+    ReturnType<ReturnType<typeof getTaskStore>["listExternalMessageProjections"]>
+  >;
 };
 
 async function attachMirrorDeliveries(
@@ -48,9 +51,11 @@ async function attachMirrorDeliveries(
   return Promise.all(
     messages.map(async (message) => {
       const mirrorDeliveries = await store.listMessageMirrorDeliveries(message.id);
+      const externalMessageProjections = await store.listExternalMessageProjections(message.id);
       return {
         ...message,
         mirrorDeliveries,
+        externalMessageProjections,
       };
     }),
   );
@@ -402,10 +407,12 @@ export async function handleGetMessageThread(
     store,
     messages,
   );
+  const externalThreadProjections = await store.listExternalThreadProjections(thread.id);
 
   return Response.json({
     ok: true,
     thread,
+    externalThreadProjections,
     messages: messagesWithDeliveries,
   });
 }
