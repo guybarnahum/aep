@@ -133,6 +133,18 @@ jobs:
           npx tsx scripts/ci/checks/scenarios/approval-thread-delegation-check.ts 2>&1 | tee -a post-deploy-validation.log
           npx tsx scripts/ci/checks/scenarios/escalation-thread-delegation-check.ts 2>&1 | tee -a post-deploy-validation.log
 
+      - name: Repeated validation persona continuity check
+        id: repeated_validation_persona_continuity
+        if: steps.config.outputs.enabled == 'true' && steps.post_deploy_validation.outcome == 'success'
+        run: |
+          npx tsx scripts/ci/checks/scenarios/repeated-validation-persona-continuity-check.ts 2>&1 | tee -a post-deploy-validation.log
+
+      - name: Repeated PM persona continuity check
+        id: repeated_pm_persona_continuity
+        if: steps.config.outputs.enabled == 'true' && steps.post_deploy_validation.outcome == 'success'
+        run: |
+          npx tsx scripts/ci/checks/scenarios/repeated-pm-persona-continuity-check.ts 2>&1 | tee -a post-deploy-validation.log
+
       - name: Capture outputs
         id: capture
         if: always()
@@ -144,7 +156,9 @@ jobs:
           if [[ "$ENABLED" == "true" ]]; then
             if [[ \
               "${{ steps.post_deploy_validation.outcome }}" == "success" && \
-              ( "${{ steps.thread_delegation_scenarios.outcome }}" == "success" || "${{ steps.thread_delegation_scenarios.outcome }}" == "skipped" ) \
+              ( "${{ steps.thread_delegation_scenarios.outcome }}" == "success" || "${{ steps.thread_delegation_scenarios.outcome }}" == "skipped" ) && \
+              ( "${{ steps.repeated_validation_persona_continuity.outcome }}" == "success" || "${{ steps.repeated_validation_persona_continuity.outcome }}" == "skipped" ) && \
+              ( "${{ steps.repeated_pm_persona_continuity.outcome }}" == "success" || "${{ steps.repeated_pm_persona_continuity.outcome }}" == "skipped" ) \
             ]]; then
               OUTCOME="success"
             else
@@ -196,10 +210,12 @@ jobs:
             fi
             exit 0
           fi
-                      echo "" >> "$GITHUB_STEP_SUMMARY"
-                      echo "### Scenario checks" >> "$GITHUB_STEP_SUMMARY"
-                      echo "- $(status_emoji \"${{ steps.post_deploy_validation.outcome }}\") post-deploy validation dispatch/verdict: ${{ steps.post_deploy_validation.outcome }}" >> "$GITHUB_STEP_SUMMARY"
-                      echo "- $(status_emoji \"${{ steps.thread_delegation_scenarios.outcome }}\") thread delegation scenarios: ${{ steps.thread_delegation_scenarios.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "### Scenario checks" >> "$GITHUB_STEP_SUMMARY"
+          echo "- $(status_emoji "${{ steps.post_deploy_validation.outcome }}") post-deploy validation dispatch/verdict: ${{ steps.post_deploy_validation.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- $(status_emoji "${{ steps.thread_delegation_scenarios.outcome }}") thread delegation scenarios: ${{ steps.thread_delegation_scenarios.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- $(status_emoji "${{ steps.repeated_validation_persona_continuity.outcome }}") repeated validation persona continuity check: ${{ steps.repeated_validation_persona_continuity.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- $(status_emoji "${{ steps.repeated_pm_persona_continuity.outcome }}") repeated PM persona continuity check: ${{ steps.repeated_pm_persona_continuity.outcome }}" >> "$GITHUB_STEP_SUMMARY"
 
           echo "### Result" >> "$GITHUB_STEP_SUMMARY"
           echo "- $(status_emoji "$OUTCOME") Post-deploy validation: $OUTCOME" >> "$GITHUB_STEP_SUMMARY"

@@ -4,7 +4,7 @@ Repository (source of truth):
 👉 https://github.com/guybarnahum/aep
 
 The repository code is the source of truth.
-This document is aligned to commit bcc04d33c8b696937ac16e0ed05ff594fb29b6ba.
+This document is aligned to commit 7336ee01088da4a3693b4b7b51c0601efb89b756.
 
 ```bash
 titan@Titans-MacBook-Pro aep % tree . --gitignore 
@@ -1552,6 +1552,16 @@ Repo reality note:
   - route-level cognition
   - public prompt-profile exposure
   - Slack/email adapters
+- PR7.9C: repeated-run continuity proof and regression hardening
+- validate repeated validation-agent runs preserve `presentationStyle: operational_evidence`
+- validate repeated PM runs preserve `presentationStyle: structured_alignment`
+- validate thread publication style matches canonical rationale artifact style when publication exists
+- keep repeated-run continuity proof live-safe and soft-skip when suitable live data is absent
+- do not introduce memory, new public persona fields, or route-level cognition
+
+Repo reality note:
+- operator-agent `wrangler.jsonc` now binds `AI` in `async_validation`, `staging`, and `production`
+- PR7.9C can validate continuity against live AI-backed environments while preserving fallback-safe behavior where AI execution is disabled or unavailable
 
 ### 🔜 PR7.10 — external communication adapters
 - email bridge
