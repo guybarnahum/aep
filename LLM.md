@@ -4,7 +4,7 @@ Repository (source of truth):
 👉 https://github.com/guybarnahum/aep
 
 The repository code is the source of truth.
-This document is aligned to commit 4fe4759f3676bdd53d11a14f78cb9bce7005a523.
+This document is aligned to commit c3bbfffbc6664378491cf058dc9c1ddfb9710021.
 
 ```bash
 titan@Titans-MacBook-Pro aep % tree . --gitignore 
@@ -1510,7 +1510,7 @@ Repo reality note:
 - current prompt-profile retrieval does not gate cognition on `approved`
 - unless a later PR changes that explicitly, prompt-profile continuity follows repo reality as implemented
 
-### 🔜 PR7.9 — agents as persons
+### ✅ PR7.9 — agents as persons
 - PR7.9A: persona continuity foundation
 - activate existing private prompt-profile continuity fields inside the shared employee cognition layer:
   - `decisionStyle`
@@ -1525,7 +1525,7 @@ Repo reality note:
   - task decisions
   - task artifacts
   - canonical message-thread publication
-- do not introduce:
+- at this stage PR7.9 did not introduce:
   - shared company memory
   - broad autobiographical memory
   - route-level cognition
@@ -1546,7 +1546,7 @@ Repo reality note:
 - make public rationale formatting deterministic by bounded presentation style rather than relying on model wording drift
 - validate employee-specific public rationale continuity via explicit `presentationStyle` metadata instead of keyword-marker scoring
 - treat the public style set as reviewable presentation metadata, not leaked private prompt-profile fields
-- PR7.9B still must not introduce:
+- PR7.9B did not introduce:
   - shared company memory
   - broad autobiographical memory
   - route-level cognition
@@ -1585,38 +1585,93 @@ Pre-PR10 note:
 - PR7.9D exists to harden canonical ingestion semantics before adapters land
 - no external channel becomes source of truth, and messages must not implicitly execute actions
 
-### 🔜 PR7.10 — external communication adapters
-- PR10 introduces universal human-visible mirroring of agent-originated messages
-- all agent-originated canonical thread messages must be mirrored externally
-- target selection is resolved by system policy, not by agent-selected channel choice
-- Slack and email are projection surfaces only
-- AEP remains canonical
-- missing channel config must produce observable delivery failure, not silent no-op
-- PR10A is outbound mirroring plus delivery observability
-- PR10B adds delivery provenance plus durable external thread and external message mapping
-- repeated mirrored messages on one canonical thread must reuse the same external thread projection
-- external linkage remains projection metadata only; AEP threads and messages remain canonical
-- PR10B prepares PR10C inbound reply ingestion but does not implement it yet
-- PR10C adds inbound reply ingestion
-- external replies are ingested into AEP as canonical thread messages
-- inbound correlation uses PR10B external thread projections
-- ingestion is idempotent and order-tolerant on the PR7.9D substrate
-- PR10D adds explicit structured external approval and escalation actions over canonical threads
-- PR10D action execution reuses the existing canonical thread action handlers
-- PR10D persists external action idempotency records canonically before executing the action
-- PR10E adds external interaction policy, permissions, and audit hardening
-- inbound replies and explicit external actions require thread-level authorization checks before canonical mutation
-- denied external interactions return explicit 403 reason codes and are durably audited canonically
+### ✅ PR10 — external interaction substrate (complete)
+- PR10 is complete as the external interaction substrate layered over canonical AEP threads, messages, approvals, escalations, and artifacts
+- PR10A completed outbound mirroring plus delivery observability for agent-originated canonical messages
+- PR10B completed durable external thread/message projection mapping for mirrored AEP threads
+- PR10C completed inbound reply correlation and canonical reply ingestion
+- PR10D completed explicit external approval/escalation actions over canonical threads
+- PR10E completed policy, permissions, and audit hardening for inbound replies and explicit external actions
+- external channels remain projection/interaction surfaces only
+- AEP-native tasks, threads, approvals, escalations, and artifacts remain canonical
+- repeated mirrored messages on one canonical thread reuse the same external thread projection
+- inbound replies and explicit external actions are authorized before canonical mutation
+- denied external interactions return explicit `403` reason codes and are durably audited canonically
 - denied external actions do not create idempotency side effects or hidden state changes
-- no implicit action execution is introduced
-- no external system becomes canonical
-- first real transport may be Slack, while email can remain a structured failure stub until implemented
-- mirror targets are resolved from thread, task, and message policy
-- delivery outcomes are persisted canonically
-- successful deliveries persist external conversation and message linkage canonically
 - PR10 ordering is: PR10A outbound mirroring, PR10B external mapping, PR10C inbound replies, PR10D explicit external actions, PR10E policy-permission-audit hardening
 
-This is directional and may be compressed or regrouped, but the conceptual order is important.
+# 🔷 PR11 — Agentic Work Loops (NEXT MAJOR PHASE)
+
+PR11 is the phase where AEP begins to look like a real operating company with LLM-enabled employees executing governed work loops over the existing canonical substrate.
+
+PR11 goal:
+
+> enable employees to reason, plan, create work, execute work, validate work, and request human intervention when needed, while preserving AEP-native tasks, threads, artifacts, approvals, escalations, provenance, privacy, and policy boundaries
+
+The repo already has the substrate needed for PR11:
+- bounded employee cognition
+- durable task artifacts
+- canonical message threads
+- approval/escalation actions
+- delegation
+- external mirroring, inbound replies, and explicit external actions
+- external policy and audit hardening
+
+Therefore PR11 should focus on loop behavior, not on inventing new primitives.
+
+## PR11 principles
+
+- AEP remains canonical
+- tasks remain the unit of work
+- threads remain the unit of communication
+- approvals and escalations remain explicit governance primitives
+- LLM cognition stays inside the employee boundary
+- no raw private reasoning appears on public surfaces
+- no direct LLM-to-side-effect mutation bypassing tasks, threads, or policy
+- no free-form chat as the work model
+- no bypass of `/agent/tasks`
+- no bypass of canonical thread/action routes
+- human visibility must come through plans, results, evidence, thread messages, and bounded rationale
+- human control must remain available through approvals, escalations, thread actions, and policy
+
+## PR11 phased plan
+
+### PR11A — employee loop ignition
+- add bounded employee loop behavior over inbox, tasks, and related thread/task context
+- allow employees to select the next governed action using existing cognition
+- keep outputs AEP-native through tasks, artifacts, and thread messages
+- keep the loop single-employee, bounded, and observable
+
+### PR11B — manager planning and task graph creation
+- manager employees create explicit plan artifacts
+- plans may create child tasks and dependencies
+- keep the task graph canonical; do not introduce a second orchestration engine
+
+### PR11C — worker execution and visible outputs
+- worker employees consume assigned tasks
+- emit result/evidence artifacts and bounded thread updates
+- request approvals or escalations when required
+
+### PR11D — validation as an employee-visible loop
+- validation employees consume validation tasks
+- produce validation artifacts and verdicts
+- feed validation outcomes back into canonical task/thread state
+- keep CI and employee validation aligned
+
+### PR11E — human visibility and control hardening
+- expose plan, execution, validation, and escalation/approval flow clearly in canonical surfaces
+- preserve the private/public cognition split
+- keep human override and review explicit
+
+## PR11 is not
+
+- not a generic workflow engine redesign
+- not free-form chat as the work model
+- not a shared company mind or broad memory system
+- not direct LLM execution outside policy
+- not external channels becoming the source of truth
+- not autonomous infra mutation outside policy
+- not replacing CI with ungoverned agent behavior
 
 ---
 
@@ -1630,8 +1685,10 @@ Each employee will increasingly:
 4. act via control-plane APIs
 
 Current state:
-- tasks, artifacts, threads, approvals, escalations, and thread actions are in place
-- LLM-powered reasoning is the next major capability, not yet fully implemented
+- tasks, artifacts, threads, approvals, escalations, delegation, and thread actions are in place
+- bounded employee cognition is present
+- external interaction mirroring, inbound replies, explicit external actions, and policy/audit hardening are in place
+- the next major capability is governed multi-step employee loop behavior over this substrate
 
 ## Future Additions
 - internal monologue (private)
@@ -1641,11 +1698,12 @@ Current state:
 - learning loops
 
 ## Updated clarification
-These items remain valid, but now map concretely to:
+These items remain conceptually useful, but repo reality now maps concretely to:
 - PR7.7: delegation
-- PR7.8: LLM-powered reasoning
-- PR7.9: agents as persons
-- PR7.10: Slack/email adapters
+- PR7.8: bounded employee cognition
+- PR7.9: agents as persons ✅
+- PR10A-E: external interaction substrate ✅
+- PR11: agentic work loops (next)
 
 ---
 
@@ -2346,7 +2404,7 @@ Each employee:
 ---
 
 ## Updated interpretation
-This “future phase” is now concretized as **PR7**.
+This earlier “future phase” is now concretized as completed **PR7** plus completed **PR10**, with **PR11** as the next major phase.
 
 Additional important rule:
 - raw internal monologue should remain private by default
@@ -2379,32 +2437,25 @@ Additional important rule:
 ---
 
 ## Updated immediate next step
-👉 Start **PR7.9 — agents as persons**
+👉 Start **PR11 — agentic work loops**
 
-PR7.7 is complete, including delegation hardening.
-PR7.8A is complete as the cognition-foundation milestone.
-PR7.8B is complete as the controlled internal rollout milestone.
-PR7.8C is complete as the durable public-rationale artifact milestone.
-PR7.8D is complete as the bounded rationale publication into canonical threads milestone.
+The current baseline is:
+- PR7.9 complete
+- PR10A-E complete
+- the next step is governed multi-step employee behavior over the now-complete substrate
 
-Specifically, PR7.9 should:
-1. strengthen employee-specific persona continuity across runs
-2. preserve employee-specific voice and working style without introducing a global shared persona layer
-3. keep cognition inside the employee boundary using private prompt profiles and identity seeds
-4. preserve the same hard privacy boundary:
-  - no `internalMonologue` on public routes
-  - no prompt-profile leakage
-  - no raw `privateReasoning` on public surfaces
-5. keep `/agent/run` orchestration-only
-6. keep `executionContext` provenance-only and free of cognition leakage
-7. keep outputs AEP-native through existing primitives:
-  - tasks
-  - task artifacts
-  - message threads
-  - approvals / escalations when needed
-8. avoid chat workflows, free-form global memory, or route-level cognition in PR7.9
-
-PR7.10 can then add email / Slack adapters on top of stable agent identity and the same hard privacy boundary.
+Specifically, PR11 should:
+1. read inbox, tasks, and related thread/task context inside bounded employee loops
+2. select the next governed action using existing employee cognition
+3. preserve tasks as the unit of work and threads as the unit of communication
+4. keep outputs AEP-native through tasks, task artifacts, canonical thread messages, approvals, and escalations
+5. preserve the same hard privacy boundary:
+   - no `internalMonologue` on public routes
+   - no prompt-profile leakage
+   - no raw `privateReasoning` on public surfaces
+6. keep `/agent/run` orchestration-only unless a later PR explicitly extends it
+7. avoid chat workflows, free-form global memory, or direct LLM-to-side-effect execution
+8. expose human visibility through plans, results, evidence, bounded rationale, and canonical thread history
 
 ---
 
@@ -2416,23 +2467,25 @@ AEP is now:
 
 PR6 is complete.
 
-PR7.1–PR7.7 are complete.
+PR7.1–PR7.9 are complete.
 
 PR7.75 / PR7.7X hardening is complete.
 
+PR10A-E are complete.
+
 The latest completed structural step is:
 
-> enable delegation from threaded human interaction into new work with durable provenance
+> complete the external interaction substrate with mirroring, mapping, inbound replies, explicit external actions, and policy/audit hardening
 
 The next major steps are:
 
-> strengthen employee personhood / identity continuity, then add external communication adapters
+> move from substrate to autonomous-but-governed employee work loops
 
 Everything after that:
-- persona continuity
-- stronger employee-specific voice and working style
-- inter-agent collaboration
-- email / Slack adapters
+- manager planning
+- worker execution
+- validation loops
+- multi-agent coordination
 - seamless human cooperation
 
 depends on that foundation.
@@ -2494,9 +2547,9 @@ This level is now partially implemented:
 - durable action history
 
 Still missing:
-- LLM-powered reasoning
-- stronger persona continuity
-- external communication adapters
+- governed multi-step employee work loops
+- manager planning over canonical task graphs
+- worker execution and validation loops with visible bounded outputs
 
 ## Updated Level 6 interpretation
 Level 6 should eventually separate into:
@@ -2624,14 +2677,33 @@ The LLM is the reasoning engine inside this operating model, not the model itsel
 - PR7.8B: Controlled cognition rollout ✅
 - PR7.8C: Durable public rationale artifacts ✅
 - PR7.8D: Bounded rationale publication into canonical threads ✅
-- PR7.9: Agents as persons
-- PR7.10: Email / Slack adapters
+- PR7.9: Agents as persons ✅
+
+## PR10 — External Interaction Substrate
+- PR10A: Outbound mirroring ✅
+- PR10B: External thread/message mapping ✅
+- PR10C: Inbound replies ✅
+- PR10D: Explicit external approval/escalation actions ✅
+- PR10E: Policy / permissions / audit hardening ✅
+
+## PR11 — Agentic Work Loops
+- PR11A: Employee loop ignition
+- PR11B: Manager planning + task graph creation
+- PR11C: Worker execution + visible outputs
+- PR11D: Validation as employee loop
+- PR11E: Observability / control hardening
+
+## PR12 — Validation Organization
+- validation employees as first-class governed organizational actors
+
+## PR13 — Multi-Agent Operational Company
+- multi-agent coordination and governed company execution
 
 This is the current preferred framing and should be treated as the working plan unless code reality forces a concrete adjustment.
 
 ---
 
-# 18. Current repo-aligned status (commit c751a1972ea5378fe0d72d7120b2cd045c0e6202)
+# 18. Current repo-aligned status (commit c3bbfffbc6664378491cf058dc9c1ddfb9710021)
 
 At this commit, the system supports:
 
@@ -2682,26 +2754,27 @@ Important company rule:
 
 The next LLM session should work from this order:
 
-1. **PR7.9 — agents as persons**
-2. **PR7.10 — email / Slack adapters**
+1. **PR11 — agentic work loops**
+2. **PR12 — validation employees / agentic validation**
+3. **PR13 — multi-agent coordination and governed company execution**
 
-PR7.9 should be validated with:
+PR11 should be validated with:
 - the cognition-boundary contract checks
 - cognitive task-run contract checks
 - public-rationale artifact contract checks
 - thread-rationale publication contract checks
 - provenance/route regression checks
-- one validation-agent run confirming stable employee-specific rationale style across repeated runs
-- one PM run confirming employee-specific style continuity without leaking private cognition
+- employee loop behavior checks over canonical task/thread/artifact surfaces
+- bounded publication checks confirming no private cognition leaks while visible outcomes accumulate canonically
 
-PR7.7, PR7.75, and PR7.7X should now be treated as complete.
+PR7.9 and PR10A-E should now be treated as complete.
 
 Target end-state:
 
-- agents powered by LLMs
-- agents with stable person-like identity
-- agents who communicate with humans and other agents
-- Slack/email as adapters over AEP-native tasks, threads, approvals, escalations, and artifacts
+- agents powered by bounded employee cognition
+- agents operating through governed task and thread loops
+- validation employees participating canonically in the same operating model
+- multi-agent coordination over AEP-native tasks, threads, approvals, escalations, and artifacts
 
 ---
 
