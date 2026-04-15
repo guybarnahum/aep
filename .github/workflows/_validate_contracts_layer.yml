@@ -117,6 +117,9 @@ jobs:
         id: employee_cognition_boundary
         run: npx tsx scripts/ci/checks/contracts/employee-cognition-boundary-check.ts | tee employee-cognition-boundary-check.log
 
+      - name: Employee persona continuity check
+        run: npx tsx scripts/ci/checks/contracts/employee-persona-continuity-check.ts
+
       - name: Run thread rationale publication check
         id: thread_rationale_publication
         run: npx tsx scripts/ci/checks/contracts/thread-rationale-publication-check.ts | tee thread-rationale-publication-check.log

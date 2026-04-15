@@ -4,7 +4,7 @@ Repository (source of truth):
 👉 https://github.com/guybarnahum/aep
 
 The repository code is the source of truth.
-This document is aligned to commit c751a1972ea5378fe0d72d7120b2cd045c0e6202.
+This document is aligned to commit bcc04d33c8b696937ac16e0ed05ff594fb29b6ba.
 
 ```bash
 titan@Titans-MacBook-Pro aep % tree . --gitignore 
@@ -1505,10 +1505,37 @@ Repo reality note:
 - `decisions.internal_monologue` already existed as private storage
 - PR7.8A consolidates and hardens that existing boundary rather than introducing public cognition surfaces
 
+Repo reality note:
+- `employee_prompt_profiles` includes a `status` field (`draft` | `approved`)
+- current prompt-profile retrieval does not gate cognition on `approved`
+- unless a later PR changes that explicitly, prompt-profile continuity follows repo reality as implemented
+
 ### 🔜 PR7.9 — agents as persons
-- stronger persona continuity
-- identity / behavior consistency
-- employee-specific voice and working style
+- PR7.9A: persona continuity foundation
+- activate existing private prompt-profile continuity fields inside the shared employee cognition layer:
+  - `decisionStyle`
+  - `collaborationStyle`
+  - `identitySeed`
+- apply persona continuity in both:
+  - AI-backed cognition
+  - deterministic fallback cognition
+- keep persona continuity inside the employee boundary
+- keep `/agent/run` orchestration-only
+- keep outputs on existing AEP-native primitives:
+  - task decisions
+  - task artifacts
+  - canonical message-thread publication
+- do not introduce:
+  - shared company memory
+  - broad autobiographical memory
+  - route-level cognition
+  - public prompt-profile exposure
+  - Slack/email adapters
+- PR7.9A should be validated by:
+  - cognition privacy boundary checks
+  - public rationale privacy checks
+  - thread publication privacy checks
+  - employee persona continuity checks over live bounded rationale outputs
 
 ### 🔜 PR7.10 — external communication adapters
 - email bridge
