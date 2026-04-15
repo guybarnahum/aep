@@ -1536,6 +1536,22 @@ Repo reality note:
   - public rationale privacy checks
   - thread publication privacy checks
   - employee persona continuity checks over live bounded rationale outputs
+- PR7.9B: employee-specific rationale style stabilization
+- derive a bounded public rationale presentation style inside shared cognition:
+  - `operational_evidence`
+  - `structured_alignment`
+  - `conservative_general`
+- persist the safe presentation style into canonical public rationale artifacts
+- propagate the same safe presentation style into thread publication payloads layered on top of those artifacts
+- make public rationale formatting deterministic by bounded presentation style rather than relying on model wording drift
+- validate employee-specific public rationale continuity via explicit `presentationStyle` metadata instead of keyword-marker scoring
+- treat the public style set as reviewable presentation metadata, not leaked private prompt-profile fields
+- PR7.9B still must not introduce:
+  - shared company memory
+  - broad autobiographical memory
+  - route-level cognition
+  - public prompt-profile exposure
+  - Slack/email adapters
 
 ### 🔜 PR7.10 — external communication adapters
 - email bridge

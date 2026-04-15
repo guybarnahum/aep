@@ -108,6 +108,7 @@ export async function publishTaskRationaleToThread(
     body: message.body,
     payload: {
       kind: "public_rationale_publication",
+      presentationStyle: args.rationale.presentationStyle,
       summary: args.rationale.summary,
       recommendedNextAction: args.rationale.recommendedNextAction,
     },

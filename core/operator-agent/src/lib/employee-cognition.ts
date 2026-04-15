@@ -27,12 +27,19 @@ export interface EmployeeCognitionResult {
   mode: "ai" | "fallback";
   privateReasoning: string;
   publicSummary: string;
+  presentationStyle?: EmployeePublicRationalePresentationStyle;
   structured?: EmployeeCognitionStructured;
   promptVersion?: string;
   model?: string;
 }
 
+export type EmployeePublicRationalePresentationStyle =
+  | "operational_evidence"
+  | "structured_alignment"
+  | "conservative_general";
+
 export interface EmployeePublicRationale {
+  presentationStyle: EmployeePublicRationalePresentationStyle;
   summary: string;
   rationale: string;
   recommendedNextAction?: string;
@@ -196,6 +203,29 @@ function buildPersonaStyledFallback(
     suggestedNextAction: "continue_with_explicit_task_flow",
     riskLevel: "medium",
   };
+}
+
+function derivePublicRationalePresentationStyle(
+  input: EmployeeCognitionInput,
+): EmployeePublicRationalePresentationStyle {
+  const decisionStyle = input.promptProfile?.decisionStyle;
+  const collaborationStyle = input.promptProfile?.collaborationStyle;
+
+  if (
+    decisionStyle === "analytical_and_evidence_first" ||
+    collaborationStyle === "direct_and_operational"
+  ) {
+    return "operational_evidence";
+  }
+
+  if (
+    decisionStyle === "strategic_and_structuring" ||
+    collaborationStyle === "clear_and_alignment_driven"
+  ) {
+    return "structured_alignment";
+  }
+
+  return "conservative_general";
 }
 
 function stringifyJson(value: unknown): string {
@@ -427,6 +457,7 @@ function fallbackCognition(input: EmployeeCognitionInput): EmployeeCognitionResu
   const taskType = input.taskContext?.task.taskType ?? "unknown-task";
   const taskTitle = input.taskContext?.task.title ?? "Untitled task";
   const styled = buildPersonaStyledFallback(input.employee, input.promptProfile);
+  const presentationStyle = derivePublicRationalePresentationStyle(input);
 
   return {
     mode: "fallback",
@@ -441,6 +472,7 @@ function fallbackCognition(input: EmployeeCognitionInput): EmployeeCognitionResu
       `Reviewed ${taskType} (${taskTitle}).`,
       firstObservation,
     ].join(" "),
+    presentationStyle,
     structured: {
       intent: `evaluate_${taskType.replace(/[^a-zA-Z0-9]+/g, "_").toLowerCase()}`,
       riskLevel: styled.riskLevel ?? "medium",
@@ -460,6 +492,7 @@ async function invokeModelIfAvailable(
   }
 
   const model = getAiModel(env);
+  const presentationStyle = derivePublicRationalePresentationStyle(input);
 
   try {
     const raw = await env.AI.run(model, {
@@ -477,6 +510,7 @@ async function invokeModelIfAvailable(
       mode: "ai",
       privateReasoning: parsed.privateReasoning,
       publicSummary: parsed.publicSummary,
+      presentationStyle,
       structured: parsed.structured,
       promptVersion: input.promptProfile?.promptVersion,
       model,
@@ -510,23 +544,131 @@ function firstSentence(value: string): string {
   return truncateAtWordBoundary(trimmed.slice(0, punctuationIndex + 1).trim(), 140);
 }
 
+function normalizePublicSummary(value: string): string {
+  return normalizeWhitespace(value.trim()) || "Reviewed the task within the employee boundary.";
+}
+
+function formatRationaleSummaryByStyle(args: {
+  style: EmployeePublicRationalePresentationStyle;
+  publicSummary: string;
+}): string {
+  const summaryBase = firstSentence(normalizePublicSummary(args.publicSummary));
+
+  switch (args.style) {
+    case "operational_evidence":
+      return truncateAtWordBoundary(`Assessment: ${summaryBase}`, 140);
+    case "structured_alignment":
+      return truncateAtWordBoundary(`Execution alignment: ${summaryBase}`, 140);
+    default:
+      return truncateAtWordBoundary(summaryBase, 140);
+  }
+}
+
+function formatRationaleBodyByStyle(args: {
+  style: EmployeePublicRationalePresentationStyle;
+  publicSummary: string;
+  structured?: EmployeeCognitionStructured;
+}): string {
+  const normalizedSummary = normalizePublicSummary(args.publicSummary);
+  const intent = asNonEmptyString(args.structured?.intent);
+  const riskLevel = args.structured?.riskLevel;
+
+  switch (args.style) {
+    case "operational_evidence": {
+      const evidenceLine = truncateAtWordBoundary(normalizedSummary, 220);
+      const implication = normalizeWhitespace(
+        [
+          intent ? `Operational implication: ${intent}.` : "",
+          riskLevel ? `Risk posture: ${riskLevel}.` : "",
+        ]
+          .filter(Boolean)
+          .join(" "),
+      );
+      return [
+        `Assessment: ${evidenceLine}`,
+        implication || "Operational implication: continue with explicit validation handling.",
+      ].join("\n");
+    }
+    case "structured_alignment": {
+      const alignmentLine = truncateAtWordBoundary(normalizedSummary, 220);
+      const sequencing = normalizeWhitespace(
+        [
+          intent ? `Execution focus: ${intent}.` : "",
+          riskLevel ? `Coordination risk: ${riskLevel}.` : "",
+        ]
+          .filter(Boolean)
+          .join(" "),
+      );
+      return [
+        `Alignment rationale: ${alignmentLine}`,
+        sequencing || "Execution focus: keep scope and sequencing explicit before advancing work.",
+      ].join("\n");
+    }
+    default:
+      return truncateAtWordBoundary(normalizedSummary, 320);
+  }
+}
+
+function formatRecommendedNextActionByStyle(args: {
+  style: EmployeePublicRationalePresentationStyle;
+  suggestedNextAction?: string;
+}): string | undefined {
+  const suggestedNextAction = asNonEmptyString(args.suggestedNextAction);
+  if (!suggestedNextAction) {
+    return undefined;
+  }
+
+  switch (args.style) {
+    case "operational_evidence":
+      return `Operational next action: ${suggestedNextAction}`;
+    case "structured_alignment":
+      return `Execution next step: ${suggestedNextAction}`;
+    default:
+      return suggestedNextAction;
+  }
+}
+
 export function derivePublicRationale(
   cognition: EmployeeCognitionResult,
 ): EmployeePublicRationale {
-  const rationale = cognition.publicSummary.trim();
-  const summary = firstSentence(rationale) || truncateAtWordBoundary(rationale, 140);
+  const presentationStyle = cognition.presentationStyle ?? "conservative_general";
+  const summary = formatRationaleSummaryByStyle({
+    style: presentationStyle,
+    publicSummary: cognition.publicSummary,
+  });
+  const rationale = formatRationaleBodyByStyle({
+    style: presentationStyle,
+    publicSummary: cognition.publicSummary,
+    structured: cognition.structured,
+  });
 
   return {
+    presentationStyle,
     summary,
     rationale,
-    recommendedNextAction: cognition.structured?.suggestedNextAction,
+    recommendedNextAction: formatRecommendedNextActionByStyle({
+      style: presentationStyle,
+      suggestedNextAction: cognition.structured?.suggestedNextAction,
+    }),
   };
 }
 
 export function deriveThreadRationaleMessage(
   rationale: EmployeePublicRationale,
 ): EmployeeThreadRationaleMessage {
-  const lines: string[] = [rationale.summary];
+  const lines: string[] = [];
+
+  switch (rationale.presentationStyle) {
+    case "operational_evidence":
+      lines.push(`Operational rationale: ${rationale.summary}`);
+      break;
+    case "structured_alignment":
+      lines.push(`Execution rationale: ${rationale.summary}`);
+      break;
+    default:
+      lines.push(rationale.summary);
+      break;
+  }
 
   if (rationale.recommendedNextAction) {
     lines.push(`Recommended next action: ${rationale.recommendedNextAction}`);
@@ -535,7 +677,12 @@ export function deriveThreadRationaleMessage(
   lines.push("See task artifacts for the durable reviewable rationale.");
 
   return {
-    subject: "Rationale summary",
+    subject:
+      rationale.presentationStyle === "operational_evidence"
+        ? "Operational rationale summary"
+        : rationale.presentationStyle === "structured_alignment"
+          ? "Execution rationale summary"
+          : "Rationale summary",
     body: lines.join("\n"),
   };
 }

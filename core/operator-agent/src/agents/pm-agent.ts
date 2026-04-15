@@ -10,6 +10,7 @@ import { getTaskStore } from "../lib/store-factory";
 import type {
   ManagerDecision,
   ManagerDecisionResponse,
+  EmployeePublicRationalePresentationStyle,
   OperatorAgentEnv,
   ResolvedEmployeeRunContext,
 } from "../types";
@@ -27,6 +28,7 @@ async function createPublicRationaleArtifact(args: {
   taskId: string;
   companyId: string;
   employeeId: string;
+  presentationStyle: EmployeePublicRationalePresentationStyle;
   summary: string;
   rationale: string;
   recommendedNextAction?: string;
@@ -43,6 +45,7 @@ async function createPublicRationaleArtifact(args: {
     summary: args.summary,
     content: {
       kind: "public_rationale",
+      presentationStyle: args.presentationStyle,
       summary: args.summary,
       rationale: args.rationale,
       recommendedNextAction: args.recommendedNextAction,
@@ -149,6 +152,7 @@ export async function runPmAgent(
     taskId,
     companyId: context.employee.identity.companyId,
     employeeId: context.employee.identity.employeeId,
+    presentationStyle: publicRationale.presentationStyle,
     summary: publicRationale.summary,
     rationale: publicRationale.rationale,
     recommendedNextAction: publicRationale.recommendedNextAction,

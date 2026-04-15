@@ -17,23 +17,8 @@ const FORBIDDEN_PERSONA_FIELDS = [
   "internal_monologue",
 ];
 
-const PM_STYLE_MARKERS = [
-  "structured",
-  "alignment",
-  "execution",
-  "priority",
-  "sequencing",
-  "roadmap",
-];
-
-const VALIDATION_STYLE_MARKERS = [
-  "evidence",
-  "operational",
-  "assessment",
-  "health",
-  "validation",
-  "reviewed",
-];
+const EXPECTED_PM_STYLE = "structured_alignment";
+const EXPECTED_VALIDATION_STYLE = "operational_evidence";
 
 function assertFieldsAbsent(payload: unknown, fields: string[], surface: string): void {
   const serialized = JSON.stringify(payload);
@@ -43,29 +28,6 @@ function assertFieldsAbsent(payload: unknown, fields: string[], surface: string)
       throw new Error(`${surface} leaked private persona field ${field}`);
     }
   }
-}
-
-function countMarkers(text: string, markers: string[]): number {
-  const normalized = text.toLowerCase();
-  return markers.filter((marker) => normalized.includes(marker.toLowerCase())).length;
-}
-
-function extractRationaleText(artifact: Record<string, unknown>): string {
-  const content =
-    artifact.content && typeof artifact.content === "object"
-      ? (artifact.content as Record<string, unknown>)
-      : undefined;
-
-  const parts = [
-    typeof artifact.summary === "string" ? artifact.summary : "",
-    typeof content?.summary === "string" ? content.summary : "",
-    typeof content?.rationale === "string" ? content.rationale : "",
-    typeof content?.recommendedNextAction === "string"
-      ? content.recommendedNextAction
-      : "",
-  ].filter(Boolean);
-
-  return parts.join(" ").trim();
 }
 
 function extractEmployeeId(taskDetail: Record<string, unknown>): string | undefined {
@@ -108,14 +70,37 @@ function findPublicRationaleArtifact(
   });
 }
 
-function classifyRationaleStyle(text: string): {
-  pmScore: number;
-  validationScore: number;
-} {
-  return {
-    pmScore: countMarkers(text, PM_STYLE_MARKERS),
-    validationScore: countMarkers(text, VALIDATION_STYLE_MARKERS),
-  };
+function extractPresentationStyleFromArtifact(
+  artifact: Record<string, unknown>,
+): string | undefined {
+  const content =
+    artifact.content && typeof artifact.content === "object"
+      ? (artifact.content as Record<string, unknown>)
+      : undefined;
+
+  return typeof content?.presentationStyle === "string"
+    ? content.presentationStyle
+    : undefined;
+}
+
+function findPublishedRationaleMessageStyle(
+  messages: Record<string, unknown>[],
+): string | undefined {
+  for (const message of messages) {
+    const payload =
+      message.payload && typeof message.payload === "object"
+        ? (message.payload as Record<string, unknown>)
+        : undefined;
+
+    if (
+      payload?.kind === "public_rationale_publication" &&
+      typeof payload.presentationStyle === "string"
+    ) {
+      return payload.presentationStyle;
+    }
+  }
+
+  return undefined;
 }
 
 async function loadCandidateTasks(
@@ -140,16 +125,32 @@ async function loadCandidateTasks(
 async function findPersonaSamples(
   client: ReturnType<typeof createOperatorAgentClient>,
 ): Promise<{
-  pmSample?: { taskId: string; text: string; taskDetail: Record<string, unknown> };
-  validationSample?: { taskId: string; text: string; taskDetail: Record<string, unknown> };
+  pmSample?: {
+    taskId: string;
+    taskDetail: Record<string, unknown>;
+    artifact: Record<string, unknown>;
+  };
+  validationSample?: {
+    taskId: string;
+    taskDetail: Record<string, unknown>;
+    artifact: Record<string, unknown>;
+  };
 }> {
   const tasks = await loadCandidateTasks(client);
 
   let pmSample:
-    | { taskId: string; text: string; taskDetail: Record<string, unknown> }
+    | {
+        taskId: string;
+        taskDetail: Record<string, unknown>;
+        artifact: Record<string, unknown>;
+      }
     | undefined;
   let validationSample:
-    | { taskId: string; text: string; taskDetail: Record<string, unknown> }
+    | {
+        taskId: string;
+        taskDetail: Record<string, unknown>;
+        artifact: Record<string, unknown>;
+      }
     | undefined;
 
   for (const task of tasks) {
@@ -161,18 +162,19 @@ async function findPersonaSamples(
     const artifact = findPublicRationaleArtifact(taskDetail as Record<string, unknown>);
     if (!artifact) continue;
 
-    const text = extractRationaleText(artifact);
-    if (!text) continue;
-
     const employeeId = extractEmployeeId(taskDetail as Record<string, unknown>);
     if (employeeId === "emp_pm_01" && !pmSample) {
-      pmSample = { taskId: task.id, text, taskDetail: taskDetail as Record<string, unknown> };
+      pmSample = {
+        taskId: task.id,
+        taskDetail: taskDetail as Record<string, unknown>,
+        artifact,
+      };
     }
     if (employeeId === "emp_val_specialist_01" && !validationSample) {
       validationSample = {
         taskId: task.id,
-        text,
         taskDetail: taskDetail as Record<string, unknown>,
+        artifact,
       };
     }
 
@@ -182,6 +184,44 @@ async function findPersonaSamples(
   }
 
   return { pmSample, validationSample };
+}
+
+async function assertThreadStyleConsistency(args: {
+  client: ReturnType<typeof createOperatorAgentClient>;
+  taskId: string;
+  expectedStyle: string;
+}): Promise<void> {
+  const threads = await args.client.listMessageThreads({
+    relatedTaskId: args.taskId,
+    limit: 20,
+  });
+
+  if (!threads?.ok || !Array.isArray(threads.threads)) {
+    return;
+  }
+
+  for (const thread of threads.threads) {
+    if (!thread?.id) continue;
+    const detail = await args.client.getMessageThread(thread.id);
+    if (!detail?.ok || !Array.isArray(detail.messages)) continue;
+
+    detail.messages.forEach((message: Record<string, unknown>, index: number) => {
+      assertFieldsAbsent(
+        message,
+        FORBIDDEN_PERSONA_FIELDS,
+        `/agent/message-threads/${thread.id}/messages[${index}]`,
+      );
+    });
+
+    const publishedStyle = findPublishedRationaleMessageStyle(
+      detail.messages as Record<string, unknown>[],
+    );
+    if (publishedStyle && publishedStyle !== args.expectedStyle) {
+      throw new Error(
+        `Thread rationale publication style mismatch for task ${args.taskId}: expected ${args.expectedStyle}, received ${publishedStyle}`,
+      );
+    }
+  }
 }
 
 async function main(): Promise<void> {
@@ -202,68 +242,52 @@ async function main(): Promise<void> {
     `/agent/tasks/${validationSample.taskId}`,
   );
 
-  const pmStyle = classifyRationaleStyle(pmSample.text);
-  const validationStyle = classifyRationaleStyle(validationSample.text);
+  const pmStyle = extractPresentationStyleFromArtifact(pmSample.artifact);
+  const validationStyle = extractPresentationStyleFromArtifact(
+    validationSample.artifact,
+  );
 
-  if (pmStyle.pmScore <= pmStyle.validationScore) {
+  if (!pmStyle) {
     throw new Error(
-      `PM rationale did not show stronger PM-style continuity markers. Scores: ${JSON.stringify(pmStyle)}`,
+      `PM rationale artifact for task ${pmSample.taskId} is missing presentationStyle`,
     );
   }
 
-  if (validationStyle.validationScore <= validationStyle.pmScore) {
+  if (pmStyle !== EXPECTED_PM_STYLE) {
     throw new Error(
-      `Validation rationale did not show stronger validation-style continuity markers. Scores: ${JSON.stringify(validationStyle)}`,
+      `PM rationale artifact for task ${pmSample.taskId} expected ${EXPECTED_PM_STYLE} but received ${pmStyle}`,
     );
   }
 
-  const pmThreads = await client.listMessageThreads({
-    relatedTaskId: pmSample.taskId,
-    limit: 20,
-  });
-
-  if (pmThreads?.ok && Array.isArray(pmThreads.threads)) {
-    for (const thread of pmThreads.threads) {
-      if (!thread?.id) continue;
-      const detail = await client.getMessageThread(thread.id);
-      if (!detail?.ok || !Array.isArray(detail.messages)) continue;
-
-      detail.messages.forEach((message: Record<string, unknown>, index: number) => {
-        assertFieldsAbsent(
-          message,
-          FORBIDDEN_PERSONA_FIELDS,
-          `/agent/message-threads/${thread.id}/messages[${index}]`,
-        );
-      });
-    }
+  if (!validationStyle) {
+    throw new Error(
+      `Validation rationale artifact for task ${validationSample.taskId} is missing presentationStyle`,
+    );
   }
 
-  const validationThreads = await client.listMessageThreads({
-    relatedTaskId: validationSample.taskId,
-    limit: 20,
+  if (validationStyle !== EXPECTED_VALIDATION_STYLE) {
+    throw new Error(
+      `Validation rationale artifact for task ${validationSample.taskId} expected ${EXPECTED_VALIDATION_STYLE} but received ${validationStyle}`,
+    );
+  }
+
+  await assertThreadStyleConsistency({
+    client,
+    taskId: pmSample.taskId,
+    expectedStyle: pmStyle,
   });
 
-  if (validationThreads?.ok && Array.isArray(validationThreads.threads)) {
-    for (const thread of validationThreads.threads) {
-      if (!thread?.id) continue;
-      const detail = await client.getMessageThread(thread.id);
-      if (!detail?.ok || !Array.isArray(detail.messages)) continue;
-
-      detail.messages.forEach((message: Record<string, unknown>, index: number) => {
-        assertFieldsAbsent(
-          message,
-          FORBIDDEN_PERSONA_FIELDS,
-          `/agent/message-threads/${thread.id}/messages[${index}]`,
-        );
-      });
-    }
-  }
+  await assertThreadStyleConsistency({
+    client,
+    taskId: validationSample.taskId,
+    expectedStyle: validationStyle,
+  });
 
   console.log("employee-persona-continuity-check passed", {
     pmTaskId: pmSample.taskId,
     validationTaskId: validationSample.taskId,
-    pmScores: pmStyle,
-    validationScores: validationStyle,
+    pmStyle,
+    validationStyle,
   });
 }
 

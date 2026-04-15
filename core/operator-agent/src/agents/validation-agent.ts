@@ -8,6 +8,7 @@ import { publishTaskRationaleToThread } from "@aep/operator-agent/lib/rationale-
 import { getTaskStore } from "@aep/operator-agent/lib/store-factory";
 import type { Task } from "@aep/operator-agent/lib/store-types";
 import type {
+  EmployeePublicRationalePresentationStyle,
   OperatorAgentEnv,
   ResolvedEmployeeRunContext,
   ValidationAgentResponse,
@@ -163,6 +164,7 @@ async function createPublicRationaleArtifact(args: {
   env: OperatorAgentEnv;
   context: ResolvedEmployeeRunContext;
   task: Task;
+  presentationStyle: EmployeePublicRationalePresentationStyle;
   summary: string;
   rationale: string;
   recommendedNextAction?: string;
@@ -179,6 +181,7 @@ async function createPublicRationaleArtifact(args: {
     summary: args.summary,
     content: {
       kind: "public_rationale",
+      presentationStyle: args.presentationStyle,
       summary: args.summary,
       rationale: args.rationale,
       recommendedNextAction: args.recommendedNextAction,
@@ -239,6 +242,7 @@ async function processValidationTask(args: {
       env: args.env,
       context: args.context,
       task: args.task,
+      presentationStyle: publicRationale.presentationStyle,
       summary: publicRationale.summary,
       rationale: publicRationale.rationale,
       recommendedNextAction: publicRationale.recommendedNextAction,
