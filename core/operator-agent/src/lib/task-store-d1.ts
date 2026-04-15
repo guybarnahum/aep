@@ -1034,7 +1034,7 @@ export class D1TaskStore implements TaskStore {
       throw new Error(`Failed to load created message ${message.id}`);
     }
 
-    if (created.source === "internal" || created.source === "system") {
+    if (created.source === "internal") {
       let relatedTask: Task | null = null;
       if (created.relatedTaskId) {
         relatedTask = await this.getTask(created.relatedTaskId);
