@@ -9,10 +9,14 @@ type CreateMessageRequest = {
   receiverEmployeeId?: string;
   receiverTeamId?: string;
   type?: "task" | "escalation" | "coordination";
-  source?: "internal" | "dashboard" | "system";
+  source?: "internal" | "dashboard" | "system" | "human" | "slack" | "email";
   subject?: string;
   body?: string;
   payload?: Record<string, unknown>;
+  externalMessageId?: string;
+  externalChannel?: "slack" | "email";
+  externalAuthorId?: string;
+  externalReceivedAt?: string;
   requiresResponse?: boolean;
   responseActionType?: string;
   responseActionStatus?: "requested" | "applied" | "rejected";
@@ -71,6 +75,56 @@ export async function handleCreateMessage(
     );
   }
 
+  if (body.externalChannel) {
+    const source = body.source ?? "internal";
+    if (source !== "human" && source !== "slack" && source !== "email") {
+      return Response.json(
+        { ok: false, error: 'externalChannel requires source to be "human", "slack", or "email"' },
+        { status: 400 },
+      );
+    }
+  }
+
+  if (body.source === "slack" && body.externalChannel !== "slack") {
+    return Response.json(
+      { ok: false, error: 'source "slack" requires externalChannel "slack"' },
+      { status: 400 },
+    );
+  }
+
+  if (body.source === "email" && body.externalChannel !== "email") {
+    return Response.json(
+      { ok: false, error: 'source "email" requires externalChannel "email"' },
+      { status: 400 },
+    );
+  }
+
+  if (body.source === "system") {
+    if (typeof body.externalMessageId !== "undefined") {
+      return Response.json(
+        { ok: false, error: 'source "system" must not include externalMessageId' },
+        { status: 400 },
+      );
+    }
+
+    if (typeof body.externalChannel !== "undefined") {
+      return Response.json(
+        { ok: false, error: 'source "system" must not include externalChannel' },
+        { status: 400 },
+      );
+    }
+  }
+
+  if (
+    typeof body.externalReceivedAt !== "undefined" &&
+    (typeof body.externalReceivedAt !== "string" || body.externalReceivedAt.trim().length === 0)
+  ) {
+    return Response.json(
+      { ok: false, error: "externalReceivedAt must be a non-empty string when provided" },
+      { status: 400 },
+    );
+  }
+
   const store = getTaskStore(env);
 
   let threadId = body.threadId;
@@ -89,7 +143,7 @@ export async function handleCreateMessage(
 
   const messageId = `msg_${crypto.randomUUID().split("-")[0]}`;
 
-  await store.createMessage({
+  const createdMessage = await store.createMessage({
     id: messageId,
     threadId,
     companyId: body.companyId ?? "company_internal_aep",
@@ -102,6 +156,10 @@ export async function handleCreateMessage(
     subject: body.subject,
     body: body.body,
     payload: body.payload ?? {},
+    externalMessageId: body.externalMessageId,
+    externalChannel: body.externalChannel,
+    externalAuthorId: body.externalAuthorId,
+    externalReceivedAt: body.externalReceivedAt,
     requiresResponse: body.requiresResponse === true,
     responseActionType: body.responseActionType,
     responseActionStatus: body.responseActionStatus,
@@ -112,7 +170,12 @@ export async function handleCreateMessage(
     relatedApprovalId: body.relatedApprovalId,
   });
 
-  return Response.json({ ok: true, threadId, messageId }, { status: 201 });
+  const wasDuplicate = createdMessage.id !== messageId;
+
+  return Response.json(
+    { ok: true, threadId, messageId: createdMessage.id },
+    { status: wasDuplicate ? 200 : 201 },
+  );
 }
 
 export async function handleCreateMessageThread(

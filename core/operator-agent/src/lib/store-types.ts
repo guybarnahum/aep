@@ -111,7 +111,13 @@ export type MessageType = "task" | "escalation" | "coordination";
 
 export type MessageStatus = "pending" | "delivered" | "acknowledged";
 
-export type MessageSource = "internal" | "dashboard" | "system";
+export type MessageSource =
+  | "internal"
+  | "dashboard"
+  | "system"
+  | "human"
+  | "slack"
+  | "email";
 
 export type MessageThreadVisibility = "internal" | "org";
 
@@ -210,6 +216,10 @@ export interface EmployeeMessage {
   subject?: string;
   body: string;
   payload: Record<string, unknown>;
+  externalMessageId?: string;
+  externalChannel?: "slack" | "email";
+  externalAuthorId?: string;
+  externalReceivedAt?: string;
   requiresResponse: boolean;
   responseActionType?: string;
   responseActionStatus?: "requested" | "applied" | "rejected";
@@ -329,6 +339,6 @@ export interface TaskStore {
   findMessageThreadByApprovalId(approvalId: string): Promise<MessageThread | null>;
   findMessageThreadByEscalationId(escalationId: string): Promise<MessageThread | null>;
 
-  createMessage(message: Omit<EmployeeMessage, "createdAt" | "updatedAt">): Promise<void>;
+  createMessage(message: Omit<EmployeeMessage, "createdAt" | "updatedAt">): Promise<EmployeeMessage>;
   listMessages(query: MessageListQuery): Promise<EmployeeMessage[]>;
 }

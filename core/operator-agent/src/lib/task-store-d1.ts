@@ -95,6 +95,10 @@ type EmployeeMessageRow = {
   subject: string | null;
   body: string | null;
   payload_json: string | null;
+  external_message_id: string | null;
+  external_channel: string | null;
+  external_author_id: string | null;
+  external_received_at: string | null;
   requires_response: number | null;
   response_action_type: string | null;
   response_action_status: string | null;
@@ -193,6 +197,10 @@ function rowToMessage(row: EmployeeMessageRow): EmployeeMessage {
     subject: row.subject ?? undefined,
     body: row.body ?? "",
     payload: fromJson<Record<string, unknown>>(row.payload_json) ?? {},
+    externalMessageId: row.external_message_id ?? undefined,
+    externalChannel: (row.external_channel as EmployeeMessage["externalChannel"]) ?? undefined,
+    externalAuthorId: row.external_author_id ?? undefined,
+    externalReceivedAt: row.external_received_at ?? undefined,
     requiresResponse: Number(row.requires_response ?? 0) === 1,
     responseActionType: row.response_action_type ?? undefined,
     responseActionStatus:
@@ -812,6 +820,24 @@ export class D1TaskStore implements TaskStore {
     return row ? rowToMessage(row) : null;
   }
 
+  private async getMessageByExternalId(args: {
+    threadId: string;
+    externalMessageId: string;
+  }): Promise<EmployeeMessage | null> {
+    const row = await this.db
+      .prepare(
+        `SELECT *
+         FROM employee_messages
+         WHERE thread_id = ?
+           AND external_message_id = ?
+         LIMIT 1`,
+      )
+      .bind(args.threadId, args.externalMessageId)
+      .first<EmployeeMessageRow>();
+
+    return row ? rowToMessage(row) : null;
+  }
+
   async findMessageThreadByApprovalId(approvalId: string): Promise<MessageThread | null> {
     const row = await this.db
       .prepare(
@@ -844,10 +870,22 @@ export class D1TaskStore implements TaskStore {
 
   async createMessage(
     message: Omit<EmployeeMessage, "createdAt" | "updatedAt">,
-  ): Promise<void> {
-    await this.db
-      .prepare(
-        `INSERT INTO employee_messages (
+  ): Promise<EmployeeMessage> {
+    if (message.externalMessageId) {
+      const existing = await this.getMessageByExternalId({
+        threadId: message.threadId,
+        externalMessageId: message.externalMessageId,
+      });
+
+      if (existing) {
+        return existing;
+      }
+    }
+
+    try {
+      await this.db
+        .prepare(
+          `INSERT INTO employee_messages (
           message_id,
           thread_id,
           company_id,
@@ -860,6 +898,10 @@ export class D1TaskStore implements TaskStore {
           subject,
           body,
           payload_json,
+          external_message_id,
+          external_channel,
+          external_author_id,
+          external_received_at,
           requires_response,
           response_action_type,
           response_action_status,
@@ -868,31 +910,56 @@ export class D1TaskStore implements TaskStore {
           related_artifact_id,
           related_escalation_id,
           related_approval_id
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      )
-      .bind(
-        message.id,
-        message.threadId,
-        message.companyId,
-        message.senderEmployeeId,
-        message.receiverEmployeeId ?? null,
-        message.receiverTeamId ?? null,
-        message.type,
-        message.status,
-        message.source,
-        message.subject ?? null,
-        message.body,
-        toJson(message.payload),
-        message.requiresResponse ? 1 : 0,
-        message.responseActionType ?? null,
-        message.responseActionStatus ?? null,
-        message.causedStateTransition ? 1 : 0,
-        message.relatedTaskId ?? null,
-        message.relatedArtifactId ?? null,
-        message.relatedEscalationId ?? null,
-        message.relatedApprovalId ?? null,
-      )
-      .run();
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        )
+        .bind(
+          message.id,
+          message.threadId,
+          message.companyId,
+          message.senderEmployeeId,
+          message.receiverEmployeeId ?? null,
+          message.receiverTeamId ?? null,
+          message.type,
+          message.status,
+          message.source,
+          message.subject ?? null,
+          message.body,
+          toJson(message.payload),
+          message.externalMessageId ?? null,
+          message.externalChannel ?? null,
+          message.externalAuthorId ?? null,
+          message.externalReceivedAt ?? null,
+          message.requiresResponse ? 1 : 0,
+          message.responseActionType ?? null,
+          message.responseActionStatus ?? null,
+          message.causedStateTransition ? 1 : 0,
+          message.relatedTaskId ?? null,
+          message.relatedArtifactId ?? null,
+          message.relatedEscalationId ?? null,
+          message.relatedApprovalId ?? null,
+        )
+        .run();
+    } catch (error) {
+      if (message.externalMessageId) {
+        const existing = await this.getMessageByExternalId({
+          threadId: message.threadId,
+          externalMessageId: message.externalMessageId,
+        });
+
+        if (existing) {
+          return existing;
+        }
+      }
+
+      throw error;
+    }
+
+    const created = await this.getMessage(message.id);
+    if (!created) {
+      throw new Error(`Failed to load created message ${message.id}`);
+    }
+
+    return created;
   }
 
   async listMessages(query: MessageListQuery): Promise<EmployeeMessage[]> {

@@ -71,7 +71,13 @@ export type EmployeeMessageType = "task" | "escalation" | "coordination";
 
 export type EmployeeMessageStatus = "pending" | "delivered" | "acknowledged";
 
-export type EmployeeMessageSource = "internal" | "dashboard" | "system";
+export type EmployeeMessageSource =
+  | "internal"
+  | "dashboard"
+  | "system"
+  | "human"
+  | "slack"
+  | "email";
 
 export type MessageThreadVisibility = "internal" | "org";
 
@@ -141,6 +147,10 @@ export interface EmployeeMessageRecord {
   subject?: string;
   body: string;
   payload: Record<string, unknown>;
+  externalMessageId?: string;
+  externalChannel?: "slack" | "email";
+  externalAuthorId?: string;
+  externalReceivedAt?: string;
   requiresResponse: boolean;
   responseActionType?: string;
   responseActionStatus?: "requested" | "applied" | "rejected";

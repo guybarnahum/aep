@@ -5,6 +5,66 @@ import { handleOperatorAgentSoftSkip } from "../../shared/soft-skip";
 
 export {};
 
+const FORBIDDEN_PRIVATE_FIELDS = [
+  "internalMonologue",
+  "internal_monologue",
+  "privateReasoning",
+  "private_reasoning",
+  "basePrompt",
+  "decisionStyle",
+  "collaborationStyle",
+  "identitySeed",
+  "portraitPrompt",
+  "promptVersion",
+  "base_prompt",
+  "decision_style",
+  "collaboration_style",
+  "identity_seed",
+  "portrait_prompt",
+  "prompt_version",
+];
+
+function assertFieldsAbsent(payload: unknown, fields: string[], surface: string): void {
+  const serialized = JSON.stringify(payload);
+
+  for (const field of fields) {
+    if (serialized.includes(field)) {
+      throw new Error(`${surface} leaked private cognition field ${field}`);
+    }
+  }
+}
+
+function assertMessageSourceConsistency(message: Record<string, unknown>): void {
+  const source = message.source;
+  const externalChannel = message.externalChannel;
+
+  if (source === "slack" && externalChannel !== "slack") {
+    throw new Error(`Slack message missing matching externalChannel: ${JSON.stringify(message)}`);
+  }
+
+  if (source === "email" && externalChannel !== "email") {
+    throw new Error(`Email message missing matching externalChannel: ${JSON.stringify(message)}`);
+  }
+
+  if (source === "system") {
+    if (typeof message.externalMessageId !== "undefined") {
+      throw new Error(`System message must not expose externalMessageId: ${JSON.stringify(message)}`);
+    }
+
+    if (typeof externalChannel !== "undefined") {
+      throw new Error(`System message must not expose externalChannel: ${JSON.stringify(message)}`);
+    }
+  }
+
+  if (
+    typeof externalChannel !== "undefined" &&
+    externalChannel !== "slack" &&
+    externalChannel !== "email"
+  ) {
+    throw new Error(`Unexpected externalChannel on message: ${JSON.stringify(message)}`);
+  }
+}
+
 async function main(): Promise<void> {
   const client = createOperatorAgentClient();
 
@@ -61,6 +121,45 @@ async function main(): Promise<void> {
     throw new Error(`Failed to create reply: ${JSON.stringify(reply)}`);
   }
 
+  const externalMessage = await client.createMessage({
+    companyId: "company_internal_aep",
+    threadId: thread.threadId,
+    senderEmployeeId: "emp_infra_ops_manager_01",
+    receiverEmployeeId: "emp_val_specialist_01",
+    type: "coordination",
+    source: "email",
+    subject: "Incoming email context",
+    body: "Customer replied from email; keep this as a canonical thread message only.",
+    externalChannel: "email",
+    externalMessageId: "pr79d-message-thread-contract-email-001",
+    externalAuthorId: "customer@example.com",
+    externalReceivedAt: new Date().toISOString(),
+    relatedTaskId: "task_fake_pr72_thread",
+  });
+
+  if (!externalMessage?.ok || !externalMessage?.messageId) {
+    throw new Error(`Failed to create external-style message: ${JSON.stringify(externalMessage)}`);
+  }
+
+  const slackMessage = await client.createMessage({
+    companyId: "company_internal_aep",
+    threadId: thread.threadId,
+    senderEmployeeId: "emp_val_specialist_01",
+    receiverEmployeeId: "emp_infra_ops_manager_01",
+    type: "coordination",
+    source: "slack",
+    body: "Forwarded from Slack into canonical AEP thread form.",
+    externalChannel: "slack",
+    externalMessageId: "pr79d-message-thread-contract-slack-001",
+    externalAuthorId: "slack-user-123",
+    externalReceivedAt: new Date().toISOString(),
+    relatedTaskId: "task_fake_pr72_thread",
+  });
+
+  if (!slackMessage?.ok || !slackMessage?.messageId) {
+    throw new Error(`Failed to create slack-style message: ${JSON.stringify(slackMessage)}`);
+  }
+
   const threadDetail = await client.getMessageThread(thread.threadId);
 
   if (!threadDetail?.ok) {
@@ -73,6 +172,31 @@ async function main(): Promise<void> {
 
   if (!Array.isArray(threadDetail.messages) || threadDetail.messages.length < 2) {
     throw new Error(`Expected at least 2 thread messages: ${JSON.stringify(threadDetail)}`);
+  }
+
+  threadDetail.messages.forEach((message: Record<string, unknown>, index: number) => {
+    assertFieldsAbsent(
+      message,
+      FORBIDDEN_PRIVATE_FIELDS,
+      `/agent/message-threads/${thread.threadId}/messages[${index}]`,
+    );
+    assertMessageSourceConsistency(message);
+  });
+
+  const persistedExternalMessage = threadDetail.messages.find(
+    (message: any) => message.externalMessageId === "pr79d-message-thread-contract-email-001",
+  );
+
+  if (!persistedExternalMessage || persistedExternalMessage.externalChannel !== "email") {
+    throw new Error(`Expected persisted email-style metadata: ${JSON.stringify(threadDetail.messages)}`);
+  }
+
+  const persistedSlackMessage = threadDetail.messages.find(
+    (message: any) => message.externalMessageId === "pr79d-message-thread-contract-slack-001",
+  );
+
+  if (!persistedSlackMessage || persistedSlackMessage.externalChannel !== "slack") {
+    throw new Error(`Expected persisted slack-style metadata: ${JSON.stringify(threadDetail.messages)}`);
   }
 
   const inbox = await client.getInbox("emp_val_specialist_01");
@@ -100,6 +224,8 @@ async function main(): Promise<void> {
   console.log("message-thread-contract-check passed", {
     threadId: thread.threadId,
     messageCount: threadDetail.messages.length,
+    externalMessageId: persistedExternalMessage.externalMessageId,
+    slackMessageId: persistedSlackMessage.externalMessageId,
   });
 }
 

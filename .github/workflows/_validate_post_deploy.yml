@@ -145,6 +145,18 @@ jobs:
         run: |
           npx tsx scripts/ci/checks/scenarios/repeated-pm-persona-continuity-check.ts 2>&1 | tee -a post-deploy-validation.log
 
+      - name: External-style message idempotency check
+        id: external_style_message_idempotency
+        if: steps.config.outputs.enabled == 'true' && steps.post_deploy_validation.outcome == 'success'
+        run: |
+          npx tsx scripts/ci/checks/scenarios/external-style-message-idempotency-check.ts 2>&1 | tee -a post-deploy-validation.log
+
+      - name: External-style message order tolerance check
+        id: external_style_message_order_tolerance
+        if: steps.config.outputs.enabled == 'true' && steps.post_deploy_validation.outcome == 'success'
+        run: |
+          npx tsx scripts/ci/checks/scenarios/external-style-message-order-tolerance-check.ts 2>&1 | tee -a post-deploy-validation.log
+
       - name: Capture outputs
         id: capture
         if: always()
@@ -158,7 +170,9 @@ jobs:
               "${{ steps.post_deploy_validation.outcome }}" == "success" && \
               ( "${{ steps.thread_delegation_scenarios.outcome }}" == "success" || "${{ steps.thread_delegation_scenarios.outcome }}" == "skipped" ) && \
               ( "${{ steps.repeated_validation_persona_continuity.outcome }}" == "success" || "${{ steps.repeated_validation_persona_continuity.outcome }}" == "skipped" ) && \
-              ( "${{ steps.repeated_pm_persona_continuity.outcome }}" == "success" || "${{ steps.repeated_pm_persona_continuity.outcome }}" == "skipped" ) \
+              ( "${{ steps.repeated_pm_persona_continuity.outcome }}" == "success" || "${{ steps.repeated_pm_persona_continuity.outcome }}" == "skipped" ) && \
+              ( "${{ steps.external_style_message_idempotency.outcome }}" == "success" || "${{ steps.external_style_message_idempotency.outcome }}" == "skipped" ) && \
+              ( "${{ steps.external_style_message_order_tolerance.outcome }}" == "success" || "${{ steps.external_style_message_order_tolerance.outcome }}" == "skipped" ) \
             ]]; then
               OUTCOME="success"
             else
@@ -216,6 +230,8 @@ jobs:
           echo "- $(status_emoji "${{ steps.thread_delegation_scenarios.outcome }}") thread delegation scenarios: ${{ steps.thread_delegation_scenarios.outcome }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- $(status_emoji "${{ steps.repeated_validation_persona_continuity.outcome }}") repeated validation persona continuity check: ${{ steps.repeated_validation_persona_continuity.outcome }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- $(status_emoji "${{ steps.repeated_pm_persona_continuity.outcome }}") repeated PM persona continuity check: ${{ steps.repeated_pm_persona_continuity.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- $(status_emoji "${{ steps.external_style_message_idempotency.outcome }}") external-style message idempotency check: ${{ steps.external_style_message_idempotency.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- $(status_emoji "${{ steps.external_style_message_order_tolerance.outcome }}") external-style message order tolerance check: ${{ steps.external_style_message_order_tolerance.outcome }}" >> "$GITHUB_STEP_SUMMARY"
 
           echo "### Result" >> "$GITHUB_STEP_SUMMARY"
           echo "- $(status_emoji "$OUTCOME") Post-deploy validation: $OUTCOME" >> "$GITHUB_STEP_SUMMARY"

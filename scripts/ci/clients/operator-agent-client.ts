@@ -90,10 +90,14 @@ export type CreateMessageRequest = {
   receiverEmployeeId?: string;
   receiverTeamId?: string;
   type: "task" | "escalation" | "coordination";
-  source?: "internal" | "dashboard" | "system";
+  source?: "internal" | "dashboard" | "system" | "human" | "slack" | "email";
   subject?: string;
   body: string;
   payload?: Record<string, unknown>;
+  externalMessageId?: string;
+  externalChannel?: "slack" | "email";
+  externalAuthorId?: string;
+  externalReceivedAt?: string;
   requiresResponse?: boolean;
   responseActionType?: string;
   responseActionStatus?: "requested" | "applied" | "rejected";

@@ -1558,10 +1558,32 @@ Repo reality note:
 - validate thread publication style matches canonical rationale artifact style when publication exists
 - keep repeated-run continuity proof live-safe and soft-skip when suitable live data is absent
 - do not introduce memory, new public persona fields, or route-level cognition
+- PR7.9D: external interaction hardening before adapters
+- extend canonical thread messages with bounded external-style metadata:
+  - `externalMessageId`
+  - `externalChannel`
+  - `externalAuthorId`
+  - `externalReceivedAt`
+- make canonical message creation duplicate-tolerant when `externalMessageId` is present
+- validate:
+  - duplicate-delivery tolerance
+  - out-of-order external-style message tolerance
+- keep AEP canonical:
+  - adapters remain future projection/ingestion layers only
+  - messages remain messages
+  - actions remain explicit actions
+- PR7.9D must not introduce:
+  - Slack/email integration yet
+  - adapter endpoints
+  - hidden message-to-action mapping
 
 Repo reality note:
 - operator-agent `wrangler.jsonc` now binds `AI` in `async_validation`, `staging`, and `production`
 - PR7.9C can validate continuity against live AI-backed environments while preserving fallback-safe behavior where AI execution is disabled or unavailable
+
+Pre-PR10 note:
+- PR7.9D exists to harden canonical ingestion semantics before adapters land
+- no adapters yet, no external channel becomes source of truth, and messages must not implicitly execute actions
 
 ### 🔜 PR7.10 — external communication adapters
 - email bridge
