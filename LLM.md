@@ -1583,12 +1583,21 @@ Repo reality note:
 
 Pre-PR10 note:
 - PR7.9D exists to harden canonical ingestion semantics before adapters land
-- no adapters yet, no external channel becomes source of truth, and messages must not implicitly execute actions
+- no external channel becomes source of truth, and messages must not implicitly execute actions
 
 ### 🔜 PR7.10 — external communication adapters
-- email bridge
-- Slack bridge
-- AEP remains source of truth; adapters mirror structured threads/messages
+- PR10 introduces universal human-visible mirroring of agent-originated messages
+- all agent-originated canonical thread messages must be mirrored externally
+- target selection is resolved by system policy, not by agent-selected channel choice
+- Slack and email are projection surfaces only
+- AEP remains canonical
+- missing channel config must produce observable delivery failure, not silent no-op
+- PR10A is the outbound-only mirroring foundation
+- first real transport may be Slack, while email can remain a structured failure stub until implemented
+- mirror targets are resolved from thread, task, and message policy
+- delivery outcomes are persisted canonically
+- no inbound reply ingestion yet
+- no external actions yet
 
 This is directional and may be compressed or regrouped, but the conceptual order is important.
 

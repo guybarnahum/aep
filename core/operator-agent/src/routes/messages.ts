@@ -1,4 +1,5 @@
 import { getTaskStore } from "@aep/operator-agent/lib/store-factory";
+import type { EmployeeMessage } from "@aep/operator-agent/lib/store-types";
 import type { OperatorAgentEnv } from "@aep/operator-agent/types";
 
 type CreateMessageRequest = {
@@ -35,6 +36,25 @@ type CreateMessageThreadRequest = {
   relatedArtifactId?: string;
   visibility?: "internal" | "org";
 };
+
+type MessageWithMirrorDeliveries = EmployeeMessage & {
+  mirrorDeliveries: Awaited<ReturnType<ReturnType<typeof getTaskStore>["listMessageMirrorDeliveries"]>>;
+};
+
+async function attachMirrorDeliveries(
+  store: ReturnType<typeof getTaskStore>,
+  messages: EmployeeMessage[],
+): Promise<MessageWithMirrorDeliveries[]> {
+  return Promise.all(
+    messages.map(async (message) => {
+      const mirrorDeliveries = await store.listMessageMirrorDeliveries(message.id);
+      return {
+        ...message,
+        mirrorDeliveries,
+      };
+    }),
+  );
+}
 
 function parseLimit(url: URL, defaultValue = 50): number {
   const raw = Number.parseInt(url.searchParams.get("limit") ?? `${defaultValue}`, 10);
@@ -242,10 +262,15 @@ export async function handleListMessages(
     limit: parseLimit(url),
   });
 
+  const messagesWithDeliveries = await attachMirrorDeliveries(
+    store,
+    messages,
+  );
+
   return Response.json({
     ok: true,
-    count: messages.length,
-    messages,
+    count: messagesWithDeliveries.length,
+    messages: messagesWithDeliveries,
   });
 }
 
@@ -270,11 +295,16 @@ export async function handleListInbox(
     limit: parseLimit(url),
   });
 
+  const messagesWithDeliveries = await attachMirrorDeliveries(
+    store,
+    messages,
+  );
+
   return Response.json({
     ok: true,
     employeeId,
-    count: messages.length,
-    messages,
+    count: messagesWithDeliveries.length,
+    messages: messagesWithDeliveries,
   });
 }
 
@@ -299,11 +329,16 @@ export async function handleListOutbox(
     limit: parseLimit(url),
   });
 
+  const messagesWithDeliveries = await attachMirrorDeliveries(
+    store,
+    messages,
+  );
+
   return Response.json({
     ok: true,
     employeeId,
-    count: messages.length,
-    messages,
+    count: messagesWithDeliveries.length,
+    messages: messagesWithDeliveries,
   });
 }
 
@@ -363,9 +398,14 @@ export async function handleGetMessageThread(
     limit: 200,
   });
 
+  const messagesWithDeliveries = await attachMirrorDeliveries(
+    store,
+    messages,
+  );
+
   return Response.json({
     ok: true,
     thread,
-    messages,
+    messages: messagesWithDeliveries,
   });
 }

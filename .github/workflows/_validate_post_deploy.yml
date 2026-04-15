@@ -157,6 +157,18 @@ jobs:
         run: |
           npx tsx scripts/ci/checks/scenarios/external-style-message-order-tolerance-check.ts 2>&1 | tee -a post-deploy-validation.log
 
+      - name: Mirror routing contract check
+        id: mirror_routing_contract
+        if: steps.config.outputs.enabled == 'true' && steps.post_deploy_validation.outcome == 'success'
+        run: |
+          npx tsx scripts/ci/checks/contracts/mirror-routing-contract-check.ts 2>&1 | tee -a post-deploy-validation.log
+
+      - name: Agent message mirroring check
+        id: agent_message_mirroring
+        if: steps.config.outputs.enabled == 'true' && steps.post_deploy_validation.outcome == 'success'
+        run: |
+          npx tsx scripts/ci/checks/scenarios/agent-message-mirroring-check.ts 2>&1 | tee -a post-deploy-validation.log
+
       - name: Capture outputs
         id: capture
         if: always()
@@ -172,7 +184,9 @@ jobs:
               ( "${{ steps.repeated_validation_persona_continuity.outcome }}" == "success" || "${{ steps.repeated_validation_persona_continuity.outcome }}" == "skipped" ) && \
               ( "${{ steps.repeated_pm_persona_continuity.outcome }}" == "success" || "${{ steps.repeated_pm_persona_continuity.outcome }}" == "skipped" ) && \
               ( "${{ steps.external_style_message_idempotency.outcome }}" == "success" || "${{ steps.external_style_message_idempotency.outcome }}" == "skipped" ) && \
-              ( "${{ steps.external_style_message_order_tolerance.outcome }}" == "success" || "${{ steps.external_style_message_order_tolerance.outcome }}" == "skipped" ) \
+              ( "${{ steps.external_style_message_order_tolerance.outcome }}" == "success" || "${{ steps.external_style_message_order_tolerance.outcome }}" == "skipped" ) && \
+              ( "${{ steps.mirror_routing_contract.outcome }}" == "success" || "${{ steps.mirror_routing_contract.outcome }}" == "skipped" ) && \
+              ( "${{ steps.agent_message_mirroring.outcome }}" == "success" || "${{ steps.agent_message_mirroring.outcome }}" == "skipped" ) \
             ]]; then
               OUTCOME="success"
             else
@@ -232,6 +246,8 @@ jobs:
           echo "- $(status_emoji "${{ steps.repeated_pm_persona_continuity.outcome }}") repeated PM persona continuity check: ${{ steps.repeated_pm_persona_continuity.outcome }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- $(status_emoji "${{ steps.external_style_message_idempotency.outcome }}") external-style message idempotency check: ${{ steps.external_style_message_idempotency.outcome }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- $(status_emoji "${{ steps.external_style_message_order_tolerance.outcome }}") external-style message order tolerance check: ${{ steps.external_style_message_order_tolerance.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- $(status_emoji "${{ steps.mirror_routing_contract.outcome }}") mirror routing contract check: ${{ steps.mirror_routing_contract.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- $(status_emoji "${{ steps.agent_message_mirroring.outcome }}") agent message mirroring check: ${{ steps.agent_message_mirroring.outcome }}" >> "$GITHUB_STEP_SUMMARY"
 
           echo "### Result" >> "$GITHUB_STEP_SUMMARY"
           echo "- $(status_emoji "$OUTCOME") Post-deploy validation: $OUTCOME" >> "$GITHUB_STEP_SUMMARY"

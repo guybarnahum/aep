@@ -1,4 +1,6 @@
 import { fromJson, toJson } from "@aep/operator-agent/lib/d1-json";
+import { dispatchMessageMirrors } from "@aep/operator-agent/adapters/mirror-dispatcher";
+import type { MirrorDeliveryRecord } from "@aep/operator-agent/adapters/types";
 import {
   TaskDependencyValidationError,
   type Decision,
@@ -111,6 +113,19 @@ type EmployeeMessageRow = {
   updated_at: string | null;
 };
 
+type MessageMirrorDeliveryRow = {
+  delivery_id: string;
+  message_id: string;
+  thread_id: string;
+  channel: string;
+  target: string;
+  status: string;
+  external_message_id: string | null;
+  failure_code: string | null;
+  failure_reason: string | null;
+  created_at: string;
+};
+
 function requireDb(env: OperatorAgentEnv): D1Database {
   if (!env.OPERATOR_AGENT_DB) {
     throw new Error("Missing OPERATOR_AGENT_DB binding");
@@ -212,6 +227,21 @@ function rowToMessage(row: EmployeeMessageRow): EmployeeMessage {
     relatedApprovalId: row.related_approval_id ?? undefined,
     createdAt: row.created_at ?? undefined,
     updatedAt: row.updated_at ?? undefined,
+  };
+}
+
+function rowToMirrorDelivery(row: MessageMirrorDeliveryRow): MirrorDeliveryRecord {
+  return {
+    id: row.delivery_id,
+    messageId: row.message_id,
+    threadId: row.thread_id,
+    channel: row.channel as MirrorDeliveryRecord["channel"],
+    target: row.target,
+    status: row.status as MirrorDeliveryRecord["status"],
+    externalMessageId: row.external_message_id ?? undefined,
+    failureCode: row.failure_code ?? undefined,
+    failureReason: row.failure_reason ?? undefined,
+    createdAt: row.created_at,
   };
 }
 
@@ -820,6 +850,51 @@ export class D1TaskStore implements TaskStore {
     return row ? rowToMessage(row) : null;
   }
 
+  async createMessageMirrorDelivery(delivery: MirrorDeliveryRecord): Promise<void> {
+    await this.db
+      .prepare(
+        `INSERT INTO message_mirror_deliveries (
+          delivery_id,
+          message_id,
+          thread_id,
+          channel,
+          target,
+          status,
+          external_message_id,
+          failure_code,
+          failure_reason,
+          created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .bind(
+        delivery.id,
+        delivery.messageId,
+        delivery.threadId,
+        delivery.channel,
+        delivery.target,
+        delivery.status,
+        delivery.externalMessageId ?? null,
+        delivery.failureCode ?? null,
+        delivery.failureReason ?? null,
+        delivery.createdAt,
+      )
+      .run();
+  }
+
+  async listMessageMirrorDeliveries(messageId: string): Promise<MirrorDeliveryRecord[]> {
+    const rows = await this.db
+      .prepare(
+        `SELECT *
+         FROM message_mirror_deliveries
+         WHERE message_id = ?
+         ORDER BY created_at ASC`,
+      )
+      .bind(messageId)
+      .all<MessageMirrorDeliveryRow>();
+
+    return (rows.results ?? []).map(rowToMirrorDelivery);
+  }
+
   private async getMessageByExternalId(args: {
     threadId: string;
     externalMessageId: string;
@@ -957,6 +1032,56 @@ export class D1TaskStore implements TaskStore {
     const created = await this.getMessage(message.id);
     if (!created) {
       throw new Error(`Failed to load created message ${message.id}`);
+    }
+
+    if (created.source === "internal" || created.source === "system") {
+      let relatedTask: Task | null = null;
+      if (created.relatedTaskId) {
+        relatedTask = await this.getTask(created.relatedTaskId);
+      }
+
+      try {
+        await dispatchMessageMirrors({
+          env: this.env,
+          store: this,
+          input: {
+            messageId: created.id,
+            threadId: created.threadId,
+            body: created.body,
+            subject: created.subject,
+            senderEmployeeId: created.senderEmployeeId,
+            createdAt: created.createdAt ?? new Date().toISOString(),
+            routing: {
+              threadId: created.threadId,
+              threadType: created.relatedApprovalId
+                ? "approval"
+                : created.relatedEscalationId
+                  ? "escalation"
+                  : undefined,
+              taskId: created.relatedTaskId,
+              taskType: relatedTask?.taskType,
+              teamId: relatedTask?.assignedTeamId,
+              subject: created.subject,
+              messageType: created.type,
+              senderEmployeeId: created.senderEmployeeId,
+              humanVisibilityRequired: true,
+            },
+          },
+        });
+      } catch (error) {
+        console.error("message mirror dispatch failed", error);
+        await this.createMessageMirrorDelivery({
+          id: `mdl_${created.id}_dispatch_error_${crypto.randomUUID().split("-")[0]}`,
+          messageId: created.id,
+          threadId: created.threadId,
+          channel: "slack",
+          target: "dispatch_exception",
+          status: "failed",
+          failureCode: "mirror_dispatch_failed",
+          failureReason: error instanceof Error ? error.message : String(error),
+          createdAt: new Date().toISOString(),
+        });
+      }
     }
 
     return created;

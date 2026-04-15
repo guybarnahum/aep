@@ -1,0 +1,112 @@
+/* eslint-disable no-console */
+
+import { dispatchMessageMirrors } from "../../../../core/operator-agent/src/adapters/mirror-dispatcher";
+import { resolveMirrorTargets } from "../../../../core/operator-agent/src/adapters/mirror-routing-policy";
+import type { MirrorDeliveryRecord } from "../../../../core/operator-agent/src/adapters/types";
+
+export {};
+
+type EnvShape = {
+  MIRROR_DEFAULT_SLACK_CHANNEL?: string;
+  MIRROR_APPROVALS_SLACK_CHANNEL?: string;
+  MIRROR_ESCALATIONS_SLACK_CHANNEL?: string;
+  MIRROR_ESCALATIONS_EMAIL_GROUP?: string;
+  SLACK_MIRROR_WEBHOOK_URL?: string;
+};
+
+function assert(condition: unknown, message: string): void {
+  if (!condition) {
+    throw new Error(message);
+  }
+}
+
+async function main(): Promise<void> {
+  const configuredEnv: EnvShape = {
+    MIRROR_DEFAULT_SLACK_CHANNEL: "default-channel",
+    MIRROR_APPROVALS_SLACK_CHANNEL: "approvals-channel",
+    MIRROR_ESCALATIONS_SLACK_CHANNEL: "escalations-channel",
+    MIRROR_ESCALATIONS_EMAIL_GROUP: "escalations@example.com",
+  };
+
+  const approvalTargets = resolveMirrorTargets(configuredEnv as any, {
+    threadId: "thr_approval",
+    threadType: "approval",
+    messageType: "coordination",
+    senderEmployeeId: "emp_pm_01",
+    humanVisibilityRequired: true,
+  });
+
+  assert(
+    approvalTargets.length >= 1 && approvalTargets.every((target) => target.kind === "slack"),
+    `Expected approval routing to resolve bounded slack target(s), got ${JSON.stringify(approvalTargets)}`,
+  );
+
+  const escalationTargets = resolveMirrorTargets(configuredEnv as any, {
+    threadId: "thr_escalation",
+    threadType: "escalation",
+    messageType: "escalation",
+    senderEmployeeId: "emp_infra_ops_manager_01",
+    humanVisibilityRequired: true,
+  });
+
+  assert(
+    escalationTargets.some((target) => target.kind === "slack") &&
+      escalationTargets.some((target) => target.kind === "email"),
+    `Expected escalation routing to resolve slack and email targets, got ${JSON.stringify(escalationTargets)}`,
+  );
+
+  const defaultTargets = resolveMirrorTargets(configuredEnv as any, {
+    threadId: "thr_default",
+    messageType: "coordination",
+    senderEmployeeId: "emp_val_specialist_01",
+    humanVisibilityRequired: true,
+  });
+
+  assert(
+    defaultTargets.length === 1 && defaultTargets[0]?.kind === "slack",
+    `Expected default routing to resolve one slack target, got ${JSON.stringify(defaultTargets)}`,
+  );
+
+  const deliveries: MirrorDeliveryRecord[] = [];
+  await dispatchMessageMirrors({
+    env: {} as any,
+    store: {
+      async createMessageMirrorDelivery(delivery: MirrorDeliveryRecord) {
+        deliveries.push(delivery);
+      },
+    } as any,
+    input: {
+      messageId: "msg_missing_config",
+      threadId: "thr_missing_config",
+      body: "Canonical agent-originated message",
+      senderEmployeeId: "emp_val_specialist_01",
+      createdAt: new Date().toISOString(),
+      routing: {
+        threadId: "thr_missing_config",
+        messageType: "coordination",
+        senderEmployeeId: "emp_val_specialist_01",
+        humanVisibilityRequired: true,
+      },
+    },
+  });
+
+  assert(deliveries.length === 1, "Expected missing config to produce an observable delivery record");
+  assert(deliveries[0].status === "failed", "Expected missing config delivery record to fail explicitly");
+  assert(
+    deliveries[0].failureCode === "mirror_target_unresolved",
+    `Expected unresolved target failure code, got ${JSON.stringify(deliveries[0])}`,
+  );
+
+  console.log("mirror-routing-contract-check passed", {
+    approvalTargets,
+    escalationTargets,
+    defaultTargets,
+    missingConfigDelivery: deliveries[0],
+  });
+}
+
+main().catch((error) => {
+  console.error("mirror-routing-contract-check failed");
+  console.error(error);
+  process.exit(1);
+});

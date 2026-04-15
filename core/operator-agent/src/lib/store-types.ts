@@ -10,6 +10,7 @@ import type {
   ManagerDecision,
   ResolvedEmployeeControl,
 } from "@aep/operator-agent/types";
+import type { MirrorDeliveryRecord } from "@aep/operator-agent/adapters/types";
 
 export interface IApprovalStore {
   write(record: ApprovalRecord): Promise<void>;
@@ -335,6 +336,8 @@ export interface TaskStore {
   getMessageThread(threadId: string): Promise<MessageThread | null>;
 
   getMessage(messageId: string): Promise<EmployeeMessage | null>;
+  createMessageMirrorDelivery(delivery: MirrorDeliveryRecord): Promise<void>;
+  listMessageMirrorDeliveries(messageId: string): Promise<MirrorDeliveryRecord[]>;
 
   findMessageThreadByApprovalId(approvalId: string): Promise<MessageThread | null>;
   findMessageThreadByEscalationId(escalationId: string): Promise<MessageThread | null>;

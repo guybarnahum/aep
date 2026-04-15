@@ -841,4 +841,9 @@ export interface OperatorAgentEnv extends Record<string, unknown> {
   PAPERCLIP_SHARED_SECRET?: string;
   PAPERCLIP_AUTH_REQUIRED?: string;
   ENABLE_TEST_ENDPOINTS?: string;
+  MIRROR_DEFAULT_SLACK_CHANNEL?: string;
+  MIRROR_APPROVALS_SLACK_CHANNEL?: string;
+  MIRROR_ESCALATIONS_SLACK_CHANNEL?: string;
+  MIRROR_ESCALATIONS_EMAIL_GROUP?: string;
+  SLACK_MIRROR_WEBHOOK_URL?: string;
 }
