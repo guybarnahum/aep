@@ -35,6 +35,9 @@
   "env": {
     "async_validation": {
       "kv_namespaces": [],
+      "ai": {
+        "binding": "AI"
+      },
       "d1_databases": [
         {
           "binding": "OPERATOR_AGENT_DB",
@@ -67,6 +70,9 @@
     },
     "staging": {
       "kv_namespaces": [],
+      "ai": {
+        "binding": "AI"
+      },
       "d1_databases": [
         {
           "binding": "OPERATOR_AGENT_DB",
@@ -96,6 +102,9 @@
     },
     "production": {
       "kv_namespaces": [],
+      "ai": {
+        "binding": "AI"
+      },
       "d1_databases": [
         {
           "binding": "OPERATOR_AGENT_DB",
