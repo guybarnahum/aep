@@ -320,11 +320,33 @@ export async function handleIngestExternalMessage(
     );
   }
 
+  const threadMessages = await store.listMessages({
+    threadId: resolved.threadId,
+    limit: 200,
+  });
+
+  const canonicalRecipient = [...threadMessages]
+    .reverse()
+    .find((message) => message.source === "internal" || message.source === "dashboard")
+    ?.senderEmployeeId ?? thread.createdByEmployeeId;
+
+  if (!canonicalRecipient) {
+    return Response.json(
+      {
+        ok: false,
+        error: "thread_recipient_not_resolved",
+        threadId: resolved.threadId,
+      },
+      { status: 409 },
+    );
+  }
+
   const created = await store.createMessage({
     id: `msg_${crypto.randomUUID().split("-")[0]}`,
     threadId: resolved.threadId,
     companyId: thread.companyId,
     senderEmployeeId: syntheticExternalSenderEmployeeId(body.channel, body.externalAuthorId),
+    receiverEmployeeId: canonicalRecipient,
     type: "coordination",
     status: "delivered",
     source: body.channel,
