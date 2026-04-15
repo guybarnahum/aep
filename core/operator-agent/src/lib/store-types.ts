@@ -350,6 +350,11 @@ export interface TaskStore {
     target: string;
   }): Promise<ExternalThreadProjection | null>;
   listExternalThreadProjections(threadId: string): Promise<ExternalThreadProjection[]>;
+  listExternalThreadProjectionsByExternal(input: {
+    channel: MirrorChannel;
+    externalThreadId: string;
+    target?: string;
+  }): Promise<ExternalThreadProjection[]>;
   createExternalMessageProjection(projection: ExternalMessageProjection): Promise<void>;
   getExternalMessageProjection(args: {
     messageId: string;

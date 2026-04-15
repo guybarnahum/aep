@@ -30,6 +30,7 @@ import {
   handleCreateMessage,
   handleCreateMessageThread,
   handleGetMessageThread,
+  handleIngestExternalMessage,
   handleListInbox,
   handleListMessageThreads,
   handleListMessages,
@@ -144,6 +145,10 @@ async function dispatch(request: Request, env: OperatorAgentEnv): Promise<Respon
 
   if (url.pathname === "/agent/messages" && request.method === "POST") {
     return handleCreateMessage(request, env);
+  }
+
+  if (url.pathname === "/agent/messages/inbound" && request.method === "POST") {
+    return handleIngestExternalMessage(request, env);
   }
 
   if (url.pathname === "/agent/message-threads" && request.method === "GET") {

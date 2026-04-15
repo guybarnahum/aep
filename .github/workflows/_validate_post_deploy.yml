@@ -181,6 +181,24 @@ jobs:
         run: |
           npx tsx scripts/ci/checks/scenarios/threaded-mirror-continuity-check.ts 2>&1 | tee -a post-deploy-validation.log
 
+      - name: Inbound reply correlation contract check
+        id: inbound_reply_correlation_contract
+        if: steps.config.outputs.enabled == 'true' && steps.post_deploy_validation.outcome == 'success'
+        run: |
+          npx tsx scripts/ci/checks/contracts/inbound-reply-correlation-contract-check.ts 2>&1 | tee -a post-deploy-validation.log
+
+      - name: Inbound reply ingestion check
+        id: inbound_reply_ingestion
+        if: steps.config.outputs.enabled == 'true' && steps.post_deploy_validation.outcome == 'success'
+        run: |
+          npx tsx scripts/ci/checks/scenarios/inbound-reply-ingestion-check.ts 2>&1 | tee -a post-deploy-validation.log
+
+      - name: Inbound duplicate delivery check
+        id: inbound_duplicate_delivery
+        if: steps.config.outputs.enabled == 'true' && steps.post_deploy_validation.outcome == 'success'
+        run: |
+          npx tsx scripts/ci/checks/scenarios/inbound-duplicate-delivery-check.ts 2>&1 | tee -a post-deploy-validation.log
+
       - name: Capture outputs
         id: capture
         if: always()
@@ -200,7 +218,10 @@ jobs:
               ( "${{ steps.mirror_routing_contract.outcome }}" == "success" || "${{ steps.mirror_routing_contract.outcome }}" == "skipped" ) && \
               ( "${{ steps.agent_message_mirroring.outcome }}" == "success" || "${{ steps.agent_message_mirroring.outcome }}" == "skipped" ) && \
               ( "${{ steps.external_thread_mapping_contract.outcome }}" == "success" || "${{ steps.external_thread_mapping_contract.outcome }}" == "skipped" ) && \
-              ( "${{ steps.threaded_mirror_continuity.outcome }}" == "success" || "${{ steps.threaded_mirror_continuity.outcome }}" == "skipped" ) \
+              ( "${{ steps.threaded_mirror_continuity.outcome }}" == "success" || "${{ steps.threaded_mirror_continuity.outcome }}" == "skipped" ) && \
+              ( "${{ steps.inbound_reply_correlation_contract.outcome }}" == "success" || "${{ steps.inbound_reply_correlation_contract.outcome }}" == "skipped" ) && \
+              ( "${{ steps.inbound_reply_ingestion.outcome }}" == "success" || "${{ steps.inbound_reply_ingestion.outcome }}" == "skipped" ) && \
+              ( "${{ steps.inbound_duplicate_delivery.outcome }}" == "success" || "${{ steps.inbound_duplicate_delivery.outcome }}" == "skipped" ) \
             ]]; then
               OUTCOME="success"
             else
@@ -264,6 +285,9 @@ jobs:
           echo "- $(status_emoji "${{ steps.agent_message_mirroring.outcome }}") agent message mirroring check: ${{ steps.agent_message_mirroring.outcome }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- $(status_emoji "${{ steps.external_thread_mapping_contract.outcome }}") external thread mapping contract check: ${{ steps.external_thread_mapping_contract.outcome }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- $(status_emoji "${{ steps.threaded_mirror_continuity.outcome }}") threaded mirror continuity check: ${{ steps.threaded_mirror_continuity.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- $(status_emoji "${{ steps.inbound_reply_correlation_contract.outcome }}") inbound reply correlation contract check: ${{ steps.inbound_reply_correlation_contract.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- $(status_emoji "${{ steps.inbound_reply_ingestion.outcome }}") inbound reply ingestion check: ${{ steps.inbound_reply_ingestion.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- $(status_emoji "${{ steps.inbound_duplicate_delivery.outcome }}") inbound duplicate delivery check: ${{ steps.inbound_duplicate_delivery.outcome }}" >> "$GITHUB_STEP_SUMMARY"
 
           echo "### Result" >> "$GITHUB_STEP_SUMMARY"
           echo "- $(status_emoji "$OUTCOME") Post-deploy validation: $OUTCOME" >> "$GITHUB_STEP_SUMMARY"

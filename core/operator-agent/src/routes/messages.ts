@@ -1,3 +1,5 @@
+import { resolveCanonicalThreadForInbound } from "../adapters/inbound-correlation";
+import type { InboundExternalMessage } from "../adapters/inbound-types";
 import { getTaskStore } from "@aep/operator-agent/lib/store-factory";
 import type { EmployeeMessage } from "@aep/operator-agent/lib/store-types";
 import type { OperatorAgentEnv } from "@aep/operator-agent/types";
@@ -36,6 +38,11 @@ type CreateMessageThreadRequest = {
   relatedArtifactId?: string;
   visibility?: "internal" | "org";
 };
+
+function syntheticExternalSenderEmployeeId(channel: "slack" | "email", externalAuthorId?: string): string {
+  const normalizedAuthor = (externalAuthorId?.trim() || "unknown").replace(/[^a-zA-Z0-9_-]/g, "_");
+  return `external_${channel}_${normalizedAuthor}`;
+}
 
 type MessageWithMirrorDeliveries = EmployeeMessage & {
   mirrorDeliveries: Awaited<ReturnType<ReturnType<typeof getTaskStore>["listMessageMirrorDeliveries"]>>;
@@ -240,6 +247,105 @@ export async function handleCreateMessageThread(
   });
 
   return Response.json({ ok: true, threadId }, { status: 201 });
+}
+
+export async function handleIngestExternalMessage(
+  request: Request,
+  env?: OperatorAgentEnv,
+): Promise<Response> {
+  if (request.method !== "POST") {
+    return new Response("Method Not Allowed", { status: 405 });
+  }
+
+  if (!env) {
+    return Response.json({ ok: false, error: "Missing operator-agent environment" }, { status: 500 });
+  }
+
+  let body: InboundExternalMessage;
+  try {
+    body = (await request.json()) as InboundExternalMessage;
+  } catch {
+    return Response.json({ ok: false, error: "Request body must be valid JSON" }, { status: 400 });
+  }
+
+  if (
+    (body.channel !== "slack" && body.channel !== "email") ||
+    typeof body.externalThreadId !== "string" ||
+    body.externalThreadId.trim().length === 0 ||
+    typeof body.externalMessageId !== "string" ||
+    body.externalMessageId.trim().length === 0 ||
+    typeof body.body !== "string" ||
+    body.body.trim().length === 0 ||
+    typeof body.externalReceivedAt !== "string" ||
+    body.externalReceivedAt.trim().length === 0
+  ) {
+    return Response.json({ ok: false, error: "invalid inbound message" }, { status: 400 });
+  }
+
+  if (typeof body.subject !== "undefined" && typeof body.subject !== "string") {
+    return Response.json({ ok: false, error: "invalid inbound message" }, { status: 400 });
+  }
+
+  if (typeof body.target !== "undefined" && typeof body.target !== "string") {
+    return Response.json({ ok: false, error: "invalid inbound message" }, { status: 400 });
+  }
+
+  const store = getTaskStore(env);
+  const resolved = await resolveCanonicalThreadForInbound(store, {
+    channel: body.channel,
+    externalThreadId: body.externalThreadId,
+    target: body.target,
+  });
+
+  if (!resolved) {
+    return Response.json(
+      {
+        ok: false,
+        error: "thread_not_found",
+        externalThreadId: body.externalThreadId,
+      },
+      { status: 404 },
+    );
+  }
+
+  const thread = await store.getMessageThread(resolved.threadId);
+  if (!thread) {
+    return Response.json(
+      {
+        ok: false,
+        error: "thread_not_found",
+        externalThreadId: body.externalThreadId,
+      },
+      { status: 404 },
+    );
+  }
+
+  const created = await store.createMessage({
+    id: `msg_${crypto.randomUUID().split("-")[0]}`,
+    threadId: resolved.threadId,
+    companyId: thread.companyId,
+    senderEmployeeId: syntheticExternalSenderEmployeeId(body.channel, body.externalAuthorId),
+    type: "coordination",
+    status: "delivered",
+    source: body.channel,
+    subject: body.subject,
+    body: body.body,
+    payload: body.target ? { target: body.target } : {},
+    externalMessageId: body.externalMessageId,
+    externalChannel: body.channel,
+    externalAuthorId: body.externalAuthorId,
+    externalReceivedAt: body.externalReceivedAt,
+    requiresResponse: false,
+  });
+
+  return Response.json(
+    {
+      ok: true,
+      messageId: created.id,
+      threadId: resolved.threadId,
+    },
+    { status: 200 },
+  );
 }
 
 export async function handleListMessages(

@@ -1031,6 +1031,32 @@ export class D1TaskStore implements TaskStore {
     return (rows.results ?? []).map(rowToExternalThreadProjection);
   }
 
+  async listExternalThreadProjectionsByExternal(input: {
+    channel: MirrorChannel;
+    externalThreadId: string;
+    target?: string;
+  }): Promise<ExternalThreadProjection[]> {
+    const clauses = ["channel = ?", "external_thread_id = ?"];
+    const binds: Array<string> = [input.channel, input.externalThreadId];
+
+    if (input.target) {
+      clauses.push("target = ?");
+      binds.push(input.target);
+    }
+
+    const rows = await this.db
+      .prepare(
+        `SELECT *
+         FROM external_thread_projections
+         WHERE ${clauses.join(" AND ")}
+         ORDER BY created_at ASC`,
+      )
+      .bind(...binds)
+      .all<ExternalThreadProjectionRow>();
+
+    return (rows.results ?? []).map(rowToExternalThreadProjection);
+  }
+
   async createExternalMessageProjection(projection: ExternalMessageProjection): Promise<void> {
     const existing = await this.getExternalMessageProjection({
       messageId: projection.messageId,

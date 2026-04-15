@@ -1597,6 +1597,12 @@ Pre-PR10 note:
 - repeated mirrored messages on one canonical thread must reuse the same external thread projection
 - external linkage remains projection metadata only; AEP threads and messages remain canonical
 - PR10B prepares PR10C inbound reply ingestion but does not implement it yet
+- PR10C adds inbound reply ingestion
+- external replies are ingested into AEP as canonical thread messages
+- inbound correlation uses PR10B external thread projections
+- ingestion is idempotent and order-tolerant on the PR7.9D substrate
+- no implicit action execution is introduced
+- no external system becomes canonical
 - first real transport may be Slack, while email can remain a structured failure stub until implemented
 - mirror targets are resolved from thread, task, and message policy
 - delivery outcomes are persisted canonically

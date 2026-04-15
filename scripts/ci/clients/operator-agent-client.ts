@@ -1,5 +1,6 @@
 /* eslint-disable no-console */
 
+import type { InboundExternalMessage } from "../../../core/operator-agent/src/adapters/inbound-types";
 import { getJson, postJson } from "../shared/http";
 import { resolveServiceBaseUrl } from "../shared/service-map";
 import type {
@@ -504,6 +505,10 @@ export function createOperatorAgentClient(
 
     async createMessage(body: CreateMessageRequest): Promise<any> {
       return postJson(buildUrl("/agent/messages"), body);
+    },
+
+    async ingestExternalMessage(input: InboundExternalMessage): Promise<any> {
+      return postJson(buildUrl("/agent/messages/inbound"), input);
     },
 
     async listMessages(params?: {
