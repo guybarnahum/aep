@@ -1,0 +1,181 @@
+/* eslint-disable no-console */
+
+import { createOperatorAgentClient } from "../../clients/operator-agent-client";
+import { handleOperatorAgentSoftSkip } from "../../shared/soft-skip";
+
+export {};
+
+function getTaskEntries(response: any): any[] {
+  if (Array.isArray(response?.tasks)) return response.tasks;
+  if (Array.isArray(response?.entries)) return response.entries;
+  return [];
+}
+
+async function main(): Promise<void> {
+  const client = createOperatorAgentClient();
+
+  try {
+    await client.endpointExists("/agent/tasks");
+  } catch (err) {
+    if (handleOperatorAgentSoftSkip("org-resolver-planning-defaults-check", err)) {
+      process.exit(0);
+    }
+    throw err;
+  }
+
+  const before = await client.listTasks({
+    companyId: "company_internal_aep",
+    limit: 100,
+  });
+
+  const beforeIds = new Set(getTaskEntries(before).map((task: any) => task.id));
+
+  const result = await client.runEmployee({
+    companyId: "company_internal_aep",
+    teamId: "team_web_product",
+    employeeId: "emp_product_manager_web_01",
+    roleId: "product-manager",
+    trigger: "manual",
+    policyVersion: "ci-pr11-5",
+  });
+
+  if (!(result as any)?.ok) {
+    throw new Error(`PM run failed: ${JSON.stringify(result)}`);
+  }
+
+  const after = await client.listTasks({
+    companyId: "company_internal_aep",
+    limit: 100,
+  });
+
+  const newTasks = getTaskEntries(after).filter(
+    (task: any) => !beforeIds.has(task.id),
+  );
+
+  const planningRoot = newTasks.find(
+    (task: any) => task.taskType === "plan-website-delivery",
+  );
+
+  if (!planningRoot?.id) {
+    throw new Error(`Failed to locate planning root task: ${JSON.stringify(newTasks)}`);
+  }
+
+  const planningRootDetail = await client.getTask(planningRoot.id);
+
+  if (!(planningRootDetail as any)?.ok || !(planningRootDetail as any)?.task) {
+    throw new Error(
+      `Failed to fetch planning root detail: ${JSON.stringify(planningRootDetail)}`,
+    );
+  }
+
+  const planArtifacts = Array.isArray((planningRootDetail as any)?.artifacts)
+    ? (planningRootDetail as any).artifacts.filter(
+        (artifact: any) =>
+          artifact.artifactType === "plan"
+          && artifact.content?.kind === "execution_plan",
+      )
+    : [];
+
+  if (planArtifacts.length === 0) {
+    throw new Error(
+      `Expected execution plan artifact on planning root: ${JSON.stringify(planningRootDetail)}`,
+    );
+  }
+
+  const planArtifact = planArtifacts[0];
+  const steps = Array.isArray(planArtifact?.content?.steps)
+    ? planArtifact.content.steps
+    : [];
+
+  if (steps.length !== 4) {
+    throw new Error(`Expected 4 plan steps, got ${steps.length}: ${JSON.stringify(planArtifact)}`);
+  }
+
+  const expectedByCapability: Record<string, { teamId: string; employeeId?: string }> = {
+    design: { teamId: "team_web_product" },
+    implementation: { teamId: "team_web_product" },
+    deployment: { teamId: "team_infra" },
+    validation: { teamId: "team_validation", employeeId: "emp_val_specialist_01" },
+  };
+
+  for (const step of steps) {
+    const expected = expectedByCapability[step.capability];
+    if (!expected) {
+      throw new Error(`Unexpected capability in plan artifact: ${JSON.stringify(step)}`);
+    }
+
+    if (step.assignedTeamId !== expected.teamId) {
+      throw new Error(
+        `Capability routing mismatch for ${step.capability}: ${JSON.stringify(step)}`,
+      );
+    }
+
+    if (typeof expected.employeeId === "string" && step.assignedEmployeeId !== expected.employeeId) {
+      throw new Error(
+        `Capability assignee mismatch for ${step.capability}: ${JSON.stringify(step)}`,
+      );
+    }
+  }
+
+  const childTaskIds = steps.map((step: any) => step.childTaskId).filter(Boolean);
+  if (childTaskIds.length !== 4) {
+    throw new Error(`Expected 4 child task IDs in plan artifact: ${JSON.stringify(planArtifact)}`);
+  }
+
+  const childTasks = [];
+  for (const taskId of childTaskIds) {
+    const detail = await client.getTask(taskId);
+    if (!(detail as any)?.ok || !(detail as any)?.task) {
+      throw new Error(`Failed to fetch child task ${taskId}: ${JSON.stringify(detail)}`);
+    }
+    childTasks.push(detail);
+  }
+
+  const designTask = childTasks.find(
+    (detail: any) => detail.task.taskType === "website-design",
+  );
+  const implementTask = childTasks.find(
+    (detail: any) => detail.task.taskType === "website-implementation",
+  );
+  const deployTask = childTasks.find(
+    (detail: any) => detail.task.taskType === "website-deployment",
+  );
+  const validateTask = childTasks.find(
+    (detail: any) => detail.task.taskType === "validate-deployment",
+  );
+
+  if (!designTask || !implementTask || !deployTask || !validateTask) {
+    throw new Error(`Missing expected child task types: ${JSON.stringify(childTasks)}`);
+  }
+
+  if (designTask.task.assignedTeamId !== "team_web_product") {
+    throw new Error(`Expected design task assignedTeamId=team_web_product: ${JSON.stringify(designTask.task)}`);
+  }
+
+  if (implementTask.task.assignedTeamId !== "team_web_product") {
+    throw new Error(`Expected implement task assignedTeamId=team_web_product: ${JSON.stringify(implementTask.task)}`);
+  }
+
+  if (deployTask.task.assignedTeamId !== "team_infra") {
+    throw new Error(`Expected deploy task assignedTeamId=team_infra: ${JSON.stringify(deployTask.task)}`);
+  }
+
+  if (validateTask.task.assignedTeamId !== "team_validation") {
+    throw new Error(`Expected validate task assignedTeamId=team_validation: ${JSON.stringify(validateTask.task)}`);
+  }
+
+  if (validateTask.task.assignedEmployeeId !== "emp_val_specialist_01") {
+    throw new Error(`Expected validate task assignedEmployeeId=emp_val_specialist_01: ${JSON.stringify(validateTask.task)}`);
+  }
+
+  console.log("org-resolver-planning-defaults-check passed", {
+    planningRootTaskId: planningRoot.id,
+    childTaskIds,
+  });
+}
+
+main().catch((error) => {
+  console.error("org-resolver-planning-defaults-check failed");
+  console.error(error);
+  process.exit(1);
+});

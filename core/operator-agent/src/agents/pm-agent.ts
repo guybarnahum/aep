@@ -4,6 +4,8 @@ import {
   thinkWithinEmployeeBoundary,
 } from "../lib/employee-cognition";
 import { logInfo } from "../lib/logger";
+import { createOrgResolver } from "../lib/org-resolver";
+import type { OrgCapability } from "../lib/org-resolver";
 import { getEmployeePromptProfile } from "../lib/employee-prompt-profile-store-d1";
 import { publishTaskRationaleToThread } from "../lib/rationale-thread-publisher";
 import { getTaskStore } from "../lib/store-factory";
@@ -16,13 +18,9 @@ import type {
   ResolvedEmployeeRunContext,
 } from "../types";
 
-const TEAM_INFRA = "team_infra";
-const TEAM_WEB_PRODUCT = "team_web_product";
-const TEAM_VALIDATION = "team_validation";
-const VALIDATION_EMPLOYEE_ID = "emp_val_specialist_01";
-
 type WebsitePlanStep = {
   id: string;
+  capability: OrgCapability;
   title: string;
   taskType: string;
   assignedTeamId: string;
@@ -114,12 +112,26 @@ function deriveObjectiveTitle(
   return payloadObjective ?? roadmap?.objective_title ?? "Website delivery objective";
 }
 
-function buildWebsitePlan(args: {
+async function buildWebsitePlan(args: {
   context: ResolvedEmployeeRunContext;
+  env: OperatorAgentEnv;
   roadmap: any;
-}): WebsitePlan {
+}): Promise<WebsitePlan> {
   const objectiveTitle = deriveObjectiveTitle(args.context, args.roadmap);
   const targetUrl = deriveTargetUrl(args.context, args.roadmap);
+  const resolver = createOrgResolver(args.env);
+  const companyId = args.context.employee.identity.companyId;
+
+  const designOwner = await resolver.resolveTeamForCapability(companyId, "design");
+  const implementationOwner = await resolver.resolveTeamForCapability(companyId, "implementation");
+  const deploymentOwner = await resolver.resolveTeamForCapability(companyId, "deployment");
+  const validationOwner = await resolver.resolveTeamForCapability(companyId, "validation");
+
+  const validationAssignee = await resolver.resolveEmployeeForTask({
+    companyId,
+    teamId: validationOwner.teamId,
+    taskType: "validate-deployment",
+  });
 
   return {
     objectiveTitle,
@@ -128,9 +140,10 @@ function buildWebsitePlan(args: {
     steps: [
       {
         id: "design",
+        capability: "design",
         title: `Design website scope for ${objectiveTitle}`,
         taskType: "website-design",
-        assignedTeamId: TEAM_WEB_PRODUCT,
+        assignedTeamId: designOwner.teamId,
         payload: {
           objectiveTitle,
           targetUrl,
@@ -139,9 +152,10 @@ function buildWebsitePlan(args: {
       },
       {
         id: "implement",
+        capability: "implementation",
         title: `Implement website for ${objectiveTitle}`,
         taskType: "website-implementation",
-        assignedTeamId: TEAM_WEB_PRODUCT,
+        assignedTeamId: implementationOwner.teamId,
         dependsOnStepIds: ["design"],
         payload: {
           objectiveTitle,
@@ -151,9 +165,10 @@ function buildWebsitePlan(args: {
       },
       {
         id: "deploy",
+        capability: "deployment",
         title: `Deploy website for ${objectiveTitle}`,
         taskType: "website-deployment",
-        assignedTeamId: TEAM_INFRA,
+        assignedTeamId: deploymentOwner.teamId,
         dependsOnStepIds: ["implement"],
         payload: {
           objectiveTitle,
@@ -163,10 +178,11 @@ function buildWebsitePlan(args: {
       },
       {
         id: "validate",
+        capability: "validation",
         title: `Validate website deployment for ${objectiveTitle}`,
         taskType: "validate-deployment",
-        assignedTeamId: TEAM_VALIDATION,
-        assignedEmployeeId: VALIDATION_EMPLOYEE_ID,
+        assignedTeamId: validationOwner.teamId,
+        assignedEmployeeId: validationAssignee.employeeId,
         dependsOnStepIds: ["deploy"],
         payload: {
           objectiveTitle,
@@ -201,8 +217,8 @@ async function ensurePlanningRootTask(args: {
   await taskStore.createTask({
     id: planningTaskId,
     companyId: args.context.employee.identity.companyId,
-    originatingTeamId: args.context.employee.identity.teamId ?? TEAM_WEB_PRODUCT,
-    assignedTeamId: args.context.employee.identity.teamId ?? TEAM_WEB_PRODUCT,
+    originatingTeamId: args.context.employee.identity.teamId,
+    assignedTeamId: args.context.employee.identity.teamId,
     ownerEmployeeId: args.context.employee.identity.employeeId,
     assignedEmployeeId: args.context.employee.identity.employeeId,
     createdByEmployeeId: args.context.employee.identity.employeeId,
@@ -283,6 +299,7 @@ async function createExecutionPlanArtifact(args: {
       planningTaskId: args.rootTask.id,
       steps: args.plan.steps.map((step) => ({
         id: step.id,
+        capability: step.capability,
         title: step.title,
         taskType: step.taskType,
         assignedTeamId: step.assignedTeamId,
@@ -318,7 +335,7 @@ async function createChildTaskGraph(args: {
       task: {
         id: stepTaskIds[step.id],
         companyId: args.context.employee.identity.companyId,
-        originatingTeamId: args.context.employee.identity.teamId ?? TEAM_WEB_PRODUCT,
+        originatingTeamId: args.context.employee.identity.teamId,
         assignedTeamId: step.assignedTeamId,
         ownerEmployeeId: args.context.employee.identity.employeeId,
         assignedEmployeeId: step.assignedEmployeeId,
@@ -427,7 +444,7 @@ export async function runPmAgent(
         `Roadmap objective: ${roadmap?.objective_title ?? "none"}`,
         `Current visible run count: ${currentRuns.length}`,
         "Primary PM responsibility: translate strategic intent into structured execution.",
-        "For PR11B, produce canonical plan artifacts and explicit child task graphs.",
+        "Resolve team ownership by capability instead of hard-coding planning routes in the agent.",
       ],
       additionalContext: {
         roadmap: {
@@ -442,8 +459,9 @@ export async function runPmAgent(
     env,
   );
 
-  const plan = buildWebsitePlan({
+  const plan = await buildWebsitePlan({
     context,
+    env,
     roadmap,
   });
 
@@ -508,6 +526,7 @@ export async function runPmAgent(
       `Planning root task: ${root.task.id}.`,
       `Plan artifact: ${planArtifactId}.`,
       `Child task count: ${Object.keys(stepTaskIds).length}.`,
+      "Ownership was resolved via capability routing.",
     ].join(" "),
   });
 
@@ -549,6 +568,12 @@ export async function runPmAgent(
     createdNewRootTask: root.createdNew,
     objectiveTitle: plan.objectiveTitle,
     stepTaskIds,
+    stepOwnership: plan.steps.map((step) => ({
+      id: step.id,
+      capability: step.capability,
+      assignedTeamId: step.assignedTeamId,
+      assignedEmployeeId: step.assignedEmployeeId,
+    })),
     cognitionMode: cognition.mode,
     cognitionIntent: cognition.structured?.intent,
     cognitionRiskLevel: cognition.structured?.riskLevel,
@@ -560,7 +585,9 @@ export async function runPmAgent(
     policyVersion: context.policyVersion,
     trigger: context.request.trigger,
     employee: context.employee.identity,
-    observedEmployeeIds: [VALIDATION_EMPLOYEE_ID],
+    observedEmployeeIds: plan.steps
+      .map((step) => step.assignedEmployeeId)
+      .filter((value): value is string => typeof value === "string"),
     scanned: {
       workLogEntries: 0,
       employeesObserved: 1,

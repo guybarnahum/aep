@@ -1722,6 +1722,44 @@ PR11C will wire worker execution and visible progress/result output more broadly
 - plans may create child tasks and dependencies
 - keep the task graph canonical; do not introduce a second orchestration engine
 
+### ✅ PR11.5 — org configuration decoupling bridge (COMPLETE)
+
+PR11.5 introduces an org resolver layer that decouples planning logic from directly hard-coded team and employee identities.
+
+What is implemented:
+
+- planning resolves ownership by capability rather than by embedding team names directly in PM planning logic
+- introduced `org-resolver.ts` with:
+  - `resolveTeamForCapability(companyId, capability)`
+  - `resolveEmployeeForTask({ companyId, teamId, taskType })`
+- current resolver behavior preserves repo-default routing:
+  - design -> `team_web_product`
+  - implementation -> `team_web_product`
+  - deployment -> `team_infra`
+  - validation -> `team_validation`
+- current validation assignment for `validate-deployment` still resolves to:
+  - `emp_val_specialist_01`
+- PM planning artifacts remain canonical and stable:
+  - `kind: execution_plan`
+  - child task IDs
+  - dependency structure
+- no task, thread, artifact, approval, or escalation primitive changed
+
+Important bridge-phase note:
+
+- PR11.5 is not yet full company/org configurability
+- it introduces the routing abstraction first
+- optional DB-backed team capability resolution may be added later without changing PM planning contracts
+
+What is explicitly NOT introduced:
+
+- no second orchestration engine
+- no hidden planner state
+- no free-form chat planning
+- no broad dynamic organization redesign in this stage
+
+PR11.5 establishes the routing bridge needed so PR11C and PR11D do not deepen hard-coded org assumptions.
+
 ### PR11C — worker execution and visible outputs
 - worker employees consume assigned tasks
 - emit result/evidence artifacts and bounded thread updates

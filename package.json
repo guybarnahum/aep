@@ -59,6 +59,7 @@
     "ci:operator-agent-org-schema-check": "tsx scripts/ci/checks/schema/operator-agent-org-schema-check.ts",
     "ci:org-schema-check": "tsx scripts/ci/checks/schema/org-schema-check.ts",
     "ci:org-inventory-route-check": "tsx scripts/ci/checks/schema/org-inventory-route-check.ts",
+    "ci:org-resolver-planning-defaults-check": "tsx scripts/ci/checks/scenarios/org-resolver-planning-defaults-check.ts",
     "ci:runtime-tenant-catalog-check": "tsx scripts/ci/checks/contracts/runtime-tenant-catalog-check.ts",
     "ci:runtime-projection-check": "tsx scripts/ci/checks/contracts/runtime-projection-check.ts",
     "ci:runtime-provenance-check": "tsx scripts/ci/checks/contracts/runtime-provenance-check.ts",
