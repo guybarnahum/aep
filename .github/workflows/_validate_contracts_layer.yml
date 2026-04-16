@@ -121,6 +121,10 @@ jobs:
         id: validation_result_artifact
         run: npx tsx scripts/ci/checks/contracts/validation-result-artifact-check.ts | tee validation-result-artifact-check.log
 
+      - name: Run task visibility summary check
+        id: task_visibility_summary
+        run: npx tsx scripts/ci/checks/contracts/task-visibility-summary-check.ts | tee task-visibility-summary-check.log
+
       - name: Employee persona continuity check
         run: npx tsx scripts/ci/checks/contracts/employee-persona-continuity-check.ts
 
@@ -150,6 +154,7 @@ jobs:
             "${{ steps.runtime_tenant_catalog.outcome }}" == "success" && \
             "${{ steps.employee_cognition_boundary.outcome }}" == "success" && \
             "${{ steps.validation_result_artifact.outcome }}" == "success" && \
+            "${{ steps.task_visibility_summary.outcome }}" == "success" && \
             "${{ steps.thread_rationale_publication.outcome }}" == "success" && \
             "${{ steps.public_rationale_artifact.outcome }}" == "success" && \
             "${{ steps.thread_task_delegation_contract.outcome }}" == "success" \
@@ -191,6 +196,7 @@ jobs:
           echo "- $(status_emoji "${{ steps.runtime_tenant_catalog.outcome }}") runtime-tenant-catalog-check: ${{ steps.runtime_tenant_catalog.outcome }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- $(status_emoji "${{ steps.employee_cognition_boundary.outcome }}") employee-cognition-boundary-check: ${{ steps.employee_cognition_boundary.outcome }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- $(status_emoji \"${{ steps.validation_result_artifact.outcome }}\") validation-result-artifact-check: ${{ steps.validation_result_artifact.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- $(status_emoji \"${{ steps.task_visibility_summary.outcome }}\") task-visibility-summary-check: ${{ steps.task_visibility_summary.outcome }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- $(status_emoji \"${{ steps.thread_rationale_publication.outcome }}\") thread-rationale-publication-check: ${{ steps.thread_rationale_publication.outcome }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- $(status_emoji \"${{ steps.public_rationale_artifact.outcome }}\") public-rationale-artifact-check: ${{ steps.public_rationale_artifact.outcome }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- $(status_emoji \"${{ steps.thread_task_delegation_contract.outcome }}\") thread-task-delegation-contract-check: ${{ steps.thread_task_delegation_contract.outcome }}" >> "$GITHUB_STEP_SUMMARY"

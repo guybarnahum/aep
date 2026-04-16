@@ -4,7 +4,7 @@ Repository (source of truth):
 👉 https://github.com/guybarnahum/aep
 
 The repository code is the source of truth.
-This document is aligned to commit a507536ab73d73776c4edd0045d61edf0570f32c.
+This document is aligned to commit fb79d7bd9bf37a6c2aa1034deba3e6519c36fa3b.
 
 ```bash
 titan@Titans-MacBook-Pro aep % tree . --gitignore 
@@ -1817,6 +1817,48 @@ What is explicitly NOT introduced:
 PR11D.3 completes the first validation-loop slice by proving:
 task -> validation employee -> artifact/decision/thread feedback
 through canonical AEP surfaces.
+
+### ✅ PR11E — human visibility and control hardening (COMPLETE)
+
+PR11E hardens human-facing observability over the existing canonical substrate without introducing new primitives or exposing private cognition.
+
+What is implemented:
+
+- `GET /agent/tasks/:id` now returns:
+  - `relatedThreads`
+  - `visibilitySummary`
+- task visibility summary now exposes legible, public control-relevant state:
+  - artifact counts by type
+  - whether plan/public-rationale/validation-result artifacts exist
+  - latest validation status
+  - latest decision verdict / employee
+  - related thread counts
+  - approval-thread and escalation-thread counts
+- `GET /agent/message-threads/:id` now returns:
+  - `visibilitySummary`
+- thread visibility summary now exposes:
+  - related task / approval / escalation linkage
+  - message count
+  - whether bounded public rationale publication exists
+  - latest public rationale presentation style
+  - approval and escalation action counts
+  - external projection count
+  - external interaction policy booleans
+
+Validation and workflow coverage:
+
+- added `task-visibility-summary-check.ts` to the contracts layer
+- added `human-visibility-summary-check.ts` to the scenarios/post-deploy layer
+- both checks enforce public-surface privacy boundaries on the new summary surfaces
+
+What is explicitly NOT introduced:
+
+- no new storage primitives
+- no route-level cognition generation
+- no raw private reasoning exposure
+- no UI-as-source-of-truth behavior
+
+PR11E completes the first human visibility/control hardening slice by making canonical task and thread read surfaces more legible for operators and reviewers.
 
 ### PR11A — employee loop ignition
 - add bounded employee loop behavior over inbox, tasks, and related thread/task context

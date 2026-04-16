@@ -145,6 +145,12 @@ jobs:
         run: |
           npx tsx scripts/ci/checks/scenarios/validation-loop-feedback-check.ts 2>&1 | tee -a post-deploy-validation.log
 
+      - name: Human visibility summary check
+        id: human_visibility_summary
+        if: steps.config.outputs.enabled == 'true' && steps.post_deploy_validation.outcome == 'success'
+        run: |
+          npx tsx scripts/ci/checks/scenarios/human-visibility-summary-check.ts 2>&1 | tee -a post-deploy-validation.log
+
       - name: Repeated PM persona continuity check
         id: repeated_pm_persona_continuity
         if: steps.config.outputs.enabled == 'true' && steps.post_deploy_validation.outcome == 'success'
@@ -267,6 +273,7 @@ jobs:
               ( "${{ steps.thread_delegation_scenarios.outcome }}" == "success" || "${{ steps.thread_delegation_scenarios.outcome }}" == "skipped" ) && \
               ( "${{ steps.repeated_validation_persona_continuity.outcome }}" == "success" || "${{ steps.repeated_validation_persona_continuity.outcome }}" == "skipped" ) && \
               ( "${{ steps.validation_loop_feedback.outcome }}" == "success" || "${{ steps.validation_loop_feedback.outcome }}" == "skipped" ) && \
+              ( "${{ steps.human_visibility_summary.outcome }}" == "success" || "${{ steps.human_visibility_summary.outcome }}" == "skipped" ) && \
               ( "${{ steps.repeated_pm_persona_continuity.outcome }}" == "success" || "${{ steps.repeated_pm_persona_continuity.outcome }}" == "skipped" ) && \
               ( "${{ steps.org_resolver_planning_defaults.outcome }}" == "success" || "${{ steps.org_resolver_planning_defaults.outcome }}" == "skipped" ) && \
               ( "${{ steps.external_style_message_idempotency.outcome }}" == "success" || "${{ steps.external_style_message_idempotency.outcome }}" == "skipped" ) && \
@@ -342,6 +349,7 @@ jobs:
           echo "- $(status_emoji "${{ steps.thread_delegation_scenarios.outcome }}") thread delegation scenarios: ${{ steps.thread_delegation_scenarios.outcome }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- $(status_emoji "${{ steps.repeated_validation_persona_continuity.outcome }}") repeated validation persona continuity check: ${{ steps.repeated_validation_persona_continuity.outcome }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- $(status_emoji "${{ steps.validation_loop_feedback.outcome }}") validation loop feedback check: ${{ steps.validation_loop_feedback.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- $(status_emoji "${{ steps.human_visibility_summary.outcome }}") human visibility summary check: ${{ steps.human_visibility_summary.outcome }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- $(status_emoji "${{ steps.repeated_pm_persona_continuity.outcome }}") repeated PM persona continuity check: ${{ steps.repeated_pm_persona_continuity.outcome }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- $(status_emoji "${{ steps.org_resolver_planning_defaults.outcome }}") org resolver planning defaults check: ${{ steps.org_resolver_planning_defaults.outcome }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- $(status_emoji "${{ steps.external_style_message_idempotency.outcome }}") external-style message idempotency check: ${{ steps.external_style_message_idempotency.outcome }}" >> "$GITHUB_STEP_SUMMARY"

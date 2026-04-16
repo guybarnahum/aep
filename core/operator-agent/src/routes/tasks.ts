@@ -1,3 +1,4 @@
+import { summarizeTaskVisibility } from "@aep/operator-agent/lib/human-visibility-summary";
 import { getTaskStore } from "@aep/operator-agent/lib/store-factory";
 import {
   TaskDependencyValidationError,
@@ -161,6 +162,11 @@ export async function handleGetTask(
     taskId,
     limit: 50,
   });
+  const relatedThreads = await store.listMessageThreads({
+    companyId: task.companyId,
+    relatedTaskId: taskId,
+    limit: 20,
+  });
 
   let decision: DecisionRow | null = null;
   if (task.status === "completed" || task.status === "failed") {
@@ -184,5 +190,19 @@ export async function handleGetTask(
     decision = row ?? null;
   }
 
-  return Response.json({ ok: true, task, dependencies, artifacts, decision });
+  const visibilitySummary = summarizeTaskVisibility({
+    artifacts,
+    decision,
+    relatedThreads,
+  });
+
+  return Response.json({
+    ok: true,
+    task,
+    dependencies,
+    artifacts,
+    decision,
+    relatedThreads,
+    visibilitySummary,
+  });
 }

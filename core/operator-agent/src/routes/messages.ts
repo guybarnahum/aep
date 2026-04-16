@@ -1,3 +1,4 @@
+import { summarizeThreadVisibility } from "@aep/operator-agent/lib/human-visibility-summary";
 import {
   authorizeExternalAction,
   authorizeInboundExternalReply,
@@ -789,6 +790,12 @@ export async function handleGetMessageThread(
   const externalThreadProjections = await store.listExternalThreadProjections(thread.id);
   const externalInteractionPolicy = await store.getThreadExternalInteractionPolicy(thread.id);
   const externalInteractionAudit = await store.listExternalInteractionAudit(thread.id);
+  const visibilitySummary = summarizeThreadVisibility({
+    thread,
+    messages,
+    externalThreadProjections,
+    externalInteractionPolicy,
+  });
 
   return Response.json({
     ok: true,
@@ -797,5 +804,6 @@ export async function handleGetMessageThread(
     externalInteractionPolicy,
     externalInteractionAudit,
     messages: messagesWithDeliveries,
+    visibilitySummary,
   });
 }
