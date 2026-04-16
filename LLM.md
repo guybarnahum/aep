@@ -4,7 +4,7 @@ Repository (source of truth):
 👉 https://github.com/guybarnahum/aep
 
 The repository code is the source of truth.  
-This document is aligned to commit `095e1edabef3583be4813ead714ad81fde4885bb`.
+This document is aligned to commit `d2e927d06dacda7956b94e111a103cdd4e68574d`.
 ```bash
 titan@Titans-MacBook-Pro aep % tree . --gitignore
 .
@@ -1127,6 +1127,26 @@ Scope:
 * external collaboration state
 * timeline / feed style views that show plan → execution → validation → governance coherently
 
+### PR12F — causality / why things happened
+
+Goal:
+
+Make company work explainable, not just visible.
+
+Scope:
+
+* show what caused a task to exist
+* show which canonical thread, approval, or escalation led to work
+* show which related threads/governance flows connect back to a task
+* show thread → task / approval / escalation linkage clearly
+* extend the activity timeline from "what happened" to "why this happened"
+
+Boundary:
+
+* causality remains a derived UI/read-surface projection
+* no new backend causality graph or stored activity graph
+* only canonical task/thread/provenance/linkage fields may be used
+
 ## PR12 must not do
 
 * must not make Slack/email canonical
@@ -1334,7 +1354,51 @@ This is the beginning of “work theater” without sacrificing canonicality.
 
 ---
 
+## PR12F — Causality / Why Things Happened (COMPLETED)
+
+The dashboard now exposes explicit causal links over canonical work and communication surfaces.
+
+### Implemented
+
+* task detail causality panel
+* thread detail causality panel
+* narrative timeline causality hints
+* derived links from:
+  * sourceThreadId
+  * sourceMessageId
+  * sourceApprovalId
+  * sourceEscalationId
+  * related threads
+  * approval-linked threads
+  * escalation-linked threads
+
+### Important rule preserved
+
+No backend causality graph or new canonical primitive was introduced.
+
+Causality is derived from existing canonical provenance and linkage fields.
+
+### Result
+
+Humans can now answer not only:
+
+> what is happening?
+
+but also:
+
+> why did this happen, and what canonical object led to it?
+
+---
+
 # 10. After PR12
+
+PR12 now includes:
+
+* PR12B — embodied employees and company presence
+* PR12C — human interjection through canonical thread collaboration
+* PR12D — external mirror visibility
+* PR12E — narrative company timeline / work theater
+* PR12F — causality / why things happened
 
 ## PR13 — Multi-agent operational company
 
@@ -1365,8 +1429,10 @@ Priority order:
 3. human interjection through canonical message threads
 4. employee embodiment / profile surfacing
 5. external mirror visibility in UI
-6. only after that, richer Slack/email collaboration infra such as team channels, personal DMs, team email aliases, and personal employee aliases
-5. only after that, deeper multi-agent collaboration mechanics
+6. company activity / work theater timeline
+7. causality surfaces explaining why work/governance objects exist
+8. only after that, richer Slack/email collaboration infra such as team channels, personal DMs, team email aliases, and personal employee aliases
+9. only after that, deeper multi-agent collaboration mechanics
 
 ---
 

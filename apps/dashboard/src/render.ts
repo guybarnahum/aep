@@ -106,6 +106,7 @@ import type {
   ApprovalActionFilter,
   ApprovalRecord,
   ApprovalStatusFilter,
+  CausalityLink,
   ControlHistoryRecord,
   DecisionSeverityFilter,
   EmployeeMessageRecord,
@@ -241,6 +242,165 @@ function threadKind(thread: MessageThreadRecord): string {
   if (thread.relatedEscalationId) return "escalation";
   if (thread.relatedTaskId) return "task";
   return "coordination";
+}
+
+function renderCausalityLinks(links: CausalityLink[]): string {
+  if (links.length === 0) {
+    return `<div class="empty-state small-empty">No explicit causal links recorded.</div>`;
+  }
+
+  return `
+    <div class="causality-link-list">
+      ${links
+        .map(
+          (link) => `
+            <a class="causality-link-item" href="${escapeHtml(link.href)}">
+              <span class="causality-link-kind">${escapeHtml(link.kind)}</span>
+              <strong>${escapeHtml(link.label)}</strong>
+              <span class="muted small">${escapeHtml(link.id)}</span>
+            </a>
+          `,
+        )
+        .join("")}
+    </div>
+  `;
+}
+
+function buildTaskCausalityLinks(detail: TaskDetail): CausalityLink[] {
+  const links: CausalityLink[] = [];
+
+  if (detail.task.sourceThreadId) {
+    links.push({
+      kind: "source_thread",
+      id: detail.task.sourceThreadId,
+      label: "Created from thread",
+      href: `#thread/${encodeURIComponent(detail.task.sourceThreadId)}`,
+    });
+  }
+
+  if (detail.task.sourceMessageId) {
+    links.push({
+      kind: "source_message",
+      id: detail.task.sourceMessageId,
+      label: "Triggered by message",
+      href: "#work",
+    });
+  }
+
+  if (detail.task.sourceApprovalId) {
+    links.push({
+      kind: "source_approval",
+      id: detail.task.sourceApprovalId,
+      label: "Originated from approval",
+      href: "#department",
+    });
+  }
+
+  if (detail.task.sourceEscalationId) {
+    links.push({
+      kind: "source_escalation",
+      id: detail.task.sourceEscalationId,
+      label: "Originated from escalation",
+      href: "#department",
+    });
+  }
+
+  for (const thread of detail.relatedThreads) {
+    if (thread.relatedApprovalId) {
+      links.push({
+        kind: "approval_thread",
+        id: thread.id,
+        label: thread.topic,
+        href: `#thread/${encodeURIComponent(thread.id)}`,
+      });
+      continue;
+    }
+
+    if (thread.relatedEscalationId) {
+      links.push({
+        kind: "escalation_thread",
+        id: thread.id,
+        label: thread.topic,
+        href: `#thread/${encodeURIComponent(thread.id)}`,
+      });
+      continue;
+    }
+
+    links.push({
+      kind: "related_thread",
+      id: thread.id,
+      label: thread.topic,
+      href: `#thread/${encodeURIComponent(thread.id)}`,
+    });
+  }
+
+  return links;
+}
+
+function buildThreadCausalityLinks(detail: MessageThreadDetail): CausalityLink[] {
+  const links: CausalityLink[] = [];
+
+  if (detail.thread.relatedTaskId) {
+    links.push({
+      kind: "source_thread",
+      id: detail.thread.relatedTaskId,
+      label: "Linked task",
+      href: `#task/${encodeURIComponent(detail.thread.relatedTaskId)}`,
+    });
+  }
+
+  if (detail.thread.relatedApprovalId) {
+    links.push({
+      kind: "source_approval",
+      id: detail.thread.relatedApprovalId,
+      label: "Linked approval",
+      href: "#department",
+    });
+  }
+
+  if (detail.thread.relatedEscalationId) {
+    links.push({
+      kind: "source_escalation",
+      id: detail.thread.relatedEscalationId,
+      label: "Linked escalation",
+      href: "#department",
+    });
+  }
+
+  return links;
+}
+
+function inferNarrativeCausalityLinks(item: NarrativeTimelineItem): CausalityLink[] {
+  const links: CausalityLink[] = [];
+
+  if (item.taskId && item.threadId) {
+    links.push({
+      kind: "related_thread",
+      id: item.threadId,
+      label: "Primary related thread",
+      href: `#thread/${encodeURIComponent(item.threadId)}`,
+    });
+  }
+
+  if (item.approvalId && item.threadId) {
+    links.push({
+      kind: "approval_thread",
+      id: item.threadId,
+      label: "Approval thread",
+      href: `#thread/${encodeURIComponent(item.threadId)}`,
+    });
+  }
+
+  if (item.escalationId && item.threadId) {
+    links.push({
+      kind: "escalation_thread",
+      id: item.threadId,
+      label: "Escalation thread",
+      href: `#thread/${encodeURIComponent(item.threadId)}`,
+    });
+  }
+
+  return links;
 }
 
 function formatTimestamp(value: string | null | undefined): string {
@@ -1713,6 +1873,14 @@ export function renderTaskDetail(detail: TaskDetail): string {
     </section>
 
     <section class="panel">
+      <div class="panel-header"><h3>Causality</h3></div>
+      <p class="muted">
+        Why this task exists, what triggered it, and which canonical threads/governance flows connect to it.
+      </p>
+      ${renderCausalityLinks(buildTaskCausalityLinks(detail))}
+    </section>
+
+    <section class="panel">
       <div class="panel-header"><h3>Artifacts</h3></div>
       ${renderArtifactsTable(detail.artifacts)}
     </section>
@@ -1860,6 +2028,14 @@ export function renderThreadDetail(detail: MessageThreadDetail): string {
         ${renderCompactPill("Related escalation", detail.thread.relatedEscalationId ?? "—")}
       </div>
       ${renderThreadVisibility(detail.visibilitySummary)}
+    </section>
+
+    <section class="panel">
+      <div class="panel-header"><h3>Causality</h3></div>
+      <p class="muted">
+        How this thread connects back to canonical work and governance state.
+      </p>
+      ${renderCausalityLinks(buildThreadCausalityLinks(detail))}
     </section>
 
     ${renderThreadInteractionPanel(detail)}
@@ -2083,6 +2259,8 @@ function renderNarrativeTimelineItem(item: NarrativeTimelineItem): string {
       ? `#thread/${encodeURIComponent(item.threadId)}`
       : "#company";
 
+  const causalityLinks = inferNarrativeCausalityLinks(item);
+
   return `
     <article class="timeline-card">
       <div class="timeline-card-top">
@@ -2107,6 +2285,17 @@ function renderNarrativeTimelineItem(item: NarrativeTimelineItem): string {
             <ul class="timeline-bullets">
               ${item.bullets.map((bullet) => `<li>${escapeHtml(bullet)}</li>`).join("")}
             </ul>
+          `
+          : ""
+      }
+
+      ${
+        causalityLinks.length > 0
+          ? `
+            <div class="timeline-causality">
+              <div class="timeline-causality-title">Why this matters</div>
+              ${renderCausalityLinks(causalityLinks)}
+            </div>
           `
           : ""
       }

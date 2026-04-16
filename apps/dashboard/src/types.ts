@@ -572,6 +572,20 @@ export type NarrativeTimeline = {
   items: NarrativeTimelineItem[];
 };
 
+export type CausalityLink = {
+  kind:
+    | "source_thread"
+    | "source_message"
+    | "source_approval"
+    | "source_escalation"
+    | "related_thread"
+    | "approval_thread"
+    | "escalation_thread";
+  id: string;
+  label: string;
+  href: string;
+};
+
 export type EscalationStateFilter = "all" | "open" | "acknowledged" | "resolved";
 
 export type DecisionSeverityFilter = "all" | "warning" | "critical";
