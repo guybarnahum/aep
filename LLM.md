@@ -4,7 +4,7 @@ Repository (source of truth):
 👉 https://github.com/guybarnahum/aep
 
 The repository code is the source of truth.
-This document is aligned to commit c3bbfffbc6664378491cf058dc9c1ddfb9710021.
+This document is aligned to commit a507536ab73d73776c4edd0045d61edf0570f32c.
 
 ```bash
 titan@Titans-MacBook-Pro aep % tree . --gitignore 
@@ -1710,6 +1710,43 @@ What is explicitly NOT introduced:
 PR11B establishes canonical manager planning.
 
 PR11C will wire worker execution and visible progress/result output more broadly over the created task graph.
+
+### ✅ PR11D.1 — canonical validation result artifacts (COMPLETE)
+
+PR11D.1 makes validation output a first-class canonical work product inside the existing employee/task/artifact model.
+
+What is implemented:
+
+- validation employees now emit a durable canonical validation artifact with:
+  - `artifactType: result`
+  - `content.kind: validation_result`
+- validation result artifacts include:
+  - `status: pass | fail | warning`
+  - `summary`
+  - `findings`
+  - `targetUrl`
+  - `statusCode` when available
+  - `recommendedNextAction` when applicable
+- validation employees still emit bounded public rationale separately through:
+  - canonical public rationale artifacts
+  - canonical thread publication layered on top
+- validation decisions now include:
+  - `validationStatus`
+  - `recommendedNextAction`
+- route-level `/agent/run` result artifacts remain generic orchestration artifacts
+- validation-specific semantics remain owned by the validation employee boundary
+
+What is explicitly NOT introduced in PR11D.1:
+
+- no new artifactType enum value
+- no route-level validation logic move into `/agent/run`
+- no new orchestration engine
+- no escalation automation redesign yet
+- no public exposure of private reasoning
+
+PR11D.1 establishes canonical validation outputs.
+
+The next validation slice should add CI contract/scenario proof for validation artifacts and loop feedback behavior.
 
 ### PR11A — employee loop ignition
 - add bounded employee loop behavior over inbox, tasks, and related thread/task context

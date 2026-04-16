@@ -768,6 +768,26 @@ export interface EmployeeRunResponse {
   message: string;
 }
 
+export type ValidationFindingSeverity = "error" | "warning" | "info";
+
+export type ValidationResultStatus = "pass" | "fail" | "warning";
+
+export interface ValidationFinding {
+  severity: ValidationFindingSeverity;
+  message: string;
+  evidence?: string;
+}
+
+export interface ValidationResultArtifact {
+  kind: "validation_result";
+  status: ValidationResultStatus;
+  summary: string;
+  findings: ValidationFinding[];
+  targetUrl?: string;
+  recommendedNextAction?: string;
+  statusCode?: number;
+}
+
 export interface ValidationTaskDecision {
   taskId: string;
   taskType: string;
@@ -775,6 +795,8 @@ export interface ValidationTaskDecision {
   verdict: "pass" | "fail" | "remediate" | "manual_escalation";
   reasoning: string;
   statusCode?: number;
+  validationStatus?: ValidationResultStatus;
+  recommendedNextAction?: string;
 }
 
 export interface ValidationAgentResponse {

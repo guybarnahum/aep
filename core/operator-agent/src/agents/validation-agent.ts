@@ -15,6 +15,9 @@ import type {
   OperatorAgentEnv,
   ResolvedEmployeeRunContext,
   ValidationAgentResponse,
+  ValidationFinding,
+  ValidationResultArtifact,
+  ValidationResultStatus,
   ValidationTaskDecision,
 } from "@aep/operator-agent/types";
 
@@ -27,6 +30,10 @@ function decisionId(taskId: string): string {
 
 function publicRationaleArtifactId(taskId: string): string {
   return `art_pubrat_${taskId}_${crypto.randomUUID().split("-")[0]}`;
+}
+
+function validationResultArtifactId(taskId: string): string {
+  return `art_valres_${taskId}_${crypto.randomUUID().split("-")[0]}`;
 }
 
 function getRequestedTaskId(
@@ -143,6 +150,76 @@ async function runHealthCheck(args: {
   }
 }
 
+function toValidationResult(args: {
+  targetUrl?: string;
+  taskType: string;
+  verdict: ValidationTaskDecision["verdict"];
+  reasoning: string;
+  statusCode?: number;
+}): ValidationResultArtifact & {
+  recommendedNextAction?: string;
+} {
+  if (args.verdict === "pass") {
+    const findings: ValidationFinding[] = [
+      {
+        severity: "info",
+        message: args.reasoning,
+      },
+    ];
+
+    return {
+      kind: "validation_result",
+      status: "pass",
+      summary: `Validation passed for ${args.taskType}.`,
+      findings,
+      targetUrl: args.targetUrl,
+      statusCode: args.statusCode,
+    };
+  }
+
+  if (args.verdict === "manual_escalation") {
+    const findings: ValidationFinding[] = [
+      {
+        severity: "warning",
+        message: args.reasoning,
+      },
+    ];
+
+    return {
+      kind: "validation_result",
+      status: "warning",
+      summary: `Validation requires manual escalation for ${args.taskType}.`,
+      findings,
+      targetUrl: args.targetUrl,
+      statusCode: args.statusCode,
+      recommendedNextAction: "review_validation_exception",
+    };
+  }
+
+  const findings: ValidationFinding[] = [
+    {
+      severity: "error",
+      message: args.reasoning,
+      evidence: typeof args.statusCode === "number"
+        ? `status_code:${args.statusCode}`
+        : undefined,
+    },
+  ];
+
+  return {
+    kind: "validation_result",
+    status: "fail",
+    summary: `Validation failed for ${args.taskType}.`,
+    findings,
+    targetUrl: args.targetUrl,
+    statusCode: args.statusCode,
+    recommendedNextAction:
+      args.verdict === "remediate"
+        ? "create_remediation_followup"
+        : "investigate_validation_failure",
+  };
+}
+
 async function recordTaskDecision(args: {
   env: OperatorAgentEnv;
   context: ResolvedEmployeeRunContext;
@@ -161,6 +238,28 @@ async function recordTaskDecision(args: {
     internalMonologue: args.internalMonologue,
     evidenceTraceId: getEvidenceTraceId(args.context),
   });
+}
+
+async function createValidationResultArtifact(args: {
+  env: OperatorAgentEnv;
+  context: ResolvedEmployeeRunContext;
+  task: Task;
+  validationResult: ValidationResultArtifact;
+}): Promise<string> {
+  const taskStore = getTaskStore(args.env);
+  const artifactId = validationResultArtifactId(args.task.id);
+
+  await taskStore.createArtifact({
+    id: artifactId,
+    taskId: args.task.id,
+    companyId: args.task.companyId,
+    artifactType: "result",
+    createdByEmployeeId: args.context.employee.identity.employeeId,
+    summary: args.validationResult.summary,
+    content: args.validationResult,
+  });
+
+  return artifactId;
 }
 
 async function createPublicRationaleArtifact(args: {
@@ -210,7 +309,6 @@ async function processValidationTask(args: {
   try {
     const targetUrl = requireTargetUrl(args.task);
 
-    // SENSE: Run the health check
     const healthCheck = await runHealthCheck({
       targetUrl,
       env: args.env,
@@ -241,21 +339,38 @@ async function processValidationTask(args: {
 
     const publicRationale = derivePublicRationale(cognition);
 
-    const artifactId = await createPublicRationaleArtifact({
+    const validationResult = toValidationResult({
+      targetUrl,
+      taskType: args.task.taskType,
+      verdict: healthCheck.verdict,
+      reasoning: healthCheck.reasoning,
+      statusCode: healthCheck.statusCode,
+    });
+
+    await createValidationResultArtifact({
+      env: args.env,
+      context: args.context,
+      task: args.task,
+      validationResult,
+    });
+
+    const rationaleArtifactId = await createPublicRationaleArtifact({
       env: args.env,
       context: args.context,
       task: args.task,
       presentationStyle: publicRationale.presentationStyle,
       summary: publicRationale.summary,
       rationale: publicRationale.rationale,
-      recommendedNextAction: publicRationale.recommendedNextAction,
+      recommendedNextAction:
+        publicRationale.recommendedNextAction
+        ?? validationResult.recommendedNextAction,
     });
 
     await publishTaskRationaleToThread({
       env: args.env,
       companyId: args.task.companyId,
       taskId: args.task.id,
-      artifactId,
+      artifactId: rationaleArtifactId,
       employeeId: args.context.employee.identity.employeeId,
       rationale: publicRationale,
     });
@@ -276,18 +391,34 @@ async function processValidationTask(args: {
       verdict: healthCheck.verdict,
       reasoning: healthCheck.reasoning,
       statusCode: healthCheck.statusCode,
+      validationStatus: validationResult.status,
+      recommendedNextAction: validationResult.recommendedNextAction,
     };
 
     logInfo("validation task processed", {
       employeeId: args.context.employee.identity.employeeId,
       taskId: args.task.id,
       verdict: decision.verdict,
+      validationStatus: decision.validationStatus,
       targetUrl,
     });
 
     return decision;
   } catch (error) {
     const reasoning = error instanceof Error ? error.message : String(error);
+
+    const validationResult = toValidationResult({
+      taskType: args.task.taskType,
+      verdict: "fail",
+      reasoning,
+    });
+
+    await createValidationResultArtifact({
+      env: args.env,
+      context: args.context,
+      task: args.task,
+      validationResult,
+    });
 
     await recordTaskDecision({
       env: args.env,
@@ -308,6 +439,8 @@ async function processValidationTask(args: {
       taskType: args.task.taskType,
       verdict: "fail",
       reasoning,
+      validationStatus: validationResult.status,
+      recommendedNextAction: validationResult.recommendedNextAction,
     };
   }
 }
@@ -365,6 +498,19 @@ export async function runValidationAgent(
     if (task.taskType !== VALIDATION_TASK_TYPE) {
       if (requestedTaskId && task.id === requestedTaskId) {
         const reasoning = `Task ${task.id} uses unsupported taskType ${task.taskType}`;
+        const validationResult = toValidationResult({
+          taskType: task.taskType,
+          verdict: "manual_escalation",
+          reasoning,
+        });
+
+        await createValidationResultArtifact({
+          env,
+          context,
+          task,
+          validationResult,
+        });
+
         await recordTaskDecision({
           env,
           context,
@@ -372,11 +518,14 @@ export async function runValidationAgent(
           verdict: "manual_escalation",
           reasoning,
         });
+
         decisions.push({
           taskId: task.id,
           taskType: task.taskType,
           verdict: "manual_escalation",
           reasoning,
+          validationStatus: validationResult.status,
+          recommendedNextAction: validationResult.recommendedNextAction,
         });
       }
       continue;
