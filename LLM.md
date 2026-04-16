@@ -5,7 +5,7 @@ Repository (source of truth):
 
 The repository code is the source of truth.  
 This document is aligned to commit `812b9cd918758f7ddb8087909ecaee442d24c1e5`.
-
+```bash
 titan@Titans-MacBook-Pro aep % tree . --gitignore
 .
 ├── apps
@@ -441,7 +441,7 @@ titan@Titans-MacBook-Pro aep % tree . --gitignore
 │       └── src
 │           └── index.ts
 └── tsconfig.base.json
-
+```
 ---
 
 # 1. What AEP is
