@@ -1037,3 +1037,8 @@ button:disabled {
   gap: 8px;
   justify-items: end;
 }
+
+.detail-note {
+  margin-top: 12px;
+  line-height: 1.5;
+}

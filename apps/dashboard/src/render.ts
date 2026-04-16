@@ -225,8 +225,6 @@ function statusRank(status: TaskStatus): number {
       return 0;
     case "ready":
       return 1;
-    case "queued":
-      return 2;
     case "blocked":
       return 3;
     case "escalated":
@@ -235,8 +233,6 @@ function statusRank(status: TaskStatus): number {
       return 5;
     case "completed":
       return 6;
-    default:
-      return 7;
   }
 }
 
@@ -963,7 +959,9 @@ export function renderToolbar(args: {
     <section class="panel toolbar-panel">
       <div class="toolbar">
         <div class="toolbar-group">
-          <p class="muted">Tenant-facing view plus operator governance surface.</p>
+          <p class="muted">
+            Canonical view of company work, governance, and external collaboration.
+          </p>
           ${args.mutationStatus ? `<p class="mutation-status">${escapeHtml(args.mutationStatus)}</p>` : ""}
         </div>
 
@@ -987,22 +985,22 @@ export function renderPrimaryNav(args: {
     <section class="panel toolbar-panel">
       <div class="view-nav">
         <a class="view-nav-link ${args.activeView === "tenant" ? "view-nav-link-active" : ""}" href="${escapeHtml(args.tenantHref)}">
-          Tenant view
+          Tenants
         </a>
         <a class="view-nav-link ${args.activeView === "work" ? "view-nav-link-active" : ""}" href="#work">
           Work
         </a>
+        <a class="view-nav-link ${args.activeView === "activity" ? "view-nav-link-active" : ""}" href="#activity">
+          Activity
+        </a>
         <a class="view-nav-link ${args.activeView === "company" ? "view-nav-link-active" : ""}" href="#company">
-          Company view
+          Company
         </a>
         <a class="view-nav-link ${args.activeView === "mirrors" ? "view-nav-link-active" : ""}" href="#mirrors">
           Mirrors
         </a>
-        <a class="view-nav-link ${args.activeView === "activity" ? "view-nav-link-active" : ""}" href="#activity">
-          Activity
-        </a>
         <a class="view-nav-link ${args.activeView === "department" ? "view-nav-link-active" : ""}" href="#department">
-          Department view
+          Governance
         </a>
       </div>
     </section>
@@ -2052,8 +2050,8 @@ export function renderCompanyOverview(overview: OrgPresenceOverview): string {
           <span class="muted small">Canonical tasks and threads</span>
         </a>
         <a class="nav-card" href="#department">
-          <strong>Department</strong>
-          <span class="muted small">Governance, approvals, and escalations</span>
+          <strong>Governance</strong>
+          <span class="muted small">Approvals, escalations, controls, and manager oversight</span>
         </a>
       </div>
     </section>
@@ -2347,6 +2345,9 @@ export function renderThreadDetail(detail: MessageThreadDetail): string {
         ${renderCompactPill("Related escalation", detail.thread.relatedEscalationId ?? "—")}
       </div>
       ${renderThreadVisibility(detail.visibilitySummary)}
+      <p class="muted detail-note">
+        This is the canonical AEP thread. Slack and email are projections over this thread, not the source of truth.
+      </p>
     </section>
 
     <section class="panel">
@@ -2540,7 +2541,7 @@ export function renderExternalMirrorOverview(
       <div class="panel-header">
         <h2>External mirrors</h2>
         <p class="muted">
-          Slack and email are visible here as adapter projections over canonical AEP threads.
+          Slack and email are adapter projections over canonical AEP threads. They do not replace canonical tasks, threads, approvals, escalations, or provenance.
         </p>
       </div>
       <div class="summary-grid">
@@ -2557,7 +2558,7 @@ export function renderExternalMirrorOverview(
       <div class="panel-header">
         <h2>Projection overview</h2>
         <p class="muted">
-          Open any canonical thread to see the underlying thread-first detail. This view keeps mirrors visibly secondary.
+          Open any canonical thread to inspect the underlying source-of-truth conversation. This view keeps external systems visibly secondary to AEP-native state.
         </p>
       </div>
       <div class="work-grid">

@@ -4,7 +4,7 @@ Repository (source of truth):
 👉 https://github.com/guybarnahum/aep
 
 The repository code is the source of truth.  
-This document is aligned to commit `d2e927d06dacda7956b94e111a103cdd4e68574d`.
+This document is aligned to commit `adb0e2e31076427341442fd3cddf6dd15233ad43`.
 ```bash
 titan@Titans-MacBook-Pro aep % tree . --gitignore
 .
@@ -1188,6 +1188,27 @@ Boundary:
 * no synthetic history model
 * continuity must be derived from tasks, threads, decisions, and control history already recorded canonically
 
+### PR12J — UX / copy / canonicality tightening
+
+Goal:
+
+Make the company UI clearer, more internally consistent, and more explicit about AEP canonicality.
+
+Scope:
+
+* tighten navigation naming
+* remove copy drift from older “tenant-facing dashboard” language
+* make governance labeling clearer
+* make thread and mirror canonicality explicit in UI copy
+* improve conceptual legibility without changing the underlying model
+
+Boundary:
+
+* presentation-only
+* no new routes or backend primitives
+* no behavior changes
+* no new canonical state
+
 ## PR12 must not do
 
 * must not make Slack/email canonical
@@ -1489,6 +1510,32 @@ Employees now appear not only as profiles and governance targets, but as:
 
 ---
 
+## PR12J — UX / Copy / Canonicality Tightening (COMPLETED)
+
+The dashboard now presents the PR12 surfaces with clearer naming and stronger canonicality framing.
+
+### Implemented
+
+* tightened primary navigation labels
+* replaced outdated toolbar copy
+* clarified governance labeling
+* clarified thread canonicality in thread detail
+* clarified mirror secondary/projection status in mirrors view
+
+### Important rule preserved
+
+This was a presentation-only tightening pass.
+
+No backend primitives, routes, or canonical state changed.
+
+### Result
+
+The company UI now better communicates the real AEP model:
+
+> canonical company work lives in AEP, while external systems remain secondary projections
+
+---
+
 # 10. After PR12
 
 PR12 now includes:
@@ -1500,6 +1547,7 @@ PR12 now includes:
 * PR12F — causality / why things happened
 * PR12G — active control surfaces / steering
 * PR12H — identity continuity / employees feel real over time
+* PR12J — UX / copy / canonicality tightening
 
 ## PR13 — Multi-agent operational company
 
@@ -1534,8 +1582,9 @@ Priority order:
 7. causality surfaces explaining why work/governance objects exist
 8. active steering/control surfaces using existing canonical routes
 9. identity continuity and recent-work continuity for employees
-10. only after that, richer Slack/email collaboration infra such as team channels, personal DMs, team email aliases, and personal employee aliases
-11. only after that, deeper multi-agent collaboration mechanics
+10. UX/copy/canonicality tightening over the PR12 surfaces
+11. only after that, richer Slack/email collaboration infra such as team channels, personal DMs, team email aliases, and personal employee aliases
+12. only after that, deeper multi-agent collaboration mechanics
 
 ---
 
