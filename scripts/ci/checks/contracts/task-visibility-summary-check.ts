@@ -108,7 +108,7 @@ async function main(): Promise<void> {
     taskId: task.taskId,
   });
 
-  if (!runResult?.ok || !runResult?.status !== "completed") {
+  if (!runResult?.ok || runResult?.status !== "completed") {
     throw new Error(`Expected completed validation run, got ${JSON.stringify(runResult)}`);
   }
 
