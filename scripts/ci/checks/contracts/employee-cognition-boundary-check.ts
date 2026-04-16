@@ -19,7 +19,6 @@ const FORBIDDEN_PUBLIC_FIELDS = [
   "portrait_prompt",
   "prompt_version",
 
-  // PR7.8B structured cognition fields must remain private/internal.
   "intent",
   "riskLevel",
   "suggestedNextAction",
@@ -32,13 +31,19 @@ const FORBIDDEN_PRIVATE_DECISION_FIELDS = [
   "internal_monologue",
   "privateReasoning",
   "private_reasoning",
-
-  // Defensive: these also must not surface via public task detail.
   "intent",
   "riskLevel",
   "suggestedNextAction",
   "risk_level",
   "suggested_next_action",
+];
+
+const FORBIDDEN_PUBLIC_ARTIFACT_FIELDS = [
+  ...FORBIDDEN_PUBLIC_FIELDS,
+  "privateReasoning",
+  "private_reasoning",
+  "internalMonologue",
+  "internal_monologue",
 ];
 
 function assertFieldsAbsent(payload: unknown, fields: string[], surface: string): void {
@@ -89,6 +94,21 @@ function getTargetUrl(): string {
   );
 }
 
+function findPublicRationaleArtifacts(taskDetail: Record<string, unknown>): Record<string, unknown>[] {
+  const artifacts = Array.isArray(taskDetail.artifacts)
+    ? (taskDetail.artifacts as Record<string, unknown>[])
+    : [];
+
+  return artifacts.filter((artifact) => {
+    const content =
+      artifact.content && typeof artifact.content === "object"
+        ? (artifact.content as Record<string, unknown>)
+        : undefined;
+
+    return content?.kind === "public_rationale";
+  });
+}
+
 async function main(): Promise<void> {
   const client = createOperatorAgentClient();
 
@@ -114,8 +134,6 @@ async function main(): Promise<void> {
     assertEmployeeProjectionPrivacy(employee, index);
   });
 
-  // Create a fresh task so this check is deterministic and does not inspect
-  // historical artifacts produced by older code in the target environment.
   const task = await client.createTask({
     companyId: "company_internal_aep",
     originatingTeamId: "team_infra",
@@ -154,7 +172,6 @@ async function main(): Promise<void> {
     throw new Error(`Failed to fetch task detail for ${task.taskId}: ${JSON.stringify(taskDetail)}`);
   }
 
-  // The whole public task-detail payload must not leak structured cognition.
   assertFieldsAbsent(
     taskDetail,
     FORBIDDEN_PUBLIC_FIELDS,
@@ -169,17 +186,25 @@ async function main(): Promise<void> {
     );
   }
 
-  if (Array.isArray(taskDetail.artifacts)) {
-    taskDetail.artifacts.forEach((artifact: Record<string, unknown>, index: number) => {
-      if (artifact.content && typeof artifact.content === "object") {
-        assertFieldsAbsent(
-          artifact.content,
-          [...FORBIDDEN_PUBLIC_FIELDS, "privateReasoning", "private_reasoning"],
-          `/agent/tasks/:id artifacts[${index}].content`,
-        );
-      }
-    });
+  const rationaleArtifacts = findPublicRationaleArtifacts(taskDetail as Record<string, unknown>);
+  if (rationaleArtifacts.length === 0) {
+    throw new Error(`Expected at least one public rationale artifact on task ${task.taskId}`);
   }
+
+  rationaleArtifacts.forEach((artifact, index) => {
+    const content =
+      artifact.content && typeof artifact.content === "object"
+        ? (artifact.content as Record<string, unknown>)
+        : undefined;
+
+    if (content) {
+      assertFieldsAbsent(
+        content,
+        FORBIDDEN_PUBLIC_ARTIFACT_FIELDS,
+        `/agent/tasks/:id public_rationale_artifacts[${index}].content`,
+      );
+    }
+  });
 
   const relatedThreads = await client.listMessageThreads({
     relatedTaskId: task.taskId,
@@ -199,7 +224,7 @@ async function main(): Promise<void> {
         if (typeof message.body === "string") {
           assertFieldsAbsent(
             message.body,
-            [...FORBIDDEN_PUBLIC_FIELDS, "privateReasoning", "private_reasoning"],
+            FORBIDDEN_PUBLIC_ARTIFACT_FIELDS,
             `/agent/message-threads/${thread.id} messages[${messageIndex}].body`,
           );
         }
@@ -207,7 +232,7 @@ async function main(): Promise<void> {
         if (message.payload && typeof message.payload === "object") {
           assertFieldsAbsent(
             message.payload,
-            [...FORBIDDEN_PUBLIC_FIELDS, "privateReasoning", "private_reasoning"],
+            FORBIDDEN_PUBLIC_ARTIFACT_FIELDS,
             `/agent/message-threads/${thread.id} messages[${messageIndex}].payload`,
           );
         }
@@ -218,6 +243,7 @@ async function main(): Promise<void> {
   console.log("employee-cognition-boundary-check passed", {
     taskId: task.taskId,
     employeeCount: employeesResponse.count,
+    rationaleArtifactCount: rationaleArtifacts.length,
   });
 }
 

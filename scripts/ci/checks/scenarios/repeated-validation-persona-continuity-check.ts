@@ -287,8 +287,6 @@ async function main(): Promise<void> {
   const threadResults: Array<{ taskId: string; publicationObserved: boolean; threadIds: string[] }> = [];
 
   for (const sample of samples) {
-    // Do not assert forbidden fields against the entire task detail payload.
-    // The decision object may contain private/internal storage by design.
     if (Array.isArray(sample.taskDetail.artifacts)) {
       sample.taskDetail.artifacts.forEach((artifact: Record<string, unknown>, index: number) => {
         if (artifact.content && typeof artifact.content === "object") {
