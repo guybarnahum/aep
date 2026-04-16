@@ -1,6 +1,4 @@
 import type {
-  ExternalInteractionAuditRecord,
-  ExternalThreadProjectionRecord,
   MessageThreadDetail,
   MessageThreadRecord,
   TaskDetail,
@@ -188,16 +186,6 @@ export async function getMessageThreadDetail(
     getOperatorAgentBaseUrl(),
     `/agent/message-threads/${encodeURIComponent(threadId)}`,
   );
-}
-
-export async function getRelatedThreadsForTask(
-  taskId: string,
-): Promise<MessageThreadRecord[]> {
-  const payload = await getJson<{ ok: boolean; threads: MessageThreadRecord[] }>(
-    getOperatorAgentBaseUrl(),
-    `/agent/message-threads?relatedTaskId=${encodeURIComponent(taskId)}&limit=50`,
-  );
-  return payload.threads ?? [];
 }
 
 export async function approveApproval(

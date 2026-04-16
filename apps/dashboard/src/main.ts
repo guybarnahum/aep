@@ -26,13 +26,11 @@ import {
 import type { DepartmentFilters, DepartmentPaginationState, PageSize, TenantSummary, WorkOverview } from "./types";
 import {
   renderDepartmentOverview,
-  renderDepartmentFilters,
   renderPrimaryNav,
   renderServiceOverview,
   renderTaskDetail,
   renderThreadDetail,
   renderTenantOverview,
-  renderTenantSelector,
   renderToolbar,
   renderWorkOverview,
 } from "./render";
@@ -302,7 +300,7 @@ function renderShell(content: string, error?: string): void {
       <header class="app-header">
         <div>
           <h1>AEP Dashboard</h1>
-          <p class="muted">Tenant view plus operator governance view.</p>
+          <p class="muted">Tenant, work, and operator-governance views.</p>
         </div>
         <div class="endpoint-stack muted">
           <div>Control plane: ${getApiBaseUrl()}</div>

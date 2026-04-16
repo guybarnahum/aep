@@ -115,8 +115,6 @@ import type {
   EmployeeRuntimeStatusFilter,
   EscalationRecord,
   EscalationStateFilter,
-  ExternalInteractionAuditRecord,
-  ExternalThreadProjectionRecord,
   ManagerDecisionRecord,
   MessageThreadDetail,
   MessageThreadRecord,
@@ -125,10 +123,8 @@ import type {
   TaskDependency,
   TaskDetail,
   TaskRecord,
-  ThreadExternalInteractionPolicyRecord,
   ThreadVisibilitySummary,
   TaskVisibilitySummary,
-  TaskDecisionRecord,
   TaskStatus,
   WorkOverview,
   RunSummary,
@@ -335,10 +331,6 @@ function renderOpsConsoleLink(run: RunSummary | null): string {
       Open in ops console
     </a>
   `;
-}
-
-function employeeStateSummaryClass(state: EmployeeStateValue): string {
-  return statusClass(state);
 }
 
 function renderSummaryCard(title: string, value: string | number, detail: string): string {
