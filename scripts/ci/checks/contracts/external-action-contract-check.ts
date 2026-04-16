@@ -9,8 +9,8 @@ const CHECK_NAME = "external-action-contract-check";
 const CHECK_LABEL = "external action contract check";
 
 function softSkip(reason: string): never {
-  console.warn(`- SKIP: ${CHECK_LABEL} (${reason})`);
-  console.log(`${CHECK_NAME} skipped`, { reason });
+  console.warn(`external-action-contract-check skipped: ${reason}`);
+  console.log("external-action-contract-check skipped", { reason });
   process.exit(0);
 }
 
@@ -26,10 +26,40 @@ async function main(): Promise<void> {
   try {
     await client.endpointExists("/agent/messages/external-action");
   } catch (error) {
-    if (handleOperatorAgentSoftSkip(CHECK_NAME, error)) {
+    if (handleOperatorAgentSoftSkip("external-action-contract-check", error)) {
       process.exit(0);
     }
     throw error;
+  }
+
+  const baseUrl = client.baseUrl.replace(/\/$/, "");
+  const externalActionUrl = `${baseUrl}/agent/messages/external-action`;
+  const seedApprovalUrl = `${baseUrl}/agent/te/seed-approval`;
+
+  // --- HARD REQUIREMENT ---
+  // external action route must exist in this commit
+  const externalActionProbe = await fetch(externalActionUrl, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({}),
+  });
+
+  if (externalActionProbe.status === 404) {
+    throw new Error(
+      "external action route missing on deployment; expected /agent/messages/external-action to exist",
+    );
+  }
+
+  // --- SOFT REQUIREMENT ---
+  // seed endpoint may be disabled in live environments
+  const seedProbe = await fetch(seedApprovalUrl, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({}),
+  });
+
+  if (seedProbe.status === 404) {
+    softSkip("approval seed endpoint not enabled on this deployment");
   }
 
   const seeded = await client.seedApproval({
