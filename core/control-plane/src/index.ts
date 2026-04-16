@@ -108,6 +108,64 @@ function badRequest(message: string): Response {
   return Response.json({ error: message }, { status: 400 });
 }
 
+function elapsedMsSince(startedAtMs: number): number {
+  return Date.now() - startedAtMs;
+}
+
+async function emitWorkflowStartDebugEvent(args: {
+  env: Env;
+  traceId: string;
+  workflowRunId: string;
+  phase: string;
+  startedAtMs: number;
+  payload?: Record<string, unknown>;
+}): Promise<void> {
+  await emitEvent(args.env.DB, {
+    traceId: args.traceId,
+    workflowRunId: args.workflowRunId,
+    stepName: "workflow_start" as never,
+    eventType: "workflow.start.debug",
+    payload: {
+      phase: args.phase,
+      elapsed_ms: elapsedMsSince(args.startedAtMs),
+      ...(args.payload ?? {}),
+    },
+  });
+}
+
+function logWorkflowStartDebug(args: {
+  workflowRunId: string;
+  traceId: string;
+  phase: string;
+  startedAtMs: number;
+  payload?: Record<string, unknown>;
+}): void {
+  console.log("workflow.start.debug", {
+    workflow_run_id: args.workflowRunId,
+    trace_id: args.traceId,
+    phase: args.phase,
+    elapsed_ms: elapsedMsSince(args.startedAtMs),
+    ...(args.payload ?? {}),
+  });
+}
+
+function logWorkflowStartError(args: {
+  workflowRunId: string;
+  traceId: string;
+  phase: string;
+  startedAtMs: number;
+  error: unknown;
+}): void {
+  console.error("workflow.start.error", {
+    workflow_run_id: args.workflowRunId,
+    trace_id: args.traceId,
+    phase: args.phase,
+    elapsed_ms: elapsedMsSince(args.startedAtMs),
+    error_message: args.error instanceof Error ? args.error.message : String(args.error),
+    error_stack: args.error instanceof Error ? args.error.stack : undefined,
+  });
+}
+
 function requireString(value: unknown, field: string): string {
   if (typeof value !== "string" || value.trim() === "") {
     throw new Error(`Invalid ${field}`);
@@ -1015,8 +1073,36 @@ export default {
     }
 
     if (request.method === "POST" && url.pathname === "/workflow/start") {
+      const startedAtMs = Date.now();
+      const workflowRunId = newId("run");
+      const traceId = newId("trace");
+
       try {
+        logWorkflowStartDebug({
+          workflowRunId,
+          traceId,
+          phase: "request_received",
+          startedAtMs,
+          payload: {
+            method: request.method,
+            pathname: url.pathname,
+            cf_ray: request.headers.get("cf-ray"),
+          },
+        });
+
         const body = (await json(request)) as Partial<StartWorkflowRequest>;
+
+        logWorkflowStartDebug({
+          workflowRunId,
+          traceId,
+          phase: "request_json_parsed",
+          startedAtMs,
+          payload: {
+            body_keys:
+              body && typeof body === "object" ? Object.keys(body) : [],
+          },
+        });
+
         const payload: StartWorkflowRequest = {
           tenant_id: requireString(body.tenant_id, "tenant_id"),
           project_id: requireString(body.project_id, "project_id"),
@@ -1028,8 +1114,20 @@ export default {
           teardown_mode: parseTeardownMode(body.teardown_mode),
         };
 
-        const workflowRunId = newId("run");
-        const traceId = newId("trace");
+        logWorkflowStartDebug({
+          workflowRunId,
+          traceId,
+          phase: "payload_validated",
+          startedAtMs,
+          payload: {
+            tenant_id: payload.tenant_id,
+            project_id: payload.project_id,
+            service_name: payload.service_name,
+            provider: payload.provider,
+            deploy_mode: payload.deploy_mode,
+            teardown_mode: payload.teardown_mode,
+          },
+        });
 
         await env.DB.prepare(
           `INSERT INTO workflow_runs (id, tenant_id, project_id, service_name, repo_url, branch, status, trace_id, created_at)
@@ -1048,9 +1146,45 @@ export default {
           )
           .run();
 
+        await emitWorkflowStartDebugEvent({
+          env,
+          traceId,
+          workflowRunId,
+          phase: "workflow_run_inserted",
+          startedAtMs,
+          payload: {
+            tenant_id: payload.tenant_id,
+            project_id: payload.project_id,
+            service_name: payload.service_name,
+          },
+        });
+
+        logWorkflowStartDebug({
+          workflowRunId,
+          traceId,
+          phase: "workflow_run_inserted",
+          startedAtMs,
+        });
+
         const id = env.WORKFLOW_COORDINATOR.idFromName(workflowRunId);
         const stub = env.WORKFLOW_COORDINATOR.get(id);
-        await stub.fetch(
+
+        await emitWorkflowStartDebugEvent({
+          env,
+          traceId,
+          workflowRunId,
+          phase: "before_do_start_fetch",
+          startedAtMs,
+        });
+
+        logWorkflowStartDebug({
+          workflowRunId,
+          traceId,
+          phase: "before_do_start_fetch",
+          startedAtMs,
+        });
+
+        const doResponse = await stub.fetch(
           new Request("https://do/start", {
             method: "POST",
             body: JSON.stringify({
@@ -1061,6 +1195,44 @@ export default {
           }),
         );
 
+        await emitWorkflowStartDebugEvent({
+          env,
+          traceId,
+          workflowRunId,
+          phase: "after_do_start_fetch",
+          startedAtMs,
+          payload: {
+            do_status: doResponse.status,
+            do_status_text: doResponse.statusText,
+          },
+        });
+
+        logWorkflowStartDebug({
+          workflowRunId,
+          traceId,
+          phase: "after_do_start_fetch",
+          startedAtMs,
+          payload: {
+            do_status: doResponse.status,
+            do_status_text: doResponse.statusText,
+          },
+        });
+
+        await emitWorkflowStartDebugEvent({
+          env,
+          traceId,
+          workflowRunId,
+          phase: "returning_accepted",
+          startedAtMs,
+        });
+
+        logWorkflowStartDebug({
+          workflowRunId,
+          traceId,
+          phase: "returning_accepted",
+          startedAtMs,
+        });
+
         return Response.json(
           {
             workflow_run_id: workflowRunId,
@@ -1070,6 +1242,37 @@ export default {
           { status: 202 },
         );
       } catch (error) {
+        try {
+          await emitWorkflowStartDebugEvent({
+            env,
+            traceId,
+            workflowRunId,
+            phase: "failed",
+            startedAtMs,
+            payload: {
+              error_message:
+                error instanceof Error ? error.message : String(error),
+            },
+          });
+        } catch (emitError) {
+          console.error("workflow.start.debug.emit_failed", {
+            workflow_run_id: workflowRunId,
+            trace_id: traceId,
+            phase: "failed",
+            elapsed_ms: elapsedMsSince(startedAtMs),
+            error_message:
+              emitError instanceof Error ? emitError.message : String(emitError),
+          });
+        }
+
+        logWorkflowStartError({
+          workflowRunId,
+          traceId,
+          phase: "failed",
+          startedAtMs,
+          error,
+        });
+
         return badRequest(
           error instanceof Error ? error.message : "Invalid request body",
         );
