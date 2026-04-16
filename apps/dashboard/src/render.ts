@@ -108,14 +108,29 @@ import type {
   ApprovalStatusFilter,
   ControlHistoryRecord,
   DecisionSeverityFilter,
+  EmployeeMessageRecord,
   DepartmentFilters,
   DepartmentOverview,
   EmployeeStateValue,
   EmployeeRuntimeStatusFilter,
   EscalationRecord,
   EscalationStateFilter,
+  ExternalInteractionAuditRecord,
+  ExternalThreadProjectionRecord,
   ManagerDecisionRecord,
+  MessageThreadDetail,
+  MessageThreadRecord,
   OperatorEmployeeRecord,
+  TaskArtifactRecord,
+  TaskDependency,
+  TaskDetail,
+  TaskRecord,
+  ThreadExternalInteractionPolicyRecord,
+  ThreadVisibilitySummary,
+  TaskVisibilitySummary,
+  TaskDecisionRecord,
+  TaskStatus,
+  WorkOverview,
   RunSummary,
   ServiceOverview,
   TenantOverview,
@@ -155,6 +170,24 @@ function statusClass(status: string | null | undefined): string {
       return "status status-waiting";
     case "running":
       return "status status-running";
+    case "queued":
+      return "status status-open";
+    case "blocked":
+      return "status status-failed";
+    case "ready":
+      return "status status-waiting";
+    case "in_progress":
+      return "status status-running";
+    case "escalated":
+      return "status status-restricted";
+    case "pass":
+      return "status status-completed";
+    case "fail":
+      return "status status-failed";
+    case "remediate":
+      return "status status-restricted";
+    case "manual_escalation":
+      return "status status-open";
     case "restricted":
     case "warning":
       return "status status-restricted";
@@ -167,6 +200,43 @@ function statusClass(status: string | null | undefined): string {
 
 function renderValue(value: unknown): string {
   return escapeHtml(value ?? "—");
+}
+
+function renderCompactPill(label: string, value: string | number): string {
+  return `<span class="compact-pill"><strong>${escapeHtml(label)}:</strong> ${escapeHtml(value)}</span>`;
+}
+
+function describeArtifactKind(artifact: TaskArtifactRecord): string {
+  const kind = artifact.content?.kind;
+  return typeof kind === "string" ? kind : artifact.artifactType;
+}
+
+function statusRank(status: TaskStatus): number {
+  switch (status) {
+    case "in_progress":
+      return 0;
+    case "ready":
+      return 1;
+    case "queued":
+      return 2;
+    case "blocked":
+      return 3;
+    case "escalated":
+      return 4;
+    case "failed":
+      return 5;
+    case "completed":
+      return 6;
+    default:
+      return 7;
+  }
+}
+
+function threadKind(thread: MessageThreadRecord): string {
+  if (thread.relatedApprovalId) return "approval";
+  if (thread.relatedEscalationId) return "escalation";
+  if (thread.relatedTaskId) return "task";
+  return "coordination";
 }
 
 function formatTimestamp(value: string | null | undefined): string {
@@ -747,7 +817,7 @@ export function renderToolbar(args: {
 }
 
 export function renderPrimaryNav(args: {
-  activeView: "tenant" | "department";
+  activeView: "tenant" | "department" | "work";
   tenantHref: string;
 }): string {
   return `
@@ -755,6 +825,9 @@ export function renderPrimaryNav(args: {
       <div class="view-nav">
         <a class="view-nav-link ${args.activeView === "tenant" ? "view-nav-link-active" : ""}" href="${escapeHtml(args.tenantHref)}">
           Tenant view
+        </a>
+        <a class="view-nav-link ${args.activeView === "work" ? "view-nav-link-active" : ""}" href="#work">
+          Work
         </a>
         <a class="view-nav-link ${args.activeView === "department" ? "view-nav-link-active" : ""}" href="#department">
           Department view
@@ -1030,6 +1103,327 @@ export function renderServiceOverview(overview: ServiceOverview): string {
           )
           .join("")}
       </div>
+    </section>
+  `;
+}
+
+function renderTaskVisibilitySummary(summary: TaskVisibilitySummary): string {
+  return `
+    <div class="meta-grid">
+      ${renderCompactPill("Plan", summary.hasPlanArtifact ? "yes" : "no")}
+      ${renderCompactPill("Rationale", summary.hasPublicRationaleArtifact ? "yes" : "no")}
+      ${renderCompactPill("Validation", summary.latestValidationStatus ?? "—")}
+      ${renderCompactPill("Decision", summary.latestDecisionVerdict ?? "—")}
+      ${renderCompactPill("Threads", summary.relatedThreadCount)}
+      ${renderCompactPill("Approval threads", summary.relatedApprovalThreadCount)}
+      ${renderCompactPill("Escalation threads", summary.relatedEscalationThreadCount)}
+    </div>
+  `;
+}
+
+function renderThreadVisibility(summary: ThreadVisibilitySummary): string {
+  return `
+    <div class="meta-grid">
+      ${renderCompactPill("Messages", summary.messageCount)}
+      ${renderCompactPill("Rationale publication", summary.hasPublicRationalePublication ? "yes" : "no")}
+      ${renderCompactPill("Presentation style", summary.latestPublicRationalePresentationStyle ?? "—")}
+      ${renderCompactPill("Approval actions", summary.approvalActionCount)}
+      ${renderCompactPill("Escalation actions", summary.escalationActionCount)}
+      ${renderCompactPill("External projections", summary.externalProjectionCount)}
+      ${renderCompactPill("Inbound replies", typeof summary.inboundRepliesAllowed === "boolean" ? String(summary.inboundRepliesAllowed) : "—")}
+      ${renderCompactPill("External actions", typeof summary.externalActionsAllowed === "boolean" ? String(summary.externalActionsAllowed) : "—")}
+    </div>
+  `;
+}
+
+function renderTaskCard(task: TaskRecord): string {
+  return `
+    <article class="work-card">
+      <div class="work-card-top">
+        <div>
+          <h3><a href="#task/${encodeURIComponent(task.id)}">${escapeHtml(task.title)}</a></h3>
+          <div class="muted small">${escapeHtml(task.taskType)} · ${escapeHtml(task.id)}</div>
+        </div>
+        <span class="${statusClass(task.status)}">${escapeHtml(task.status)}</span>
+      </div>
+      <div class="meta-grid">
+        ${renderCompactPill("Assigned team", task.assignedTeamId)}
+        ${renderCompactPill("Assigned employee", task.assignedEmployeeId ?? "—")}
+        ${renderCompactPill("Originating team", task.originatingTeamId)}
+        ${renderCompactPill("Blocking deps", task.blockingDependencyCount)}
+      </div>
+    </article>
+  `;
+}
+
+function renderThreadCard(thread: MessageThreadRecord): string {
+  return `
+    <article class="work-card">
+      <div class="work-card-top">
+        <div>
+          <h3><a href="#thread/${encodeURIComponent(thread.id)}">${escapeHtml(thread.topic)}</a></h3>
+          <div class="muted small">${escapeHtml(thread.id)}</div>
+        </div>
+        <span class="status">${escapeHtml(threadKind(thread))}</span>
+      </div>
+      <div class="meta-grid">
+        ${renderCompactPill("Visibility", thread.visibility)}
+        ${renderCompactPill("Task", thread.relatedTaskId ?? "—")}
+        ${renderCompactPill("Approval", thread.relatedApprovalId ?? "—")}
+        ${renderCompactPill("Escalation", thread.relatedEscalationId ?? "—")}
+      </div>
+    </article>
+  `;
+}
+
+function renderArtifactsTable(artifacts: TaskArtifactRecord[]): string {
+  if (artifacts.length === 0) {
+    return `<div class="empty-state small-empty">No artifacts recorded.</div>`;
+  }
+
+  return `
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Kind</th>
+          <th>Summary</th>
+          <th>Created by</th>
+          <th>Content</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${artifacts.map((artifact) => `
+          <tr>
+            <td><span class="${statusClass(artifact.artifactType === "result" ? "completed" : artifact.artifactType === "plan" ? "waiting" : "open")}">${escapeHtml(artifact.artifactType)}</span></td>
+            <td>${escapeHtml(describeArtifactKind(artifact))}</td>
+            <td>${escapeHtml(artifact.summary ?? "—")}</td>
+            <td>${escapeHtml(artifact.createdByEmployeeId ?? "—")}</td>
+            <td>${renderExpandableText(`artifact-${artifact.id}`, "Content", formatJsonBlock(artifact.content))}</td>
+          </tr>
+        `).join("")}
+      </tbody>
+    </table>
+  `;
+}
+
+function renderDependenciesTable(dependencies: TaskDependency[]): string {
+  if (dependencies.length === 0) {
+    return `<div class="empty-state small-empty">No dependencies.</div>`;
+  }
+
+  return `
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Task</th>
+          <th>Depends on</th>
+          <th>Type</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${dependencies.map((dependency) => `
+          <tr>
+            <td><a href="#task/${encodeURIComponent(dependency.taskId)}">${escapeHtml(dependency.taskId)}</a></td>
+            <td><a href="#task/${encodeURIComponent(dependency.dependsOnTaskId)}">${escapeHtml(dependency.dependsOnTaskId)}</a></td>
+            <td>${escapeHtml(dependency.dependencyType)}</td>
+          </tr>
+        `).join("")}
+      </tbody>
+    </table>
+  `;
+}
+
+function renderMessages(messages: EmployeeMessageRecord[]): string {
+  if (messages.length === 0) {
+    return `<div class="empty-state small-empty">No messages in this thread.</div>`;
+  }
+
+  return `
+    <div class="message-list">
+      ${messages.map((message) => `
+        <article class="message-card">
+          <div class="message-card-top">
+            <div>
+              <strong>${escapeHtml(message.senderEmployeeId)}</strong>
+              <span class="muted small"> → ${escapeHtml(message.receiverEmployeeId ?? message.receiverTeamId ?? "—")}</span>
+            </div>
+            <div class="message-meta-right">
+              <span class="${statusClass(message.status)}">${escapeHtml(message.status)}</span>
+              <span class="muted small">${escapeHtml(message.source)}</span>
+            </div>
+          </div>
+          ${message.subject ? `<div class="message-subject">${escapeHtml(message.subject)}</div>` : ""}
+          <div class="message-body">${escapeHtml(message.body)}</div>
+          <div class="meta-grid">
+            ${renderCompactPill("Type", message.type)}
+            ${renderCompactPill("Created", message.createdAt ?? "—")}
+            ${renderCompactPill("Task", message.relatedTaskId ?? "—")}
+            ${renderCompactPill("Approval", message.relatedApprovalId ?? "—")}
+            ${renderCompactPill("Escalation", message.relatedEscalationId ?? "—")}
+          </div>
+          ${message.payload && Object.keys(message.payload).length > 0
+            ? renderExpandableText(`msg-payload-${message.id}`, "Payload", formatJsonBlock(message.payload))
+            : ""}
+          ${(message.mirrorDeliveries?.length ?? 0) > 0
+            ? renderExpandableText(`msg-deliveries-${message.id}`, "Mirror deliveries", formatJsonBlock(message.mirrorDeliveries))
+            : ""}
+          ${(message.externalMessageProjections?.length ?? 0) > 0
+            ? renderExpandableText(`msg-projections-${message.id}`, "External message projections", formatJsonBlock(message.externalMessageProjections))
+            : ""}
+        </article>
+      `).join("")}
+    </div>
+  `;
+}
+
+export function renderWorkOverview(overview: WorkOverview): string {
+  const sortedTasks = [...overview.tasks].sort((a, b) => {
+    const rankDiff = statusRank(a.status) - statusRank(b.status);
+    if (rankDiff !== 0) return rankDiff;
+    return (b.updatedAt ?? "").localeCompare(a.updatedAt ?? "");
+  });
+
+  const sortedThreads = [...overview.threads].sort((a, b) =>
+    (b.updatedAt ?? "").localeCompare(a.updatedAt ?? ""),
+  );
+
+  return `
+    <section class="panel">
+      <div class="panel-header">
+        <h2>Canonical work</h2>
+        <p class="muted">Tasks and threads rendered directly from AEP-native work surfaces.</p>
+      </div>
+      <div class="summary-grid">
+        ${renderSummaryCard("Tasks", sortedTasks.length, `${sortedTasks.filter((task) => task.status === "in_progress").length} in progress`)}
+        ${renderSummaryCard("Ready", sortedTasks.filter((task) => task.status === "ready").length, "ready to execute")}
+        ${renderSummaryCard("Blocked", sortedTasks.filter((task) => task.status === "blocked").length, "waiting on dependencies")}
+        ${renderSummaryCard("Threads", sortedThreads.length, `${sortedThreads.filter((thread) => thread.relatedTaskId).length} task-linked`)}
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-header">
+        <h2>Tasks</h2>
+        <p class="muted">${sortedTasks.length} canonical tasks</p>
+      </div>
+      <div class="work-grid">
+        ${sortedTasks.map(renderTaskCard).join("")}
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-header">
+        <h2>Threads</h2>
+        <p class="muted">${sortedThreads.length} canonical threads</p>
+      </div>
+      <div class="work-grid">
+        ${sortedThreads.map(renderThreadCard).join("")}
+      </div>
+    </section>
+  `;
+}
+
+export function renderTaskDetail(detail: TaskDetail): string {
+  return `
+    <section class="panel">
+      <div class="panel-header">
+        <a class="back-link" href="#work">← Back to work</a>
+        <h2>${escapeHtml(detail.task.title)}</h2>
+        <p class="muted">${escapeHtml(detail.task.taskType)} · ${escapeHtml(detail.task.id)}</p>
+      </div>
+      <div class="detail-topline">
+        <span class="${statusClass(detail.task.status)}">${escapeHtml(detail.task.status)}</span>
+      </div>
+      <div class="meta-grid">
+        ${renderCompactPill("Assigned team", detail.task.assignedTeamId)}
+        ${renderCompactPill("Assigned employee", detail.task.assignedEmployeeId ?? "—")}
+        ${renderCompactPill("Originating team", detail.task.originatingTeamId)}
+        ${renderCompactPill("Owner", detail.task.ownerEmployeeId ?? "—")}
+        ${renderCompactPill("Created by", detail.task.createdByEmployeeId ?? "—")}
+        ${renderCompactPill("Blocking deps", detail.task.blockingDependencyCount)}
+      </div>
+      ${renderTaskVisibilitySummary(detail.visibilitySummary)}
+      ${detail.task.payload && Object.keys(detail.task.payload).length > 0
+        ? renderExpandableText(`task-payload-${detail.task.id}`, "Task payload", formatJsonBlock(detail.task.payload))
+        : ""}
+    </section>
+
+    <section class="panel">
+      <div class="panel-header"><h3>Artifacts</h3></div>
+      ${renderArtifactsTable(detail.artifacts)}
+    </section>
+
+    <section class="panel">
+      <div class="panel-header"><h3>Dependencies</h3></div>
+      ${renderDependenciesTable(detail.dependencies)}
+    </section>
+
+    <section class="panel">
+      <div class="panel-header"><h3>Decision</h3></div>
+      ${
+        detail.decision
+          ? `
+            <div class="meta-grid">
+              ${renderCompactPill("Verdict", detail.decision.verdict)}
+              ${renderCompactPill("Employee", detail.decision.employeeId)}
+              ${renderCompactPill("Evidence trace", detail.decision.evidenceTraceId ?? "—")}
+            </div>
+            <div class="detail-paragraph">${escapeHtml(detail.decision.reasoning)}</div>
+          `
+          : `<div class="empty-state small-empty">No decision recorded.</div>`
+      }
+    </section>
+
+    <section class="panel">
+      <div class="panel-header"><h3>Related threads</h3></div>
+      <div class="work-grid">
+        ${detail.relatedThreads.length > 0 ? detail.relatedThreads.map(renderThreadCard).join("") : `<div class="empty-state small-empty">No related threads.</div>`}
+      </div>
+    </section>
+  `;
+}
+
+export function renderThreadDetail(detail: MessageThreadDetail): string {
+  return `
+    <section class="panel">
+      <div class="panel-header">
+        <a class="back-link" href="#work">← Back to work</a>
+        <h2>${escapeHtml(detail.thread.topic)}</h2>
+        <p class="muted">${escapeHtml(detail.thread.id)}</p>
+      </div>
+      <div class="meta-grid">
+        ${renderCompactPill("Visibility", detail.thread.visibility)}
+        ${renderCompactPill("Created by", detail.thread.createdByEmployeeId ?? "—")}
+        ${renderCompactPill("Related task", detail.thread.relatedTaskId ?? "—")}
+        ${renderCompactPill("Related approval", detail.thread.relatedApprovalId ?? "—")}
+        ${renderCompactPill("Related escalation", detail.thread.relatedEscalationId ?? "—")}
+      </div>
+      ${renderThreadVisibility(detail.visibilitySummary)}
+    </section>
+
+    <section class="panel">
+      <div class="panel-header"><h3>Messages</h3></div>
+      ${renderMessages(detail.messages)}
+    </section>
+
+    <section class="panel">
+      <div class="panel-header"><h3>External mirror state</h3></div>
+      <div class="meta-grid">
+        ${renderCompactPill("Thread projections", detail.externalThreadProjections.length)}
+        ${renderCompactPill("Interaction audit", detail.externalInteractionAudit.length)}
+        ${renderCompactPill("Inbound replies allowed", detail.externalInteractionPolicy ? String(detail.externalInteractionPolicy.inboundRepliesAllowed) : "—")}
+        ${renderCompactPill("External actions allowed", detail.externalInteractionPolicy ? String(detail.externalInteractionPolicy.externalActionsAllowed) : "—")}
+      </div>
+      ${(detail.externalThreadProjections.length > 0)
+        ? renderExpandableText(`thread-projections-${detail.thread.id}`, "External thread projections", formatJsonBlock(detail.externalThreadProjections))
+        : `<div class="empty-state small-empty">No external thread projections.</div>`}
+      ${detail.externalInteractionPolicy
+        ? renderExpandableText(`thread-policy-${detail.thread.id}`, "External interaction policy", formatJsonBlock(detail.externalInteractionPolicy))
+        : ""}
+      ${(detail.externalInteractionAudit.length > 0)
+        ? renderExpandableText(`thread-audit-${detail.thread.id}`, "External interaction audit", formatJsonBlock(detail.externalInteractionAudit))
+        : ""}
     </section>
   `;
 }

@@ -1,4 +1,10 @@
 import type {
+  ExternalInteractionAuditRecord,
+  ExternalThreadProjectionRecord,
+  MessageThreadDetail,
+  MessageThreadRecord,
+  TaskDetail,
+  TaskRecord,
   ApprovalRecord,
   ControlHistoryRecord,
   DepartmentOverview,
@@ -150,6 +156,48 @@ export async function getDepartmentOverview(): Promise<DepartmentOverview> {
     roadmaps: roadmapsPayload.entries ?? [],
     schedulerStatus,
   };
+}
+
+export async function getWorkTasks(): Promise<TaskRecord[]> {
+  const payload = await getJson<{ ok: boolean; tasks: TaskRecord[] }>(
+    getOperatorAgentBaseUrl(),
+    "/agent/tasks?limit=100",
+  );
+  return payload.tasks ?? [];
+}
+
+export async function getTaskDetail(taskId: string): Promise<TaskDetail> {
+  return getJson<TaskDetail>(
+    getOperatorAgentBaseUrl(),
+    `/agent/tasks/${encodeURIComponent(taskId)}`,
+  );
+}
+
+export async function getMessageThreads(): Promise<MessageThreadRecord[]> {
+  const payload = await getJson<{ ok: boolean; threads: MessageThreadRecord[] }>(
+    getOperatorAgentBaseUrl(),
+    "/agent/message-threads?limit=100",
+  );
+  return payload.threads ?? [];
+}
+
+export async function getMessageThreadDetail(
+  threadId: string,
+): Promise<MessageThreadDetail> {
+  return getJson<MessageThreadDetail>(
+    getOperatorAgentBaseUrl(),
+    `/agent/message-threads/${encodeURIComponent(threadId)}`,
+  );
+}
+
+export async function getRelatedThreadsForTask(
+  taskId: string,
+): Promise<MessageThreadRecord[]> {
+  const payload = await getJson<{ ok: boolean; threads: MessageThreadRecord[] }>(
+    getOperatorAgentBaseUrl(),
+    `/agent/message-threads?relatedTaskId=${encodeURIComponent(taskId)}&limit=50`,
+  );
+  return payload.threads ?? [];
 }
 
 export async function approveApproval(

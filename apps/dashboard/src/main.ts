@@ -11,7 +11,11 @@ import {
   acknowledgeEscalation,
   approveApproval,
   getApiBaseUrl,
+  getMessageThreadDetail,
+  getMessageThreads,
   getDepartmentOverview,
+  getTaskDetail,
+  getWorkTasks,
   getOperatorAgentBaseUrl,
   getServiceOverview,
   getTenantOverview,
@@ -19,15 +23,18 @@ import {
   rejectApproval,
   resolveEscalation,
 } from "./api";
-import type { DepartmentFilters, DepartmentPaginationState, PageSize, TenantSummary } from "./types";
+import type { DepartmentFilters, DepartmentPaginationState, PageSize, TenantSummary, WorkOverview } from "./types";
 import {
   renderDepartmentOverview,
   renderDepartmentFilters,
   renderPrimaryNav,
   renderServiceOverview,
+  renderTaskDetail,
+  renderThreadDetail,
   renderTenantOverview,
   renderTenantSelector,
   renderToolbar,
+  renderWorkOverview,
 } from "./render";
 import "./styles.css";
 
@@ -52,6 +59,9 @@ let mutationStatusMessage: string | null = null;
 type Route =
   | { kind: "tenant"; tenantId: string }
   | { kind: "service"; tenantId: string; serviceId: string }
+  | { kind: "work" }
+  | { kind: "task"; taskId: string }
+  | { kind: "thread"; threadId: string }
   | { kind: "department" };
 
 const DEFAULT_DEPARTMENT_FILTERS: DepartmentFilters = {
@@ -247,6 +257,23 @@ function getRoute(defaultTenantId: string): Route {
 
   if (hash === "department") {
     return { kind: "department" };
+  }
+
+  if (hash === "work") {
+    return { kind: "work" };
+  }
+
+  const taskMatch = hash.match(/^task\/(.+)$/);
+  if (taskMatch?.[1]) {
+    return {
+      kind: "task",
+      taskId: decodeURIComponent(taskMatch[1]),
+    };
+  }
+
+  const threadMatch = hash.match(/^thread\/(.+)$/);
+  if (threadMatch?.[1]) {
+    return { kind: "thread", threadId: decodeURIComponent(threadMatch[1]) };
   }
 
   const parts = hash.split("/");
@@ -550,7 +577,10 @@ async function renderRoute(): Promise<void> {
     const tenants = await getTenants();
     const homeTenantId = resolveHomeTenantId(tenants);
 
-    if (!homeTenantId && window.location.hash.replace(/^#/, "") !== "department") {
+    if (
+      !homeTenantId &&
+      !["department", "work"].includes(window.location.hash.replace(/^#/, ""))
+    ) {
       const content = `
         ${renderToolbar({
           autoRefresh: getAutoRefreshEnabled(),
@@ -581,13 +611,32 @@ async function renderRoute(): Promise<void> {
     });
 
     content += renderPrimaryNav({
-      activeView: route.kind === "department" ? "department" : "tenant",
+      activeView:
+        route.kind === "department"
+          ? "department"
+          : route.kind === "work" || route.kind === "task" || route.kind === "thread"
+            ? "work"
+            : "tenant",
       tenantHref: `#tenant/${encodeURIComponent(
-        route.kind === "department" ? (homeTenantId ?? "") : route.tenantId,
+        route.kind === "department" || route.kind === "work" || route.kind === "task" || route.kind === "thread"
+          ? (homeTenantId ?? "")
+          : route.tenantId,
       )}`,
     });
 
-    if (route.kind === "department") {
+    if (route.kind === "work") {
+      const overview: WorkOverview = {
+        tasks: await getWorkTasks(),
+        threads: await getMessageThreads(),
+      };
+      content += renderWorkOverview(overview);
+    } else if (route.kind === "task") {
+      const detail = await getTaskDetail(route.taskId);
+      content += renderTaskDetail(detail);
+    } else if (route.kind === "thread") {
+      const detail = await getMessageThreadDetail(route.threadId);
+      content += renderThreadDetail(detail);
+    } else if (route.kind === "department") {
       const overview = await getDepartmentOverview();
       const filters = getDepartmentFilters();
       const pagination = getDepartmentPagination();

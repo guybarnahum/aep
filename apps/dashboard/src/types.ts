@@ -1,3 +1,129 @@
+export type TaskStatus =
+  | "queued"
+  | "blocked"
+  | "ready"
+  | "in_progress"
+  | "completed"
+  | "failed"
+  | "escalated";
+
+export type TaskArtifactType = "plan" | "result" | "evidence";
+
+export type TaskVerdict = "pass" | "fail" | "remediate" | "manual_escalation";
+
+export type MessageType = "task" | "escalation" | "coordination";
+
+export type MessageStatus = "pending" | "delivered" | "acknowledged";
+
+export type MessageSource =
+  | "internal"
+  | "dashboard"
+  | "system"
+  | "human"
+  | "slack"
+  | "email";
+
+export type MessageThreadVisibility = "internal" | "org";
+
+export type TaskRecord = {
+  id: string;
+  companyId: string;
+  originatingTeamId: string;
+  assignedTeamId: string;
+  ownerEmployeeId?: string;
+  assignedEmployeeId?: string;
+  createdByEmployeeId?: string;
+  taskType: string;
+  title: string;
+  status: TaskStatus;
+  payload: Record<string, unknown>;
+  blockingDependencyCount: number;
+  sourceThreadId?: string;
+  sourceMessageId?: string;
+  sourceApprovalId?: string;
+  sourceEscalationId?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  startedAt?: string;
+  completedAt?: string;
+  failedAt?: string;
+};
+
+export type TaskDependency = {
+  taskId: string;
+  dependsOnTaskId: string;
+  dependencyType: "completion";
+  createdAt?: string;
+};
+
+export type TaskArtifactRecord = {
+  id: string;
+  taskId: string;
+  companyId: string;
+  artifactType: TaskArtifactType;
+  createdByEmployeeId?: string;
+  summary?: string;
+  content: Record<string, unknown>;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export type TaskDecisionRecord = {
+  id: string;
+  taskId: string;
+  employeeId: string;
+  verdict: TaskVerdict;
+  reasoning: string;
+  evidenceTraceId?: string;
+  createdAt?: string;
+};
+
+export type TaskVisibilitySummary = {
+  artifactCounts: {
+    plan: number;
+    result: number;
+    evidence: number;
+  };
+  hasPlanArtifact: boolean;
+  hasPublicRationaleArtifact: boolean;
+  publicRationaleArtifactId?: string;
+  hasValidationResultArtifact: boolean;
+  validationResultArtifactId?: string;
+  latestValidationStatus?: string;
+  latestDecisionVerdict?: TaskVerdict;
+  latestDecisionEmployeeId?: string;
+  relatedThreadCount: number;
+  relatedApprovalThreadCount: number;
+  relatedEscalationThreadCount: number;
+};
+
+export type MessageThreadRecord = {
+  id: string;
+  companyId: string;
+  topic: string;
+  createdByEmployeeId?: string;
+  relatedTaskId?: string;
+  relatedArtifactId?: string;
+  relatedApprovalId?: string;
+  relatedEscalationId?: string;
+  visibility: MessageThreadVisibility;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export type MirrorDeliveryRecord = {
+  id: string;
+  messageId: string;
+  threadId: string;
+  channel: "slack" | "email";
+  target: string;
+  status: "delivered" | "failed";
+  externalMessageId?: string;
+  failureCode?: string;
+  failureReason?: string;
+  createdAt: string;
+};
+
 export type EmployeeRuntimeStatus =
   | "implemented"
   | "planned"
@@ -116,6 +242,82 @@ export type OperatorEmployeeRecord = {
     avatarUrl?: string;
   };
   hasCognitiveProfile: boolean;
+};
+
+export type ExternalMessageProjectionRecord = {
+  id: string;
+  messageId: string;
+  threadId: string;
+  channel: "slack" | "email";
+  target: string;
+  externalThreadId: string;
+  externalMessageId: string;
+  createdAt: string;
+};
+
+export type EmployeeMessageRecord = {
+  id: string;
+  threadId: string;
+  companyId: string;
+  senderEmployeeId: string;
+  receiverEmployeeId?: string;
+  receiverTeamId?: string;
+  type: MessageType;
+  status: MessageStatus;
+  source: MessageSource;
+  subject?: string;
+  body: string;
+  payload: Record<string, unknown>;
+  externalMessageId?: string;
+  externalChannel?: "slack" | "email";
+  externalAuthorId?: string;
+  externalReceivedAt?: string;
+  requiresResponse: boolean;
+  responseActionType?: string;
+  responseActionStatus?: "requested" | "applied" | "rejected";
+  causedStateTransition?: boolean;
+  relatedTaskId?: string;
+  relatedArtifactId?: string;
+  relatedEscalationId?: string;
+  relatedApprovalId?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  mirrorDeliveries?: MirrorDeliveryRecord[];
+  externalMessageProjections?: ExternalMessageProjectionRecord[];
+};
+
+export type ExternalThreadProjectionRecord = {
+  id: string;
+  threadId: string;
+  channel: "slack" | "email";
+  target: string;
+  externalThreadId: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ThreadExternalInteractionPolicyRecord = {
+  threadId: string;
+  inboundRepliesAllowed: boolean;
+  externalActionsAllowed: boolean;
+  allowedChannels?: Array<"slack" | "email">;
+  allowedTargets?: string[];
+  allowedExternalActors?: string[];
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ExternalInteractionAuditRecord = {
+  id: string;
+  threadId?: string;
+  channel: "slack" | "email";
+  interactionKind: "reply" | "action";
+  externalActorId?: string;
+  externalMessageId?: string;
+  externalActionId?: string;
+  decision: "allowed" | "denied";
+  reasonCode: string;
+  createdAt: string;
 };
 
 export type ManagerDecisionRecord = {
@@ -271,6 +473,45 @@ export type DepartmentOverview = {
   approvals: ApprovalRecord[];
   roadmaps: TeamRoadmap[];
   schedulerStatus: SchedulerStatus;
+};
+
+export type TaskDetail = {
+  ok: boolean;
+  task: TaskRecord;
+  dependencies: TaskDependency[];
+  artifacts: TaskArtifactRecord[];
+  decision: TaskDecisionRecord | null;
+  relatedThreads: MessageThreadRecord[];
+  visibilitySummary: TaskVisibilitySummary;
+};
+
+export type ThreadVisibilitySummary = {
+  relatedTaskId?: string;
+  relatedApprovalId?: string;
+  relatedEscalationId?: string;
+  messageCount: number;
+  hasPublicRationalePublication: boolean;
+  latestPublicRationalePresentationStyle?: string;
+  approvalActionCount: number;
+  escalationActionCount: number;
+  externalProjectionCount: number;
+  inboundRepliesAllowed?: boolean;
+  externalActionsAllowed?: boolean;
+};
+
+export type MessageThreadDetail = {
+  ok: boolean;
+  thread: MessageThreadRecord;
+  externalThreadProjections: ExternalThreadProjectionRecord[];
+  externalInteractionPolicy: ThreadExternalInteractionPolicyRecord | null;
+  externalInteractionAudit: ExternalInteractionAuditRecord[];
+  messages: EmployeeMessageRecord[];
+  visibilitySummary: ThreadVisibilitySummary;
+};
+
+export type WorkOverview = {
+  tasks: TaskRecord[];
+  threads: MessageThreadRecord[];
 };
 
 export type EscalationStateFilter = "all" | "open" | "acknowledged" | "resolved";
