@@ -1229,6 +1229,25 @@ Boundary:
 * no new canonical state
 * client-side refresh/presentation behavior only
 
+### PR12K — explainability polish / human-readable causality
+
+Goal:
+
+Make causality understandable to humans, not just structurally visible.
+
+Scope:
+
+* add synthesized “why” explanations to tasks, threads, and activity timeline
+* derive explanations purely from canonical linkage fields
+* no LLM or hidden reasoning generation
+* keep explanations deterministic and auditable
+
+Boundary:
+
+* no new backend state
+* no stored explanations
+* no free-form LLM reasoning outside employee boundary
+
 ## PR12 must not do
 
 * must not make Slack/email canonical
@@ -1582,6 +1601,33 @@ The company UI now feels more like an operational surface:
 
 ---
 
+## PR12K — Explainability Polish / Human-readable Causality (COMPLETED)
+
+The dashboard now presents causality in human-readable form.
+
+### Implemented
+
+* synthesized “why this happened” explanations in:
+  * activity timeline
+  * task detail
+  * thread detail
+* explanations derived from canonical provenance fields
+
+### Important rule preserved
+
+No LLM-generated reasoning or hidden cognition was introduced.
+
+Explanations are deterministic and derived from canonical state.
+
+### Result
+
+Users can now understand:
+
+> not just what happened and why structurally,
+> but also why in plain language
+
+---
+
 # 10. After PR12
 
 PR12 now includes:
@@ -1595,6 +1641,7 @@ PR12 now includes:
 * PR12H — identity continuity / employees feel real over time
 * PR12I — live system feel / low-jank refresh
 * PR12J — UX / copy / canonicality tightening
+* PR12K — explainability polish / human-readable causality
 
 ## PR13 — Multi-agent operational company
 

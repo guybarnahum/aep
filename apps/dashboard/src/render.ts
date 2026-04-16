@@ -402,6 +402,41 @@ function inferNarrativeCausalityLinks(item: NarrativeTimelineItem): CausalityLin
   return links;
 }
 
+function synthesizeCausalityExplanation(
+  item: NarrativeTimelineItem,
+  links: CausalityLink[],
+): string | null {
+  if (links.length === 0) {
+    return null;
+  }
+
+  const approvalLink = links.find((l) => l.kind === "approval_thread");
+  const escalationLink = links.find((l) => l.kind === "escalation_thread");
+  const threadLink = links.find((l) => l.kind === "related_thread");
+
+  if (item.taskId && escalationLink) {
+    return `This task exists because escalation ${escalationLink.id} triggered follow-up work.`;
+  }
+
+  if (item.taskId && approvalLink) {
+    return `This task exists because approval ${approvalLink.id} resulted in follow-up execution.`;
+  }
+
+  if (item.taskId && threadLink) {
+    return `This task was created from discussion in thread ${threadLink.id}.`;
+  }
+
+  if (item.approvalId && threadLink) {
+    return `This approval was discussed and resolved in thread ${threadLink.id}.`;
+  }
+
+  if (item.escalationId && threadLink) {
+    return `This escalation originated and progressed in thread ${threadLink.id}.`;
+  }
+
+  return null;
+}
+
 function formatTimestamp(value: string | null | undefined): string {
   if (!value) return "—";
   const d = new Date(value);
@@ -2148,7 +2183,28 @@ export function renderTaskDetail(detail: TaskDetail): string {
       <p class="muted">
         Why this task exists, what triggered it, and which canonical threads/governance flows connect to it.
       </p>
-      ${renderCausalityLinks(buildTaskCausalityLinks(detail))}
+      ${
+        (() => {
+          const links = buildTaskCausalityLinks(detail);
+
+          const explanation = detail.task.sourceEscalationId
+            ? `This task exists because escalation ${detail.task.sourceEscalationId} triggered follow-up work.`
+            : detail.task.sourceApprovalId
+              ? `This task exists because approval ${detail.task.sourceApprovalId} resulted in follow-up execution.`
+              : detail.task.sourceThreadId
+                ? `This task was created from discussion in thread ${detail.task.sourceThreadId}.`
+                : null;
+
+          return `
+            ${
+              explanation
+                ? `<p class="timeline-causality-summary">${escapeHtml(explanation)}</p>`
+                : ""
+            }
+            ${renderCausalityLinks(links)}
+          `;
+        })()
+      }
     </section>
 
     <section class="panel">
@@ -2400,7 +2456,28 @@ export function renderThreadDetail(detail: MessageThreadDetail): string {
       <p class="muted">
         How this thread connects back to canonical work and governance state.
       </p>
-      ${renderCausalityLinks(buildThreadCausalityLinks(detail))}
+      ${
+        (() => {
+          const links = buildThreadCausalityLinks(detail);
+
+          const explanation = detail.thread.relatedTaskId
+            ? `This thread is linked to task ${detail.thread.relatedTaskId} and contributes to its execution.`
+            : detail.thread.relatedApprovalId
+              ? `This thread contains discussion and decisions for approval ${detail.thread.relatedApprovalId}.`
+              : detail.thread.relatedEscalationId
+                ? `This thread contains discussion and escalation flow for escalation ${detail.thread.relatedEscalationId}.`
+                : null;
+
+          return `
+            ${
+              explanation
+                ? `<p class="timeline-causality-summary">${escapeHtml(explanation)}</p>`
+                : ""
+            }
+            ${renderCausalityLinks(links)}
+          `;
+        })()
+      }
     </section>
 
     ${renderThreadInteractionPanel(detail)}
@@ -2659,6 +2736,13 @@ function renderNarrativeTimelineItem(item: NarrativeTimelineItem): string {
           ? `
             <div class="timeline-causality">
               <div class="timeline-causality-title">Why this matters</div>
+              ${
+                synthesizeCausalityExplanation(item, causalityLinks)
+                  ? `<p class="timeline-causality-summary">${escapeHtml(
+                      synthesizeCausalityExplanation(item, causalityLinks)!,
+                    )}</p>`
+                  : ""
+              }
               ${renderCausalityLinks(causalityLinks)}
             </div>
           `

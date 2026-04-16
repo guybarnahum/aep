@@ -1015,6 +1015,12 @@ button:disabled {
   letter-spacing: 0.04em;
 }
 
+.timeline-causality-summary {
+  margin-bottom: 8px;
+  line-height: 1.5;
+  color: #cbd5f5;
+}
+
 .thread-delegate-form {
   display: grid;
   gap: 10px;
