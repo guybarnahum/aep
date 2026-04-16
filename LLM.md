@@ -1782,6 +1782,42 @@ What is explicitly NOT introduced:
 
 PR11D.2 proves the validation employee now emits canonical, privacy-safe validation artifacts.
 
+### ✅ PR11D.3 — validation loop feedback scenario coverage (COMPLETE)
+
+PR11D.3 adds scenario-layer proof that validation outputs feed back into canonical task and thread surfaces on a fresh run.
+
+What is implemented:
+
+- added `validation-loop-feedback-check.ts`
+- the scenario creates:
+  - a fresh validation task
+  - a related canonical thread for that task
+- the validation employee then runs against that fresh task
+- the scenario proves the resulting canonical feedback surfaces:
+  - task detail includes a `validation_result` artifact
+  - task detail includes a bounded `public_rationale` artifact
+  - task detail includes a recorded decision
+  - the related canonical thread includes a bounded public rationale publication message
+- the scenario also enforces privacy on:
+  - validation result artifact content
+  - public rationale artifact content
+  - rationale publication body and payload
+
+Workflow integration:
+
+- the validation loop feedback scenario is wired into the post-deploy/scenarios layer
+- scenario-layer success now includes explicit validation feedback proof rather than only dispatch/verdict checks
+
+What is explicitly NOT introduced:
+
+- no escalation automation redesign yet
+- no new task lifecycle states
+- no route-level validation behavior in `/agent/run`
+
+PR11D.3 completes the first validation-loop slice by proving:
+task -> validation employee -> artifact/decision/thread feedback
+through canonical AEP surfaces.
+
 ### PR11A — employee loop ignition
 - add bounded employee loop behavior over inbox, tasks, and related thread/task context
 - allow employees to select the next governed action using existing cognition
