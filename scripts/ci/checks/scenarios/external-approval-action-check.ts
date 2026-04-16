@@ -32,6 +32,36 @@ async function main(): Promise<void> {
     throw error;
   }
 
+  const baseUrl = client.baseUrl.replace(/\/$/, "");
+  const externalActionUrl = `${baseUrl}/agent/messages/external-action`;
+  const seedApprovalUrl = `${baseUrl}/agent/te/seed-approval`;
+
+  const externalActionProbe = await fetch(externalActionUrl, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({}),
+  });
+
+  if (externalActionProbe.status === 404) {
+    throw new Error(
+      "external action route missing on deployment; expected /agent/messages/external-action to exist",
+    );
+  }
+
+  const seedProbe = await fetch(seedApprovalUrl, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({}),
+  });
+
+  if (seedProbe.status === 404) {
+    softSkip("approval seed endpoint not enabled on this deployment");
+  }
+
   const seeded = await client.seedApproval({
     requestedByEmployeeId: "emp_infra_ops_manager_01",
     requestedByRoleId: "infra-ops-manager",
