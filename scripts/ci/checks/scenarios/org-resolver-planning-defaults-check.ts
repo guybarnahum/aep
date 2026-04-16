@@ -5,10 +5,20 @@ import { handleOperatorAgentSoftSkip } from "../../shared/soft-skip";
 
 export {};
 
+const PM_EMPLOYEE_ID = "emp_product_manager_web_01";
+const PM_TEAM_ID = "team_web_product";
+const PM_ROLE_ID = "product-manager";
+
 function getTaskEntries(response: any): any[] {
   if (Array.isArray(response?.tasks)) return response.tasks;
   if (Array.isArray(response?.entries)) return response.entries;
   return [];
+}
+
+function softSkip(reason: string): never {
+  console.warn(`org-resolver-planning-defaults-check skipped: ${reason}`);
+  console.log("org-resolver-planning-defaults-check skipped", { reason });
+  process.exit(0);
 }
 
 async function main(): Promise<void> {
@@ -23,6 +33,23 @@ async function main(): Promise<void> {
     throw err;
   }
 
+  const employees = await client.listEmployees();
+
+  if (!employees?.ok || !Array.isArray(employees.employees)) {
+    throw new Error(`Failed to list employees: ${JSON.stringify(employees)}`);
+  }
+
+  const hasRuntimePm = employees.employees.some(
+    (employee: any) =>
+      employee?.identity?.employeeId === PM_EMPLOYEE_ID
+      && employee?.identity?.teamId === PM_TEAM_ID
+      && employee?.identity?.roleId === PM_ROLE_ID,
+  );
+
+  if (!hasRuntimePm) {
+    softSkip("runtime PM employee is not present in this deployment");
+  }
+
   const before = await client.listTasks({
     companyId: "company_internal_aep",
     limit: 100,
@@ -32,9 +59,9 @@ async function main(): Promise<void> {
 
   const result = await client.runEmployee({
     companyId: "company_internal_aep",
-    teamId: "team_web_product",
-    employeeId: "emp_product_manager_web_01",
-    roleId: "product-manager",
+    teamId: PM_TEAM_ID,
+    employeeId: PM_EMPLOYEE_ID,
+    roleId: PM_ROLE_ID,
     trigger: "manual",
     policyVersion: "ci-pr11-5",
   });
