@@ -1168,6 +1168,26 @@ Boundary:
 * no hidden prompt steering
 * no direct task mutation surface unless a canonical route exists
 
+### PR12H — identity continuity / employees feel real over time
+
+Goal:
+
+Make employees feel like ongoing actors rather than static profile cards.
+
+Scope:
+
+* show “working now” on employee detail
+* show recent canonical tasks for each employee
+* show active/recent threads for each employee
+* show recent manager decisions and control history affecting the employee
+* derive all continuity from canonical AEP reads only
+
+Boundary:
+
+* no employee memory store
+* no synthetic history model
+* continuity must be derived from tasks, threads, decisions, and control history already recorded canonically
+
 ## PR12 must not do
 
 * must not make Slack/email canonical
@@ -1438,6 +1458,37 @@ Humans can now not only inspect work and causality, but also:
 
 ---
 
+## PR12H — Identity Continuity / Employees Feel Real Over Time (COMPLETED)
+
+The dashboard now gives employees visible continuity over time.
+
+### Implemented
+
+* employee “working now” surface
+* recent task continuity
+* active thread continuity
+* recent manager-decision continuity
+* recent control-history continuity
+
+### Important rule preserved
+
+No employee continuity store or synthetic identity-memory model was introduced.
+
+Continuity is derived from canonical:
+
+* tasks
+* threads
+* manager log
+* control history
+
+### Result
+
+Employees now appear not only as profiles and governance targets, but as:
+
+> ongoing actors with recent work, activity, and governance history
+
+---
+
 # 10. After PR12
 
 PR12 now includes:
@@ -1448,6 +1499,7 @@ PR12 now includes:
 * PR12E — narrative company timeline / work theater
 * PR12F — causality / why things happened
 * PR12G — active control surfaces / steering
+* PR12H — identity continuity / employees feel real over time
 
 ## PR13 — Multi-agent operational company
 
@@ -1481,8 +1533,9 @@ Priority order:
 6. company activity / work theater timeline
 7. causality surfaces explaining why work/governance objects exist
 8. active steering/control surfaces using existing canonical routes
-9. only after that, richer Slack/email collaboration infra such as team channels, personal DMs, team email aliases, and personal employee aliases
-10. only after that, deeper multi-agent collaboration mechanics
+9. identity continuity and recent-work continuity for employees
+10. only after that, richer Slack/email collaboration infra such as team channels, personal DMs, team email aliases, and personal employee aliases
+11. only after that, deeper multi-agent collaboration mechanics
 
 ---
 

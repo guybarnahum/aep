@@ -1031,3 +1031,9 @@ button:disabled {
     grid-template-columns: 1fr;
   }
 }
+
+.mini-list-meta {
+  display: grid;
+  gap: 8px;
+  justify-items: end;
+}

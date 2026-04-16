@@ -109,6 +109,7 @@ import type {
   CausalityLink,
   ControlHistoryRecord,
   DecisionSeverityFilter,
+  EmployeeContinuityOverview,
   EmployeeControlOverview,
   EmployeeEffectivePolicyOverview,
   EmployeeMessageRecord,
@@ -1623,6 +1624,169 @@ function renderEmployeeGovernancePanel(
   `;
 }
 
+function renderEmployeeTaskContinuityList(tasks: TaskRecord[]): string {
+  if (tasks.length === 0) {
+    return `<div class="empty-state small-empty">No canonical task continuity recorded yet.</div>`;
+  }
+
+  return `
+    <div class="mini-list">
+      ${tasks
+        .map(
+          (task) => `
+            <a class="mini-list-item" href="#task/${encodeURIComponent(task.id)}">
+              <div>
+                <strong>${escapeHtml(task.title)}</strong>
+                <div class="muted small">${escapeHtml(task.taskType)} · ${escapeHtml(task.id)}</div>
+              </div>
+              <div class="mini-list-meta">
+                <span class="${statusClass(task.status)}">${escapeHtml(task.status)}</span>
+                ${renderCompactHtmlPill("Updated", formatTimestamp(task.updatedAt ?? task.createdAt))}
+              </div>
+            </a>
+          `,
+        )
+        .join("")}
+    </div>
+  `;
+}
+
+function renderEmployeeThreadContinuityList(threads: MessageThreadRecord[]): string {
+  if (threads.length === 0) {
+    return `<div class="empty-state small-empty">No active canonical threads yet.</div>`;
+  }
+
+  return `
+    <div class="mini-list">
+      ${threads
+        .map(
+          (thread) => `
+            <a class="mini-list-item" href="#thread/${encodeURIComponent(thread.id)}">
+              <div>
+                <strong>${escapeHtml(thread.topic)}</strong>
+                <div class="muted small">${escapeHtml(thread.id)}</div>
+              </div>
+              <div class="mini-list-meta">
+                <span class="status">${escapeHtml(threadKind(thread))}</span>
+                ${renderCompactHtmlPill("Updated", formatTimestamp(thread.updatedAt ?? thread.createdAt))}
+              </div>
+            </a>
+          `,
+        )
+        .join("")}
+    </div>
+  `;
+}
+
+function renderEmployeeDecisionContinuityList(
+  entries: ManagerDecisionRecord[],
+): string {
+  if (entries.length === 0) {
+    return `<div class="empty-state small-empty">No recent manager decisions affecting this employee.</div>`;
+  }
+
+  return `
+    <div class="mini-list">
+      ${entries
+        .map(
+          (entry) => `
+            <article class="mini-list-item">
+              <div>
+                <strong>${escapeHtml(entry.recommendation)}</strong>
+                <div class="muted small">${escapeHtml(entry.reason)}</div>
+              </div>
+              <div class="mini-list-meta">
+                <span class="${statusClass(entry.severity)}">${escapeHtml(entry.severity)}</span>
+                ${renderCompactHtmlPill("Time", formatTimestamp(entry.timestamp))}
+              </div>
+            </article>
+          `,
+        )
+        .join("")}
+    </div>
+  `;
+}
+
+function renderEmployeeControlContinuityList(
+  entries: ControlHistoryRecord[],
+): string {
+  if (entries.length === 0) {
+    return `<div class="empty-state small-empty">No recent control history affecting this employee.</div>`;
+  }
+
+  return `
+    <div class="mini-list">
+      ${entries
+        .map(
+          (entry) => `
+            <article class="mini-list-item">
+              <div>
+                <strong>${escapeHtml(entry.transition)}</strong>
+                <div class="muted small">${escapeHtml(entry.reason)}</div>
+              </div>
+              <div class="mini-list-meta">
+                <span class="${statusClass(entry.nextState)}">${escapeHtml(entry.nextState)}</span>
+                ${renderCompactHtmlPill("Time", formatTimestamp(entry.timestamp))}
+              </div>
+            </article>
+          `,
+        )
+        .join("")}
+    </div>
+  `;
+}
+
+function renderEmployeeContinuityPanel(
+  continuity: EmployeeContinuityOverview,
+): string {
+  return `
+    <section class="panel">
+      <div class="panel-header">
+        <h3>Identity continuity</h3>
+        <p class="muted">
+          Recent canonical work and governance context for this employee.
+        </p>
+      </div>
+
+      <div class="summary-grid">
+        ${renderSummaryCard("Working now", continuity.activeTasks.length, "active canonical tasks")}
+        ${renderSummaryCard("Recent tasks", continuity.recentTasks.length, "most recent owned, assigned, or created tasks")}
+        ${renderSummaryCard("Active threads", continuity.activeThreads.length, "recent thread activity attributed to this employee")}
+        ${renderSummaryCard(
+          "Governance events",
+          continuity.recentManagerDecisions.length + continuity.recentControlHistory.length,
+          "recent decisions and control history",
+        )}
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-header"><h3>Working now</h3></div>
+      ${renderEmployeeTaskContinuityList(continuity.activeTasks)}
+    </section>
+
+    <section class="panel">
+      <div class="panel-header"><h3>Recent tasks</h3></div>
+      ${renderEmployeeTaskContinuityList(continuity.recentTasks)}
+    </section>
+
+    <section class="panel">
+      <div class="panel-header"><h3>Active threads</h3></div>
+      ${renderEmployeeThreadContinuityList(continuity.activeThreads)}
+    </section>
+
+    <section class="panel">
+      <div class="panel-header"><h3>Recent manager decisions</h3></div>
+      ${renderEmployeeDecisionContinuityList(continuity.recentManagerDecisions)}
+    </section>
+
+    <section class="panel">
+      <div class="panel-header"><h3>Recent control history</h3></div>
+      ${renderEmployeeControlContinuityList(continuity.recentControlHistory)}
+    </section>
+  `;
+}
+
 function renderSimpleTaskList(tasks: TaskRecord[]): string {
   if (tasks.length === 0) {
     return `<div class="empty-state small-empty">No tasks.</div>`;
@@ -1703,6 +1867,7 @@ export function renderEmployeeDetail(
   employeeId: string,
   controlOverview: EmployeeControlOverview,
   effectivePolicy: EmployeeEffectivePolicyOverview,
+  continuityOverview: EmployeeContinuityOverview,
 ): string {
   const employee = overview.employees.find((entry) => entry.identity.employeeId === employeeId);
 
@@ -1722,6 +1887,7 @@ export function renderEmployeeDetail(
     <a class="back-link" href="#employees">← Back to employees</a>
     ${renderProfileHeader(employee)}
     ${renderEmployeeGovernancePanel(controlOverview, effectivePolicy)}
+    ${renderEmployeeContinuityPanel(continuityOverview)}
 
     <section class="panel">
       <div class="panel-header">

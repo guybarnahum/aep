@@ -640,6 +640,15 @@ export type DelegateTaskFromThreadResponse = {
   delegationMessageId: string;
 };
 
+export type EmployeeContinuityOverview = {
+  employeeId: string;
+  activeTasks: TaskRecord[];
+  recentTasks: TaskRecord[];
+  activeThreads: MessageThreadRecord[];
+  recentManagerDecisions: ManagerDecisionRecord[];
+  recentControlHistory: ControlHistoryRecord[];
+};
+
 export type EscalationStateFilter = "all" | "open" | "acknowledged" | "resolved";
 
 export type DecisionSeverityFilter = "all" | "warning" | "critical";

@@ -15,6 +15,7 @@ import {
   createCanonicalThreadMessage,
   delegateTaskFromThread,
   getApiBaseUrl,
+  getEmployeeContinuityOverview,
   getEmployeeControlOverview,
   getEmployeeEffectivePolicy,
   getExternalMirrorOverview,
@@ -1003,15 +1004,17 @@ async function renderRoute(): Promise<void> {
       if (route.kind === "employees") {
         content += renderEmployeesDirectory(orgOverview);
       } else if (route.kind === "employee") {
-        const [controlOverview, effectivePolicy] = await Promise.all([
+        const [controlOverview, effectivePolicy, continuityOverview] = await Promise.all([
           getEmployeeControlOverview(route.employeeId),
           getEmployeeEffectivePolicy(route.employeeId),
+          getEmployeeContinuityOverview(route.employeeId),
         ]);
         content += renderEmployeeDetail(
           orgOverview,
           route.employeeId,
           controlOverview,
           effectivePolicy,
+          continuityOverview,
         );
       } else if (route.kind === "teams") {
         content += renderTeamsOverview(orgOverview);

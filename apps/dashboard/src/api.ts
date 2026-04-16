@@ -3,6 +3,7 @@ import type {
   CreateCanonicalThreadMessageResponse,
   DelegateTaskFromThreadInput,
   DelegateTaskFromThreadResponse,
+  EmployeeContinuityOverview,
   EmployeeControlOverview,
   EmployeeEffectivePolicyOverview,
   ExternalMirrorOverview,
@@ -231,6 +232,56 @@ export async function getEmployeeEffectivePolicy(
     getOperatorAgentBaseUrl(),
     `/agent/employees/${encodeURIComponent(employeeId)}/effective-policy`,
   );
+}
+
+export async function getEmployeeContinuityOverview(
+  employeeId: string,
+): Promise<EmployeeContinuityOverview> {
+  const [orgOverview, departmentOverview] = await Promise.all([
+    getOrgPresenceOverview(),
+    getDepartmentOverview(),
+  ]);
+
+  const touchesTask = (task: TaskRecord): boolean =>
+    task.assignedEmployeeId === employeeId ||
+    task.ownerEmployeeId === employeeId ||
+    task.createdByEmployeeId === employeeId;
+
+  const activeStatuses = new Set(["queued", "ready", "in_progress", "blocked", "escalated"]);
+
+  const activeTasks = orgOverview.tasks
+    .filter((task) => touchesTask(task) && activeStatuses.has(task.status))
+    .sort((a, b) => (b.updatedAt ?? "").localeCompare(a.updatedAt ?? ""))
+    .slice(0, 6);
+
+  const recentTasks = orgOverview.tasks
+    .filter(touchesTask)
+    .sort((a, b) => (b.updatedAt ?? "").localeCompare(a.updatedAt ?? ""))
+    .slice(0, 8);
+
+  const activeThreads = orgOverview.threads
+    .filter((thread) => thread.createdByEmployeeId === employeeId)
+    .sort((a, b) => (b.updatedAt ?? "").localeCompare(a.updatedAt ?? ""))
+    .slice(0, 8);
+
+  const recentManagerDecisions = departmentOverview.managerLog
+    .filter((entry) => entry.employeeId === employeeId)
+    .sort((a, b) => (b.timestamp ?? "").localeCompare(a.timestamp ?? ""))
+    .slice(0, 6);
+
+  const recentControlHistory = departmentOverview.controlHistory
+    .filter((entry) => entry.employeeId === employeeId)
+    .sort((a, b) => (b.timestamp ?? "").localeCompare(a.timestamp ?? ""))
+    .slice(0, 6);
+
+  return {
+    employeeId,
+    activeTasks,
+    recentTasks,
+    activeThreads,
+    recentManagerDecisions,
+    recentControlHistory,
+  };
 }
 
 export async function getExternalMirrorOverview(): Promise<ExternalMirrorOverview> {
