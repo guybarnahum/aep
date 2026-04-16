@@ -4,7 +4,7 @@ Repository (source of truth):
 👉 https://github.com/guybarnahum/aep
 
 The repository code is the source of truth.  
-This document is aligned to commit `75388c71962738dbcf3e852353a0d44336c50e6f`.
+This document is aligned to commit `337849372b66018ec82a378c063ade3fee620691`.
 
 titan@Titans-MacBook-Pro aep % tree . --gitignore
 .
@@ -724,17 +724,19 @@ Important practical rule:
 
 # 8. Current product gap
 
-The backend substrate is now ahead of the UI.
+The backend substrate is now materially ahead of the human-facing product surface.
 
 AEP can already:
 
 * create plans
 * create child tasks
 * emit validation artifacts
-* publish bounded rationale
-* mirror external messages
+* publish bounded public rationale
+* create canonical message threads
+* expose task/thread visibility summaries
+* mirror external messages into Slack/email projections
 * ingest replies/actions
-* expose visibility summaries
+* preserve canonical provenance across task/thread/artifact/governance state
 
 But the human-facing product still under-represents this.
 
@@ -750,13 +752,22 @@ This is the right next step.
 
 ## Goal
 
-Expose the governed agentic work already happening in AEP through:
+Turn AEP from:
+
+> a governed agent execution substrate
+
+into:
+
+> a visible, embodied, and steerable digital company
+
+by exposing the governed agentic work already happening in AEP through:
 
 * dashboard / ops-console UI
 * canonical thread/task/plan/result views
 * embodied employee profiles
 * human interjection and participation
-* visible external mirrors (Slack/email) as adapters over canonical state
+* visible external mirrors (Slack/email) as adapter projections over canonical state
+* a coherent company activity / work-theater surface
 
 PR12 should make it possible for a human to observe:
 
@@ -772,7 +783,7 @@ And it should make it possible for a human to:
 
 * open threads
 * reply/interject
-* shape agent behavior through canonical messages and governance surfaces
+* shape agent behavior through canonical thread messages and governance surfaces
 * review plans and outcomes
 * understand “who did what and why” without seeing raw private cognition
 
@@ -780,37 +791,108 @@ And it should make it possible for a human to:
 
 ### PR12A — UI foundation for canonical work surfaces
 
-* task detail UI for plans / results / evidence / validation
-* thread detail UI for canonical discussions and rationale publication
-* visibility-summary-driven panels
-* no UI-as-source-of-truth behavior
+Goal:
+
+Expose what the company is doing using existing canonical APIs.
+
+Scope:
+
+* add work-oriented navigation and routes:
+	* `#work`
+	* `#task/:id`
+	* `#thread/:id`
+* task list UI rendered from canonical `/agent/tasks`
+* task detail UI rendered from canonical `/agent/tasks/:id`
+	* plan/result/evidence artifacts
+	* validation results
+	* decision
+	* dependencies
+	* related threads
+	* visibilitySummary
+* thread detail UI rendered from canonical `/agent/message-threads/:id`
+	* canonical messages
+	* rationale publication
+	* approval/escalation linkage
+	* external projection state
+	* visibilitySummary
+
+Rule:
+
+> UI renders canonical state.  
+> UI does not become a source of truth or recompute hidden work state.
 
 ### PR12B — embodied employees and organization presence
 
-* employee cards / directory / profile views
-* public photo / bio / skills usage
+Goal:
+
+Make the company feel like a set of real actors rather than IDs.
+
+Scope:
+
+* employee directory / cards / profile views
+* use public profile fields already exposed canonically:
+	* displayName
+	* bio
+	* skills
+	* avatarUrl
+* employee profile views linked to owned / assigned tasks and recent thread activity
 * team-level and company-level views of active work
+
+Important boundary:
+
+* public embodiment belongs in employee catalog / persona projections
+* prompt profiles remain private employee-boundary cognition state
 
 ### PR12C — human interjection and collaboration
 
-* send canonical messages into task-linked threads
-* let humans shape work through threads, not hidden prompts
-* keep approvals/escalations explicit
+Goal:
+
+Allow humans to participate in work without bypassing canonical AEP primitives.
+
+Scope:
+
+* send canonical messages into task-linked or governance-linked threads
+* let humans shape work through visible thread participation, not hidden prompts
+* keep approvals and escalations explicit as dedicated action surfaces
+* no hidden write-through mutation path from free-form UI chat
 
 ### PR12D — external mirror visibility
 
+Goal:
+
+Expose Slack/email as collaboration adapters over canonical AEP work.
+
+Scope:
+
 * show Slack/email projection state in UI
-* show external thread mapping and audit clearly
+* show external thread mapping, message mapping, delivery state, and interaction audit clearly
 * keep mirrors visibly secondary to canonical AEP state
+* support future routing models for:
+	* Slack team channels
+	* Slack personal DMs
+	* email team aliases
+	* email personal aliases
+
+Boundary:
+
+> external channels are projection and interaction surfaces only.  
+> AEP threads/messages remain canonical.
 
 ### PR12E — work theater / company activity view
 
-* “what the company is doing now”
+Goal:
+
+Make the digital company feel alive and legible.
+
+Scope:
+
+* “what the company is doing now” activity surface
 * plans underway
 * execution in progress
 * validation outcomes
 * governance bottlenecks
 * external collaboration state
+* timeline / feed style views that show plan → execution → validation → governance coherently
 
 ## PR12 must not do
 
@@ -819,6 +901,8 @@ And it should make it possible for a human to:
 * must not bypass tasks/threads/artifacts
 * must not turn UI into write-through hidden state mutation
 * must not reintroduce chat as the primary work model
+
+PR12 is an exposure / interaction phase, not a canonical data model rewrite.
 
 ---
 
@@ -844,13 +928,16 @@ The next LLM session should:
 3. trust the repo over this doc if they diverge
 4. treat PR11 as complete
 5. begin PR12 as the UI + human collaboration + mirror visibility phase
+6. start with PR12A before broadening into embodiment and external collaboration infrastructure
 
 Priority order:
 
-1. canonical UI surfaces over existing task/thread/artifact APIs
-2. human interjection through canonical message threads
-3. employee embodiment / profile surfacing
-4. external mirror visibility in UI
+1. canonical work UI surfaces over existing task/thread/artifact/visibility APIs
+2. task detail and thread detail rendered from canonical read surfaces
+3. human interjection through canonical message threads
+4. employee embodiment / profile surfacing
+5. external mirror visibility in UI
+6. only after that, richer Slack/email collaboration infra such as team channels, personal DMs, team email aliases, and personal employee aliases
 5. only after that, deeper multi-agent collaboration mechanics
 
 ---
@@ -867,5 +954,5 @@ Optimize for:
 
 The north star is:
 
-> a real, observable, steerable digital company whose agents work independently through governed canonical surfaces, while humans can inspect, shape, and collaborate with them naturally.
+> a real, observable, steerable digital company whose agents work independently through governed canonical surfaces, while humans can inspect, shape, and collaborate with them naturally across UI and external mirrors without losing canonicality.
 
