@@ -4,7 +4,7 @@ Repository (source of truth):
 👉 https://github.com/guybarnahum/aep
 
 The repository code is the source of truth.  
-This document is aligned to commit `812b9cd918758f7ddb8087909ecaee442d24c1e5`.
+This document is aligned to commit `095e1edabef3583be4813ead714ad81fde4885bb`.
 ```bash
 titan@Titans-MacBook-Pro aep % tree . --gitignore
 .
@@ -1241,6 +1241,34 @@ Where:
 - work is attributable
 - teams are legible
 - the organization can be navigated
+
+---
+
+## PR12C — Human Interjection + Canonical Thread Collaboration (COMPLETED)
+
+The dashboard now supports human participation through canonical AEP thread routes.
+
+### Implemented
+
+* thread detail includes a canonical message composer
+* human-authored dashboard messages are sent through canonical `/agent/messages`
+* approvals remain explicit thread actions
+* escalations remain explicit thread actions
+* free-form thread participation does not become hidden governance mutation
+
+### Result
+
+Humans can now:
+
+* participate directly in canonical task/governance threads
+* shape work through visible thread messaging
+* take explicit approval/escalation actions through dedicated thread controls
+
+This preserves:
+
+* canonical task/thread/artifact/governance state
+* the cognition boundary
+* the separation between conversation and governance mutation
 
 ---
 

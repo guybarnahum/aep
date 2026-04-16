@@ -114,9 +114,11 @@ import type {
   EmployeeRuntimeStatusFilter,
   EscalationRecord,
   EscalationStateFilter,
+  ExternalMirrorOverview,
   ManagerDecisionRecord,
   MessageThreadDetail,
   MessageThreadRecord,
+  MirrorThreadOverview,
   OperatorEmployeeRecord,
   OrgPresenceOverview,
   TaskArtifactRecord,
@@ -809,7 +811,7 @@ export function renderToolbar(args: {
 }
 
 export function renderPrimaryNav(args: {
-  activeView: "tenant" | "department" | "work" | "company";
+  activeView: "tenant" | "department" | "work" | "company" | "mirrors";
   tenantHref: string;
 }): string {
   return `
@@ -823,6 +825,9 @@ export function renderPrimaryNav(args: {
         </a>
         <a class="view-nav-link ${args.activeView === "company" ? "view-nav-link-active" : ""}" href="#company">
           Company view
+        </a>
+        <a class="view-nav-link ${args.activeView === "mirrors" ? "view-nav-link-active" : ""}" href="#mirrors">
+          Mirrors
         </a>
         <a class="view-nav-link ${args.activeView === "department" ? "view-nav-link-active" : ""}" href="#department">
           Department view
@@ -1872,6 +1877,192 @@ export function renderThreadDetail(detail: MessageThreadDetail): string {
       ${(detail.externalInteractionAudit.length > 0)
         ? renderExpandableText(`thread-audit-${detail.thread.id}`, "External interaction audit", formatJsonBlock(detail.externalInteractionAudit))
         : ""}
+    </section>
+  `;
+}
+
+function summarizeProjectionChannels(item: MirrorThreadOverview): {
+  slack: number;
+  email: number;
+} {
+  return item.externalThreadProjections.reduce(
+    (acc, projection) => {
+      if (projection.channel === "slack") acc.slack += 1;
+      if (projection.channel === "email") acc.email += 1;
+      return acc;
+    },
+    { slack: 0, email: 0 },
+  );
+}
+
+function summarizeAuditDecisions(item: MirrorThreadOverview): {
+  allowed: number;
+  denied: number;
+} {
+  return item.externalInteractionAudit.reduce(
+    (acc, audit) => {
+      if (audit.decision === "allowed") acc.allowed += 1;
+      if (audit.decision === "denied") acc.denied += 1;
+      return acc;
+    },
+    { allowed: 0, denied: 0 },
+  );
+}
+
+function renderProjectionTargets(item: MirrorThreadOverview): string {
+  if (item.externalThreadProjections.length === 0) {
+    return `<div class="empty-state small-empty">No external thread projections.</div>`;
+  }
+
+  return `
+    <div class="mirror-target-list">
+      ${item.externalThreadProjections
+        .map(
+          (projection) => `
+            <div class="mirror-target-item">
+              <div><strong>${escapeHtml(projection.channel)}</strong> · ${escapeHtml(projection.target)}</div>
+              <div class="muted small">externalThreadId=${escapeHtml(projection.externalThreadId)}</div>
+            </div>
+          `,
+        )
+        .join("")}
+    </div>
+  `;
+}
+
+function renderMirrorThreadCard(item: MirrorThreadOverview): string {
+  const channelCounts = summarizeProjectionChannels(item);
+  const auditCounts = summarizeAuditDecisions(item);
+
+  return `
+    <article class="work-card">
+      <div class="work-card-top">
+        <div>
+          <h3><a href="#thread/${encodeURIComponent(item.thread.id)}">${escapeHtml(item.thread.topic)}</a></h3>
+          <div class="muted small">${escapeHtml(item.thread.id)}</div>
+        </div>
+        <span class="status">${escapeHtml(threadKind(item.thread))}</span>
+      </div>
+
+      <div class="meta-grid">
+        ${renderCompactPill("Slack", channelCounts.slack)}
+        ${renderCompactPill("Email", channelCounts.email)}
+        ${renderCompactPill("Allowed actions", auditCounts.allowed)}
+        ${renderCompactPill("Denied actions", auditCounts.denied)}
+        ${renderCompactPill(
+          "Inbound replies",
+          item.externalInteractionPolicy
+            ? String(item.externalInteractionPolicy.inboundRepliesAllowed)
+            : "—",
+        )}
+        ${renderCompactPill(
+          "External actions",
+          item.externalInteractionPolicy
+            ? String(item.externalInteractionPolicy.externalActionsAllowed)
+            : "—",
+        )}
+      </div>
+
+      <div class="mirror-section-block">
+        <div class="mirror-section-title">Projection targets</div>
+        ${renderProjectionTargets(item)}
+      </div>
+
+      ${renderExpandableText(
+        `mirror-thread-projections-${item.thread.id}`,
+        "Projection mapping detail",
+        formatJsonBlock(item.externalThreadProjections),
+      )}
+
+      ${
+        item.externalInteractionPolicy
+          ? renderExpandableText(
+              `mirror-thread-policy-${item.thread.id}`,
+              "Interaction policy",
+              formatJsonBlock(item.externalInteractionPolicy),
+            )
+          : ""
+      }
+
+      ${
+        item.externalInteractionAudit.length > 0
+          ? renderExpandableText(
+              `mirror-thread-audit-${item.thread.id}`,
+              "Interaction audit",
+              formatJsonBlock(item.externalInteractionAudit),
+            )
+          : ""
+      }
+    </article>
+  `;
+}
+
+export function renderExternalMirrorOverview(
+  overview: ExternalMirrorOverview,
+): string {
+  const slackProjectionCount = overview.threads.reduce(
+    (total, item) =>
+      total +
+      item.externalThreadProjections.filter(
+        (projection) => projection.channel === "slack",
+      ).length,
+    0,
+  );
+
+  const emailProjectionCount = overview.threads.reduce(
+    (total, item) =>
+      total +
+      item.externalThreadProjections.filter(
+        (projection) => projection.channel === "email",
+      ).length,
+    0,
+  );
+
+  const auditCount = overview.threads.reduce(
+    (total, item) => total + item.externalInteractionAudit.length,
+    0,
+  );
+
+  const threadsWithReplyPolicy = overview.threads.filter(
+    (item) => item.externalInteractionPolicy?.inboundRepliesAllowed === true,
+  ).length;
+
+  const threadsWithExternalActions = overview.threads.filter(
+    (item) => item.externalInteractionPolicy?.externalActionsAllowed === true,
+  ).length;
+
+  return `
+    <section class="panel">
+      <div class="panel-header">
+        <h2>External mirrors</h2>
+        <p class="muted">
+          Slack and email are visible here as adapter projections over canonical AEP threads.
+        </p>
+      </div>
+      <div class="summary-grid">
+        ${renderSummaryCard("Mirrored threads", overview.threads.length, "canonical threads with external visibility")}
+        ${renderSummaryCard("Slack projections", slackProjectionCount, "team channels or DMs")}
+        ${renderSummaryCard("Email projections", emailProjectionCount, "team aliases or personal addresses")}
+        ${renderSummaryCard("Interaction audit", auditCount, "external reply/action decisions")}
+        ${renderSummaryCard("Replies enabled", threadsWithReplyPolicy, "threads permitting inbound replies")}
+        ${renderSummaryCard("External actions", threadsWithExternalActions, "threads permitting explicit external actions")}
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-header">
+        <h2>Projection overview</h2>
+        <p class="muted">
+          Open any canonical thread to see the underlying thread-first detail. This view keeps mirrors visibly secondary.
+        </p>
+      </div>
+      <div class="work-grid">
+        ${
+          overview.threads.length > 0
+            ? overview.threads.map(renderMirrorThreadCard).join("")
+            : `<div class="empty-state">No external mirror projections recorded yet.</div>`
+        }
+      </div>
     </section>
   `;
 }

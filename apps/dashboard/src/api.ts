@@ -1,8 +1,10 @@
 import type {
   CreateCanonicalThreadMessageInput,
   CreateCanonicalThreadMessageResponse,
+  ExternalMirrorOverview,
   MessageThreadDetail,
   MessageThreadRecord,
+  MirrorThreadOverview,
   OrgPresenceOverview,
   TaskDetail,
   TaskRecord,
@@ -204,6 +206,45 @@ export async function getOrgPresenceOverview(): Promise<OrgPresenceOverview> {
     threads,
     roadmaps: departmentOverview.roadmaps,
     schedulerStatus: departmentOverview.schedulerStatus,
+  };
+}
+
+export async function getExternalMirrorOverview(): Promise<ExternalMirrorOverview> {
+  const threads = await getMessageThreads();
+
+  const details = await Promise.all(
+    threads.map(async (thread) => {
+      try {
+        return await getMessageThreadDetail(thread.id);
+      } catch {
+        return null;
+      }
+    }),
+  );
+
+  const mirrorThreads: MirrorThreadOverview[] = details
+    .filter((detail): detail is MessageThreadDetail => detail !== null)
+    .filter((detail) => {
+      return (
+        detail.externalThreadProjections.length > 0 ||
+        detail.externalInteractionAudit.length > 0 ||
+        detail.externalInteractionPolicy !== null
+      );
+    })
+    .map((detail) => ({
+      thread: detail.thread,
+      visibilitySummary: detail.visibilitySummary,
+      externalThreadProjections: detail.externalThreadProjections,
+      externalInteractionPolicy: detail.externalInteractionPolicy,
+      externalInteractionAudit: detail.externalInteractionAudit,
+    }));
+
+  mirrorThreads.sort((a, b) =>
+    (b.thread.updatedAt ?? "").localeCompare(a.thread.updatedAt ?? ""),
+  );
+
+  return {
+    threads: mirrorThreads,
   };
 }
 

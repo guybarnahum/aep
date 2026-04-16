@@ -14,6 +14,7 @@ import {
   approveFromThread,
   createCanonicalThreadMessage,
   getApiBaseUrl,
+  getExternalMirrorOverview,
   getMessageThreadDetail,
   getMessageThreads,
   getDepartmentOverview,
@@ -42,6 +43,7 @@ import {
   renderDepartmentOverview,
   renderEmployeeDetail,
   renderEmployeesDirectory,
+  renderExternalMirrorOverview,
   renderPrimaryNav,
   renderServiceOverview,
   renderTaskDetail,
@@ -83,6 +85,7 @@ type Route =
   | { kind: "teams" }
   | { kind: "team"; teamId: string }
   | { kind: "company" }
+  | { kind: "mirrors" }
   | { kind: "department" };
 
 const DEFAULT_DEPARTMENT_FILTERS: DepartmentFilters = {
@@ -294,6 +297,10 @@ function getRoute(defaultTenantId: string): Route {
 
   if (hash === "company") {
     return { kind: "company" };
+  }
+
+  if (hash === "mirrors") {
+    return { kind: "mirrors" };
   }
 
   const taskMatch = hash.match(/^task\/(.+)$/);
@@ -799,6 +806,7 @@ async function renderRoute(): Promise<void> {
       "employees",
       "teams",
       "company",
+      "mirrors",
     ];
 
     if (
@@ -846,6 +854,8 @@ async function renderRoute(): Promise<void> {
                 route.kind === "team" ||
                 route.kind === "company"
               ? "company"
+              : route.kind === "mirrors"
+                ? "mirrors"
               : "tenant",
       tenantHref: `#tenant/${encodeURIComponent(
         route.kind === "department" ||
@@ -856,7 +866,8 @@ async function renderRoute(): Promise<void> {
           route.kind === "employee" ||
           route.kind === "teams" ||
           route.kind === "team" ||
-          route.kind === "company"
+          route.kind === "company" ||
+          route.kind === "mirrors"
           ? (homeTenantId ?? "")
           : route.tenantId,
       )}`,
@@ -894,6 +905,9 @@ async function renderRoute(): Promise<void> {
       } else {
         content += renderCompanyOverview(orgOverview);
       }
+    } else if (route.kind === "mirrors") {
+      const overview = await getExternalMirrorOverview();
+      content += renderExternalMirrorOverview(overview);
     } else if (route.kind === "department") {
       const overview = await getDepartmentOverview();
       const filters = getDepartmentFilters();

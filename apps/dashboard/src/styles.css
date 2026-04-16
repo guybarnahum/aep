@@ -908,3 +908,27 @@ button:disabled {
     grid-template-columns: 1fr;
   }
 }
+
+.mirror-section-block {
+  margin-top: 14px;
+}
+
+.mirror-section-title {
+  font-size: 12px;
+  color: #98a6b9;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.mirror-target-list {
+  display: grid;
+  gap: 8px;
+}
+
+.mirror-target-item {
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: rgba(2, 8, 23, 0.45);
+  border: 1px solid rgba(148, 163, 184, 0.1);
+}

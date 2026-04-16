@@ -539,6 +539,18 @@ export type CreateCanonicalThreadMessageResponse = {
   messageId: string;
 };
 
+export type MirrorThreadOverview = {
+  thread: MessageThreadRecord;
+  visibilitySummary: ThreadVisibilitySummary;
+  externalThreadProjections: ExternalThreadProjectionRecord[];
+  externalInteractionPolicy: ThreadExternalInteractionPolicyRecord | null;
+  externalInteractionAudit: ExternalInteractionAuditRecord[];
+};
+
+export type ExternalMirrorOverview = {
+  threads: MirrorThreadOverview[];
+};
+
 export type EscalationStateFilter = "all" | "open" | "acknowledged" | "resolved";
 
 export type DecisionSeverityFilter = "all" | "warning" | "critical";
