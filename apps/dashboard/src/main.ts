@@ -79,6 +79,9 @@ const INTERNAL_TENANT_ID_CANDIDATES = [
 ] as const;
 let autoRefreshTimer: number | null = null;
 let mutationStatusMessage: string | null = null;
+let lastRenderCompletedAt: number | null = null;
+let lastAutoRefreshAt: number | null = null;
+let activeRenderCount = 0;
 
 type Route =
   | { kind: "tenant"; tenantId: string }
@@ -226,6 +229,69 @@ function resetDepartmentPaginationPages(): DepartmentPaginationState {
 
 function setMutationStatus(message: string | null): void {
   mutationStatusMessage = message;
+}
+
+function setRefreshingIndicator(isRefreshing: boolean): void {
+  const indicator = document.querySelector<HTMLElement>("[data-refresh-indicator]");
+  if (!indicator) {
+    return;
+  }
+
+  indicator.classList.toggle("refresh-indicator-hidden", !isRefreshing);
+}
+
+function isLiveOperationalRoute(route: Route): boolean {
+  return (
+    route.kind === "work" ||
+    route.kind === "task" ||
+    route.kind === "thread" ||
+    route.kind === "employee" ||
+    route.kind === "activity" ||
+    route.kind === "department"
+  );
+}
+
+function getLiveSurfaceLabel(route: Route): string | null {
+  switch (route.kind) {
+    case "work":
+      return "Canonical work";
+    case "task":
+      return "Task detail";
+    case "thread":
+      return "Thread detail";
+    case "employee":
+      return "Employee detail";
+    case "activity":
+      return "Company activity";
+    case "department":
+      return "Governance";
+    default:
+      return null;
+  }
+}
+
+function formatRefreshAge(timestampMs: number | null): string {
+  if (!timestampMs) {
+    return "Not refreshed yet";
+  }
+
+  const diffMs = Date.now() - timestampMs;
+  const diffSec = Math.max(0, Math.floor(diffMs / 1000));
+
+  if (diffSec < 5) {
+    return "just now";
+  }
+  if (diffSec < 60) {
+    return `${diffSec}s ago`;
+  }
+
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin < 60) {
+    return `${diffMin}m ago`;
+  }
+
+  const diffHour = Math.floor(diffMin / 60);
+  return `${diffHour}h ago`;
 }
 
 function getStoredHomeTenantId(): string | null {
@@ -892,12 +958,24 @@ function syncAutoRefresh(): void {
   }
 
   autoRefreshTimer = window.setInterval(() => {
+    if (document.hidden) {
+      return;
+    }
+
+    lastAutoRefreshAt = Date.now();
     void renderRoute();
   }, AUTO_REFRESH_MS);
 }
 
 async function renderRoute(): Promise<void> {
-  renderShell(`<div class="loading">Loading…</div>`);
+  activeRenderCount += 1;
+
+  const hasExistingShell = Boolean(document.querySelector(".app-shell"));
+  if (hasExistingShell) {
+    setRefreshingIndicator(true);
+  } else {
+    renderShell(`<div class="loading">Loading…</div>`);
+  }
 
   try {
     const tenants = await getTenants();
@@ -921,6 +999,11 @@ async function renderRoute(): Promise<void> {
         ${renderToolbar({
           autoRefresh: getAutoRefreshEnabled(),
           mutationStatus: mutationStatusMessage,
+          liveSurfaceLabel: null,
+          liveSurfaceEnabled: false,
+          lastRefreshedLabel: formatRefreshAge(lastRenderCompletedAt),
+          lastAutoRefreshLabel: lastAutoRefreshAt ? formatRefreshAge(lastAutoRefreshAt) : null,
+          isRefreshing: false,
         })}
         ${renderPrimaryNav({
           activeView: "tenant",
@@ -944,6 +1027,11 @@ async function renderRoute(): Promise<void> {
     let content = renderToolbar({
       autoRefresh: getAutoRefreshEnabled(),
       mutationStatus: mutationStatusMessage,
+      liveSurfaceLabel: getLiveSurfaceLabel(route),
+      liveSurfaceEnabled: isLiveOperationalRoute(route),
+      lastRefreshedLabel: formatRefreshAge(lastRenderCompletedAt),
+      lastAutoRefreshLabel: lastAutoRefreshAt ? formatRefreshAge(lastAutoRefreshAt) : null,
+      isRefreshing: false,
     });
 
     content += renderPrimaryNav({
@@ -1046,6 +1134,7 @@ async function renderRoute(): Promise<void> {
     }
 
     renderShell(content);
+  lastRenderCompletedAt = Date.now();
     attachToolbarHandlers();
 
     if (route.kind === "department") {
@@ -1063,6 +1152,9 @@ async function renderRoute(): Promise<void> {
       error instanceof Error ? error.message : "Unknown UI error";
     renderShell(`<div class="loading">Unable to load dashboard.</div>`, message);
     syncAutoRefresh();
+  } finally {
+    activeRenderCount = Math.max(0, activeRenderCount - 1);
+    setRefreshingIndicator(activeRenderCount > 0);
   }
 }
 
@@ -1086,6 +1178,12 @@ async function updateDepartmentPaginationView(): Promise<void> {
 
 window.addEventListener("hashchange", () => {
   void renderRoute();
+});
+
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden && getAutoRefreshEnabled()) {
+    void renderRoute();
+  }
 });
 
 void renderRoute();

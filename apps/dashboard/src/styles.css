@@ -1042,3 +1042,43 @@ button:disabled {
   margin-top: 12px;
   line-height: 1.5;
 }
+
+.toolbar-copy-stack {
+  display: grid;
+  gap: 6px;
+}
+
+.live-status-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.live-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  background: rgba(34, 197, 94, 0.14);
+  border: 1px solid rgba(34, 197, 94, 0.28);
+  color: #dcfce7;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.refresh-indicator {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  background: rgba(59, 130, 246, 0.14);
+  border: 1px solid rgba(59, 130, 246, 0.28);
+  color: #dbeafe;
+}
+
+.refresh-indicator-hidden {
+  display: none;
+}

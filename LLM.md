@@ -1209,6 +1209,26 @@ Boundary:
 * no behavior changes
 * no new canonical state
 
+### PR12I — live system feel / low-jank refresh
+
+Goal:
+
+Make the company UI feel operational and current without changing the canonical model or introducing streaming infrastructure.
+
+Scope:
+
+* smarter auto-refresh behavior
+* refresh only while visible
+* expose freshness / live-surface cues in the UI
+* reinforce that activity, work, governance, thread, task, and employee detail views are operational surfaces
+
+Boundary:
+
+* no websockets
+* no backend changes
+* no new canonical state
+* client-side refresh/presentation behavior only
+
 ## PR12 must not do
 
 * must not make Slack/email canonical
@@ -1536,6 +1556,32 @@ The company UI now better communicates the real AEP model:
 
 ---
 
+## PR12I — Live System Feel / Low-Jank Refresh (COMPLETED)
+
+The dashboard now feels more operational without changing the canonical architecture.
+
+### Implemented
+
+* smarter auto-refresh behavior
+* refresh only while the page is visible
+* freshness indicators in the toolbar
+* explicit “live surface” framing for operational views
+* live-surface copy added to activity, work, task, thread, employee, and governance views
+
+### Important rule preserved
+
+This is still a polling-based client behavior layer.
+
+No websockets, backend primitives, or new canonical state were introduced.
+
+### Result
+
+The company UI now feels more like an operational surface:
+
+> current, refreshing, and active — without compromising canonicality
+
+---
+
 # 10. After PR12
 
 PR12 now includes:
@@ -1547,6 +1593,7 @@ PR12 now includes:
 * PR12F — causality / why things happened
 * PR12G — active control surfaces / steering
 * PR12H — identity continuity / employees feel real over time
+* PR12I — live system feel / low-jank refresh
 * PR12J — UX / copy / canonicality tightening
 
 ## PR13 — Multi-agent operational company
@@ -1583,8 +1630,9 @@ Priority order:
 8. active steering/control surfaces using existing canonical routes
 9. identity continuity and recent-work continuity for employees
 10. UX/copy/canonicality tightening over the PR12 surfaces
-11. only after that, richer Slack/email collaboration infra such as team channels, personal DMs, team email aliases, and personal employee aliases
-12. only after that, deeper multi-agent collaboration mechanics
+11. live system feel and refresh polish over operational views
+12. only after that, richer Slack/email collaboration infra such as team channels, personal DMs, team email aliases, and personal employee aliases
+13. only after that, deeper multi-agent collaboration mechanics
 
 ---
 

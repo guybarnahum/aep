@@ -954,21 +954,58 @@ function renderRunBadge(run: RunSummary | null): string {
 export function renderToolbar(args: {
   autoRefresh: boolean;
   mutationStatus?: string | null;
+  liveSurfaceLabel?: string | null;
+  liveSurfaceEnabled?: boolean;
+  lastRefreshedLabel?: string | null;
+  lastAutoRefreshLabel?: string | null;
+  isRefreshing?: boolean;
 }): string {
   return `
     <section class="panel toolbar-panel">
       <div class="toolbar">
         <div class="toolbar-group">
-          <p class="muted">
-            Canonical view of company work, governance, and external collaboration.
-          </p>
+          <div class="toolbar-copy-stack">
+            <p class="muted">
+              Canonical view of company work, governance, and external collaboration.
+            </p>
+            ${
+              args.liveSurfaceEnabled && args.liveSurfaceLabel
+                ? `
+                  <div class="live-status-row">
+                    <span class="live-pill">Live surface</span>
+                    <span class="refresh-indicator ${args.isRefreshing ? "" : "refresh-indicator-hidden"}" data-refresh-indicator>Refreshing…</span>
+                    <span class="muted small">${escapeHtml(args.liveSurfaceLabel)}</span>
+                    ${
+                      args.lastRefreshedLabel
+                        ? `<span class="muted small">Refreshed ${escapeHtml(args.lastRefreshedLabel)}</span>`
+                        : ""
+                    }
+                    ${
+                      args.autoRefresh && args.lastAutoRefreshLabel
+                        ? `<span class="muted small">Auto-refresh tick ${escapeHtml(args.lastAutoRefreshLabel)}</span>`
+                        : ""
+                    }
+                  </div>
+                `
+                : `
+                  <div class="live-status-row">
+                    <span class="refresh-indicator ${args.isRefreshing ? "" : "refresh-indicator-hidden"}" data-refresh-indicator>Refreshing…</span>
+                    ${
+                      args.lastRefreshedLabel
+                        ? `<span class="muted small">Refreshed ${escapeHtml(args.lastRefreshedLabel)}</span>`
+                        : ""
+                    }
+                  </div>
+                `
+            }
+          </div>
           ${args.mutationStatus ? `<p class="mutation-status">${escapeHtml(args.mutationStatus)}</p>` : ""}
         </div>
 
         <div class="toolbar-group toolbar-actions">
           <label class="checkbox-label">
             <input id="auto-refresh-toggle" type="checkbox" ${args.autoRefresh ? "checked" : ""} />
-            <span>Auto-refresh (15s)</span>
+            <span>Auto-refresh while visible (15s)</span>
           </label>
           <button id="refresh-button" class="button" type="button">Refresh</button>
         </div>
@@ -1462,7 +1499,10 @@ export function renderWorkOverview(overview: WorkOverview): string {
     <section class="panel">
       <div class="panel-header">
         <h2>Canonical work</h2>
-        <p class="muted">Tasks and threads rendered directly from AEP-native work surfaces.</p>
+        <p class="muted">
+          Tasks and threads rendered directly from AEP-native work surfaces.
+          This surface is suitable for periodic live refresh.
+        </p>
       </div>
       <div class="summary-grid">
         ${renderSummaryCard("Tasks", sortedTasks.length, `${sortedTasks.filter((task) => task.status === "in_progress").length} in progress`)}
@@ -1743,6 +1783,7 @@ function renderEmployeeContinuityPanel(
         <h3>Identity continuity</h3>
         <p class="muted">
           Recent canonical work and governance context for this employee.
+          This view is intended to feel live as task, thread, and governance state changes.
         </p>
       </div>
 
@@ -2097,6 +2138,9 @@ export function renderTaskDetail(detail: TaskDetail): string {
       ${detail.task.payload && Object.keys(detail.task.payload).length > 0
         ? renderExpandableText(`task-payload-${detail.task.id}`, "Task payload", formatJsonBlock(detail.task.payload))
         : ""}
+      <p class="muted detail-note">
+        This task detail is rendered from canonical AEP state and is suitable for periodic live refresh while execution is active.
+      </p>
     </section>
 
     <section class="panel">
@@ -2347,6 +2391,7 @@ export function renderThreadDetail(detail: MessageThreadDetail): string {
       ${renderThreadVisibility(detail.visibilitySummary)}
       <p class="muted detail-note">
         This is the canonical AEP thread. Slack and email are projections over this thread, not the source of truth.
+        This surface is suitable for periodic live refresh while work is active.
       </p>
     </section>
 
@@ -2630,6 +2675,7 @@ export function renderNarrativeTimeline(timeline: NarrativeTimeline): string {
         <h2>Company activity</h2>
         <p class="muted">
           Narrative timeline derived from canonical tasks, threads, artifacts, and governance.
+          This surface is suitable for periodic live refresh.
         </p>
       </div>
 
@@ -2795,8 +2841,11 @@ export function renderDepartmentOverview(args: {
     <div data-section="department-content">
       <section class="panel">
         <div class="panel-header">
-          <h2>Infra department</h2>
-          <p class="muted">Employees, escalations, controls, and manager decisions.</p>
+            <h2>Governance</h2>
+            <p class="muted">
+              Employee controls, approvals, escalations, and manager oversight over canonical company work.
+              This governance surface is suitable for periodic live refresh.
+            </p>
         </div>
 
         <div class="summary-grid">
