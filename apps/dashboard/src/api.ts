@@ -1,4 +1,6 @@
 import type {
+  CreateCanonicalThreadMessageInput,
+  CreateCanonicalThreadMessageResponse,
   MessageThreadDetail,
   MessageThreadRecord,
   OrgPresenceOverview,
@@ -203,6 +205,85 @@ export async function getOrgPresenceOverview(): Promise<OrgPresenceOverview> {
     roadmaps: departmentOverview.roadmaps,
     schedulerStatus: departmentOverview.schedulerStatus,
   };
+}
+
+export async function createCanonicalThreadMessage(
+  input: CreateCanonicalThreadMessageInput,
+): Promise<CreateCanonicalThreadMessageResponse> {
+  return postJson<CreateCanonicalThreadMessageResponse>(
+    getOperatorAgentBaseUrl(),
+    "/agent/messages",
+    {
+      threadId: input.threadId,
+      senderEmployeeId: "human_dashboard_operator",
+      source: "human",
+      type: "coordination",
+      subject: input.subject,
+      body: input.body,
+      receiverEmployeeId: input.receiverEmployeeId,
+      receiverTeamId: input.receiverTeamId,
+      relatedTaskId: input.relatedTaskId,
+      relatedApprovalId: input.relatedApprovalId,
+      relatedEscalationId: input.relatedEscalationId,
+      payload: {
+        origin: "dashboard_thread_message",
+      },
+    },
+  );
+}
+
+export async function approveFromThread(
+  threadId: string,
+  note?: string,
+): Promise<{ ok: boolean }> {
+  return postJson<{ ok: boolean }>(
+    getOperatorAgentBaseUrl(),
+    `/agent/message-threads/${encodeURIComponent(threadId)}/approve`,
+    {
+      actor: "human_dashboard_operator",
+      note,
+    },
+  );
+}
+
+export async function rejectFromThread(
+  threadId: string,
+  note?: string,
+): Promise<{ ok: boolean }> {
+  return postJson<{ ok: boolean }>(
+    getOperatorAgentBaseUrl(),
+    `/agent/message-threads/${encodeURIComponent(threadId)}/reject`,
+    {
+      actor: "human_dashboard_operator",
+      note,
+    },
+  );
+}
+
+export async function acknowledgeEscalationFromThread(
+  threadId: string,
+): Promise<{ ok: boolean }> {
+  return postJson<{ ok: boolean }>(
+    getOperatorAgentBaseUrl(),
+    `/agent/message-threads/${encodeURIComponent(threadId)}/acknowledge-escalation`,
+    {
+      actor: "human_dashboard_operator",
+    },
+  );
+}
+
+export async function resolveEscalationFromThread(
+  threadId: string,
+  note?: string,
+): Promise<{ ok: boolean }> {
+  return postJson<{ ok: boolean }>(
+    getOperatorAgentBaseUrl(),
+    `/agent/message-threads/${encodeURIComponent(threadId)}/resolve-escalation`,
+    {
+      actor: "human_dashboard_operator",
+      note,
+    },
+  );
 }
 
 export async function approveApproval(

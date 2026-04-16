@@ -1733,6 +1733,103 @@ export function renderTaskDetail(detail: TaskDetail): string {
   `;
 }
 
+function renderThreadInteractionPanel(detail: MessageThreadDetail): string {
+  const approvalActions = detail.thread.relatedApprovalId
+    ? `
+      <div class="thread-action-row">
+        <button
+          type="button"
+          class="button button-small"
+          data-action="thread-approve"
+          data-thread-id="${escapeHtml(detail.thread.id)}"
+        >
+          Approve
+        </button>
+        <button
+          type="button"
+          class="button button-small button-secondary"
+          data-action="thread-reject"
+          data-thread-id="${escapeHtml(detail.thread.id)}"
+        >
+          Reject
+        </button>
+      </div>
+    `
+    : "";
+
+  const escalationActions = detail.thread.relatedEscalationId
+    ? `
+      <div class="thread-action-row">
+        <button
+          type="button"
+          class="button button-small"
+          data-action="thread-acknowledge-escalation"
+          data-thread-id="${escapeHtml(detail.thread.id)}"
+        >
+          Acknowledge escalation
+        </button>
+        <button
+          type="button"
+          class="button button-small button-secondary"
+          data-action="thread-resolve-escalation"
+          data-thread-id="${escapeHtml(detail.thread.id)}"
+        >
+          Resolve escalation
+        </button>
+      </div>
+    `
+    : "";
+
+  return `
+    <section class="panel">
+      <div class="panel-header">
+        <h3>Human participation</h3>
+        <p class="muted">
+          Send a canonical thread message here. Approval and escalation changes stay explicit.
+        </p>
+      </div>
+
+      <form id="thread-compose-form" class="thread-compose-form">
+        <input type="hidden" id="thread-compose-thread-id" value="${escapeHtml(detail.thread.id)}" />
+        <label class="thread-compose-label" for="thread-compose-subject">Subject (optional)</label>
+        <input
+          id="thread-compose-subject"
+          class="thread-compose-input"
+          type="text"
+          placeholder="Optional subject"
+        />
+
+        <label class="thread-compose-label" for="thread-compose-body">Message</label>
+        <textarea
+          id="thread-compose-body"
+          class="thread-compose-textarea"
+          placeholder="Write a canonical message to this thread..."
+          required
+        ></textarea>
+
+        <div class="thread-compose-actions">
+          <button type="submit" class="button">Send canonical message</button>
+        </div>
+      </form>
+
+      ${
+        approvalActions || escalationActions
+          ? `
+            <div class="thread-explicit-actions">
+              <h4>Explicit actions</h4>
+              <p class="muted small">
+                These actions are separate from free-form messages and operate through dedicated canonical routes.
+              </p>
+              ${approvalActions}
+              ${escalationActions}
+            </div>
+          `
+          : ""
+      }
+    </section>
+  `;
+}
+
 export function renderThreadDetail(detail: MessageThreadDetail): string {
   return `
     <section class="panel">
@@ -1750,6 +1847,8 @@ export function renderThreadDetail(detail: MessageThreadDetail): string {
       </div>
       ${renderThreadVisibility(detail.visibilitySummary)}
     </section>
+
+    ${renderThreadInteractionPanel(detail)}
 
     <section class="panel">
       <div class="panel-header"><h3>Messages</h3></div>

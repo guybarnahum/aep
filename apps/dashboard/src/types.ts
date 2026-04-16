@@ -522,6 +522,23 @@ export type OrgPresenceOverview = {
   schedulerStatus: SchedulerStatus;
 };
 
+export type CreateCanonicalThreadMessageInput = {
+  threadId: string;
+  body: string;
+  subject?: string;
+  receiverEmployeeId?: string;
+  receiverTeamId?: string;
+  relatedTaskId?: string;
+  relatedApprovalId?: string;
+  relatedEscalationId?: string;
+};
+
+export type CreateCanonicalThreadMessageResponse = {
+  ok: boolean;
+  threadId: string;
+  messageId: string;
+};
+
 export type EscalationStateFilter = "all" | "open" | "acknowledged" | "resolved";
 
 export type DecisionSeverityFilter = "all" | "warning" | "critical";

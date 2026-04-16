@@ -9,7 +9,10 @@ function getDashboardBuildDate(): string {
 }
 import {
   acknowledgeEscalation,
+  acknowledgeEscalationFromThread,
   approveApproval,
+  approveFromThread,
+  createCanonicalThreadMessage,
   getApiBaseUrl,
   getMessageThreadDetail,
   getMessageThreads,
@@ -22,7 +25,9 @@ import {
   getTenantOverview,
   getTenants,
   rejectApproval,
+  rejectFromThread,
   resolveEscalation,
+  resolveEscalationFromThread,
 } from "./api";
 import type {
   DepartmentFilters,
@@ -599,6 +604,173 @@ function attachDepartmentActionHandlers(): void {
   });
 }
 
+function resolveThreadMessageRecipient(detail: Awaited<ReturnType<typeof getMessageThreadDetail>>): {
+  receiverEmployeeId?: string;
+  receiverTeamId?: string;
+} | null {
+  const reverseMessages = [...detail.messages].reverse();
+
+  const canonicalSender = reverseMessages.find((message) => {
+    return (
+      (message.source === "internal" ||
+        message.source === "dashboard" ||
+        message.source === "system") &&
+      typeof message.senderEmployeeId === "string" &&
+      message.senderEmployeeId.trim().length > 0 &&
+      !message.senderEmployeeId.startsWith("external_") &&
+      message.senderEmployeeId !== "human_dashboard_operator"
+    );
+  });
+
+  if (canonicalSender?.senderEmployeeId) {
+    return { receiverEmployeeId: canonicalSender.senderEmployeeId };
+  }
+
+  if (detail.thread.createdByEmployeeId) {
+    return { receiverEmployeeId: detail.thread.createdByEmployeeId };
+  }
+
+  return null;
+}
+
+function attachThreadInteractionHandlers(threadId: string): void {
+  const composeForm = document.querySelector<HTMLFormElement>("#thread-compose-form");
+  const subjectInput = document.querySelector<HTMLInputElement>("#thread-compose-subject");
+  const bodyInput = document.querySelector<HTMLTextAreaElement>("#thread-compose-body");
+
+  composeForm?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+
+    const body = bodyInput?.value.trim() ?? "";
+    const subject = subjectInput?.value.trim() ?? "";
+
+    if (!body) {
+      setMutationStatus("Message body is required.");
+      void renderRoute();
+      return;
+    }
+
+    try {
+      setMutationStatus(`Sending canonical message into ${threadId}…`);
+      void renderRoute();
+
+      const detail = await getMessageThreadDetail(threadId);
+      const recipient = resolveThreadMessageRecipient(detail);
+
+      if (!recipient) {
+        throw new Error("Could not resolve a canonical recipient for this thread.");
+      }
+
+      await createCanonicalThreadMessage({
+        threadId,
+        body,
+        subject: subject || undefined,
+        receiverEmployeeId: recipient.receiverEmployeeId,
+        receiverTeamId: recipient.receiverTeamId,
+        relatedTaskId: detail.thread.relatedTaskId,
+        relatedApprovalId: detail.thread.relatedApprovalId,
+        relatedEscalationId: detail.thread.relatedEscalationId,
+      });
+
+      setMutationStatus(`Sent canonical message into ${threadId}`);
+      void renderRoute();
+    } catch (error) {
+      setMutationStatus(
+        error instanceof Error ? error.message : "Failed to send canonical message",
+      );
+      void renderRoute();
+    }
+  });
+
+  document
+    .querySelectorAll<HTMLButtonElement>("[data-action='thread-approve']")
+    .forEach((button) => {
+      button.addEventListener("click", async () => {
+        try {
+          setMutationStatus(`Approving from thread ${threadId}…`);
+          void renderRoute();
+          await approveFromThread(threadId);
+          setMutationStatus(`Approved from thread ${threadId}`);
+        } catch (error) {
+          setMutationStatus(
+            error instanceof Error ? error.message : "Failed to approve from thread",
+          );
+        }
+        void renderRoute();
+      });
+    });
+
+  document
+    .querySelectorAll<HTMLButtonElement>("[data-action='thread-reject']")
+    .forEach((button) => {
+      button.addEventListener("click", async () => {
+        const note = window.prompt(
+          `Rejection note for thread ${threadId}:`,
+          "Rejected from canonical thread action.",
+        );
+        if (note === null) return;
+
+        try {
+          setMutationStatus(`Rejecting from thread ${threadId}…`);
+          void renderRoute();
+          await rejectFromThread(threadId, note);
+          setMutationStatus(`Rejected from thread ${threadId}`);
+        } catch (error) {
+          setMutationStatus(
+            error instanceof Error ? error.message : "Failed to reject from thread",
+          );
+        }
+        void renderRoute();
+      });
+    });
+
+  document
+    .querySelectorAll<HTMLButtonElement>("[data-action='thread-acknowledge-escalation']")
+    .forEach((button) => {
+      button.addEventListener("click", async () => {
+        try {
+          setMutationStatus(`Acknowledging escalation from thread ${threadId}…`);
+          void renderRoute();
+          await acknowledgeEscalationFromThread(threadId);
+          setMutationStatus(`Acknowledged escalation from thread ${threadId}`);
+        } catch (error) {
+          setMutationStatus(
+            error instanceof Error
+              ? error.message
+              : "Failed to acknowledge escalation from thread",
+          );
+        }
+        void renderRoute();
+      });
+    });
+
+  document
+    .querySelectorAll<HTMLButtonElement>("[data-action='thread-resolve-escalation']")
+    .forEach((button) => {
+      button.addEventListener("click", async () => {
+        const note = window.prompt(
+          `Resolution note for thread ${threadId}:`,
+          "Resolved from canonical thread action.",
+        );
+        if (note === null) return;
+
+        try {
+          setMutationStatus(`Resolving escalation from thread ${threadId}…`);
+          void renderRoute();
+          await resolveEscalationFromThread(threadId, note);
+          setMutationStatus(`Resolved escalation from thread ${threadId}`);
+        } catch (error) {
+          setMutationStatus(
+            error instanceof Error
+              ? error.message
+              : "Failed to resolve escalation from thread",
+          );
+        }
+        void renderRoute();
+      });
+    });
+}
+
 function syncAutoRefresh(): void {
   if (autoRefreshTimer !== null) {
     window.clearInterval(autoRefreshTimer);
@@ -744,6 +916,10 @@ async function renderRoute(): Promise<void> {
     if (route.kind === "department") {
       attachDepartmentFilterHandlers();
       attachDepartmentActionHandlers();
+    }
+
+    if (route.kind === "thread") {
+      attachThreadInteractionHandlers(route.threadId);
     }
 
     syncAutoRefresh();

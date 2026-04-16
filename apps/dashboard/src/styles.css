@@ -714,6 +714,54 @@ button:disabled {
   }
 }
 
+.thread-compose-form {
+  display: grid;
+  gap: 10px;
+}
+
+.thread-compose-label {
+  font-size: 12px;
+  color: #98a6b9;
+}
+
+.thread-compose-input,
+.thread-compose-textarea {
+  width: 100%;
+  color: inherit;
+  background: #0f172a;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+
+.thread-compose-textarea {
+  min-height: 140px;
+  resize: vertical;
+}
+
+.thread-compose-actions {
+  display: flex;
+  justify-content: flex-start;
+  gap: 10px;
+}
+
+.thread-explicit-actions {
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px solid rgba(148, 163, 184, 0.14);
+}
+
+.thread-explicit-actions h4 {
+  margin: 0 0 6px 0;
+}
+
+.thread-action-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
 .unstyled-link {
   color: inherit;
   text-decoration: none;
