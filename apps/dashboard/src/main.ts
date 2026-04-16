@@ -346,7 +346,7 @@ function renderShell(content: string, error?: string): void {
       <header class="app-header">
         <div>
           <h1>AEP Dashboard</h1>
-          <p class="muted">Tenant, work, and operator-governance views.</p>
+          <p class="muted">Agentic company view: work, employees, teams, and governance.</p>
         </div>
         <div class="endpoint-stack muted">
           <div>Control plane: ${getApiBaseUrl()}</div>

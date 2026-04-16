@@ -4,7 +4,7 @@ Repository (source of truth):
 👉 https://github.com/guybarnahum/aep
 
 The repository code is the source of truth.  
-This document is aligned to commit `ca09af95c8b2865d945920c5bf9383eac412db7b`.
+This document is aligned to commit `812b9cd918758f7ddb8087909ecaee442d24c1e5`.
 
 titan@Titans-MacBook-Pro aep % tree . --gitignore
 .
@@ -956,7 +956,8 @@ It enforces correctness across all of them.
 
 # 8. Current product gap
 
-The backend substrate is now materially ahead of the human-facing product surface.
+The backend substrate is now aligned with a first-generation human-facing company surface,
+but lacks full collaboration and interaction depth.
 
 AEP can already:
 
@@ -1135,6 +1136,111 @@ Scope:
 * must not reintroduce chat as the primary work model
 
 PR12 is an exposure / interaction phase, not a canonical data model rewrite.
+
+---
+
+## PR12B — Embodied Employees + Company Presence (COMPLETED)
+
+The system now exposes a **first-class company surface** derived entirely from canonical AEP data.
+
+### Company view
+
+The dashboard now includes:
+
+- `#company`
+- `#employees`
+- `#employee/:id`
+- `#teams`
+- `#team/:id`
+
+These surfaces are **read-only projections** over canonical state.
+
+---
+
+### Employees (embodiment layer)
+
+Employees now have **public presence**:
+
+- displayName
+- bio
+- skills
+- avatarUrl
+
+This is rendered in:
+
+- employee directory
+- employee detail pages
+- team views
+- company overview
+
+Critical boundary:
+
+> Public profile is presentation-only  
+> Cognitive profile remains private inside employee execution boundary
+
+---
+
+### Teams (derived, not modeled)
+
+Teams are:
+
+- derived from employee membership
+- not a separate canonical entity (yet)
+
+Team views show:
+
+- employees
+- tasks (assigned/originating)
+- threads (task-linked)
+- roadmap entries
+
+---
+
+### Company surface
+
+The company view aggregates:
+
+- employees
+- teams
+- tasks
+- threads
+- roadmaps
+
+This creates:
+
+> a **legible organizational layer** over canonical execution primitives
+
+---
+
+### Architectural rule (reinforced)
+
+PR12B maintains:
+
+- no UI-owned state
+- no parallel company model
+- no derived truth outside canonical sources
+
+Everything comes from:
+
+- employees
+- tasks
+- threads
+- roadmaps
+
+---
+
+### Result
+
+AEP now behaves as:
+
+> a visible, embodied digital company
+
+Where:
+
+- employees are recognizable
+- work is attributable
+- teams are legible
+- the organization can be navigated
 
 ---
 

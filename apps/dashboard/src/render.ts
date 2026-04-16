@@ -822,7 +822,7 @@ export function renderPrimaryNav(args: {
           Work
         </a>
         <a class="view-nav-link ${args.activeView === "company" ? "view-nav-link-active" : ""}" href="#company">
-          Company
+          Company view
         </a>
         <a class="view-nav-link ${args.activeView === "department" ? "view-nav-link-active" : ""}" href="#department">
           Department view
