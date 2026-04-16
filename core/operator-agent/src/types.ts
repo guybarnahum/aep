@@ -778,7 +778,7 @@ export interface ValidationFinding {
   evidence?: string;
 }
 
-export interface ValidationResultArtifact {
+export interface ValidationResultArtifact extends Record<string, unknown> {
   kind: "validation_result";
   status: ValidationResultStatus;
   summary: string;

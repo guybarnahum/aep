@@ -43,6 +43,7 @@
     "ci:task-artifact-contract-check": "tsx scripts/ci/checks/contracts/task-artifact-contract-check.ts",
     "ci:task-run-cognitive-contract-check": "tsx scripts/ci/checks/contracts/task-run-cognitive-contract-check.ts",
     "ci:employee-cognition-boundary-check": "tsx scripts/ci/checks/contracts/employee-cognition-boundary-check.ts",
+    "ci:validation-result-artifact-check": "tsx scripts/ci/checks/contracts/validation-result-artifact-check.ts",
     "ci:employee-persona-continuity-check": "tsx scripts/ci/checks/contracts/employee-persona-continuity-check.ts",
     "ci:public-rationale-artifact-check": "tsx scripts/ci/checks/contracts/public-rationale-artifact-check.ts",
     "ci:thread-rationale-publication-check": "tsx scripts/ci/checks/contracts/thread-rationale-publication-check.ts",

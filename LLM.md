@@ -1748,6 +1748,40 @@ PR11D.1 establishes canonical validation outputs.
 
 The next validation slice should add CI contract/scenario proof for validation artifacts and loop feedback behavior.
 
+### ✅ PR11D.2 — validation artifact contract coverage (COMPLETE)
+
+PR11D.2 adds explicit contracts-layer proof for canonical validation outputs.
+
+What is implemented:
+
+- added `validation-result-artifact-check.ts`
+- the check creates a fresh validation task and runs the validation employee on that task
+- the check requires a canonical artifact with:
+  - `artifactType: result`
+  - `content.kind: validation_result`
+- the check enforces that validation result artifacts include:
+  - `status`
+  - `summary`
+  - `findings`
+- the check enforces that validation result artifacts do not leak:
+  - private reasoning
+  - internal monologue
+  - prompt-profile fields
+  - structured cognition fields
+
+Workflow integration:
+
+- the validation result artifact check is wired into the contracts validation layer
+- contracts-layer success now requires this validation artifact proof to pass
+
+What is explicitly NOT introduced:
+
+- no scenario-layer validation loop feedback check yet
+- no new artifactType enum value
+- no route-level validation semantics in `/agent/run`
+
+PR11D.2 proves the validation employee now emits canonical, privacy-safe validation artifacts.
+
 ### PR11A — employee loop ignition
 - add bounded employee loop behavior over inbox, tasks, and related thread/task context
 - allow employees to select the next governed action using existing cognition
