@@ -17,6 +17,7 @@ import {
   getExternalMirrorOverview,
   getMessageThreadDetail,
   getMessageThreads,
+  getNarrativeTimeline,
   getDepartmentOverview,
   getOrgPresenceOverview,
   getTaskDetail,
@@ -44,6 +45,7 @@ import {
   renderEmployeeDetail,
   renderEmployeesDirectory,
   renderExternalMirrorOverview,
+  renderNarrativeTimeline,
   renderPrimaryNav,
   renderServiceOverview,
   renderTaskDetail,
@@ -86,6 +88,7 @@ type Route =
   | { kind: "team"; teamId: string }
   | { kind: "company" }
   | { kind: "mirrors" }
+  | { kind: "activity" }
   | { kind: "department" };
 
 const DEFAULT_DEPARTMENT_FILTERS: DepartmentFilters = {
@@ -301,6 +304,10 @@ function getRoute(defaultTenantId: string): Route {
 
   if (hash === "mirrors") {
     return { kind: "mirrors" };
+  }
+
+  if (hash === "activity") {
+    return { kind: "activity" };
   }
 
   const taskMatch = hash.match(/^task\/(.+)$/);
@@ -807,6 +814,7 @@ async function renderRoute(): Promise<void> {
       "teams",
       "company",
       "mirrors",
+      "activity",
     ];
 
     if (
@@ -856,6 +864,8 @@ async function renderRoute(): Promise<void> {
               ? "company"
               : route.kind === "mirrors"
                 ? "mirrors"
+                : route.kind === "activity"
+                  ? "activity"
               : "tenant",
       tenantHref: `#tenant/${encodeURIComponent(
         route.kind === "department" ||
@@ -867,7 +877,8 @@ async function renderRoute(): Promise<void> {
           route.kind === "teams" ||
           route.kind === "team" ||
           route.kind === "company" ||
-          route.kind === "mirrors"
+            route.kind === "mirrors" ||
+            route.kind === "activity"
           ? (homeTenantId ?? "")
           : route.tenantId,
       )}`,
@@ -908,6 +919,9 @@ async function renderRoute(): Promise<void> {
     } else if (route.kind === "mirrors") {
       const overview = await getExternalMirrorOverview();
       content += renderExternalMirrorOverview(overview);
+    } else if (route.kind === "activity") {
+      const timeline = await getNarrativeTimeline();
+      content += renderNarrativeTimeline(timeline);
     } else if (route.kind === "department") {
       const overview = await getDepartmentOverview();
       const filters = getDepartmentFilters();

@@ -1272,6 +1272,68 @@ This preserves:
 
 ---
 
+## PR12D — External Mirror Visibility (COMPLETED)
+
+The dashboard now exposes Slack/email mirrors as visible adapter projections over canonical AEP threads.
+
+### Implemented
+
+* dedicated mirrors view
+* projection targets surfaced at company level
+* external interaction policy surfaced clearly
+* external interaction audit surfaced clearly
+* thread-first drill-down remains canonical
+
+### Result
+
+Humans can now see:
+
+* which canonical threads are mirrored externally
+* where those mirrors are projected
+* whether inbound replies and external actions are allowed
+* how external interaction decisions were audited
+
+This preserves the architectural rule:
+
+> Slack/email remain projections and interaction surfaces only.  
+> AEP-native threads/messages remain canonical.
+
+---
+
+## PR12E — Narrative Timeline / Work Theater (COMPLETED)
+
+The dashboard now exposes a narrative company-activity surface derived from canonical AEP work.
+
+### Implemented
+
+* dedicated activity view
+* narrative timeline derived from canonical task/task-detail/thread/thread-detail reads
+* task stories
+* approval stories
+* escalation stories
+* coordination thread stories
+
+### Important rule preserved
+
+No backend activity log or new canonical primitive was introduced.
+
+The activity surface is a projection over:
+
+* tasks
+* artifacts
+* threads
+* approvals/escalations via linked governance threads
+
+### Result
+
+AEP now shows not only canonical work objects, but also:
+
+> a coherent story of what the company is doing now
+
+This is the beginning of “work theater” without sacrificing canonicality.
+
+---
+
 # 10. After PR12
 
 ## PR13 — Multi-agent operational company

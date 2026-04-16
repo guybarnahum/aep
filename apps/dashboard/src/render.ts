@@ -119,6 +119,8 @@ import type {
   MessageThreadDetail,
   MessageThreadRecord,
   MirrorThreadOverview,
+  NarrativeTimeline,
+  NarrativeTimelineItem,
   OperatorEmployeeRecord,
   OrgPresenceOverview,
   TaskArtifactRecord,
@@ -811,7 +813,7 @@ export function renderToolbar(args: {
 }
 
 export function renderPrimaryNav(args: {
-  activeView: "tenant" | "department" | "work" | "company" | "mirrors";
+  activeView: "tenant" | "department" | "work" | "company" | "mirrors" | "activity";
   tenantHref: string;
 }): string {
   return `
@@ -828,6 +830,9 @@ export function renderPrimaryNav(args: {
         </a>
         <a class="view-nav-link ${args.activeView === "mirrors" ? "view-nav-link-active" : ""}" href="#mirrors">
           Mirrors
+        </a>
+        <a class="view-nav-link ${args.activeView === "activity" ? "view-nav-link-active" : ""}" href="#activity">
+          Activity
         </a>
         <a class="view-nav-link ${args.activeView === "department" ? "view-nav-link-active" : ""}" href="#department">
           Department view
@@ -2061,6 +2066,97 @@ export function renderExternalMirrorOverview(
           overview.threads.length > 0
             ? overview.threads.map(renderMirrorThreadCard).join("")
             : `<div class="empty-state">No external mirror projections recorded yet.</div>`
+        }
+      </div>
+    </section>
+  `;
+}
+
+function renderNarrativeTimelineItem(item: NarrativeTimelineItem): string {
+  const href = item.taskId
+    ? `#task/${encodeURIComponent(item.taskId)}`
+    : item.threadId
+      ? `#thread/${encodeURIComponent(item.threadId)}`
+      : "#company";
+
+  return `
+    <article class="timeline-card">
+      <div class="timeline-card-top">
+        <div>
+          <h3><a href="${escapeHtml(href)}">${escapeHtml(item.title)}</a></h3>
+          ${item.subtitle ? `<div class="muted small">${escapeHtml(item.subtitle)}</div>` : ""}
+        </div>
+        ${item.status ? `<span class="${statusClass(item.status)}">${escapeHtml(item.status)}</span>` : ""}
+      </div>
+
+      <div class="meta-grid">
+        ${item.teamId ? renderCompactPill("Team", item.teamId) : ""}
+        ${item.employeeId ? renderCompactPill("Employee", item.employeeId) : ""}
+        ${renderCompactPill("Time", formatTimestamp(item.at))}
+      </div>
+
+      <p class="detail-paragraph">${escapeHtml(item.summary)}</p>
+
+      ${
+        item.bullets.length > 0
+          ? `
+            <ul class="timeline-bullets">
+              ${item.bullets.map((bullet) => `<li>${escapeHtml(bullet)}</li>`).join("")}
+            </ul>
+          `
+          : ""
+      }
+    </article>
+  `;
+}
+
+export function renderNarrativeTimeline(timeline: NarrativeTimeline): string {
+  return `
+    <section class="panel">
+      <div class="panel-header">
+        <h2>Company activity</h2>
+        <p class="muted">
+          Narrative timeline derived from canonical tasks, threads, artifacts, and governance.
+        </p>
+      </div>
+
+      <div class="summary-grid">
+        ${renderSummaryCard(
+          "Stories",
+          timeline.items.length,
+          "derived from canonical work and communication",
+        )}
+        ${renderSummaryCard(
+          "Task stories",
+          timeline.items.filter((item) => item.kind === "task_story").length,
+          "execution and validation",
+        )}
+        ${renderSummaryCard(
+          "Approval stories",
+          timeline.items.filter((item) => item.kind === "approval_story").length,
+          "governance approvals",
+        )}
+        ${renderSummaryCard(
+          "Escalation stories",
+          timeline.items.filter((item) => item.kind === "escalation_story").length,
+          "governance escalations",
+        )}
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-header">
+        <h2>Narrative timeline</h2>
+        <p class="muted">
+          A higher-level view of what the company is doing now, built without introducing new canonical state.
+        </p>
+      </div>
+
+      <div class="timeline-feed">
+        ${
+          timeline.items.length > 0
+            ? timeline.items.map(renderNarrativeTimelineItem).join("")
+            : `<div class="empty-state">No activity yet.</div>`
         }
       </div>
     </section>

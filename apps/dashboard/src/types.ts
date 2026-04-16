@@ -551,6 +551,27 @@ export type ExternalMirrorOverview = {
   threads: MirrorThreadOverview[];
 };
 
+export type NarrativeTimelineItem = {
+  id: string;
+  kind: "task_story" | "approval_story" | "escalation_story" | "thread_story";
+  title: string;
+  subtitle?: string;
+  at: string;
+  status?: string;
+  employeeId?: string;
+  teamId?: string;
+  threadId?: string;
+  taskId?: string;
+  approvalId?: string;
+  escalationId?: string;
+  summary: string;
+  bullets: string[];
+};
+
+export type NarrativeTimeline = {
+  items: NarrativeTimelineItem[];
+};
+
 export type EscalationStateFilter = "all" | "open" | "acknowledged" | "resolved";
 
 export type DecisionSeverityFilter = "all" | "warning" | "critical";

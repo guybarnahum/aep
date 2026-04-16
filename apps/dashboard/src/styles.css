@@ -932,3 +932,37 @@ button:disabled {
   background: rgba(2, 8, 23, 0.45);
   border: 1px solid rgba(148, 163, 184, 0.1);
 }
+
+.timeline-feed {
+  display: grid;
+  gap: 14px;
+}
+
+.timeline-card {
+  border-radius: 16px;
+  padding: 16px;
+  background: rgba(10, 17, 30, 0.7);
+  border: 1px solid rgba(148, 163, 184, 0.14);
+}
+
+.timeline-card-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 10px;
+}
+
+.timeline-card h3 {
+  margin: 0 0 6px 0;
+  font-size: 16px;
+}
+
+.timeline-bullets {
+  margin: 12px 0 0;
+  padding-left: 18px;
+  color: #d9e4f1;
+}
+
+.timeline-bullets li + li {
+  margin-top: 6px;
+}

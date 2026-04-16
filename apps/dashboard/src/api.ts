@@ -5,6 +5,8 @@ import type {
   MessageThreadDetail,
   MessageThreadRecord,
   MirrorThreadOverview,
+  NarrativeTimeline,
+  NarrativeTimelineItem,
   OrgPresenceOverview,
   TaskDetail,
   TaskRecord,
@@ -246,6 +248,164 @@ export async function getExternalMirrorOverview(): Promise<ExternalMirrorOvervie
   return {
     threads: mirrorThreads,
   };
+}
+
+export async function getNarrativeTimeline(): Promise<NarrativeTimeline> {
+  const [tasks, threads] = await Promise.all([
+    getWorkTasks(),
+    getMessageThreads(),
+  ]);
+
+  const taskDetails = await Promise.all(
+    tasks.map((task) => getTaskDetail(task.id).catch(() => null)),
+  );
+
+  const threadDetails = await Promise.all(
+    threads.map((thread) => getMessageThreadDetail(thread.id).catch(() => null)),
+  );
+
+  const items: NarrativeTimelineItem[] = [];
+
+  for (const detail of taskDetails) {
+    if (!detail) continue;
+
+    const bullets: string[] = [];
+
+    if (detail.visibilitySummary.hasPlanArtifact) {
+      bullets.push("Plan artifact present");
+    }
+
+    if (detail.visibilitySummary.hasPublicRationaleArtifact) {
+      bullets.push("Public rationale published");
+    }
+
+    if (detail.visibilitySummary.hasValidationResultArtifact) {
+      bullets.push(
+        `Validation: ${detail.visibilitySummary.latestValidationStatus ?? "recorded"}`,
+      );
+    }
+
+    if (detail.visibilitySummary.latestDecisionVerdict) {
+      bullets.push(`Decision: ${detail.visibilitySummary.latestDecisionVerdict}`);
+    }
+
+    if (detail.dependencies.length > 0) {
+      bullets.push(`${detail.dependencies.length} dependencies`);
+    }
+
+    if (detail.relatedThreads.length > 0) {
+      bullets.push(`${detail.relatedThreads.length} related threads`);
+    }
+
+    const summary =
+      detail.visibilitySummary.hasValidationResultArtifact
+        ? `Task progressed through execution and validation with status ${detail.visibilitySummary.latestValidationStatus ?? "recorded"}.`
+        : detail.visibilitySummary.hasPlanArtifact
+          ? "Task has been planned and is progressing through canonical execution."
+          : "Task is active in the canonical work graph.";
+
+    items.push({
+      id: `task:${detail.task.id}`,
+      kind: "task_story",
+      title: detail.task.title,
+      subtitle: `${detail.task.taskType} · ${detail.task.assignedTeamId}`,
+      at:
+        detail.task.updatedAt ??
+        detail.task.createdAt ??
+        new Date().toISOString(),
+      status: detail.task.status,
+      employeeId: detail.task.assignedEmployeeId,
+      teamId: detail.task.assignedTeamId,
+      taskId: detail.task.id,
+      threadId: detail.relatedThreads[0]?.id,
+      summary,
+      bullets,
+    });
+  }
+
+  for (const detail of threadDetails) {
+    if (!detail) continue;
+
+    if (detail.thread.relatedTaskId) {
+      continue;
+    }
+
+    const latestMessageAt =
+      [...detail.messages]
+        .map((message) => message.createdAt)
+        .filter((value): value is string => Boolean(value))
+        .sort()
+        .at(-1) ??
+      detail.thread.updatedAt ??
+      detail.thread.createdAt ??
+      new Date().toISOString();
+
+    if (detail.thread.relatedApprovalId) {
+      items.push({
+        id: `approval:${detail.thread.relatedApprovalId}`,
+        kind: "approval_story",
+        title: `Approval ${detail.thread.relatedApprovalId}`,
+        subtitle: detail.thread.topic,
+        at: latestMessageAt,
+        status:
+          detail.visibilitySummary.approvalActionCount > 0 ? "completed" : "waiting",
+        threadId: detail.thread.id,
+        approvalId: detail.thread.relatedApprovalId,
+        summary:
+          "Approval work is being handled through a canonical governance thread.",
+        bullets: [
+          `${detail.visibilitySummary.messageCount} messages`,
+          `${detail.visibilitySummary.approvalActionCount} approval actions`,
+          `${detail.externalThreadProjections.length} external projections`,
+        ],
+      });
+      continue;
+    }
+
+    if (detail.thread.relatedEscalationId) {
+      items.push({
+        id: `escalation:${detail.thread.relatedEscalationId}`,
+        kind: "escalation_story",
+        title: `Escalation ${detail.thread.relatedEscalationId}`,
+        subtitle: detail.thread.topic,
+        at: latestMessageAt,
+        status:
+          detail.visibilitySummary.escalationActionCount > 0 ? "running" : "open",
+        threadId: detail.thread.id,
+        escalationId: detail.thread.relatedEscalationId,
+        summary:
+          "Escalation handling is active through a canonical governance thread.",
+        bullets: [
+          `${detail.visibilitySummary.messageCount} messages`,
+          `${detail.visibilitySummary.escalationActionCount} escalation actions`,
+          `${detail.externalThreadProjections.length} external projections`,
+        ],
+      });
+      continue;
+    }
+
+    items.push({
+      id: `thread:${detail.thread.id}`,
+      kind: "thread_story",
+      title: detail.thread.topic,
+      subtitle: "coordination thread",
+      at: latestMessageAt,
+      status: "running",
+      threadId: detail.thread.id,
+      summary: "Coordination is taking place through a canonical thread.",
+      bullets: [
+        `${detail.visibilitySummary.messageCount} messages`,
+        detail.visibilitySummary.hasPublicRationalePublication
+          ? "Public rationale published"
+          : "No public rationale publication",
+        `${detail.externalThreadProjections.length} external projections`,
+      ],
+    });
+  }
+
+  items.sort((a, b) => b.at.localeCompare(a.at));
+
+  return { items };
 }
 
 export async function createCanonicalThreadMessage(
