@@ -713,3 +713,150 @@ button:disabled {
     grid-template-columns: 1fr;
   }
 }
+
+.unstyled-link {
+  color: inherit;
+  text-decoration: none;
+}
+
+.unstyled-link:hover {
+  text-decoration: none;
+}
+
+.profile-header {
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr) 220px;
+  gap: 20px;
+  align-items: start;
+}
+
+.profile-avatar-block {
+  width: 120px;
+  height: 120px;
+}
+
+.profile-main h2 {
+  margin: 0 0 8px 0;
+  font-size: 28px;
+}
+
+.profile-bio {
+  margin: 10px 0 0;
+  line-height: 1.6;
+  color: #d9e4f1;
+}
+
+.profile-status-block {
+  display: grid;
+  gap: 8px;
+  justify-items: start;
+}
+
+.mini-list {
+  display: grid;
+  gap: 10px;
+}
+
+.mini-list-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  align-items: start;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: rgba(10, 17, 30, 0.7);
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  color: inherit;
+}
+
+.mini-list-item:hover {
+  text-decoration: none;
+  border-color: rgba(96, 165, 250, 0.35);
+}
+
+.company-link-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.nav-card {
+  display: grid;
+  gap: 6px;
+  border-radius: 16px;
+  padding: 16px;
+  background: rgba(10, 17, 30, 0.7);
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  color: inherit;
+}
+
+.nav-card:hover {
+  text-decoration: none;
+  border-color: rgba(96, 165, 250, 0.35);
+}
+
+.skill-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  border: 1px solid rgba(96, 165, 250, 0.25);
+  background: rgba(96, 165, 250, 0.12);
+  color: #dbeafe;
+}
+
+.skills-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.avatar-block {
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  overflow: hidden;
+  background: rgba(148, 163, 184, 0.12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+}
+
+.avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.avatar-fallback {
+  font-size: 20px;
+  font-weight: 700;
+  color: #dbeafe;
+}
+
+.persona-card {
+  height: 100%;
+}
+
+.persona-body {
+  margin-top: 12px;
+}
+
+.persona-bio {
+  margin: 0;
+  color: #d9e4f1;
+  line-height: 1.5;
+}
+
+@media (max-width: 920px) {
+  .profile-header {
+    grid-template-columns: 1fr;
+  }
+
+  .company-link-grid {
+    grid-template-columns: 1fr;
+  }
+}

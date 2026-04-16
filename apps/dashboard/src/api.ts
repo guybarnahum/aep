@@ -1,6 +1,7 @@
 import type {
   MessageThreadDetail,
   MessageThreadRecord,
+  OrgPresenceOverview,
   TaskDetail,
   TaskRecord,
   ApprovalRecord,
@@ -186,6 +187,22 @@ export async function getMessageThreadDetail(
     getOperatorAgentBaseUrl(),
     `/agent/message-threads/${encodeURIComponent(threadId)}`,
   );
+}
+
+export async function getOrgPresenceOverview(): Promise<OrgPresenceOverview> {
+  const [departmentOverview, tasks, threads] = await Promise.all([
+    getDepartmentOverview(),
+    getWorkTasks(),
+    getMessageThreads(),
+  ]);
+
+  return {
+    employees: departmentOverview.employees,
+    tasks,
+    threads,
+    roadmaps: departmentOverview.roadmaps,
+    schedulerStatus: departmentOverview.schedulerStatus,
+  };
 }
 
 export async function approveApproval(

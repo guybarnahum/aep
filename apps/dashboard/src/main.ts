@@ -14,6 +14,7 @@ import {
   getMessageThreadDetail,
   getMessageThreads,
   getDepartmentOverview,
+  getOrgPresenceOverview,
   getTaskDetail,
   getWorkTasks,
   getOperatorAgentBaseUrl,
@@ -23,12 +24,24 @@ import {
   rejectApproval,
   resolveEscalation,
 } from "./api";
-import type { DepartmentFilters, DepartmentPaginationState, PageSize, TenantSummary, WorkOverview } from "./types";
+import type {
+  DepartmentFilters,
+  DepartmentPaginationState,
+  OrgPresenceOverview,
+  PageSize,
+  TenantSummary,
+  WorkOverview,
+} from "./types";
 import {
+  renderCompanyOverview,
   renderDepartmentOverview,
+  renderEmployeeDetail,
+  renderEmployeesDirectory,
   renderPrimaryNav,
   renderServiceOverview,
   renderTaskDetail,
+  renderTeamDetail,
+  renderTeamsOverview,
   renderThreadDetail,
   renderTenantOverview,
   renderToolbar,
@@ -60,6 +73,11 @@ type Route =
   | { kind: "work" }
   | { kind: "task"; taskId: string }
   | { kind: "thread"; threadId: string }
+  | { kind: "employees" }
+  | { kind: "employee"; employeeId: string }
+  | { kind: "teams" }
+  | { kind: "team"; teamId: string }
+  | { kind: "company" }
   | { kind: "department" };
 
 const DEFAULT_DEPARTMENT_FILTERS: DepartmentFilters = {
@@ -261,6 +279,18 @@ function getRoute(defaultTenantId: string): Route {
     return { kind: "work" };
   }
 
+  if (hash === "employees") {
+    return { kind: "employees" };
+  }
+
+  if (hash === "teams") {
+    return { kind: "teams" };
+  }
+
+  if (hash === "company") {
+    return { kind: "company" };
+  }
+
   const taskMatch = hash.match(/^task\/(.+)$/);
   if (taskMatch?.[1]) {
     return {
@@ -272,6 +302,22 @@ function getRoute(defaultTenantId: string): Route {
   const threadMatch = hash.match(/^thread\/(.+)$/);
   if (threadMatch?.[1]) {
     return { kind: "thread", threadId: decodeURIComponent(threadMatch[1]) };
+  }
+
+  const employeeMatch = hash.match(/^employee\/(.+)$/);
+  if (employeeMatch?.[1]) {
+    return {
+      kind: "employee",
+      employeeId: decodeURIComponent(employeeMatch[1]),
+    };
+  }
+
+  const teamMatch = hash.match(/^team\/(.+)$/);
+  if (teamMatch?.[1]) {
+    return {
+      kind: "team",
+      teamId: decodeURIComponent(teamMatch[1]),
+    };
   }
 
   const parts = hash.split("/");
@@ -575,9 +621,17 @@ async function renderRoute(): Promise<void> {
     const tenants = await getTenants();
     const homeTenantId = resolveHomeTenantId(tenants);
 
+    const orgHashes = [
+      "department",
+      "work",
+      "employees",
+      "teams",
+      "company",
+    ];
+
     if (
       !homeTenantId &&
-      !["department", "work"].includes(window.location.hash.replace(/^#/, ""))
+      !orgHashes.includes(window.location.hash.replace(/^#/, ""))
     ) {
       const content = `
         ${renderToolbar({
@@ -614,9 +668,23 @@ async function renderRoute(): Promise<void> {
           ? "department"
           : route.kind === "work" || route.kind === "task" || route.kind === "thread"
             ? "work"
-            : "tenant",
+            : route.kind === "employees" ||
+                route.kind === "employee" ||
+                route.kind === "teams" ||
+                route.kind === "team" ||
+                route.kind === "company"
+              ? "company"
+              : "tenant",
       tenantHref: `#tenant/${encodeURIComponent(
-        route.kind === "department" || route.kind === "work" || route.kind === "task" || route.kind === "thread"
+        route.kind === "department" ||
+          route.kind === "work" ||
+          route.kind === "task" ||
+          route.kind === "thread" ||
+          route.kind === "employees" ||
+          route.kind === "employee" ||
+          route.kind === "teams" ||
+          route.kind === "team" ||
+          route.kind === "company"
           ? (homeTenantId ?? "")
           : route.tenantId,
       )}`,
@@ -634,6 +702,26 @@ async function renderRoute(): Promise<void> {
     } else if (route.kind === "thread") {
       const detail = await getMessageThreadDetail(route.threadId);
       content += renderThreadDetail(detail);
+    } else if (
+      route.kind === "employees" ||
+      route.kind === "employee" ||
+      route.kind === "teams" ||
+      route.kind === "team" ||
+      route.kind === "company"
+    ) {
+      const orgOverview: OrgPresenceOverview = await getOrgPresenceOverview();
+
+      if (route.kind === "employees") {
+        content += renderEmployeesDirectory(orgOverview);
+      } else if (route.kind === "employee") {
+        content += renderEmployeeDetail(orgOverview, route.employeeId);
+      } else if (route.kind === "teams") {
+        content += renderTeamsOverview(orgOverview);
+      } else if (route.kind === "team") {
+        content += renderTeamDetail(orgOverview, route.teamId);
+      } else {
+        content += renderCompanyOverview(orgOverview);
+      }
     } else if (route.kind === "department") {
       const overview = await getDepartmentOverview();
       const filters = getDepartmentFilters();
@@ -643,7 +731,6 @@ async function renderRoute(): Promise<void> {
       const overview = await getServiceOverview(route.tenantId, route.serviceId);
       content += renderServiceOverview(overview);
     } else {
-      // route.kind === "tenant"
       if (homeTenantId && route.tenantId !== homeTenantId) {
         setStoredHomeTenantId(route.tenantId);
       }

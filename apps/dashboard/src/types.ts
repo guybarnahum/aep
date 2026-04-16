@@ -514,6 +514,14 @@ export type WorkOverview = {
   threads: MessageThreadRecord[];
 };
 
+export type OrgPresenceOverview = {
+  employees: OperatorEmployeeRecord[];
+  tasks: TaskRecord[];
+  threads: MessageThreadRecord[];
+  roadmaps: TeamRoadmap[];
+  schedulerStatus: SchedulerStatus;
+};
+
 export type EscalationStateFilter = "all" | "open" | "acknowledged" | "resolved";
 
 export type DecisionSeverityFilter = "all" | "warning" | "critical";

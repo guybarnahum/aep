@@ -111,7 +111,6 @@ import type {
   EmployeeMessageRecord,
   DepartmentFilters,
   DepartmentOverview,
-  EmployeeStateValue,
   EmployeeRuntimeStatusFilter,
   EscalationRecord,
   EscalationStateFilter,
@@ -119,6 +118,7 @@ import type {
   MessageThreadDetail,
   MessageThreadRecord,
   OperatorEmployeeRecord,
+  OrgPresenceOverview,
   TaskArtifactRecord,
   TaskDependency,
   TaskDetail,
@@ -809,7 +809,7 @@ export function renderToolbar(args: {
 }
 
 export function renderPrimaryNav(args: {
-  activeView: "tenant" | "department" | "work";
+  activeView: "tenant" | "department" | "work" | "company";
   tenantHref: string;
 }): string {
   return `
@@ -820,6 +820,9 @@ export function renderPrimaryNav(args: {
         </a>
         <a class="view-nav-link ${args.activeView === "work" ? "view-nav-link-active" : ""}" href="#work">
           Work
+        </a>
+        <a class="view-nav-link ${args.activeView === "company" ? "view-nav-link-active" : ""}" href="#company">
+          Company
         </a>
         <a class="view-nav-link ${args.activeView === "department" ? "view-nav-link-active" : ""}" href="#department">
           Department view
@@ -1312,6 +1315,360 @@ export function renderWorkOverview(overview: WorkOverview): string {
       <div class="work-grid">
         ${sortedThreads.map(renderThreadCard).join("")}
       </div>
+    </section>
+  `;
+}
+
+function getEmployeeDisplayName(employee: OperatorEmployeeRecord): string {
+  return employee.publicProfile?.displayName ?? employee.identity.employeeId;
+}
+
+function employeeTouchesTask(task: TaskRecord, employeeId: string): boolean {
+  return (
+    task.assignedEmployeeId === employeeId ||
+    task.ownerEmployeeId === employeeId ||
+    task.createdByEmployeeId === employeeId
+  );
+}
+
+function employeeTouchesThread(
+  thread: MessageThreadRecord,
+  employeeId: string,
+): boolean {
+  return thread.createdByEmployeeId === employeeId;
+}
+
+function teamTouchesTask(task: TaskRecord, teamId: string): boolean {
+  return task.assignedTeamId === teamId || task.originatingTeamId === teamId;
+}
+
+function teamTouchesThread(
+  thread: MessageThreadRecord,
+  teamId: string,
+  tasksById: Map<string, TaskRecord>,
+): boolean {
+  if (thread.relatedTaskId) {
+    const task = tasksById.get(thread.relatedTaskId);
+    if (task) {
+      return teamTouchesTask(task, teamId);
+    }
+  }
+  return false;
+}
+
+function uniqueTeamIds(overview: OrgPresenceOverview): string[] {
+  return [...new Set(overview.employees.map((employee) => employee.identity.teamId))].sort();
+}
+
+function renderProfileHeader(employee: OperatorEmployeeRecord): string {
+  const profile = employee.publicProfile;
+  const displayName = getEmployeeDisplayName(employee);
+  const skills = profile?.skills?.map((skill) => `<span class="skill-tag">${escapeHtml(skill)}</span>`).join("") ?? "";
+
+  return `
+    <section class="panel">
+      <div class="profile-header">
+        <div class="avatar-block profile-avatar-block">
+          ${profile?.avatarUrl
+            ? `<img src="${escapeHtml(profile.avatarUrl)}" class="avatar-img" />`
+            : `<div class="avatar-fallback">${escapeHtml(displayName[0] ?? "?")}</div>`}
+        </div>
+        <div class="profile-main">
+          <h2>${escapeHtml(displayName)}</h2>
+          <p class="muted">${escapeHtml(employee.identity.roleId)} · ${escapeHtml(employee.identity.teamId)} · ${escapeHtml(employee.identity.employeeId)}</p>
+          <p class="profile-bio">${escapeHtml(profile?.bio ?? "No bio set.")}</p>
+          <div class="skills-row">${skills}</div>
+        </div>
+        <div class="profile-status-block">
+          <span class="${statusClass(employee.runtime.effectiveState?.state ?? employee.runtime.runtimeStatus)}">${escapeHtml(getEmployeeDisplayState(employee))}</span>
+          <div class="muted small">Budget: ${escapeHtml(getEmployeeBudgetSummary(employee))}</div>
+          <div class="muted small">${escapeHtml(getEmployeeGovernanceSummary(employee))}</div>
+        </div>
+      </div>
+    </section>
+  `;
+}
+
+function renderSimpleTaskList(tasks: TaskRecord[]): string {
+  if (tasks.length === 0) {
+    return `<div class="empty-state small-empty">No tasks.</div>`;
+  }
+
+  return `
+    <div class="mini-list">
+      ${tasks.map((task) => `
+        <a class="mini-list-item" href="#task/${encodeURIComponent(task.id)}">
+          <div>
+            <strong>${escapeHtml(task.title)}</strong>
+            <div class="muted small">${escapeHtml(task.taskType)} · ${escapeHtml(task.id)}</div>
+          </div>
+          <span class="${statusClass(task.status)}">${escapeHtml(task.status)}</span>
+        </a>
+      `).join("")}
+    </div>
+  `;
+}
+
+function renderSimpleThreadList(threads: MessageThreadRecord[]): string {
+  if (threads.length === 0) {
+    return `<div class="empty-state small-empty">No threads.</div>`;
+  }
+
+  return `
+    <div class="mini-list">
+      ${threads.map((thread) => `
+        <a class="mini-list-item" href="#thread/${encodeURIComponent(thread.id)}">
+          <div>
+            <strong>${escapeHtml(thread.topic)}</strong>
+            <div class="muted small">${escapeHtml(thread.id)}</div>
+          </div>
+          <span class="status">${escapeHtml(threadKind(thread))}</span>
+        </a>
+      `).join("")}
+    </div>
+  `;
+}
+
+export function renderEmployeesDirectory(overview: OrgPresenceOverview): string {
+  const employees = [...overview.employees].sort((a, b) =>
+    getEmployeeDisplayName(a).localeCompare(getEmployeeDisplayName(b)),
+  );
+
+  return `
+    <section class="panel">
+      <div class="panel-header">
+        <h2>Employees</h2>
+        <p class="muted">Embodied public employee presence rendered from canonical employee profiles.</p>
+      </div>
+      <div class="summary-grid">
+        ${renderSummaryCard("Employees", employees.length, `${employees.filter((entry) => entry.runtime.runtimeStatus === "implemented").length} implemented`)}
+        ${renderSummaryCard("With cognition", employees.filter((entry) => entry.hasCognitiveProfile).length, "cognitive profile present")}
+        ${renderSummaryCard("Teams", uniqueTeamIds(overview).length, "visible team presence")}
+        ${renderSummaryCard("Active tasks", overview.tasks.length, "canonical work linked below")}
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-header">
+        <h2>Directory</h2>
+        <p class="muted">${employees.length} employees</p>
+      </div>
+      <div class="service-grid">
+        ${employees.map((employee) => `
+          <a class="unstyled-link" href="#employee/${encodeURIComponent(employee.identity.employeeId)}">
+            ${renderEmployeeCard(employee, null)}
+          </a>
+        `).join("")}
+      </div>
+    </section>
+  `;
+}
+
+export function renderEmployeeDetail(
+  overview: OrgPresenceOverview,
+  employeeId: string,
+): string {
+  const employee = overview.employees.find((entry) => entry.identity.employeeId === employeeId);
+
+  if (!employee) {
+    return `
+      <section class="panel">
+        <a class="back-link" href="#employees">← Back to employees</a>
+        <div class="empty-state">Employee ${escapeHtml(employeeId)} not found.</div>
+      </section>
+    `;
+  }
+
+  const relatedTasks = overview.tasks.filter((task) => employeeTouchesTask(task, employeeId));
+  const relatedThreads = overview.threads.filter((thread) => employeeTouchesThread(thread, employeeId));
+
+  return `
+    <a class="back-link" href="#employees">← Back to employees</a>
+    ${renderProfileHeader(employee)}
+
+    <section class="panel">
+      <div class="panel-header">
+        <h3>Employee work</h3>
+        <p class="muted">Canonical work attributed to this employee.</p>
+      </div>
+      <div class="summary-grid">
+        ${renderSummaryCard("Tasks", relatedTasks.length, `${relatedTasks.filter((task) => task.status === "in_progress").length} in progress`)}
+        ${renderSummaryCard("Threads", relatedThreads.length, "created or owned thread presence")}
+        ${renderSummaryCard("Team", employee.identity.teamId, "home team")}
+        ${renderSummaryCard("Role", employee.identity.roleId, "runtime role")}
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-header"><h3>Related tasks</h3></div>
+      ${renderSimpleTaskList(relatedTasks)}
+    </section>
+
+    <section class="panel">
+      <div class="panel-header"><h3>Recent threads</h3></div>
+      ${renderSimpleThreadList(relatedThreads)}
+    </section>
+  `;
+}
+
+export function renderTeamsOverview(overview: OrgPresenceOverview): string {
+  const tasksById = new Map(overview.tasks.map((task) => [task.id, task]));
+  const teamIds = uniqueTeamIds(overview);
+
+  return `
+    <section class="panel">
+      <div class="panel-header">
+        <h2>Teams</h2>
+        <p class="muted">Public team-level presence built from canonical employee and work surfaces.</p>
+      </div>
+      <div class="service-grid">
+        ${teamIds.map((teamId) => {
+          const employees = overview.employees.filter((employee) => employee.identity.teamId === teamId);
+          const tasks = overview.tasks.filter((task) => teamTouchesTask(task, teamId));
+          const threads = overview.threads.filter((thread) => teamTouchesThread(thread, teamId, tasksById));
+          const roadmaps = overview.roadmaps.filter((roadmap) => roadmap.team_id === teamId);
+
+          return `
+            <article class="work-card">
+              <div class="work-card-top">
+                <div>
+                  <h3><a href="#team/${encodeURIComponent(teamId)}">${escapeHtml(teamId)}</a></h3>
+                  <div class="muted small">${employees.length} employees</div>
+                </div>
+                <span class="status">${escapeHtml(roadmaps.length > 0 ? "roadmap" : "team")}</span>
+              </div>
+              <div class="meta-grid">
+                ${renderCompactPill("Tasks", tasks.length)}
+                ${renderCompactPill("Threads", threads.length)}
+                ${renderCompactPill("Roadmaps", roadmaps.length)}
+                ${renderCompactPill("Implemented", employees.filter((entry) => entry.runtime.runtimeStatus === "implemented").length)}
+              </div>
+            </article>
+          `;
+        }).join("")}
+      </div>
+    </section>
+  `;
+}
+
+export function renderTeamDetail(
+  overview: OrgPresenceOverview,
+  teamId: string,
+): string {
+  const tasksById = new Map(overview.tasks.map((task) => [task.id, task]));
+  const employees = overview.employees.filter((employee) => employee.identity.teamId === teamId);
+  const tasks = overview.tasks.filter((task) => teamTouchesTask(task, teamId));
+  const threads = overview.threads.filter((thread) => teamTouchesThread(thread, teamId, tasksById));
+  const roadmaps = overview.roadmaps.filter((roadmap) => roadmap.team_id === teamId);
+
+  return `
+    <section class="panel">
+      <a class="back-link" href="#teams">← Back to teams</a>
+      <div class="panel-header">
+        <h2>${escapeHtml(teamId)}</h2>
+        <p class="muted">Canonical team-level work and employee presence.</p>
+      </div>
+      <div class="summary-grid">
+        ${renderSummaryCard("Employees", employees.length, `${employees.filter((entry) => entry.runtime.runtimeStatus === "implemented").length} implemented`)}
+        ${renderSummaryCard("Tasks", tasks.length, `${tasks.filter((task) => task.status === "in_progress").length} in progress`)}
+        ${renderSummaryCard("Threads", threads.length, "task-linked communication")}
+        ${renderSummaryCard("Roadmaps", roadmaps.length, "team strategic objectives")}
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-header"><h3>Employees</h3></div>
+      <div class="service-grid">
+        ${employees.map((employee) => `
+          <a class="unstyled-link" href="#employee/${encodeURIComponent(employee.identity.employeeId)}">
+            ${renderEmployeeCard(employee, null)}
+          </a>
+        `).join("")}
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-header"><h3>Roadmap</h3></div>
+      ${renderRoadmapsTable(roadmaps)}
+    </section>
+
+    <section class="panel">
+      <div class="panel-header"><h3>Tasks</h3></div>
+      ${renderSimpleTaskList(tasks)}
+    </section>
+
+    <section class="panel">
+      <div class="panel-header"><h3>Threads</h3></div>
+      ${renderSimpleThreadList(threads)}
+    </section>
+  `;
+}
+
+export function renderCompanyOverview(overview: OrgPresenceOverview): string {
+  const teamIds = uniqueTeamIds(overview);
+  const implementedEmployees = overview.employees.filter(
+    (employee) => employee.runtime.runtimeStatus === "implemented",
+  ).length;
+  const plannedEmployees = overview.employees.filter(
+    (employee) => employee.runtime.runtimeStatus === "planned",
+  ).length;
+
+  const inProgressTasks = overview.tasks.filter((task) => task.status === "in_progress").length;
+  const blockedTasks = overview.tasks.filter((task) => task.status === "blocked").length;
+
+  return `
+    <section class="panel">
+      <div class="panel-header">
+        <h2>Company</h2>
+        <p class="muted">Embodied organization presence rendered from canonical employees, work, and roadmaps.</p>
+      </div>
+      <div class="summary-grid">
+        ${renderSummaryCard("Employees", overview.employees.length, `${implementedEmployees} implemented · ${plannedEmployees} planned`)}
+        ${renderSummaryCard("Teams", teamIds.length, "visible operating teams")}
+        ${renderSummaryCard("Tasks", overview.tasks.length, `${inProgressTasks} in progress · ${blockedTasks} blocked`)}
+        ${renderSummaryCard("Threads", overview.threads.length, "canonical communication threads")}
+        ${renderSummaryCard("Roadmaps", overview.roadmaps.length, "team strategic objectives")}
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-header">
+        <h3>Company surfaces</h3>
+      </div>
+      <div class="company-link-grid">
+        <a class="nav-card" href="#employees">
+          <strong>Employees</strong>
+          <span class="muted small">Public employee profiles and work presence</span>
+        </a>
+        <a class="nav-card" href="#teams">
+          <strong>Teams</strong>
+          <span class="muted small">Team-level work, roadmaps, and employee grouping</span>
+        </a>
+        <a class="nav-card" href="#work">
+          <strong>Work</strong>
+          <span class="muted small">Canonical tasks and threads</span>
+        </a>
+        <a class="nav-card" href="#department">
+          <strong>Department</strong>
+          <span class="muted small">Governance, approvals, and escalations</span>
+        </a>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-header"><h3>Featured employees</h3></div>
+      <div class="service-grid">
+        ${overview.employees.slice(0, 6).map((employee) => `
+          <a class="unstyled-link" href="#employee/${encodeURIComponent(employee.identity.employeeId)}">
+            ${renderEmployeeCard(employee, null)}
+          </a>
+        `).join("")}
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-header"><h3>Roadmap snapshot</h3></div>
+      ${renderRoadmapsTable(overview.roadmaps)}
     </section>
   `;
 }
