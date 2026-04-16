@@ -1,6 +1,10 @@
 /* eslint-disable no-console */
 
 import { createOperatorAgentClient } from "../../clients/operator-agent-client";
+import {
+  assertRequiredPostRoute,
+  hasOptionalPostRoute,
+} from "../../shared/operator-agent-surface";
 import { handleOperatorAgentSoftSkip } from "../../shared/soft-skip";
 
 export {};
@@ -22,6 +26,7 @@ function assert(condition: unknown, message: string): void {
 
 async function main(): Promise<void> {
   const client = createOperatorAgentClient();
+  const baseUrl = client.baseUrl.replace(/\/$/, "");
 
   try {
     await client.endpointExists("/agent/messages/external-action");
@@ -30,6 +35,20 @@ async function main(): Promise<void> {
       process.exit(0);
     }
     throw error;
+  }
+
+  await assertRequiredPostRoute({
+    baseUrl,
+    path: "/agent/messages/external-action",
+    description: "external action route",
+  });
+
+  const hasSeedApproval = await hasOptionalPostRoute({
+    baseUrl,
+    path: "/agent/te/seed-approval",
+  });
+  if (!hasSeedApproval) {
+    softSkip("approval seed endpoint not enabled on this deployment");
   }
 
   const seeded = await client.seedApproval({
@@ -104,7 +123,7 @@ async function main(): Promise<void> {
   assert(projections.length >= 1, "Expected external thread projection for action policy enforcement");
   const projection = projections[0];
 
-  const deniedResponse = await fetch(`${client.baseUrl.replace(/\/$/, "")}/agent/messages/external-action`, {
+  const deniedResponse = await fetch(`${baseUrl}/agent/messages/external-action`, {
     method: "POST",
     headers: {
       "content-type": "application/json",

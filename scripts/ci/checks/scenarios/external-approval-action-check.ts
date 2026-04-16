@@ -1,6 +1,10 @@
 /* eslint-disable no-console */
 
 import { createOperatorAgentClient } from "../../clients/operator-agent-client";
+import {
+  assertRequiredPostRoute,
+  hasOptionalPostRoute,
+} from "../../shared/operator-agent-surface";
 import { handleOperatorAgentSoftSkip } from "../../shared/soft-skip";
 
 export {};
@@ -22,6 +26,7 @@ function assert(condition: unknown, message: string): void {
 
 async function main(): Promise<void> {
   const client = createOperatorAgentClient();
+  const baseUrl = client.baseUrl.replace(/\/$/, "");
 
   try {
     await client.endpointExists("/agent/messages/external-action");
@@ -32,33 +37,18 @@ async function main(): Promise<void> {
     throw error;
   }
 
-  const baseUrl = client.baseUrl.replace(/\/$/, "");
-  const externalActionUrl = `${baseUrl}/agent/messages/external-action`;
-  const seedApprovalUrl = `${baseUrl}/agent/te/seed-approval`;
-
-  const externalActionProbe = await fetch(externalActionUrl, {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-    },
-    body: JSON.stringify({}),
+  await assertRequiredPostRoute({
+    baseUrl,
+    path: "/agent/messages/external-action",
+    description: "external action route",
   });
 
-  if (externalActionProbe.status === 404) {
-    throw new Error(
-      "external action route missing on deployment; expected /agent/messages/external-action to exist",
-    );
-  }
-
-  const seedProbe = await fetch(seedApprovalUrl, {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-    },
-    body: JSON.stringify({}),
+  const hasSeedApproval = await hasOptionalPostRoute({
+    baseUrl,
+    path: "/agent/te/seed-approval",
   });
 
-  if (seedProbe.status === 404) {
+  if (!hasSeedApproval) {
     softSkip("approval seed endpoint not enabled on this deployment");
   }
 

@@ -1,6 +1,7 @@
 /* eslint-disable no-console */
 
 import { createOperatorAgentClient } from "../../clients/operator-agent-client";
+import { assertRequiredPostRoute } from "../../shared/operator-agent-surface";
 import { handleOperatorAgentSoftSkip } from "../../shared/soft-skip";
 
 export {};
@@ -22,6 +23,7 @@ function assert(condition: unknown, message: string): void {
 
 async function main(): Promise<void> {
   const client = createOperatorAgentClient();
+  const baseUrl = client.baseUrl.replace(/\/$/, "");
 
   try {
     await client.endpointExists("/agent/messages/external-action");
@@ -31,6 +33,12 @@ async function main(): Promise<void> {
     }
     throw error;
   }
+
+  await assertRequiredPostRoute({
+    baseUrl,
+    path: "/agent/messages/external-action",
+    description: "external action route",
+  });
 
   const escalations = await client.listEscalations({ limit: 20 });
   const entries = Array.isArray((escalations as any)?.entries)

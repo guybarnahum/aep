@@ -1,6 +1,10 @@
 /* eslint-disable no-console */
 
 import { createOperatorAgentClient } from "../../clients/operator-agent-client";
+import {
+  assertRequiredPostRoute,
+  hasOptionalPostRoute,
+} from "../../shared/operator-agent-surface";
 import { handleOperatorAgentSoftSkip } from "../../shared/soft-skip";
 
 export {};
@@ -22,6 +26,7 @@ function assert(condition: unknown, message: string): void {
 
 async function main(): Promise<void> {
   const client = createOperatorAgentClient();
+  const baseUrl = client.baseUrl.replace(/\/$/, "");
 
   try {
     await client.endpointExists("/agent/messages/external-action");
@@ -32,33 +37,18 @@ async function main(): Promise<void> {
     throw error;
   }
 
-  const baseUrl = client.baseUrl.replace(/\/$/, "");
-  const externalActionUrl = `${baseUrl}/agent/messages/external-action`;
-  const seedApprovalUrl = `${baseUrl}/agent/te/seed-approval`;
-
-  // --- HARD REQUIREMENT ---
-  // external action route must exist in this commit
-  const externalActionProbe = await fetch(externalActionUrl, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({}),
+  await assertRequiredPostRoute({
+    baseUrl,
+    path: "/agent/messages/external-action",
+    description: "external action route",
   });
 
-  if (externalActionProbe.status === 404) {
-    throw new Error(
-      "external action route missing on deployment; expected /agent/messages/external-action to exist",
-    );
-  }
-
-  // --- SOFT REQUIREMENT ---
-  // seed endpoint may be disabled in live environments
-  const seedProbe = await fetch(seedApprovalUrl, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({}),
+  const hasSeedApproval = await hasOptionalPostRoute({
+    baseUrl,
+    path: "/agent/te/seed-approval",
   });
 
-  if (seedProbe.status === 404) {
+  if (!hasSeedApproval) {
     softSkip("approval seed endpoint not enabled on this deployment");
   }
 
@@ -133,7 +123,7 @@ async function main(): Promise<void> {
   assert(success?.ok === true, `Expected external approval action success, got ${JSON.stringify(success)}`);
   assert(success?.threadId === threadId, `Expected external action to resolve thread ${threadId}, got ${JSON.stringify(success)}`);
 
-  const unsupportedResponse = await fetch(`${client.baseUrl.replace(/\/$/, "")}/agent/messages/external-action`, {
+  const unsupportedResponse = await fetch(`${baseUrl}/agent/messages/external-action`, {
     method: "POST",
     headers: {
       "content-type": "application/json",
@@ -152,7 +142,7 @@ async function main(): Promise<void> {
   const unsupportedBody = (await unsupportedResponse.json()) as { error?: string };
   assert(unsupportedBody.error === "unsupported_action_type", `Expected unsupported_action_type error, got ${JSON.stringify(unsupportedBody)}`);
 
-  const missingResponse = await fetch(`${client.baseUrl.replace(/\/$/, "")}/agent/messages/external-action`, {
+  const missingResponse = await fetch(`${baseUrl}/agent/messages/external-action`, {
     method: "POST",
     headers: {
       "content-type": "application/json",

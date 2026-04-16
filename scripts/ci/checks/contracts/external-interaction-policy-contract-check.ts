@@ -1,6 +1,10 @@
 /* eslint-disable no-console */
 
 import { createOperatorAgentClient } from "../../clients/operator-agent-client";
+import {
+  assertRequiredPostRoute,
+  hasOptionalPostRoute,
+} from "../../shared/operator-agent-surface";
 import { handleOperatorAgentSoftSkip } from "../../shared/soft-skip";
 
 export {};
@@ -55,6 +59,7 @@ async function requireProjection(args: {
 
 async function main(): Promise<void> {
   const client = createOperatorAgentClient();
+  const baseUrl = client.baseUrl.replace(/\/$/, "");
 
   try {
     await client.endpointExists("/agent/messages/inbound");
@@ -66,7 +71,27 @@ async function main(): Promise<void> {
     throw error;
   }
 
-  const invalidPolicyResponse = await fetch(`${client.baseUrl.replace(/\/$/, "")}/agent/message-threads`, {
+  await assertRequiredPostRoute({
+    baseUrl,
+    path: "/agent/messages/inbound",
+    description: "inbound message route",
+  });
+
+  await assertRequiredPostRoute({
+    baseUrl,
+    path: "/agent/messages/external-action",
+    description: "external action route",
+  });
+
+  const hasSeedApproval = await hasOptionalPostRoute({
+    baseUrl,
+    path: "/agent/te/seed-approval",
+  });
+  if (!hasSeedApproval) {
+    softSkip("approval seed endpoint not enabled on this deployment");
+  }
+
+  const invalidPolicyResponse = await fetch(`${baseUrl}/agent/message-threads`, {
     method: "POST",
     headers: {
       "content-type": "application/json",
@@ -127,7 +152,7 @@ async function main(): Promise<void> {
 
   const replyProjection = replyProjectionState.projection;
 
-  const deniedReplyResponse = await fetch(`${client.baseUrl.replace(/\/$/, "")}/agent/messages/inbound`, {
+  const deniedReplyResponse = await fetch(`${baseUrl}/agent/messages/inbound`, {
     method: "POST",
     headers: {
       "content-type": "application/json",
@@ -176,7 +201,7 @@ async function main(): Promise<void> {
     `Expected allowed reply audit row, got ${JSON.stringify(replyAudit)}`,
   );
 
-  const invalidInboundChannel = await fetch(`${client.baseUrl.replace(/\/$/, "")}/agent/messages/inbound`, {
+  const invalidInboundChannel = await fetch(`${baseUrl}/agent/messages/inbound`, {
     method: "POST",
     headers: {
       "content-type": "application/json",
