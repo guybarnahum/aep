@@ -206,6 +206,10 @@ function renderCompactPill(label: string, value: string | number): string {
   return `<span class="compact-pill"><strong>${escapeHtml(label)}:</strong> ${escapeHtml(value)}</span>`;
 }
 
+function renderCompactHtmlPill(label: string, htmlValue: string): string {
+  return `<span class="compact-pill"><strong>${escapeHtml(label)}:</strong> ${htmlValue}</span>`;
+}
+
 function describeArtifactKind(artifact: TaskArtifactRecord): string {
   const kind = artifact.content?.kind;
   return typeof kind === "string" ? kind : artifact.artifactType;
@@ -2092,7 +2096,7 @@ function renderNarrativeTimelineItem(item: NarrativeTimelineItem): string {
       <div class="meta-grid">
         ${item.teamId ? renderCompactPill("Team", item.teamId) : ""}
         ${item.employeeId ? renderCompactPill("Employee", item.employeeId) : ""}
-        ${renderCompactPill("Time", formatTimestamp(item.at))}
+        ${renderCompactHtmlPill("Time", formatTimestamp(item.at))}
       </div>
 
       <p class="detail-paragraph">${escapeHtml(item.summary)}</p>
