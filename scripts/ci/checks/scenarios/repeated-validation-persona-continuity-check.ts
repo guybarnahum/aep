@@ -1,3 +1,4 @@
+```ts id="0ogx1g"
 /* eslint-disable no-console */
 
 import { createOperatorAgentClient } from "../../clients/operator-agent-client";
@@ -10,7 +11,8 @@ const CHECK_LABEL = "repeated validation persona continuity check";
 const TARGET_EMPLOYEE_ID = "emp_val_specialist_01";
 const EXPECTED_STYLE = "operational_evidence";
 const TARGET_TASK_TYPE = "validate-deployment";
-const FORBIDDEN_PRIVATE_FIELDS = [
+
+const FORBIDDEN_PUBLIC_FIELDS = [
   "decisionStyle",
   "collaborationStyle",
   "identitySeed",
@@ -25,6 +27,11 @@ const FORBIDDEN_PRIVATE_FIELDS = [
   "private_reasoning",
   "internalMonologue",
   "internal_monologue",
+  "intent",
+  "riskLevel",
+  "suggestedNextAction",
+  "risk_level",
+  "suggested_next_action",
 ];
 
 type TaskSample = {
@@ -43,27 +50,12 @@ function assertFieldsAbsent(payload: unknown, fields: string[], surface: string)
   }
 }
 
-function extractEmployeeId(taskDetail: Record<string, unknown>): string | undefined {
-  const decision =
-    taskDetail.decision && typeof taskDetail.decision === "object"
-      ? (taskDetail.decision as Record<string, unknown>)
-      : undefined;
-
-  if (typeof decision?.employeeId === "string") {
-    return decision.employeeId;
-  }
-
-  const artifacts = Array.isArray(taskDetail.artifacts)
-    ? (taskDetail.artifacts as Record<string, unknown>[])
-    : [];
-
-  for (const artifact of artifacts) {
-    if (typeof artifact.createdByEmployeeId === "string") {
-      return artifact.createdByEmployeeId;
-    }
-  }
-
-  return undefined;
+function getTargetUrl(): string {
+  return (
+    process.env.CONTROL_PLANE_BASE_URL
+    ?? process.env.OPERATOR_AGENT_BASE_URL
+    ?? "https://example.com"
+  );
 }
 
 function findPublicRationaleArtifact(
@@ -109,6 +101,12 @@ function assertPublicRationaleArtifact(
     throw new Error(`Task ${taskId} missing canonical public_rationale artifact content`);
   }
 
+  assertFieldsAbsent(
+    content,
+    FORBIDDEN_PUBLIC_FIELDS,
+    `/agent/tasks/${taskId} public_rationale artifact`,
+  );
+
   const style = extractPresentationStyleFromArtifact(artifact);
   if (!style) {
     throw new Error(`Task ${taskId} public_rationale artifact is missing presentationStyle`);
@@ -123,86 +121,57 @@ function assertPublicRationaleArtifact(
   return style;
 }
 
-function extractTaskType(taskDetail: Record<string, unknown>): string | undefined {
-  const task =
-    taskDetail.task && typeof taskDetail.task === "object"
-      ? (taskDetail.task as Record<string, unknown>)
-      : undefined;
-
-  return typeof task?.taskType === "string" ? task.taskType : undefined;
-}
-
-async function loadCandidateTasks(
+async function createFreshValidationTask(
   client: ReturnType<typeof createOperatorAgentClient>,
-): Promise<Record<string, unknown>[]> {
-  const results: Record<string, unknown>[] = [];
+  suffix: string,
+): Promise<string> {
+  const task = await client.createTask({
+    companyId: "company_internal_aep",
+    originatingTeamId: "team_infra",
+    assignedTeamId: "team_validation",
+    assignedEmployeeId: TARGET_EMPLOYEE_ID,
+    createdByEmployeeId: "emp_infra_ops_manager_01",
+    taskType: TARGET_TASK_TYPE,
+    title: `Repeated validation persona continuity ${suffix}`,
+    payload: {
+      targetUrl: getTargetUrl(),
+      source: CHECK_NAME,
+      continuityRun: suffix,
+      useControlPlaneBinding: false,
+    },
+  });
 
-  for (const status of ["completed", "failed"] as const) {
-    const response = await client.listTasks({
-      assignedEmployeeId: TARGET_EMPLOYEE_ID,
-      status,
-      limit: 50,
-    });
-
-    if (!response?.ok) {
-      throw new Error(`Failed to list ${status} tasks: ${JSON.stringify(response)}`);
-    }
-
-    if (Array.isArray(response.tasks)) {
-      results.push(...(response.tasks as Record<string, unknown>[]));
-    }
+  if (!task?.ok || !task?.taskId) {
+    throw new Error(`Failed to create validation task ${suffix}: ${JSON.stringify(task)}`);
   }
 
-  return results;
+  return task.taskId;
 }
 
-async function findRepeatedSamples(
+async function runValidationTask(
   client: ReturnType<typeof createOperatorAgentClient>,
-): Promise<TaskSample[]> {
-  const tasks = await loadCandidateTasks(client);
-  const samples: TaskSample[] = [];
-  const seenTaskIds = new Set<string>();
+  taskId: string,
+): Promise<Record<string, unknown>> {
+  const runResult = await client.runEmployee<any>({
+    companyId: "company_internal_aep",
+    teamId: "team_validation",
+    employeeId: TARGET_EMPLOYEE_ID,
+    roleId: "reliability-engineer",
+    trigger: "manual",
+    policyVersion: "ci-repeated-validation-persona-continuity-check",
+    taskId,
+  });
 
-  for (const task of tasks) {
-    if (typeof task.id !== "string" || seenTaskIds.has(task.id)) {
-      continue;
-    }
-
-    const taskDetail = await client.getTask(task.id);
-    if (!taskDetail?.ok) {
-      continue;
-    }
-
-    if (extractTaskType(taskDetail as Record<string, unknown>) !== TARGET_TASK_TYPE) {
-      continue;
-    }
-
-    if (extractEmployeeId(taskDetail as Record<string, unknown>) !== TARGET_EMPLOYEE_ID) {
-      continue;
-    }
-
-    const artifact = findPublicRationaleArtifact(taskDetail as Record<string, unknown>);
-    if (!artifact) {
-      continue;
-    }
-
-    if (!extractPresentationStyleFromArtifact(artifact)) {
-      continue;
-    }
-
-    seenTaskIds.add(task.id);
-    samples.push({
-      taskId: task.id,
-      taskDetail: taskDetail as Record<string, unknown>,
-      artifact,
-    });
-
-    if (samples.length === 2) {
-      break;
-    }
+  if (!runResult?.ok || runResult?.status !== "completed") {
+    throw new Error(`Expected completed run response for ${taskId}, got ${JSON.stringify(runResult)}`);
   }
 
-  return samples;
+  const taskDetail = await client.getTask(taskId);
+  if (!taskDetail?.ok) {
+    throw new Error(`Failed to fetch task detail for ${taskId}: ${JSON.stringify(taskDetail)}`);
+  }
+
+  return taskDetail as Record<string, unknown>;
 }
 
 async function assertThreadStyleConsistency(args: {
@@ -235,11 +204,21 @@ async function assertThreadStyleConsistency(args: {
     threadIds.push(thread.id);
 
     for (const [index, message] of (detail.messages as Array<Record<string, unknown>>).entries()) {
-      assertFieldsAbsent(
-        message,
-        FORBIDDEN_PRIVATE_FIELDS,
-        `/agent/message-threads/${thread.id}/messages[${index}]`,
-      );
+      if (typeof message.body === "string") {
+        assertFieldsAbsent(
+          message.body,
+          FORBIDDEN_PUBLIC_FIELDS,
+          `/agent/message-threads/${thread.id}/messages[${index}].body`,
+        );
+      }
+
+      if (message.payload && typeof message.payload === "object") {
+        assertFieldsAbsent(
+          message.payload,
+          FORBIDDEN_PUBLIC_FIELDS,
+          `/agent/message-threads/${thread.id}/messages[${index}].payload`,
+        );
+      }
 
       const payload =
         message.payload && typeof message.payload === "object"
@@ -263,10 +242,32 @@ async function assertThreadStyleConsistency(args: {
   return { publicationObserved, threadIds };
 }
 
-function softSkip(reason: string): never {
-  console.warn(`- SKIP: ${CHECK_LABEL} (${reason})`);
-  console.log(`${CHECK_NAME} skipped`, { reason });
-  process.exit(0);
+async function createFreshSamples(
+  client: ReturnType<typeof createOperatorAgentClient>,
+): Promise<TaskSample[]> {
+  const taskIds = [
+    await createFreshValidationTask(client, "run-1"),
+    await createFreshValidationTask(client, "run-2"),
+  ];
+
+  const samples: TaskSample[] = [];
+
+  for (const taskId of taskIds) {
+    const taskDetail = await runValidationTask(client, taskId);
+    const artifact = findPublicRationaleArtifact(taskDetail);
+
+    if (!artifact) {
+      throw new Error(`Task ${taskId} missing public rationale artifact`);
+    }
+
+    samples.push({
+      taskId,
+      taskDetail,
+      artifact,
+    });
+  }
+
+  return samples;
 }
 
 async function main(): Promise<void> {
@@ -281,17 +282,26 @@ async function main(): Promise<void> {
     throw error;
   }
 
-  const samples = await findRepeatedSamples(client);
-
-  if (samples.length < 2) {
-    softSkip("fewer than two completed or failed validation rationale tasks with style-tagged public rationale are available");
-  }
+  const samples = await createFreshSamples(client);
 
   const styles: string[] = [];
   const threadResults: Array<{ taskId: string; publicationObserved: boolean; threadIds: string[] }> = [];
 
   for (const sample of samples) {
-    assertFieldsAbsent(sample.taskDetail, FORBIDDEN_PRIVATE_FIELDS, `/agent/tasks/${sample.taskId}`);
+    // Do not assert forbidden fields against the entire task detail payload.
+    // The decision object may contain private/internal storage by design.
+    if (Array.isArray(sample.taskDetail.artifacts)) {
+      sample.taskDetail.artifacts.forEach((artifact: Record<string, unknown>, index: number) => {
+        if (artifact.content && typeof artifact.content === "object") {
+          assertFieldsAbsent(
+            artifact.content,
+            FORBIDDEN_PUBLIC_FIELDS,
+            `/agent/tasks/${sample.taskId} artifacts[${index}].content`,
+          );
+        }
+      });
+    }
+
     const style = assertPublicRationaleArtifact(sample.artifact, sample.taskId);
     styles.push(style);
 
@@ -332,3 +342,4 @@ main().catch((error) => {
   console.error(error);
   process.exit(1);
 });
+```

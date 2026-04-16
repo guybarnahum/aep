@@ -1,4 +1,9 @@
+/* eslint-disable no-console */
+
 import { createOperatorAgentClient } from "../../clients/operator-agent-client";
+import { handleOperatorAgentSoftSkip } from "../../shared/soft-skip";
+
+export {};
 
 const FORBIDDEN_PUBLIC_FIELDS = [
   "basePrompt",
@@ -76,25 +81,25 @@ function assertEmployeeProjectionPrivacy(employee: Record<string, unknown>, inde
   }
 }
 
-async function findCompletedOrFailedTask(
-  client: ReturnType<typeof createOperatorAgentClient>,
-): Promise<Record<string, unknown> | null> {
-  for (const status of ["completed", "failed"] as const) {
-    const response = await client.listTasks({ status, limit: 20 });
-    if (!response?.ok) {
-      throw new Error(`Failed to list ${status} tasks: ${JSON.stringify(response)}`);
-    }
-
-    if (Array.isArray(response.tasks) && response.tasks.length > 0) {
-      return response.tasks[0] as Record<string, unknown>;
-    }
-  }
-
-  return null;
+function getTargetUrl(): string {
+  return (
+    process.env.CONTROL_PLANE_BASE_URL
+    ?? process.env.OPERATOR_AGENT_BASE_URL
+    ?? "https://example.com"
+  );
 }
 
 async function main(): Promise<void> {
   const client = createOperatorAgentClient();
+
+  try {
+    await client.endpointExists("/agent/tasks");
+  } catch (err) {
+    if (handleOperatorAgentSoftSkip("employee-cognition-boundary-check", err)) {
+      process.exit(0);
+    }
+    throw err;
+  }
 
   const employeesResponse = await client.listEmployees();
   if (!employeesResponse?.ok) {
@@ -109,17 +114,44 @@ async function main(): Promise<void> {
     assertEmployeeProjectionPrivacy(employee, index);
   });
 
-  const task = await findCompletedOrFailedTask(client);
-  if (!task?.id || typeof task.id !== "string") {
-    console.warn(
-      "[warn] employee-cognition-boundary-check skipped: no completed or failed tasks available",
-    );
-    process.exit(0);
+  // Create a fresh task so this check is deterministic and does not inspect
+  // historical artifacts produced by older code in the target environment.
+  const task = await client.createTask({
+    companyId: "company_internal_aep",
+    originatingTeamId: "team_infra",
+    assignedTeamId: "team_validation",
+    assignedEmployeeId: "emp_val_specialist_01",
+    createdByEmployeeId: "emp_infra_ops_manager_01",
+    taskType: "validate-deployment",
+    title: "Employee cognition boundary fresh-task check",
+    payload: {
+      targetUrl: getTargetUrl(),
+      source: "employee-cognition-boundary-check",
+      useControlPlaneBinding: false,
+    },
+  });
+
+  if (!task?.ok || !task?.taskId) {
+    throw new Error(`Failed to create fresh validation task: ${JSON.stringify(task)}`);
   }
 
-  const taskDetail = await client.getTask(task.id);
+  const runResult = await client.runEmployee<any>({
+    companyId: "company_internal_aep",
+    teamId: "team_validation",
+    employeeId: "emp_val_specialist_01",
+    roleId: "reliability-engineer",
+    trigger: "manual",
+    policyVersion: "ci-employee-cognition-boundary-check",
+    taskId: task.taskId,
+  });
+
+  if (!runResult?.ok || runResult?.status !== "completed") {
+    throw new Error(`Expected completed run response, got ${JSON.stringify(runResult)}`);
+  }
+
+  const taskDetail = await client.getTask(task.taskId);
   if (!taskDetail?.ok) {
-    throw new Error(`Failed to fetch task detail for ${task.id}: ${JSON.stringify(taskDetail)}`);
+    throw new Error(`Failed to fetch task detail for ${task.taskId}: ${JSON.stringify(taskDetail)}`);
   }
 
   // The whole public task-detail payload must not leak structured cognition.
@@ -150,7 +182,7 @@ async function main(): Promise<void> {
   }
 
   const relatedThreads = await client.listMessageThreads({
-    relatedTaskId: task.id,
+    relatedTaskId: task.taskId,
     limit: 20,
   });
 
@@ -184,7 +216,7 @@ async function main(): Promise<void> {
   }
 
   console.log("employee-cognition-boundary-check passed", {
-    taskId: task.id,
+    taskId: task.taskId,
     employeeCount: employeesResponse.count,
   });
 }
