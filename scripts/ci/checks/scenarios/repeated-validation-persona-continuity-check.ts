@@ -1,4 +1,3 @@
-```ts id="0ogx1g"
 /* eslint-disable no-console */
 
 import { createOperatorAgentClient } from "../../clients/operator-agent-client";
@@ -342,4 +341,3 @@ main().catch((error) => {
   console.error(error);
   process.exit(1);
 });
-```
