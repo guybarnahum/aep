@@ -4,7 +4,7 @@ Repository (source of truth):
 👉 https://github.com/guybarnahum/aep
 
 The repository code is the source of truth.  
-This document is aligned to commit `adb0e2e31076427341442fd3cddf6dd15233ad43`.
+This document is aligned to commit `0674ae83cb27977d33cce8075a27df661c543757`.
 ```bash
 titan@Titans-MacBook-Pro aep % tree . --gitignore
 .
@@ -446,25 +446,28 @@ titan@Titans-MacBook-Pro aep % tree . --gitignore
 
 # 1. What AEP is
 
-AEP is the **infra department kernel of a zero-employee company**.
+AEP is:
 
-It is not:
-- a chatbot
-- a generic workflow engine
-- a Slack-native or email-native system
-- a stateless LLM wrapper
+> the infra department of an agentic, zero-employee company
 
-It is:
-- an organization runtime
-- a governed task/thread/artifact system
-- a home for bounded digital employees
-- a canonical substrate for planning, execution, validation, governance, and human interaction
+It models:
 
-The key idea is:
+* companies
+* teams
+* employees
+* tasks
+* coordination
+* governance
 
-> AEP is canonical.  
-> Tasks, threads, artifacts, approvals, escalations, and external mappings live in AEP.  
-> Slack and email are adapters over that canonical state.
+It is NOT:
+
+* a chatbot system
+* a workflow script runner
+* a stateless LLM wrapper
+
+It IS:
+
+> an organization runtime
 
 ---
 
@@ -530,35 +533,59 @@ Slack/email mirroring, external thread mappings, inbound replies, and explicit e
 
 # 3. Hard rules
 
-## Canonicality
-- AEP is canonical
-- tasks are canonical work state
-- threads are canonical communication state
-- artifacts are canonical durable outputs
-- approvals and escalations are canonical governance state
+## Canonical boundary
+
+AEP is the source of truth.
+
+Slack and email are adapters only.
+
+They must NOT become:
+
+* the task store
+* the communication source of truth
+* the approval source of truth
+* the provenance source of truth
+
+All canonical state must remain in:
+
+* tasks
+* threads
+* artifacts
+* approvals
+* escalations
+* audit / mapping tables
 
 ## Cognition boundary
-- LLM cognition stays inside the employee boundary
-- no raw private reasoning on public routes
-- no prompt-profile leakage
-- no route-level free-form cognition generation
-- no shared company-wide hidden “mind”
 
-## Work model
-- work happens through tasks, artifacts, threads, approvals, and escalations
-- not through free-form chat as the primary model
-- not through transient logs
-- not through Slack/email as source of truth
+LLM cognition belongs inside the employee boundary.
 
-## Human control
-Humans must be able to:
-- inspect work
-- inspect plans
-- inspect results
-- inspect validation outputs
-- inspect approvals/escalations
-- participate through canonical threads
-- intervene explicitly
+Rules:
+
+* private reasoning remains private
+* bounded public rationale is published
+* threads are publication surfaces, not cognition dumps
+* no route-level free-form cognition generation
+* no shared hidden company brain
+
+## Explainability boundary
+
+Human-readable explanations are allowed only if:
+
+* they are derived from canonical state
+* they are deterministic
+* they do not expose hidden reasoning
+
+No LLM-generated explanations outside the employee boundary.
+
+## Explicit control
+
+All control must be explicit and routed through canonical primitives:
+
+* tasks
+* threads
+* approvals
+* escalations
+* control surfaces
 
 ---
 
@@ -956,307 +983,34 @@ It enforces correctness across all of them.
 
 # 8. Current product gap
 
-The backend substrate is now aligned with a first-generation human-facing company surface,
-but lacks full collaboration and interaction depth.
+The product gap is no longer basic UI exposure.
 
-AEP can already:
+The system now needs validation under real usage:
 
-* create plans
-* create child tasks
-* emit validation artifacts
-* publish bounded public rationale
-* create canonical message threads
-* expose task/thread visibility summaries
-* mirror external messages into Slack/email projections
-* ingest replies/actions
-* preserve canonical provenance across task/thread/artifact/governance state
+* autonomous task execution
+* task → execution → validation → governance flows
+* output quality and operational behavior
+* Slack/email channel-based interaction patterns
 
-But the human-facing product still under-represents this.
-
-What is missing most now is:
-
-> a first-class UI and human collaboration layer that makes the independent agentic work legible, navigable, and steerable.
-
-This is the right next step.
+The next step is to validate autonomy and improve the surfaces based on real system behavior.
 
 ---
 
-# 9. PR12 — Agentic Company UI + Human Collaboration Surfaces
-
-## Goal
-
-Turn AEP from:
-
-> a governed agent execution substrate
-
-into:
-
-> a visible, embodied, and steerable digital company
-
-by exposing the governed agentic work already happening in AEP through:
-
-* dashboard / ops-console UI
-* canonical thread/task/plan/result views
-* embodied employee profiles
-* human interjection and participation
-* visible external mirrors (Slack/email) as adapter projections over canonical state
-* a coherent company activity / work-theater surface
-
-PR12 should make it possible for a human to observe:
-
-* what agents are planning
-* how tasks are decomposed
-* what artifacts they produced
-* what validation concluded
-* what was deployed / monitored
-* where approvals / escalations are waiting
-* how external mirrors relate back to canonical work
-
-And it should make it possible for a human to:
-
-* open threads
-* reply/interject
-* shape agent behavior through canonical thread messages and governance surfaces
-* review plans and outcomes
-* understand “who did what and why” without seeing raw private cognition
-
-## PR12 scope
-
-### PR12A — UI foundation for canonical work surfaces
-
-Goal:
-
-Expose what the company is doing using existing canonical APIs.
-
-Scope:
-
-* add work-oriented navigation and routes:
-	* `#work`
-	* `#task/:id`
-	* `#thread/:id`
-* task list UI rendered from canonical `/agent/tasks`
-* task detail UI rendered from canonical `/agent/tasks/:id`
-	* plan/result/evidence artifacts
-	* validation results
-	* decision
-	* dependencies
-	* related threads
-	* visibilitySummary
-* thread detail UI rendered from canonical `/agent/message-threads/:id`
-	* canonical messages
-	* rationale publication
-	* approval/escalation linkage
-	* external projection state
-	* visibilitySummary
-
-Rule:
-
-> UI renders canonical state.  
-> UI does not become a source of truth or recompute hidden work state.
-
-### PR12B — embodied employees and organization presence
-
-Goal:
-
-Make the company feel like a set of real actors rather than IDs.
-
-Scope:
-
-* employee directory / cards / profile views
-* use public profile fields already exposed canonically:
-	* displayName
-	* bio
-	* skills
-	* avatarUrl
-* employee profile views linked to owned / assigned tasks and recent thread activity
-* team-level and company-level views of active work
-
-Important boundary:
-
-* public embodiment belongs in employee catalog / persona projections
-* prompt profiles remain private employee-boundary cognition state
-
-### PR12C — human interjection and collaboration
-
-Goal:
-
-Allow humans to participate in work without bypassing canonical AEP primitives.
-
-Scope:
-
-* send canonical messages into task-linked or governance-linked threads
-* let humans shape work through visible thread participation, not hidden prompts
-* keep approvals and escalations explicit as dedicated action surfaces
-* no hidden write-through mutation path from free-form UI chat
-
-### PR12D — external mirror visibility
-
-Goal:
-
-Expose Slack/email as collaboration adapters over canonical AEP work.
-
-Scope:
-
-* show Slack/email projection state in UI
-* show external thread mapping, message mapping, delivery state, and interaction audit clearly
-* keep mirrors visibly secondary to canonical AEP state
-* support future routing models for:
-	* Slack team channels
-	* Slack personal DMs
-	* email team aliases
-	* email personal aliases
-
-Boundary:
-
-> external channels are projection and interaction surfaces only.  
-> AEP threads/messages remain canonical.
-
-### PR12E — work theater / company activity view
-
-Goal:
-
-Make the digital company feel alive and legible.
-
-Scope:
-
-* “what the company is doing now” activity surface
-* plans underway
-* execution in progress
-* validation outcomes
-* governance bottlenecks
-* external collaboration state
-* timeline / feed style views that show plan → execution → validation → governance coherently
-
-### PR12F — causality / why things happened
-
-Goal:
-
-Make company work explainable, not just visible.
-
-Scope:
-
-* show what caused a task to exist
-* show which canonical thread, approval, or escalation led to work
-* show which related threads/governance flows connect back to a task
-* show thread → task / approval / escalation linkage clearly
-* extend the activity timeline from "what happened" to "why this happened"
-
-Boundary:
-
-* causality remains a derived UI/read-surface projection
-* no new backend causality graph or stored activity graph
-* only canonical task/thread/provenance/linkage fields may be used
-
-### PR12G — active control surfaces / steering
-
-Goal:
-
-Move from observing the company to steering it explicitly through canonical AEP routes.
-
-Scope:
-
-* expose employee governance/policy state on employee detail
-* expose direct steering surfaces backed by existing canonical routes
-* support thread → delegate follow-up task from applied approval/escalation outcomes
-* keep steering explicit and auditable
-* do not let free-form chat become implicit control mutation
-
-Boundary:
-
-* only use mutation routes that already exist canonically
-* no UI-owned control state
-* no hidden prompt steering
-* no direct task mutation surface unless a canonical route exists
-
-### PR12H — identity continuity / employees feel real over time
-
-Goal:
-
-Make employees feel like ongoing actors rather than static profile cards.
-
-Scope:
-
-* show “working now” on employee detail
-* show recent canonical tasks for each employee
-* show active/recent threads for each employee
-* show recent manager decisions and control history affecting the employee
-* derive all continuity from canonical AEP reads only
-
-Boundary:
-
-* no employee memory store
-* no synthetic history model
-* continuity must be derived from tasks, threads, decisions, and control history already recorded canonically
-
-### PR12J — UX / copy / canonicality tightening
-
-Goal:
-
-Make the company UI clearer, more internally consistent, and more explicit about AEP canonicality.
-
-Scope:
-
-* tighten navigation naming
-* remove copy drift from older “tenant-facing dashboard” language
-* make governance labeling clearer
-* make thread and mirror canonicality explicit in UI copy
-* improve conceptual legibility without changing the underlying model
-
-Boundary:
-
-* presentation-only
-* no new routes or backend primitives
-* no behavior changes
-* no new canonical state
-
-### PR12I — live system feel / low-jank refresh
-
-Goal:
-
-Make the company UI feel operational and current without changing the canonical model or introducing streaming infrastructure.
-
-Scope:
-
-* smarter auto-refresh behavior
-* refresh only while visible
-* expose freshness / live-surface cues in the UI
-* reinforce that activity, work, governance, thread, task, and employee detail views are operational surfaces
-
-Boundary:
-
-* no websockets
-* no backend changes
-* no new canonical state
-* client-side refresh/presentation behavior only
-
-### PR12K — explainability polish / human-readable causality
-
-Goal:
-
-Make causality understandable to humans, not just structurally visible.
-
-Scope:
-
-* add synthesized “why” explanations to tasks, threads, and activity timeline
-* derive explanations purely from canonical linkage fields
-* no LLM or hidden reasoning generation
-* keep explanations deterministic and auditable
-
-Boundary:
-
-* no new backend state
-* no stored explanations
-* no free-form LLM reasoning outside employee boundary
-
-## PR12 must not do
-
-* must not make Slack/email canonical
-* must not expose raw private reasoning
-* must not bypass tasks/threads/artifacts
-* must not turn UI into write-through hidden state mutation
-* must not reintroduce chat as the primary work model
-
-PR12 is an exposure / interaction phase, not a canonical data model rewrite.
+# 9. PR12 — Agentic Company UI + Human Collaboration (COMPLETED)
+
+PR12 now includes:
+
+* PR12A — canonical work UI
+* PR12B — embodied employees and company presence
+* PR12C — human interjection through canonical thread collaboration
+* PR12D — external mirror visibility
+* PR12E — narrative company timeline / work theater
+* PR12F — causality / why things happened
+* PR12G — active control surfaces / steering
+* PR12H — identity continuity / employees feel real over time
+* PR12I — live system feel / low-jank refresh
+* PR12J — UX / copy / canonicality tightening
+* PR12K — explainability polish / human-readable causality
 
 ---
 
@@ -1630,23 +1384,52 @@ Users can now understand:
 
 # 10. After PR12
 
-PR12 now includes:
+PR12 is complete.
 
-* PR12B — embodied employees and company presence
-* PR12C — human interjection through canonical thread collaboration
-* PR12D — external mirror visibility
-* PR12E — narrative company timeline / work theater
-* PR12F — causality / why things happened
-* PR12G — active control surfaces / steering
-* PR12H — identity continuity / employees feel real over time
-* PR12I — live system feel / low-jank refresh
-* PR12J — UX / copy / canonicality tightening
-* PR12K — explainability polish / human-readable causality
+The system now provides:
 
-## PR13 — Multi-agent operational company
+* observable work
+* explainable causality
+* explicit governance
+* human collaboration
+* external mirroring
+* steering surfaces
+* identity continuity
+* operational UI surfaces
 
-Likely scope:
+Next phase is NOT PR13 yet.
 
+Instead:
+
+* validate autonomy
+* run real agentic workflows
+* inspect outputs and behavior
+* improve UI based on real usage
+* extend Slack/email into structured channels
+
+---
+
+# 11. Current focus (post-PR12)
+
+We are now:
+
+* validating that agents can perform real work loops autonomously
+* inspecting task → execution → validation → governance flows
+* improving UI based on real system behavior
+* extending Slack/email mirroring into channel-based interaction
+
+PR13 is intentionally paused until autonomy is proven.
+
+---
+
+# 12. The next LLM session should:
+
+1. read this file fully
+2. inspect the repo at the target commit
+3. trust the repo over this doc if they diverge
+4. treat PR12 as complete
+5. Wait on PR13: 
+* deeper multi-agent collaboration mechanics
 * richer multi-agent coordination
 * cross-team consensus and negotiation on “what”
 * manager / worker / validator loops across multiple concurrent tasks
@@ -1654,36 +1437,7 @@ Likely scope:
 
 ---
 
-# 11. Near-term next session guidance
-
-The next LLM session should:
-
-1. read this file fully
-2. inspect the repo at the target commit
-3. trust the repo over this doc if they diverge
-4. treat PR11 as complete
-5. begin PR12 as the UI + human collaboration + mirror visibility phase
-6. start with PR12A before broadening into embodiment and external collaboration infrastructure
-
-Priority order:
-
-1. canonical work UI surfaces over existing task/thread/artifact/visibility APIs
-2. task detail and thread detail rendered from canonical read surfaces
-3. human interjection through canonical message threads
-4. employee embodiment / profile surfacing
-5. external mirror visibility in UI
-6. company activity / work theater timeline
-7. causality surfaces explaining why work/governance objects exist
-8. active steering/control surfaces using existing canonical routes
-9. identity continuity and recent-work continuity for employees
-10. UX/copy/canonicality tightening over the PR12 surfaces
-11. live system feel and refresh polish over operational views
-12. only after that, richer Slack/email collaboration infra such as team channels, personal DMs, team email aliases, and personal employee aliases
-13. only after that, deeper multi-agent collaboration mechanics
-
----
-
-# 12. Final continuity note
+# 13. Final continuity note
 
 Optimize for:
 
