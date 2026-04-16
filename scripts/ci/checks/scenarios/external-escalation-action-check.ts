@@ -1,6 +1,10 @@
 /* eslint-disable no-console */
 
 import { createOperatorAgentClient } from "../../clients/operator-agent-client";
+import {
+  detectAdapterCapabilities,
+  warnIfNoAdapters,
+} from "../../shared/adapter-capability";
 import { assertRequiredPostRoute } from "../../shared/operator-agent-surface";
 import { handleOperatorAgentSoftSkip } from "../../shared/soft-skip";
 
@@ -39,6 +43,9 @@ async function main(): Promise<void> {
     path: "/agent/messages/external-action",
     description: "external action route",
   });
+
+  const adapters = await detectAdapterCapabilities(baseUrl);
+  warnIfNoAdapters(adapters);
 
   const escalations = await client.listEscalations({ limit: 20 });
   const entries = Array.isArray((escalations as any)?.entries)

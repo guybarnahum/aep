@@ -2,6 +2,10 @@
 
 import { createOperatorAgentClient } from "../../clients/operator-agent-client";
 import {
+  detectAdapterCapabilities,
+  warnIfNoAdapters,
+} from "../../shared/adapter-capability";
+import {
   assertRequiredPostRoute,
   hasOptionalPostRoute,
 } from "../../shared/operator-agent-surface";
@@ -90,6 +94,9 @@ async function main(): Promise<void> {
   if (!hasSeedApproval) {
     softSkip("approval seed endpoint not enabled on this deployment");
   }
+
+  const adapters = await detectAdapterCapabilities(baseUrl);
+  warnIfNoAdapters(adapters);
 
   const invalidPolicyResponse = await fetch(`${baseUrl}/agent/message-threads`, {
     method: "POST",
