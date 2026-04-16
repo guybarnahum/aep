@@ -1,6 +1,10 @@
 import type {
   CreateCanonicalThreadMessageInput,
   CreateCanonicalThreadMessageResponse,
+  DelegateTaskFromThreadInput,
+  DelegateTaskFromThreadResponse,
+  EmployeeControlOverview,
+  EmployeeEffectivePolicyOverview,
   ExternalMirrorOverview,
   MessageThreadDetail,
   MessageThreadRecord,
@@ -209,6 +213,24 @@ export async function getOrgPresenceOverview(): Promise<OrgPresenceOverview> {
     roadmaps: departmentOverview.roadmaps,
     schedulerStatus: departmentOverview.schedulerStatus,
   };
+}
+
+export async function getEmployeeControlOverview(
+  employeeId: string,
+): Promise<EmployeeControlOverview> {
+  return getJson<EmployeeControlOverview>(
+    getOperatorAgentBaseUrl(),
+    `/agent/employee-controls?employeeId=${encodeURIComponent(employeeId)}`,
+  );
+}
+
+export async function getEmployeeEffectivePolicy(
+  employeeId: string,
+): Promise<EmployeeEffectivePolicyOverview> {
+  return getJson<EmployeeEffectivePolicyOverview>(
+    getOperatorAgentBaseUrl(),
+    `/agent/employees/${encodeURIComponent(employeeId)}/effective-policy`,
+  );
 }
 
 export async function getExternalMirrorOverview(): Promise<ExternalMirrorOverview> {
@@ -483,6 +505,28 @@ export async function resolveEscalationFromThread(
     {
       actor: "human_dashboard_operator",
       note,
+    },
+  );
+}
+
+export async function delegateTaskFromThread(
+  input: DelegateTaskFromThreadInput,
+): Promise<DelegateTaskFromThreadResponse> {
+  return postJson<DelegateTaskFromThreadResponse>(
+    getOperatorAgentBaseUrl(),
+    `/agent/message-threads/${encodeURIComponent(input.threadId)}/delegate-task`,
+    {
+      companyId: input.companyId,
+      originatingTeamId: input.originatingTeamId,
+      assignedTeamId: input.assignedTeamId,
+      ownerEmployeeId: input.ownerEmployeeId,
+      assignedEmployeeId: input.assignedEmployeeId,
+      createdByEmployeeId: input.createdByEmployeeId,
+      taskType: input.taskType,
+      title: input.title,
+      payload: input.payload ?? {},
+      dependsOnTaskIds: input.dependsOnTaskIds ?? [],
+      sourceMessageId: input.sourceMessageId,
     },
   );
 }

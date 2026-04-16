@@ -1014,3 +1014,20 @@ button:disabled {
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
+
+.thread-delegate-form {
+  display: grid;
+  gap: 10px;
+}
+
+.thread-delegate-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 12px;
+}
+
+@media (max-width: 920px) {
+  .thread-delegate-grid {
+    grid-template-columns: 1fr;
+  }
+}

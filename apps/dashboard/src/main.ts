@@ -13,7 +13,10 @@ import {
   approveApproval,
   approveFromThread,
   createCanonicalThreadMessage,
+  delegateTaskFromThread,
   getApiBaseUrl,
+  getEmployeeControlOverview,
+  getEmployeeEffectivePolicy,
   getExternalMirrorOverview,
   getMessageThreadDetail,
   getMessageThreads,
@@ -647,10 +650,45 @@ function resolveThreadMessageRecipient(detail: Awaited<ReturnType<typeof getMess
   return null;
 }
 
+function parseOptionalJsonObject(
+  raw: string,
+): Record<string, unknown> {
+  const trimmed = raw.trim();
+  if (!trimmed) {
+    return {};
+  }
+
+  const parsed = JSON.parse(trimmed);
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new Error("Payload JSON must be an object.");
+  }
+
+  return parsed as Record<string, unknown>;
+}
+
 function attachThreadInteractionHandlers(threadId: string): void {
   const composeForm = document.querySelector<HTMLFormElement>("#thread-compose-form");
   const subjectInput = document.querySelector<HTMLInputElement>("#thread-compose-subject");
   const bodyInput = document.querySelector<HTMLTextAreaElement>("#thread-compose-body");
+  const delegateForm = document.querySelector<HTMLFormElement>("#thread-delegate-form");
+  const delegateSourceMessageInput =
+    document.querySelector<HTMLSelectElement>("#thread-delegate-source-message-id");
+  const delegateOriginatingTeamInput =
+    document.querySelector<HTMLInputElement>("#thread-delegate-originating-team-id");
+  const delegateAssignedTeamInput =
+    document.querySelector<HTMLInputElement>("#thread-delegate-assigned-team-id");
+  const delegateAssignedEmployeeInput =
+    document.querySelector<HTMLInputElement>("#thread-delegate-assigned-employee-id");
+  const delegateOwnerEmployeeInput =
+    document.querySelector<HTMLInputElement>("#thread-delegate-owner-employee-id");
+  const delegateTaskTypeInput =
+    document.querySelector<HTMLInputElement>("#thread-delegate-task-type");
+  const delegateTitleInput =
+    document.querySelector<HTMLInputElement>("#thread-delegate-title");
+  const delegatePayloadInput =
+    document.querySelector<HTMLTextAreaElement>("#thread-delegate-payload");
+  const delegateDependsOnInput =
+    document.querySelector<HTMLInputElement>("#thread-delegate-depends-on");
 
   composeForm?.addEventListener("submit", async (event) => {
     event.preventDefault();
@@ -691,6 +729,63 @@ function attachThreadInteractionHandlers(threadId: string): void {
     } catch (error) {
       setMutationStatus(
         error instanceof Error ? error.message : "Failed to send canonical message",
+      );
+      void renderRoute();
+    }
+  });
+
+  delegateForm?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+
+    const sourceMessageId = delegateSourceMessageInput?.value.trim() ?? "";
+    const originatingTeamId = delegateOriginatingTeamInput?.value.trim() ?? "";
+    const assignedTeamId = delegateAssignedTeamInput?.value.trim() ?? "";
+    const assignedEmployeeId = delegateAssignedEmployeeInput?.value.trim() ?? "";
+    const ownerEmployeeId = delegateOwnerEmployeeInput?.value.trim() ?? "";
+    const taskType = delegateTaskTypeInput?.value.trim() ?? "";
+    const title = delegateTitleInput?.value.trim() ?? "";
+    const rawPayload = delegatePayloadInput?.value ?? "";
+    const rawDependsOn = delegateDependsOnInput?.value ?? "";
+
+    if (!sourceMessageId || !originatingTeamId || !assignedTeamId || !taskType || !title) {
+      setMutationStatus(
+        "Source message, originating team, assigned team, task type, and title are required.",
+      );
+      void renderRoute();
+      return;
+    }
+
+    try {
+      const detail = await getMessageThreadDetail(threadId);
+      const payload = parseOptionalJsonObject(rawPayload);
+      const dependsOnTaskIds = rawDependsOn
+        .split(/[,\n]/)
+        .map((value) => value.trim())
+        .filter(Boolean);
+
+      setMutationStatus(`Delegating follow-up task from ${threadId}…`);
+      void renderRoute();
+
+      await delegateTaskFromThread({
+        threadId,
+        companyId: detail.thread.companyId,
+        originatingTeamId,
+        assignedTeamId,
+        ownerEmployeeId: ownerEmployeeId || undefined,
+        assignedEmployeeId: assignedEmployeeId || undefined,
+        createdByEmployeeId: "human_dashboard_operator",
+        taskType,
+        title,
+        payload,
+        dependsOnTaskIds,
+        sourceMessageId,
+      });
+
+      setMutationStatus(`Delegated follow-up task from ${threadId}`);
+      void renderRoute();
+    } catch (error) {
+      setMutationStatus(
+        error instanceof Error ? error.message : "Failed to delegate task from thread",
       );
       void renderRoute();
     }
@@ -908,7 +1003,16 @@ async function renderRoute(): Promise<void> {
       if (route.kind === "employees") {
         content += renderEmployeesDirectory(orgOverview);
       } else if (route.kind === "employee") {
-        content += renderEmployeeDetail(orgOverview, route.employeeId);
+        const [controlOverview, effectivePolicy] = await Promise.all([
+          getEmployeeControlOverview(route.employeeId),
+          getEmployeeEffectivePolicy(route.employeeId),
+        ]);
+        content += renderEmployeeDetail(
+          orgOverview,
+          route.employeeId,
+          controlOverview,
+          effectivePolicy,
+        );
       } else if (route.kind === "teams") {
         content += renderTeamsOverview(orgOverview);
       } else if (route.kind === "team") {

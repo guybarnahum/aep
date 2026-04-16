@@ -1147,6 +1147,27 @@ Boundary:
 * no new backend causality graph or stored activity graph
 * only canonical task/thread/provenance/linkage fields may be used
 
+### PR12G — active control surfaces / steering
+
+Goal:
+
+Move from observing the company to steering it explicitly through canonical AEP routes.
+
+Scope:
+
+* expose employee governance/policy state on employee detail
+* expose direct steering surfaces backed by existing canonical routes
+* support thread → delegate follow-up task from applied approval/escalation outcomes
+* keep steering explicit and auditable
+* do not let free-form chat become implicit control mutation
+
+Boundary:
+
+* only use mutation routes that already exist canonically
+* no UI-owned control state
+* no hidden prompt steering
+* no direct task mutation surface unless a canonical route exists
+
 ## PR12 must not do
 
 * must not make Slack/email canonical
@@ -1390,6 +1411,33 @@ but also:
 
 ---
 
+## PR12G — Active Control Surfaces / Steering (COMPLETED)
+
+The dashboard now exposes first-class steering surfaces backed by canonical AEP routes.
+
+### Implemented
+
+* employee detail governance/policy panel
+* employee control state visibility
+* effective policy visibility
+* thread → delegate follow-up task surface
+* delegation through canonical thread action route
+
+### Important rule preserved
+
+Steering remains explicit and auditable.
+
+The dashboard does not invent new control semantics.
+It only exposes canonical routes already owned by AEP.
+
+### Result
+
+Humans can now not only inspect work and causality, but also:
+
+> steer follow-up work and inspect employee governance state through explicit canonical controls
+
+---
+
 # 10. After PR12
 
 PR12 now includes:
@@ -1399,6 +1447,7 @@ PR12 now includes:
 * PR12D — external mirror visibility
 * PR12E — narrative company timeline / work theater
 * PR12F — causality / why things happened
+* PR12G — active control surfaces / steering
 
 ## PR13 — Multi-agent operational company
 
@@ -1431,8 +1480,9 @@ Priority order:
 5. external mirror visibility in UI
 6. company activity / work theater timeline
 7. causality surfaces explaining why work/governance objects exist
-8. only after that, richer Slack/email collaboration infra such as team channels, personal DMs, team email aliases, and personal employee aliases
-9. only after that, deeper multi-agent collaboration mechanics
+8. active steering/control surfaces using existing canonical routes
+9. only after that, richer Slack/email collaboration infra such as team channels, personal DMs, team email aliases, and personal employee aliases
+10. only after that, deeper multi-agent collaboration mechanics
 
 ---
 

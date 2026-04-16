@@ -109,6 +109,8 @@ import type {
   CausalityLink,
   ControlHistoryRecord,
   DecisionSeverityFilter,
+  EmployeeControlOverview,
+  EmployeeEffectivePolicyOverview,
   EmployeeMessageRecord,
   DepartmentFilters,
   DepartmentOverview,
@@ -1563,6 +1565,64 @@ function renderProfileHeader(employee: OperatorEmployeeRecord): string {
   `;
 }
 
+function renderEmployeeGovernancePanel(
+  controlOverview: EmployeeControlOverview,
+  effectivePolicy: EmployeeEffectivePolicyOverview,
+): string {
+  return `
+    <section class="panel">
+      <div class="panel-header">
+        <h3>Governance and steering</h3>
+        <p class="muted">
+          Current control state and effective runtime policy for this employee.
+        </p>
+      </div>
+
+      <div class="summary-grid">
+        ${renderSummaryCard("Control state", controlOverview.effectiveState.state, controlOverview.effectiveState.blocked ? "blocked" : "not blocked")}
+        ${renderSummaryCard("Implemented", effectivePolicy.implemented ? "yes" : "no", effectivePolicy.status)}
+        ${renderSummaryCard("Allowed tenants", effectivePolicy.allowedTenants?.length ?? effectivePolicy.effectiveAuthority?.allowedTenants?.length ?? 0, "effective scope")}
+        ${renderSummaryCard("Allowed services", effectivePolicy.allowedServices?.length ?? effectivePolicy.effectiveAuthority?.allowedServices?.length ?? 0, "effective scope")}
+      </div>
+
+      <div class="meta-grid">
+        ${renderCompactPill("Employee", effectivePolicy.employeeId)}
+        ${renderCompactPill("Company", effectivePolicy.companyId)}
+        ${renderCompactPill("Team", effectivePolicy.teamId)}
+        ${renderCompactPill("Blocked", String(controlOverview.effectiveState.blocked))}
+      </div>
+
+      ${controlOverview.control
+        ? renderExpandableText(
+            `employee-control-${effectivePolicy.employeeId}`,
+            "Stored control record",
+            formatJsonBlock(controlOverview.control),
+          )
+        : `<div class="empty-state small-empty">No stored override record.</div>`}
+
+      ${effectivePolicy.effectiveAuthority
+        ? renderExpandableText(
+            `employee-effective-authority-${effectivePolicy.employeeId}`,
+            "Effective authority",
+            formatJsonBlock(effectivePolicy.effectiveAuthority),
+          )
+        : ""}
+
+      ${effectivePolicy.effectiveBudget
+        ? renderExpandableText(
+            `employee-effective-budget-${effectivePolicy.employeeId}`,
+            "Effective budget",
+            formatJsonBlock(effectivePolicy.effectiveBudget),
+          )
+        : ""}
+
+      ${effectivePolicy.message
+        ? `<p class="muted small">${escapeHtml(effectivePolicy.message)}</p>`
+        : ""}
+    </section>
+  `;
+}
+
 function renderSimpleTaskList(tasks: TaskRecord[]): string {
   if (tasks.length === 0) {
     return `<div class="empty-state small-empty">No tasks.</div>`;
@@ -1641,6 +1701,8 @@ export function renderEmployeesDirectory(overview: OrgPresenceOverview): string 
 export function renderEmployeeDetail(
   overview: OrgPresenceOverview,
   employeeId: string,
+  controlOverview: EmployeeControlOverview,
+  effectivePolicy: EmployeeEffectivePolicyOverview,
 ): string {
   const employee = overview.employees.find((entry) => entry.identity.employeeId === employeeId);
 
@@ -1659,6 +1721,7 @@ export function renderEmployeeDetail(
   return `
     <a class="back-link" href="#employees">← Back to employees</a>
     ${renderProfileHeader(employee)}
+    ${renderEmployeeGovernancePanel(controlOverview, effectivePolicy)}
 
     <section class="panel">
       <div class="panel-header">
@@ -1915,6 +1978,94 @@ export function renderTaskDetail(detail: TaskDetail): string {
   `;
 }
 
+function renderThreadDelegationPanel(detail: MessageThreadDetail): string {
+  const eligibleMessages = detail.messages.filter((message) => {
+    return (
+      Boolean(message.responseActionType) &&
+      message.responseActionStatus === "applied" &&
+      (Boolean(detail.thread.relatedApprovalId) || Boolean(detail.thread.relatedEscalationId))
+    );
+  });
+
+  if (!detail.thread.relatedApprovalId && !detail.thread.relatedEscalationId) {
+    return "";
+  }
+
+  return `
+    <section class="panel">
+      <div class="panel-header">
+        <h3>Delegate follow-up task</h3>
+        <p class="muted">
+          Create a canonical task from an applied approval or escalation outcome.
+        </p>
+      </div>
+
+      ${
+        eligibleMessages.length === 0
+          ? `<div class="empty-state small-empty">No applied thread action message is available for task delegation yet.</div>`
+          : `
+            <form id="thread-delegate-form" class="thread-delegate-form">
+              <label class="thread-compose-label" for="thread-delegate-source-message-id">Source message</label>
+              <select id="thread-delegate-source-message-id" class="thread-compose-input" required>
+                <option value="">Select source message</option>
+                ${eligibleMessages
+                  .map(
+                    (message) => `
+                      <option value="${escapeHtml(message.id)}">
+                        ${escapeHtml(message.id)} · ${escapeHtml(message.responseActionType ?? "action")} · ${escapeHtml(message.senderEmployeeId)}
+                      </option>
+                    `,
+                  )
+                  .join("")}
+              </select>
+
+              <div class="thread-delegate-grid">
+                <div>
+                  <label class="thread-compose-label" for="thread-delegate-originating-team-id">Originating team</label>
+                  <input id="thread-delegate-originating-team-id" class="thread-compose-input" type="text" required />
+                </div>
+                <div>
+                  <label class="thread-compose-label" for="thread-delegate-assigned-team-id">Assigned team</label>
+                  <input id="thread-delegate-assigned-team-id" class="thread-compose-input" type="text" required />
+                </div>
+                <div>
+                  <label class="thread-compose-label" for="thread-delegate-assigned-employee-id">Assigned employee (optional)</label>
+                  <input id="thread-delegate-assigned-employee-id" class="thread-compose-input" type="text" />
+                </div>
+                <div>
+                  <label class="thread-compose-label" for="thread-delegate-owner-employee-id">Owner employee (optional)</label>
+                  <input id="thread-delegate-owner-employee-id" class="thread-compose-input" type="text" />
+                </div>
+                <div>
+                  <label class="thread-compose-label" for="thread-delegate-task-type">Task type</label>
+                  <input id="thread-delegate-task-type" class="thread-compose-input" type="text" required />
+                </div>
+                <div>
+                  <label class="thread-compose-label" for="thread-delegate-title">Task title</label>
+                  <input id="thread-delegate-title" class="thread-compose-input" type="text" required />
+                </div>
+              </div>
+
+              <label class="thread-compose-label" for="thread-delegate-depends-on">Depends on task IDs (comma or newline separated)</label>
+              <input id="thread-delegate-depends-on" class="thread-compose-input" type="text" />
+
+              <label class="thread-compose-label" for="thread-delegate-payload">Payload JSON (optional)</label>
+              <textarea
+                id="thread-delegate-payload"
+                class="thread-compose-textarea"
+                placeholder='{"reason":"follow_up"}'
+              ></textarea>
+
+              <div class="thread-compose-actions">
+                <button type="submit" class="button">Delegate follow-up task</button>
+              </div>
+            </form>
+          `
+      }
+    </section>
+  `;
+}
+
 function renderThreadInteractionPanel(detail: MessageThreadDetail): string {
   const approvalActions = detail.thread.relatedApprovalId
     ? `
@@ -2009,6 +2160,8 @@ function renderThreadInteractionPanel(detail: MessageThreadDetail): string {
           : ""
       }
     </section>
+
+    ${renderThreadDelegationPanel(detail)}
   `;
 }
 

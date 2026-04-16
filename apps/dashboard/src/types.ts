@@ -586,6 +586,60 @@ export type CausalityLink = {
   href: string;
 };
 
+export type EmployeeControlOverview = {
+  ok: boolean;
+  employeeId: string;
+  control: Record<string, unknown> | null;
+  effectiveState: {
+    state: "enabled" | "disabled_pending_review" | "disabled_by_manager" | "restricted";
+    blocked: boolean;
+  };
+};
+
+export type EmployeeEffectivePolicyOverview = {
+  ok: boolean;
+  employeeId: string;
+  companyId: string;
+  teamId: string;
+  status: string;
+  implemented: boolean;
+  message?: string;
+  allowedTenants?: string[];
+  allowedServices?: string[];
+  allowedEnvironmentNames?: string[];
+  baseAuthority?: Record<string, unknown>;
+  baseBudget?: Record<string, unknown>;
+  effectiveAuthority?: Record<string, unknown>;
+  effectiveBudget?: Record<string, unknown>;
+  controlState?: {
+    state: "enabled" | "disabled_pending_review" | "disabled_by_manager" | "restricted";
+    blocked: boolean;
+  };
+};
+
+export type DelegateTaskFromThreadInput = {
+  threadId: string;
+  companyId?: string;
+  originatingTeamId: string;
+  assignedTeamId: string;
+  ownerEmployeeId?: string;
+  assignedEmployeeId?: string;
+  createdByEmployeeId?: string;
+  taskType: string;
+  title: string;
+  payload?: Record<string, unknown>;
+  dependsOnTaskIds?: string[];
+  sourceMessageId: string;
+};
+
+export type DelegateTaskFromThreadResponse = {
+  ok: boolean;
+  taskId: string;
+  threadId: string;
+  sourceMessageId: string;
+  delegationMessageId: string;
+};
+
 export type EscalationStateFilter = "all" | "open" | "acknowledged" | "resolved";
 
 export type DecisionSeverityFilter = "all" | "warning" | "critical";
