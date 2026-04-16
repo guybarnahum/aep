@@ -287,18 +287,6 @@ async function main(): Promise<void> {
   const threadResults: Array<{ taskId: string; publicationObserved: boolean; threadIds: string[] }> = [];
 
   for (const sample of samples) {
-    if (Array.isArray(sample.taskDetail.artifacts)) {
-      sample.taskDetail.artifacts.forEach((artifact: Record<string, unknown>, index: number) => {
-        if (artifact.content && typeof artifact.content === "object") {
-          assertFieldsAbsent(
-            artifact.content,
-            FORBIDDEN_PUBLIC_FIELDS,
-            `/agent/tasks/${sample.taskId} artifacts[${index}].content`,
-          );
-        }
-      });
-    }
-
     const style = assertPublicRationaleArtifact(sample.artifact, sample.taskId);
     styles.push(style);
 

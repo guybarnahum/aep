@@ -1,5 +1,29 @@
 import { getEmployeePromptProfile } from "@aep/operator-agent/lib/employee-prompt-profile-store-d1";
 import type { Task } from "@aep/operator-agent/lib/store-types";
+
+const FORBIDDEN_PUBLIC_OUTPUT_TOKENS = [
+  "privateReasoning",
+  "private_reasoning",
+  "internalMonologue",
+  "internal_monologue",
+  "basePrompt",
+  "base_prompt",
+  "decisionStyle",
+  "decision_style",
+  "collaborationStyle",
+  "collaboration_style",
+  "identitySeed",
+  "identity_seed",
+  "portraitPrompt",
+  "portrait_prompt",
+  "promptVersion",
+  "prompt_version",
+  "intent",
+  "riskLevel",
+  "risk_level",
+  "suggestedNextAction",
+  "suggested_next_action",
+];
 import type { ExecutionContext } from "@aep/operator-agent/types/execution-provenance";
 import type {
   AgentEmployeeDefinition,
@@ -386,6 +410,51 @@ function normalizeStructured(value: unknown): EmployeeCognitionStructured | unde
   return structured;
 }
 
+function containsForbiddenPublicOutputToken(value: string): boolean {
+  return FORBIDDEN_PUBLIC_OUTPUT_TOKENS.some((token) => value.includes(token));
+}
+
+function sanitizePublicSummary(value: string): string | null {
+  const normalized = normalizeWhitespace(value.trim());
+  if (!normalized) {
+    return null;
+  }
+
+  if (containsForbiddenPublicOutputToken(normalized)) {
+    return null;
+  }
+
+  return normalized;
+}
+
+function sanitizePrivateReasoning(value: string): string | null {
+  const normalized = normalizeWhitespace(value.trim());
+  return normalized || null;
+}
+
+function sanitizeParsedCognition(value: {
+  privateReasoning: string;
+  publicSummary: string;
+  structured?: EmployeeCognitionStructured;
+}): {
+  privateReasoning: string;
+  publicSummary: string;
+  structured?: EmployeeCognitionStructured;
+} | null {
+  const privateReasoning = sanitizePrivateReasoning(value.privateReasoning);
+  const publicSummary = sanitizePublicSummary(value.publicSummary);
+
+  if (!privateReasoning && !publicSummary) {
+    return null;
+  }
+
+  return {
+    privateReasoning: privateReasoning || publicSummary || "Reasoned within the employee boundary.",
+    publicSummary: publicSummary || "Reviewed the task within the employee boundary.",
+    structured: value.structured,
+  };
+}
+
 function parseCognitionObject(record: Record<string, unknown>): {
   privateReasoning: string;
   publicSummary: string;
@@ -399,11 +468,7 @@ function parseCognitionObject(record: Record<string, unknown>): {
     return null;
   }
 
-  return {
-    privateReasoning: privateReasoning || publicSummary,
-    publicSummary: publicSummary || privateReasoning,
-    structured,
-  };
+  return sanitizeParsedCognition({ privateReasoning, publicSummary, structured });
 }
 
 function parseCognitionResponse(raw: unknown): {
@@ -421,10 +486,10 @@ function parseCognitionResponse(raw: unknown): {
       const parsed = JSON.parse(trimmed) as Record<string, unknown>;
       return parseCognitionObject(parsed);
     } catch {
-      return {
-        privateReasoning: trimmed,
-        publicSummary: trimmed,
-      };
+      // Do not mirror arbitrary raw model text into publicSummary.
+      // Raw string output may echo schema keys like "privateReasoning".
+      // Treat malformed free-form output as unusable so caller can fall back safely.
+      return null;
     }
   }
 
@@ -499,6 +564,10 @@ async function invokeModelIfAvailable(
 
     const parsed = parseCognitionResponse(raw);
     if (!parsed) {
+      return null;
+    }
+
+    if (containsForbiddenPublicOutputToken(parsed.publicSummary)) {
       return null;
     }
 
