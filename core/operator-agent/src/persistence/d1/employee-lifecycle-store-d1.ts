@@ -6,7 +6,13 @@ import type {
   EmployeePublicLink,
   EmployeePublicLinkType,
   OperatorAgentEnv,
+  TaskReassignmentReason,
 } from "@aep/operator-agent/types";
+
+import {
+  listActiveTasksForEmployee,
+  reassignTask,
+} from "@aep/operator-agent/persistence/d1/task-reassignment-store-d1";
 
 type EmployeeLifecycleRow = {
   id: string;
@@ -390,8 +396,10 @@ async function insertEmploymentEvent(args: {
   reason?: string;
   approvedBy?: string;
   threadId?: string;
-}): Promise<void> {
+  eventId?: string;
+}): Promise<string> {
   const db = requireDb(args.env);
+  const eventId = args.eventId ?? `evt_${crypto.randomUUID().split("-")[0]}`;
   await db
     .prepare(
       `INSERT INTO employee_employment_events (
@@ -410,7 +418,7 @@ async function insertEmploymentEvent(args: {
        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
     )
     .bind(
-      `evt_${crypto.randomUUID().split("-")[0]}`,
+      eventId,
       args.employeeId,
       args.eventType,
       args.fromTeamId ?? null,
@@ -423,6 +431,93 @@ async function insertEmploymentEvent(args: {
       args.threadId ?? null,
     )
     .run();
+
+  return eventId;
+}
+
+async function findReplacementEmployee(
+  env: OperatorAgentEnv,
+  teamId: string,
+  roleId: string,
+  excludeEmployeeId: string,
+): Promise<string | null> {
+  const db = requireDb(env);
+
+  const sameRole = await db
+    .prepare(
+      `SELECT id
+       FROM employees_catalog
+       WHERE team_id = ?
+         AND role_id = ?
+         AND employment_status = 'active'
+         AND id != ?
+       LIMIT 1`,
+    )
+    .bind(teamId, roleId, excludeEmployeeId)
+    .first<{ id: string }>();
+
+  if (sameRole?.id) {
+    return sameRole.id;
+  }
+
+  const sameTeam = await db
+    .prepare(
+      `SELECT id
+       FROM employees_catalog
+       WHERE team_id = ?
+         AND employment_status = 'active'
+         AND id != ?
+       LIMIT 1`,
+    )
+    .bind(teamId, excludeEmployeeId)
+    .first<{ id: string }>();
+
+  return sameTeam?.id ?? null;
+}
+
+async function handleWorkContinuity(
+  env: OperatorAgentEnv,
+  employeeId: string,
+  teamId: string,
+  roleId: string,
+  eventType: EmployeeEmploymentEventType,
+  eventId: string,
+  threadId?: string,
+): Promise<void> {
+  const tasks = await listActiveTasksForEmployee(env, employeeId);
+
+  if (tasks.length === 0) {
+    return;
+  }
+
+  const replacement = await findReplacementEmployee(
+    env,
+    teamId,
+    roleId,
+    employeeId,
+  );
+
+  if (!replacement) {
+    return;
+  }
+
+  const reason: TaskReassignmentReason =
+    eventType === "terminated"
+      ? "employee_terminated"
+      : eventType === "retired"
+        ? "employee_retired"
+        : "employee_unavailable";
+
+  for (const taskId of tasks) {
+    await reassignTask(env, {
+      taskId,
+      fromEmployeeId: employeeId,
+      toEmployeeId: replacement,
+      reason,
+      triggeredByEventId: eventId,
+      threadId,
+    });
+  }
 }
 
 export async function createEmployee(
@@ -680,7 +775,7 @@ export async function applyEmployeeLifecycleAction(
     )
     .run();
 
-  await insertEmploymentEvent({
+  const eventId = await insertEmploymentEvent({
     env,
     employeeId,
     eventType,
@@ -693,6 +788,22 @@ export async function applyEmployeeLifecycleAction(
     approvedBy: input.approvedBy,
     threadId: input.threadId,
   });
+
+  if (
+    eventType === "went_on_leave" ||
+    eventType === "terminated" ||
+    eventType === "retired"
+  ) {
+    await handleWorkContinuity(
+      env,
+      employeeId,
+      existing.team_id,
+      existing.role_id,
+      eventType,
+      eventId,
+      input.threadId,
+    );
+  }
 
   return {
     employeeId,

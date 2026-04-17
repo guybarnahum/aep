@@ -139,6 +139,18 @@ jobs:
         run: |
           npx tsx scripts/ci/checks/scenarios/repeated-validation-persona-continuity-check.ts 2>&1 | tee -a post-deploy-validation.log
 
+      - name: Task reassignment continuity check
+        id: task_reassignment_continuity
+        if: steps.config.outputs.enabled == 'true' && steps.post_deploy_validation.outcome == 'success'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          WRANGLER_CONFIG_PATH: core/operator-agent/wrangler.jsonc
+          WRANGLER_D1_EXECUTION_LOCATION: remote
+          D1_DATABASE_REF: OPERATOR_AGENT_DB
+        run: |
+          npx tsx scripts/ci/checks/scenarios/task-reassignment-continuity-check.ts 2>&1 | tee -a post-deploy-validation.log
+
       - name: Validation loop feedback check
         id: validation_loop_feedback
         if: steps.config.outputs.enabled == 'true' && steps.post_deploy_validation.outcome == 'success'

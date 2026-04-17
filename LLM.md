@@ -173,6 +173,7 @@ titan@Titans-MacBook-Pro aep % tree . --gitignore
 │   │   │   │       ├── escalation-log-d1.ts
 │   │   │   │       ├── manager-decision-log-d1.ts
 │   │   │   │       ├── role-catalog-store-d1.ts
+│   │   │   │       ├── task-reassignment-store-d1.ts
 │   │   │   │       ├── task-store-d1.ts
 │   │   │   │       └── work-log-store-d1.ts
 │   │   │   ├── org
@@ -297,7 +298,8 @@ titan@Titans-MacBook-Pro aep % tree . --gitignore
 │   │   │       ├── 0019_external_thread_projection_map.sql
 │   │   │       ├── 0020_external_action_records.sql
 │   │   │       ├── 0021_external_interaction_policy.sql
-│   │   │       └── 0022_employee_lifecycle_foundation.sql
+│   │   │       ├── 0022_employee_lifecycle_foundation.sql
+│   │   │       └── 0023_task_reassignment.sql
 │   │   └── wrangler
 │   │       └── README.md
 │   └── github
@@ -402,6 +404,7 @@ titan@Titans-MacBook-Pro aep % tree . --gitignore
 │   │   │   │   ├── run-recurring-validation.ts
 │   │   │   │   ├── strategic-dispatch-test.ts
 │   │   │   │   ├── synthetic-failure-test.ts
+│   │   │   │   ├── task-reassignment-continuity-check.ts
 │   │   │   │   ├── threaded-mirror-continuity-check.ts
 │   │   │   │   └── validation-loop-feedback-check.ts
 │   │   │   └── schema
@@ -760,7 +763,7 @@ Private:
 * visual_base_prompt
 * portrait_prompt
 
-Appearance evolves with age.
+Appearance evolves over time.
 
 Private visual prompts must not be exposed.
 

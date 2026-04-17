@@ -288,6 +288,9 @@ async function main(): Promise<void> {
     throw new Error("Expected terminate lifecycle action to succeed");
   }
 
+  // Work continuity: lifecycle-driven reassignment should not crash when active
+  // tasks are present, even though this contract check does not read D1 directly.
+
   const archiveResult = await client.runEmployeeLifecycleAction(
     lifecycleEmployeeId,
     "archive",

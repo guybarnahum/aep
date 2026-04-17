@@ -15,6 +15,12 @@ export type EmployeeEmploymentStatus =
   | "terminated"
   | "archived";
 
+export type TaskReassignmentReason =
+  | "employee_unavailable"
+  | "employee_terminated"
+  | "employee_retired"
+  | "manual_reassignment";
+
 export type EmployeeEmploymentEventType =
   | "hired"
   | "activated"
@@ -144,6 +150,17 @@ export interface EmployeeEmploymentEventRecord {
   approvedBy?: string;
   threadId?: string;
   createdAt?: string;
+}
+
+export interface TaskReassignmentRecord {
+  reassignmentId: string;
+  taskId: string;
+  fromEmployeeId: string;
+  toEmployeeId: string;
+  reason: TaskReassignmentReason;
+  triggeredByEventId?: string;
+  threadId?: string;
+  createdAt: string;
 }
 
 export type CoordinationTaskStatus =

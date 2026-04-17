@@ -136,6 +136,17 @@ export type EmployeeEmploymentEventsResponse = {
   events: EmployeeEmploymentEvent[];
 };
 
+export type TaskReassignment = {
+  reassignmentId: string;
+  taskId: string;
+  fromEmployeeId: string;
+  toEmployeeId: string;
+  reason: string;
+  triggeredByEventId?: string;
+  threadId?: string;
+  createdAt: string;
+};
+
 export type EmployeePersonaGenerationPublicResult = {
   bio?: string;
   tone?: string;
