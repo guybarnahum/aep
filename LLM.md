@@ -1581,6 +1581,67 @@ PR13 is intentionally paused until autonomy is proven.
 * manager / worker / validator loops across multiple concurrent tasks
 * governed company-wide operating behavior
 
+12.1 IMEPLENTATION PR PATCH LIST
+
+You are generating a precise, copy-pasteable patch for a codebase.
+Output requirements (STRICT)
+
+12.1.1. FIRST: output a FILE-BY-FILE PATCH LIST (diff-style, PARTIAL ONLY)
+
+For EACH modified file:
+
+path/to/file.ext
+
+@@ <context or function/class name>
+- <old code>
++ <new code>
+
+Rules:
+
+* ONLY include CHANGED sections (no full file replacements)
+* Include enough surrounding context to locate the change
+* Use valid unified diff style (@@ blocks)
+* Multiple @@ blocks per file if needed
+* Do NOT include unchanged code outside context
+* Do NOT summarize changes
+* Do NOT omit necessary imports/types if they are modified
+* Ensure patches are syntactically correct and realistically applicable
+
+⸻
+
+12.1.2. AFTER all patches: output the COMMIT MESSAGE
+
+Format:
+
+commit-type(subsystem): short_title 
+
+coomit body:
+    * 5–10 lines describing:
+    * what changed
+    * why it changed
+    * key implementation details
+    * any constraints or follow-ups
+
+Where commit-type is one of: feat | fix | chore | refactor | ...
+Where subsystem is: docs | test | ci | ...
+
+⸻
+
+12.1.3. Ordering:
+
+* Files in logical dependency order (e.g., types → logic → API → UI → tests)
+* Within each file, order @@ blocks top-to-bottom
+
+⸻
+
+12.1.4. STRICT OUTPUT:
+
+* No commentary outside this structure
+* No explanations before or after
+* Only emit:
+    * file patch sections
+    * then commit message
+ 
 ---
 
 # 13. Final continuity note
