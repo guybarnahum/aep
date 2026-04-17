@@ -101,7 +101,7 @@ function getSingleRow(sql: string): SqlRow {
   return rows[0];
 }
 
-function assertTaskAssignment(taskId: string, expectedEmployeeId: string): void {
+function getTaskAssignedEmployeeId(taskId: string): string {
   const row = getSingleRow(
     `SELECT assigned_employee_id
      FROM tasks
@@ -109,9 +109,48 @@ function assertTaskAssignment(taskId: string, expectedEmployeeId: string): void 
      LIMIT 1`,
   );
 
-  if (String(row.assigned_employee_id ?? "") !== expectedEmployeeId) {
+  const employeeId = String(row.assigned_employee_id ?? "");
+  if (!employeeId) {
     throw new Error(
-      `Expected task ${taskId} assigned_employee_id=${expectedEmployeeId}, got ${String(row.assigned_employee_id ?? "<missing>")}`,
+      `Expected assigned_employee_id for task ${taskId}`,
+    );
+  }
+
+  return employeeId;
+}
+
+function assertReplacementEmployeeIsValid(args: {
+  employeeId: string;
+  excludedEmployeeIds: string[];
+}): void {
+  const row = getSingleRow(
+    `SELECT employment_status, team_id, role_id
+     FROM employees_catalog
+     WHERE id = ${sqlLiteral(args.employeeId)}
+     LIMIT 1`,
+  );
+
+  if (String(row.employment_status ?? "") !== "active") {
+    throw new Error(
+      `Expected replacement employee ${args.employeeId} to be active, got ${String(row.employment_status ?? "<missing>")}`,
+    );
+  }
+
+  if (String(row.team_id ?? "") !== TEAM_ID) {
+    throw new Error(
+      `Expected replacement employee ${args.employeeId} team_id=${TEAM_ID}, got ${String(row.team_id ?? "<missing>")}`,
+    );
+  }
+
+  if (String(row.role_id ?? "") !== ROLE_ID) {
+    throw new Error(
+      `Expected replacement employee ${args.employeeId} role_id=${ROLE_ID}, got ${String(row.role_id ?? "<missing>")}`,
+    );
+  }
+
+  if (args.excludedEmployeeIds.includes(args.employeeId)) {
+    throw new Error(
+      `Expected replacement employee to differ from ${args.excludedEmployeeIds.join(", ")}, got ${args.employeeId}`,
     );
   }
 }
@@ -281,11 +320,15 @@ async function main(): Promise<void> {
       throw new Error(`Expected start-leave to succeed: ${JSON.stringify(leaveResult)}`);
     }
 
-    assertTaskAssignment(leaveTask.taskId, replacementEmployeeId);
+    const leaveReplacementEmployeeId = getTaskAssignedEmployeeId(leaveTask.taskId);
+    assertReplacementEmployeeIsValid({
+      employeeId: leaveReplacementEmployeeId,
+      excludedEmployeeIds: [leaveEmployeeId],
+    });
     assertReassignmentRecord({
       taskId: leaveTask.taskId,
       fromEmployeeId: leaveEmployeeId,
-      toEmployeeId: replacementEmployeeId,
+      toEmployeeId: leaveReplacementEmployeeId,
       reason: "employee_unavailable",
       expectedEventType: "went_on_leave",
     });
@@ -320,18 +363,26 @@ async function main(): Promise<void> {
       throw new Error(`Expected terminate to succeed: ${JSON.stringify(terminateResult)}`);
     }
 
-    assertTaskAssignment(terminateTask.taskId, replacementEmployeeId);
+    const terminateReplacementEmployeeId = getTaskAssignedEmployeeId(
+      terminateTask.taskId,
+    );
+    assertReplacementEmployeeIsValid({
+      employeeId: terminateReplacementEmployeeId,
+      excludedEmployeeIds: [terminateEmployeeId],
+    });
     assertReassignmentRecord({
       taskId: terminateTask.taskId,
       fromEmployeeId: terminateEmployeeId,
-      toEmployeeId: replacementEmployeeId,
+      toEmployeeId: terminateReplacementEmployeeId,
       reason: "employee_terminated",
       expectedEventType: "terminated",
     });
 
     console.log(`- PASS: ${CHECK_NAME} verified leave and terminate reassignment continuity.`);
     console.log(CHECK_NAME, {
-      replacementEmployeeId,
+      seededReplacementEmployeeId: replacementEmployeeId,
+      leaveReplacementEmployeeId,
+      terminateReplacementEmployeeId,
       leaveEmployeeId,
       terminateEmployeeId,
       leaveTaskId: leaveTask.taskId,
