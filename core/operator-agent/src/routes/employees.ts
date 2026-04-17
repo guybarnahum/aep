@@ -3,6 +3,7 @@ import {
   listEmployeeCatalog,
   listEmployeePublicLinks,
 } from "@aep/operator-agent/lib/employee-catalog-store-d1";
+import { createEmployee } from "@aep/operator-agent/lib/employee-lifecycle-store-d1";
 import { resolveAllowedScope } from "@aep/operator-agent/lib/org-scope-resolver";
 import {
   mergeAuthority,
@@ -22,10 +23,33 @@ import { getEmployeeById } from "@aep/operator-agent/org/employees";
 import type {
   AgentRoleId,
   EmployeeEmploymentStatus,
+  EmployeePublicLink,
   EmployeeProjection,
   EmployeeRuntimeStatus,
   OperatorAgentEnv,
 } from "@aep/operator-agent/types";
+
+type CreateEmployeeRequest = {
+  employeeId?: string;
+  companyId?: string;
+  teamId?: string;
+  roleId?: AgentRoleId;
+  employeeName?: string;
+  runtimeStatus?: "planned" | "active" | "disabled";
+  employmentStatus?: EmployeeEmploymentStatus;
+  schedulerMode?: string;
+  bio?: string;
+  tone?: string;
+  skills?: string[];
+  avatarUrl?: string;
+  appearanceSummary?: string;
+  birthYear?: number;
+  publicLinks?: EmployeePublicLink[];
+  approvedBy?: string;
+  threadId?: string;
+  effectiveAt?: string;
+  reason?: string;
+};
 
 function toCompanyId(companyId: string): CompanyId {
   if (companyId !== COMPANY_INTERNAL_AEP) {
@@ -116,7 +140,7 @@ export async function handleEmployees(
   request: Request,
   env?: OperatorAgentEnv,
 ): Promise<Response> {
-  if (request.method !== "GET") {
+  if (request.method !== "GET" && request.method !== "POST") {
     return new Response("Method Not Allowed", { status: 405 });
   }
 
@@ -128,6 +152,69 @@ export async function handleEmployees(
       },
       { status: 500 },
     );
+  }
+
+  if (request.method === "POST") {
+    let body: CreateEmployeeRequest;
+    try {
+      body = (await request.json()) as CreateEmployeeRequest;
+    } catch {
+      return Response.json(
+        { ok: false, error: "Request body must be valid JSON" },
+        { status: 400 },
+      );
+    }
+
+    if (!body.teamId || !body.roleId || !body.employeeName) {
+      return Response.json(
+        {
+          ok: false,
+          error: "teamId, roleId, and employeeName are required",
+        },
+        { status: 400 },
+      );
+    }
+
+    try {
+      const result = await createEmployee(env, {
+        employeeId: body.employeeId,
+        companyId: body.companyId,
+        teamId: body.teamId,
+        roleId: body.roleId,
+        employeeName: body.employeeName,
+        runtimeStatus: body.runtimeStatus,
+        employmentStatus: body.employmentStatus,
+        schedulerMode: body.schedulerMode,
+        bio: body.bio,
+        tone: body.tone,
+        skills: body.skills,
+        avatarUrl: body.avatarUrl,
+        appearanceSummary: body.appearanceSummary,
+        birthYear: body.birthYear,
+        publicLinks: body.publicLinks,
+        approvedBy: body.approvedBy,
+        threadId: body.threadId,
+        effectiveAt: body.effectiveAt,
+        reason: body.reason,
+      });
+
+      return Response.json(
+        {
+          ok: true,
+          employeeId: result.employeeId,
+          employmentStatus: result.employmentStatus,
+        },
+        { status: 201 },
+      );
+    } catch (error) {
+      return Response.json(
+        {
+          ok: false,
+          error: error instanceof Error ? error.message : "Failed to create employee",
+        },
+        { status: 400 },
+      );
+    }
   }
 
   const url = new URL(request.url);

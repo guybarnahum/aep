@@ -7,7 +7,9 @@ import { resolveServiceBaseUrl } from "../shared/service-map";
 import type {
   EmployeeControlDetailResponse,
   EmployeeControlsListResponse,
+  EmployeeEmploymentEventsResponse,
   EmployeeEffectivePolicyResponse,
+  EmployeePublicLink,
   EmployeesListResponse,
   EmployeeScopeResponse,
   RolesListResponse,
@@ -74,6 +76,40 @@ export type CreateTaskArtifactRequest = {
   artifactType: "plan" | "result" | "evidence";
   summary?: string;
   content?: Record<string, unknown>;
+};
+
+export type CreateEmployeeRequest = {
+  employeeId?: string;
+  companyId?: string;
+  teamId: string;
+  roleId: string;
+  employeeName: string;
+  runtimeStatus?: "planned" | "active" | "disabled";
+  employmentStatus?: "draft" | "active" | "on_leave" | "retired" | "terminated" | "archived";
+  schedulerMode?: string;
+  bio?: string;
+  tone?: string;
+  skills?: string[];
+  avatarUrl?: string;
+  appearanceSummary?: string;
+  birthYear?: number;
+  publicLinks?: EmployeePublicLink[];
+  approvedBy?: string;
+  threadId?: string;
+  effectiveAt?: string;
+  reason?: string;
+};
+
+export type UpdateEmployeeRequest = {
+  employeeName?: string;
+  schedulerMode?: string;
+  bio?: string;
+  tone?: string;
+  skills?: string[];
+  avatarUrl?: string;
+  appearanceSummary?: string;
+  birthYear?: number;
+  publicLinks?: EmployeePublicLink[];
 };
 
 export type CreateMessageThreadRequest = {
@@ -168,6 +204,23 @@ export function createOperatorAgentClient(
       );
     },
 
+    async createEmployee(body: CreateEmployeeRequest): Promise<any> {
+      return postJson(buildUrl("/agent/employees"), body);
+    },
+
+    async updateEmployee(
+      employeeId: string,
+      body: UpdateEmployeeRequest,
+    ): Promise<any> {
+      return fetch(buildUrl(`/agent/employees/${encodeURIComponent(employeeId)}`), {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(body),
+      }).then((response) => response.json());
+    },
+
     async listRoles(params?: {
       teamId?: string;
     }): Promise<RolesListResponse> {
@@ -195,6 +248,43 @@ export function createOperatorAgentClient(
         buildUrl(
           `/agent/employees/${encodeURIComponent(employeeId)}/effective-policy`,
         ),
+      );
+    },
+
+    async getEmployeeEmploymentEvents(
+      employeeId: string,
+    ): Promise<EmployeeEmploymentEventsResponse> {
+      return getJson<EmployeeEmploymentEventsResponse>(
+        buildUrl(
+          `/agent/employees/${encodeURIComponent(employeeId)}/employment-events`,
+        ),
+      );
+    },
+
+    async runEmployeeLifecycleAction(
+      employeeId: string,
+      action:
+        | "activate"
+        | "reassign-team"
+        | "change-role"
+        | "start-leave"
+        | "end-leave"
+        | "retire"
+        | "terminate"
+        | "rehire"
+        | "archive",
+      body?: {
+        toTeamId?: string;
+        toRoleId?: string;
+        reason?: string;
+        approvedBy?: string;
+        threadId?: string;
+        effectiveAt?: string;
+      },
+    ): Promise<any> {
+      return postJson(
+        buildUrl(`/agent/employees/${encodeURIComponent(employeeId)}/${action}`),
+        body ?? {},
       );
     },
 

@@ -747,6 +747,8 @@ Output requirements (STRICT)
 
 1. FIRST: output a FILE-BY-FILE PATCH LIST (diff-style, PARTIAL ONLY)
 
+Always wrap a patch in "```diff" so it is presented is raw text for easy cut and paste.
+
 For EACH modified file:
 
 path/to/file.ext

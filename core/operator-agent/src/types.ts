@@ -15,6 +15,18 @@ export type EmployeeEmploymentStatus =
   | "terminated"
   | "archived";
 
+export type EmployeeEmploymentEventType =
+  | "hired"
+  | "activated"
+  | "reassigned"
+  | "role_changed"
+  | "went_on_leave"
+  | "returned_from_leave"
+  | "retired"
+  | "terminated"
+  | "rehired"
+  | "archived";
+
 export type EmployeePublicLinkType =
   | "github"
   | "linkedin"
@@ -101,6 +113,21 @@ export interface RoleJobDescriptionProjection {
   successMetrics: string[];
   constraints: string[];
   seniorityLevel: string;
+}
+
+export interface EmployeeEmploymentEventRecord {
+  eventId: string;
+  employeeId: string;
+  eventType: EmployeeEmploymentEventType;
+  fromTeamId?: TeamId;
+  toTeamId?: TeamId;
+  fromRoleId?: AgentRoleId;
+  toRoleId?: AgentRoleId;
+  effectiveAt: string;
+  reason?: string;
+  approvedBy?: string;
+  threadId?: string;
+  createdAt?: string;
 }
 
 export type CoordinationTaskStatus =

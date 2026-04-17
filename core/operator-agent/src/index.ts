@@ -10,9 +10,12 @@ import { handleEscalationDetail } from "./routes/escalation-detail";
 import { handleResolveEscalation } from "./routes/escalations-resolve";
 import { handleHealthz } from "./routes/healthz";
 import { handleEmployeeControls } from "./routes/employee-controls";
+import { handleEmployeeEmploymentEvents } from "./routes/employee-employment-events";
 import { handleEmployeeEffectivePolicy } from "./routes/employee-effective-policy";
+import { handleEmployeeLifecycleAction } from "./routes/employee-lifecycle-actions";
 import { handleEmployees } from "./routes/employees";
 import { handleEmployeeScope } from "./routes/employee-scope";
+import { handleUpdateEmployee } from "./routes/employee-update";
 import { handleRoles } from "./routes/roles";
 import { handleManagerLog } from "./routes/manager-log";
 import { handleRun } from "./routes/run";
@@ -268,6 +271,45 @@ async function dispatch(request: Request, env: OperatorAgentEnv): Promise<Respon
     );
   }
 
+  const employeeEmploymentEventsMatch = url.pathname.match(
+    /^\/agent\/employees\/([^/]+)\/employment-events$/,
+  );
+  if (employeeEmploymentEventsMatch) {
+    return handleEmployeeEmploymentEvents(
+      request,
+      env,
+      decodeURIComponent(employeeEmploymentEventsMatch[1]),
+    );
+  }
+
+  const employeeActionMatch = url.pathname.match(
+    /^\/agent\/employees\/([^/]+)\/(activate|reassign-team|change-role|start-leave|end-leave|retire|terminate|rehire|archive)$/,
+  );
+  if (employeeActionMatch) {
+    const employeeId = decodeURIComponent(employeeActionMatch[1]);
+    const action = employeeActionMatch[2];
+
+    return handleEmployeeLifecycleAction(
+      request,
+      env,
+      employeeId,
+      action === "reassign-team"
+        ? "reassign_team"
+        : action === "change-role"
+          ? "change_role"
+          : action === "start-leave"
+            ? "start_leave"
+            : action === "end-leave"
+              ? "end_leave"
+              : (action as
+                  | "activate"
+                  | "retire"
+                  | "terminate"
+                  | "rehire"
+                  | "archive"),
+    );
+  }
+
   const employeePolicyMatch = url.pathname.match(
     /^\/agent\/employees\/([^/]+)\/effective-policy$/,
   );
@@ -276,6 +318,15 @@ async function dispatch(request: Request, env: OperatorAgentEnv): Promise<Respon
       request,
       env,
       decodeURIComponent(employeePolicyMatch[1]),
+    );
+  }
+
+  const employeeUpdateMatch = url.pathname.match(/^\/agent\/employees\/([^/]+)$/);
+  if (employeeUpdateMatch && request.method === "PATCH") {
+    return handleUpdateEmployee(
+      request,
+      env,
+      decodeURIComponent(employeeUpdateMatch[1]),
     );
   }
 

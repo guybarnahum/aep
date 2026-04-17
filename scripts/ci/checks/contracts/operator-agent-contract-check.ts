@@ -171,6 +171,160 @@ async function main(): Promise<void> {
     throw new Error("Expected product manager web employmentStatus=active");
   }
 
+  const lifecycleTestEmployee = await client.createEmployee({
+    teamId: "team_web_product",
+    roleId: "product-manager-web",
+    employeeName: `Lifecycle Test ${Date.now()}`,
+    employmentStatus: "draft",
+    runtimeStatus: "planned",
+    schedulerMode: "manual_only",
+    bio: "Lifecycle test employee",
+    tone: "Professional",
+    skills: ["Planning"],
+    appearanceSummary: "Test employee for lifecycle contract checks.",
+    birthYear: 1993,
+    reason: "CI lifecycle contract check",
+    approvedBy: "ci-operator-agent-client",
+  });
+
+  if (!lifecycleTestEmployee.ok || !lifecycleTestEmployee.employeeId) {
+    throw new Error("Expected employee creation to succeed for lifecycle test");
+  }
+
+  const lifecycleEmployeeId = String(lifecycleTestEmployee.employeeId);
+
+  const draftEmployees = await client.listEmployees({ employmentStatus: "draft" });
+  if (!draftEmployees.ok) {
+    throw new Error("/agent/employees?employmentStatus=draft did not return ok=true");
+  }
+
+  if (
+    !draftEmployees.employees.some(
+      (employee) => employee.identity.employeeId === lifecycleEmployeeId,
+    )
+  ) {
+    throw new Error("Expected lifecycle test employee in draft employment filter");
+  }
+
+  const activateResult = await client.runEmployeeLifecycleAction(
+    lifecycleEmployeeId,
+    "activate",
+    {
+      reason: "CI activate check",
+    },
+  );
+  if (!activateResult.ok || activateResult.employmentStatus !== "active") {
+    throw new Error("Expected activate lifecycle action to succeed");
+  }
+
+  const changeRoleResult = await client.runEmployeeLifecycleAction(
+    lifecycleEmployeeId,
+    "change-role",
+    {
+      toRoleId: "frontend-engineer",
+      reason: "CI change-role check",
+    },
+  );
+  if (!changeRoleResult.ok || changeRoleResult.roleId !== "frontend-engineer") {
+    throw new Error("Expected change-role lifecycle action to succeed");
+  }
+
+  const leaveResult = await client.runEmployeeLifecycleAction(
+    lifecycleEmployeeId,
+    "start-leave",
+    {
+      reason: "CI leave check",
+    },
+  );
+  if (!leaveResult.ok || leaveResult.employmentStatus !== "on_leave") {
+    throw new Error("Expected start-leave lifecycle action to succeed");
+  }
+
+  const returnResult = await client.runEmployeeLifecycleAction(
+    lifecycleEmployeeId,
+    "end-leave",
+    {
+      reason: "CI return check",
+    },
+  );
+  if (!returnResult.ok || returnResult.employmentStatus !== "active") {
+    throw new Error("Expected end-leave lifecycle action to succeed");
+  }
+
+  const retireResult = await client.runEmployeeLifecycleAction(
+    lifecycleEmployeeId,
+    "retire",
+    {
+      reason: "CI retire check",
+      approvedBy: "ci-operator-agent-client",
+    },
+  );
+  if (!retireResult.ok || retireResult.employmentStatus !== "retired") {
+    throw new Error("Expected retire lifecycle action to succeed");
+  }
+
+  const rehireResult = await client.runEmployeeLifecycleAction(
+    lifecycleEmployeeId,
+    "rehire",
+    {
+      reason: "CI rehire check",
+    },
+  );
+  if (!rehireResult.ok || rehireResult.employmentStatus !== "active") {
+    throw new Error("Expected rehire lifecycle action to succeed");
+  }
+
+  const terminateResult = await client.runEmployeeLifecycleAction(
+    lifecycleEmployeeId,
+    "terminate",
+    {
+      reason: "CI terminate check",
+      approvedBy: "ci-operator-agent-client",
+    },
+  );
+  if (!terminateResult.ok || terminateResult.employmentStatus !== "terminated") {
+    throw new Error("Expected terminate lifecycle action to succeed");
+  }
+
+  const archiveResult = await client.runEmployeeLifecycleAction(
+    lifecycleEmployeeId,
+    "archive",
+    {
+      reason: "CI archive check",
+      approvedBy: "ci-operator-agent-client",
+    },
+  );
+  if (!archiveResult.ok || archiveResult.employmentStatus !== "archived") {
+    throw new Error("Expected archive lifecycle action to succeed");
+  }
+
+  const lifecycleEvents = await client.getEmployeeEmploymentEvents(
+    lifecycleEmployeeId,
+  );
+  if (!lifecycleEvents.ok || lifecycleEvents.count < 7) {
+    throw new Error("Expected lifecycle test employee employment events to exist");
+  }
+
+  const lifecycleEventTypes = new Set(
+    lifecycleEvents.events.map((event) => event.eventType),
+  );
+
+  for (const eventType of [
+    "hired",
+    "activated",
+    "role_changed",
+    "went_on_leave",
+    "returned_from_leave",
+    "retired",
+    "rehired",
+    "terminated",
+    "archived",
+  ]) {
+    if (!lifecycleEventTypes.has(eventType as any)) {
+      throw new Error(`Expected lifecycle event ${eventType} to be recorded`);
+    }
+  }
+
   const productManagerWebRole = rolesResponse.roles.find(
     (role) => role.roleId === "product-manager-web",
   );
@@ -297,6 +451,7 @@ async function main(): Promise<void> {
   console.log("operator-agent-contract-check passed", {
     employeeCount: employeesResponse.count,
     roleCount: rolesResponse.count,
+    lifecycleEventCount: lifecycleEvents.count,
     managerLogCount: managerLog.count,
     controlsListed: employeeControls.count,
     workLogCount: workLog.count,

@@ -8,6 +8,18 @@ export type EmployeeEmploymentStatus =
   | "terminated"
   | "archived";
 
+export type EmployeeEmploymentEventType =
+  | "hired"
+  | "activated"
+  | "reassigned"
+  | "role_changed"
+  | "went_on_leave"
+  | "returned_from_leave"
+  | "retired"
+  | "terminated"
+  | "rehired"
+  | "archived";
+
 export type EmployeeControlState =
   | "enabled"
   | "disabled_pending_review"
@@ -100,6 +112,28 @@ export type RolesListResponse = {
   ok: true;
   count: number;
   roles: RoleJobDescriptionProjection[];
+};
+
+export type EmployeeEmploymentEvent = {
+  eventId: string;
+  employeeId: string;
+  eventType: EmployeeEmploymentEventType;
+  fromTeamId?: string;
+  toTeamId?: string;
+  fromRoleId?: string;
+  toRoleId?: string;
+  effectiveAt: string;
+  reason?: string;
+  approvedBy?: string;
+  threadId?: string;
+  createdAt?: string;
+};
+
+export type EmployeeEmploymentEventsResponse = {
+  ok: true;
+  employeeId: string;
+  count: number;
+  events: EmployeeEmploymentEvent[];
 };
 
 export type EmployeeScopeResponse = {
