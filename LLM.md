@@ -4,7 +4,7 @@ Repository (source of truth):
 👉 https://github.com/guybarnahum/aep
 
 The repository code is the source of truth.  
-This document is aligned to commit `cfb9e335464e7215930f62c45c23637d1f4c5a47`.
+This document is aligned to commit `253227bac0f0b45d8a3d0f95c7ab98113036108a`.
 
 Endpoint documentation note for future LLM sessions:
 
@@ -192,9 +192,14 @@ titan@Titans-MacBook-Pro aep % tree . --gitignore
 │   │   │   │   ├── approvals.ts
 │   │   │   │   ├── build-info.ts
 │   │   │   │   ├── control-history.ts
+│   │   │   │   ├── employee-approve-persona.ts
 │   │   │   │   ├── employee-controls.ts
+│   │   │   │   ├── employee-employment-events.ts
 │   │   │   │   ├── employee-effective-policy.ts
+│   │   │   │   ├── employee-generate-persona.ts
+│   │   │   │   ├── employee-lifecycle-actions.ts
 │   │   │   │   ├── employee-scope.ts
+│   │   │   │   ├── employee-update.ts
 │   │   │   │   ├── employees.ts
 │   │   │   │   ├── escalation-detail.ts
 │   │   │   │   ├── escalations-acknowledge.ts
@@ -291,7 +296,8 @@ titan@Titans-MacBook-Pro aep % tree . --gitignore
 │   │   │       ├── 0018_message_mirror_deliveries.sql
 │   │   │       ├── 0019_external_thread_projection_map.sql
 │   │   │       ├── 0020_external_action_records.sql
-│   │   │       └── 0021_external_interaction_policy.sql
+│   │   │       ├── 0021_external_interaction_policy.sql
+│   │   │       └── 0022_employee_lifecycle_foundation.sql
 │   │   └── wrangler
 │   │       └── README.md
 │   └── github
@@ -598,6 +604,8 @@ All canonical state must remain in:
 
 LLM cognition belongs inside the employee boundary.
 
+Employees have:
+
 * public profile (visible)
 * private cognition (hidden)
 
@@ -637,20 +645,37 @@ Employees are durable digital persons with:
 * visual embodiment
 * employment history
 * work history
-* visual embodiment
 
-But employees also contain a private internal self.
+Employees persist across:
 
 * tasks
 * roles
 * teams
 * lifecycle transitions
 
+But employees also contain a private internal self.
+
+Private cognition includes:
+
+* base_prompt
+* identity_seed
+* decision_style
+* collaboration_style
+* portrait_prompt
+* internal reasoning
+
 Those private fields MUST NEVER be exposed through:
+
+* APIs
+* UI
+* threads
+* artifacts
 
 ## Job Description (JD)
 
 The company interacts with employees, not with prompts.
+
+Each role has a Job Description (JD) defining:
 
 * responsibilities
 * success metrics
@@ -680,6 +705,10 @@ Employees have explicit lifecycle states:
 * archived
 
 Lifecycle transitions must be:
+
+* explicit
+* auditable
+* thread-linked
 
 JDs are NOT prompts and must not become a hidden cognition leak path.
 
@@ -723,7 +752,7 @@ Employees have a visual identity.
 Public:
 
 * avatar
-* age
+* birth year
 * appearance summary
 
 Private:
@@ -1238,18 +1267,14 @@ It enforces correctness across all of them.
 
 # 8. Current product gap
 
-The product gap is no longer basic UI exposure.
+The system has moved beyond basic UI exposure.
 
-The system now needs validation under real usage:
-
-* autonomous task execution
-* task → execution → validation → governance flows
-* output quality and operational behavior
-* Slack/email channel-based interaction patterns
+The next major product gap is organizational operations over embodied employees:
 
 * employee lifecycle
 * role and job-description management
 * employee embodiment as durable persons
+* richer persona generation with private cognition boundaries preserved
 * work continuity when employees become unavailable
 * performance reviews grounded in canonical evidence
 * org-management UI for hiring, reassignment, leave, retirement, and termination
@@ -1683,10 +1708,7 @@ to:
 
 * manageable employees with lifecycle, embodiment, continuity, and review
 
-* validating that agents can perform real work loops autonomously
-* inspecting task → execution → validation → governance flows
-* improving UI based on real system behavior
-* extending Slack/email mirroring into channel-based interaction
+PR13 must preserve:
 
 * canonicality
 * bounded cognition
@@ -1732,6 +1754,17 @@ Deliver:
 * private prompt-profile generation
 * visual identity generation scaffolding
 * approval flow for generated private profiles
+
+### PR13C.1
+
+The persona-generation path is now richer and model-driven when AI is available.
+
+It must still:
+
+* preserve deterministic fallback
+* keep prompt internals private
+* return only public-safe profile fields plus synthesis metadata
+* require explicit approval before prompt-profile activation
 
 ## PR13D — Work continuity + responsibility transfer
 
