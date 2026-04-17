@@ -1,5 +1,5 @@
 import { createStores } from "@aep/operator-agent/lib/store-factory";
-import { getEmployeeCatalogEntry } from "@aep/operator-agent/lib/employee-catalog-store-d1";
+import { getEmployeeCatalogEntry } from "@aep/operator-agent/persistence/d1/employee-catalog-store-d1";
 import { mergeAuthority, mergeBudget } from "@aep/operator-agent/lib/policy-merge";
 import { resolveAllowedScope } from "@aep/operator-agent/lib/org-scope-resolver";
 import { getEmployeeById } from "@aep/operator-agent/org/employees";

@@ -1,4 +1,4 @@
-import { listEmployeeEmploymentEvents } from "@aep/operator-agent/lib/employee-lifecycle-store-d1";
+import { listEmployeeEmploymentEvents } from "@aep/operator-agent/persistence/d1/employee-lifecycle-store-d1";
 import type { OperatorAgentEnv } from "@aep/operator-agent/types";
 
 export async function handleEmployeeEmploymentEvents(

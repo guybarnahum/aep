@@ -1,5 +1,5 @@
 import { getApprovalPolicy } from "@aep/operator-agent/lib/approval-policy";
-import { fromJson, toJson } from "@aep/operator-agent/lib/d1-json";
+import { fromJson, toJson } from "./d1-json";
 import type { IApprovalStore } from "@aep/operator-agent/lib/store-types";
 import type {
   AgentRoleId,

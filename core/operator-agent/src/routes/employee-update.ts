@@ -1,4 +1,4 @@
-import { updateEmployeeProfile } from "@aep/operator-agent/lib/employee-lifecycle-store-d1";
+import { updateEmployeeProfile } from "@aep/operator-agent/persistence/d1/employee-lifecycle-store-d1";
 import type {
   EmployeePublicLink,
   OperatorAgentEnv,

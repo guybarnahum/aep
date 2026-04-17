@@ -5,7 +5,7 @@ import {
 import {
   selectNextEmployeeLoopAction,
 } from "@aep/operator-agent/lib/employee-work-loop";
-import { getEmployeePromptProfile } from "@aep/operator-agent/lib/employee-prompt-profile-store-d1";
+import { getEmployeePromptProfile } from "@aep/operator-agent/persistence/d1/employee-prompt-profile-store-d1";
 import { logInfo } from "@aep/operator-agent/lib/logger";
 import { publishTaskRationaleToThread } from "@aep/operator-agent/lib/rationale-thread-publisher";
 import { getTaskStore } from "@aep/operator-agent/lib/store-factory";

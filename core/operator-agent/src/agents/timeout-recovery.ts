@@ -1,7 +1,7 @@
 import { getConfig } from "@aep/operator-agent/config";
 import { createControlPlaneClient } from "@aep/operator-agent/lib/api-client";
-import { D1BudgetEnforcer } from "@aep/operator-agent/lib/budget-enforcer-d1";
-import { D1CooldownStore } from "@aep/operator-agent/lib/cooldown-store-d1";
+import { D1BudgetEnforcer } from "@aep/operator-agent/persistence/d1/budget-enforcer-d1";
+import { D1CooldownStore } from "@aep/operator-agent/persistence/d1/cooldown-store-d1";
 import { DecisionLog } from "@aep/operator-agent/lib/decision-log";
 import { logInfo } from "@aep/operator-agent/lib/logger";
 import { evaluateTimeoutRecoveryPolicy } from "@aep/operator-agent/lib/policy";

@@ -32,6 +32,14 @@ The operator-agent currently governs **runtime control**, not the full employmen
 - employment states such as `on_leave` or `terminated` belong to the broader employee model
 - these concepts should not be conflated in API semantics or documentation
 
+### Persistence Boundary
+
+The operator-agent keeps storage abstractions and runtime orchestration in `src/lib`, while Cloudflare D1-backed implementations live in `src/persistence/d1`.
+
+- `src/lib` contains storage-agnostic runtime logic, interfaces, and composition
+- `src/persistence/d1` contains the D1 adapter layer used by the runtime at execution time
+- `infra/cloudflare/d1` contains schema migrations and provisioning concerns, not runtime store code
+
 ### Departments
 
 Employees are organized into **departments** (currently: `aep-infra-ops`):

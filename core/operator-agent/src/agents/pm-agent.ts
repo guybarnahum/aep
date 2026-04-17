@@ -6,7 +6,7 @@ import {
 import { logInfo } from "../lib/logger";
 import { createOrgResolver } from "../lib/org-resolver";
 import type { OrgCapability } from "../lib/org-resolver";
-import { getEmployeePromptProfile } from "../lib/employee-prompt-profile-store-d1";
+import { getEmployeePromptProfile } from "../persistence/d1/employee-prompt-profile-store-d1";
 import { publishTaskRationaleToThread } from "../lib/rationale-thread-publisher";
 import { getTaskStore } from "../lib/store-factory";
 import type { MessageThread, Task } from "../lib/store-types";

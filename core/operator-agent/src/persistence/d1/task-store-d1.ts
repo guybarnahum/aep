@@ -1,4 +1,4 @@
-import { fromJson, toJson } from "@aep/operator-agent/lib/d1-json";
+import { fromJson, toJson } from "./d1-json";
 import { dispatchMessageMirrors } from "@aep/operator-agent/adapters/mirror-dispatcher";
 import type {
   ExternalMessageProjection,

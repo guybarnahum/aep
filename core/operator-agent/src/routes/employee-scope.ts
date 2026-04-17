@@ -1,5 +1,5 @@
 import { resolveAllowedScope } from "@aep/operator-agent/lib/org-scope-resolver";
-import { getEmployeeCatalogEntry } from "@aep/operator-agent/lib/employee-catalog-store-d1";
+import { getEmployeeCatalogEntry } from "@aep/operator-agent/persistence/d1/employee-catalog-store-d1";
 import type { OperatorAgentEnv } from "@aep/operator-agent/types";
 
 export async function handleEmployeeScope(

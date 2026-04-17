@@ -214,6 +214,10 @@ function renderCompactHtmlPill(label: string, htmlValue: string): string {
   return `<span class="compact-pill"><strong>${escapeHtml(label)}:</strong> ${htmlValue}</span>`;
 }
 
+function countItems(value: unknown): number {
+  return Array.isArray(value) ? value.length : 0;
+}
+
 function describeArtifactKind(artifact: TaskArtifactRecord): string {
   const kind = artifact.content?.kind;
   return typeof kind === "string" ? kind : artifact.artifactType;
@@ -225,6 +229,8 @@ function statusRank(status: TaskStatus): number {
       return 0;
     case "ready":
       return 1;
+    case "queued":
+      return 2;
     case "blocked":
       return 3;
     case "escalated":
@@ -1655,8 +1661,8 @@ function renderEmployeeGovernancePanel(
       <div class="summary-grid">
         ${renderSummaryCard("Control state", controlOverview.effectiveState.state, controlOverview.effectiveState.blocked ? "blocked" : "not blocked")}
         ${renderSummaryCard("Implemented", effectivePolicy.implemented ? "yes" : "no", effectivePolicy.status)}
-        ${renderSummaryCard("Allowed tenants", effectivePolicy.allowedTenants?.length ?? effectivePolicy.effectiveAuthority?.allowedTenants?.length ?? 0, "effective scope")}
-        ${renderSummaryCard("Allowed services", effectivePolicy.allowedServices?.length ?? effectivePolicy.effectiveAuthority?.allowedServices?.length ?? 0, "effective scope")}
+        ${renderSummaryCard("Allowed tenants", countItems(effectivePolicy.allowedTenants) || countItems(effectivePolicy.effectiveAuthority?.allowedTenants), "effective scope")}
+        ${renderSummaryCard("Allowed services", countItems(effectivePolicy.allowedServices) || countItems(effectivePolicy.effectiveAuthority?.allowedServices), "effective scope")}
       </div>
 
       <div class="meta-grid">

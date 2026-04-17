@@ -1,4 +1,4 @@
-import { getEmployeePromptProfile } from "@aep/operator-agent/lib/employee-prompt-profile-store-d1";
+import { getEmployeePromptProfile } from "@aep/operator-agent/persistence/d1/employee-prompt-profile-store-d1";
 import type { Task } from "@aep/operator-agent/lib/store-types";
 
 const FORBIDDEN_PUBLIC_OUTPUT_TOKENS = [

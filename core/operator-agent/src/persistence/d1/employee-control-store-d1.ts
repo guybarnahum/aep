@@ -1,4 +1,4 @@
-import { fromJson, toJson } from "@aep/operator-agent/lib/d1-json";
+import { fromJson, toJson } from "./d1-json";
 import type { IEmployeeControlStore } from "@aep/operator-agent/lib/store-types";
 import type {
   EmployeeControlRecord,

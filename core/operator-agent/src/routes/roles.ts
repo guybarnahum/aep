@@ -1,4 +1,4 @@
-import { listRoleCatalog } from "@aep/operator-agent/lib/role-catalog-store-d1";
+import { listRoleCatalog } from "@aep/operator-agent/persistence/d1/role-catalog-store-d1";
 import type { OperatorAgentEnv } from "@aep/operator-agent/types";
 
 export async function handleRoles(

@@ -1,7 +1,7 @@
 import {
   thinkWithinEmployeeBoundary,
 } from "@aep/operator-agent/lib/employee-cognition";
-import { getEmployeePromptProfile } from "@aep/operator-agent/lib/employee-prompt-profile-store-d1";
+import { getEmployeePromptProfile } from "@aep/operator-agent/persistence/d1/employee-prompt-profile-store-d1";
 import { getTaskStore } from "@aep/operator-agent/lib/store-factory";
 import type {
   EmployeeMessage,

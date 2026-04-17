@@ -1,11 +1,11 @@
 import type { OperatorAgentEnv } from "@aep/operator-agent/types";
-import { D1ApprovalStore } from "@aep/operator-agent/lib/approval-store-d1";
-import { D1EmployeeControlHistoryStore } from "@aep/operator-agent/lib/control-history-log-d1";
-import { D1EmployeeControlStore } from "@aep/operator-agent/lib/employee-control-store-d1";
-import { D1EscalationStore } from "@aep/operator-agent/lib/escalation-log-d1";
-import { D1ManagerDecisionStore } from "@aep/operator-agent/lib/manager-decision-log-d1";
-import { D1TaskStore } from "@aep/operator-agent/lib/task-store-d1";
-import { D1AgentWorkLogStore } from "@aep/operator-agent/lib/work-log-store-d1";
+import { D1ApprovalStore } from "@aep/operator-agent/persistence/d1/approval-store-d1";
+import { D1EmployeeControlHistoryStore } from "@aep/operator-agent/persistence/d1/control-history-log-d1";
+import { D1EmployeeControlStore } from "@aep/operator-agent/persistence/d1/employee-control-store-d1";
+import { D1EscalationStore } from "@aep/operator-agent/persistence/d1/escalation-log-d1";
+import { D1ManagerDecisionStore } from "@aep/operator-agent/persistence/d1/manager-decision-log-d1";
+import { D1TaskStore } from "@aep/operator-agent/persistence/d1/task-store-d1";
+import { D1AgentWorkLogStore } from "@aep/operator-agent/persistence/d1/work-log-store-d1";
 import type {
   IAgentWorkLogStore,
   IApprovalStore,
