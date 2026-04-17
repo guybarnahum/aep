@@ -9,6 +9,8 @@ import type {
   EmployeeControlsListResponse,
   EmployeeEmploymentEventsResponse,
   EmployeeEffectivePolicyResponse,
+  EmployeePersonaApprovalResponse,
+  EmployeePersonaGenerationResponse,
   EmployeePublicLink,
   EmployeesListResponse,
   EmployeeScopeResponse,
@@ -110,6 +112,16 @@ export type UpdateEmployeeRequest = {
   appearanceSummary?: string;
   birthYear?: number;
   publicLinks?: EmployeePublicLink[];
+};
+
+export type GenerateEmployeePersonaRequest = {
+  employeeName?: string;
+  roleId?: string;
+  description: string;
+  strengths?: string[];
+  workingStyle?: string;
+  appearancePrompt?: string;
+  birthYear?: number;
 };
 
 export type CreateMessageThreadRequest = {
@@ -258,6 +270,29 @@ export function createOperatorAgentClient(
         buildUrl(
           `/agent/employees/${encodeURIComponent(employeeId)}/employment-events`,
         ),
+      );
+    },
+
+    async generateEmployeePersona(
+      employeeId: string,
+      body: GenerateEmployeePersonaRequest,
+    ): Promise<EmployeePersonaGenerationResponse> {
+      return postJson<EmployeePersonaGenerationResponse>(
+        buildUrl(
+          `/agent/employees/${encodeURIComponent(employeeId)}/generate-persona`,
+        ),
+        body,
+      );
+    },
+
+    async approveEmployeePersona(
+      employeeId: string,
+    ): Promise<EmployeePersonaApprovalResponse> {
+      return postJson<EmployeePersonaApprovalResponse>(
+        buildUrl(
+          `/agent/employees/${encodeURIComponent(employeeId)}/approve-persona`,
+        ),
+        {},
       );
     },
 

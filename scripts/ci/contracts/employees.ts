@@ -136,6 +136,30 @@ export type EmployeeEmploymentEventsResponse = {
   events: EmployeeEmploymentEvent[];
 };
 
+export type EmployeePersonaGenerationPublicResult = {
+  bio?: string;
+  tone?: string;
+  skills?: string[];
+  appearanceSummary?: string;
+  birthYear?: number;
+  avatarUrl?: string;
+};
+
+export type EmployeePersonaGenerationResponse = {
+  ok: true;
+  employeeId: string;
+  generated: {
+    publicProfile: EmployeePersonaGenerationPublicResult;
+    promptProfileStatus: "draft" | "approved";
+  };
+};
+
+export type EmployeePersonaApprovalResponse = {
+  ok: true;
+  employeeId: string;
+  promptProfileStatus: "draft" | "approved";
+};
+
 export type EmployeeScopeResponse = {
   ok: true;
   employeeId: string;

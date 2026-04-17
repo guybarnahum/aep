@@ -5,6 +5,13 @@ Repository (source of truth):
 
 The repository code is the source of truth.  
 This document is aligned to commit `fe72350b0c294554789fbbd16a09449d10c39a54`.
+
+Endpoint documentation note for future LLM sessions:
+
+- HTTP endpoint documentation is centralized in `APII.md`
+- treat `APII.md` as the canonical API reference before inferring routes from scattered docs
+- use `LLM.md` for architecture, continuity, and task context; use `APII.md` for concrete route surfaces and invariants
+
 ```bash
 titan@Titans-MacBook-Pro aep % tree . --gitignore
 .
@@ -264,6 +271,7 @@ titan@Titans-MacBook-Pro aep % tree . --gitignore
 │   └── github
 │       └── workflows
 │           └── README.md
+├── APII.md
 ├── LLM.md
 ├── package-lock.json
 ├── package.json
@@ -835,7 +843,7 @@ At this commit, the system supports:
 
 Important runtime rules:
 
-- if `/agent/run` receives a `taskId`, that task must exist
+- endpoint documentation is centralized in `APII.md`; consult it first for route details
 - canonical company is `company_internal_aep`
 
 ---
@@ -1352,7 +1360,7 @@ The dashboard now supports human participation through canonical AEP thread rout
 ### Implemented
 
 * thread detail includes a canonical message composer
-* human-authored dashboard messages are sent through canonical `/agent/messages`
+* endpoint documentation and route invariants are centralized in `APII.md`
 * approvals remain explicit thread actions
 * escalations remain explicit thread actions
 * free-form thread participation does not become hidden governance mutation

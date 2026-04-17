@@ -62,6 +62,8 @@ Current operators:
 
 ## Company Handoff & Paperclip Integration
 
+Endpoint documentation for operator-agent now lives in [APII.md](/Users/titan/projects/aep/APII.md). Keep this README focused on architecture, behavior, and operating model.
+
 ### Execution Model: Paperclip-First
 
 The operator-agent is designed for **company-driven execution**:
@@ -79,79 +81,7 @@ Valid `x-aep-execution-source` values:
 
 If the header is missing, `/agent/run` returns `400`.
 
-#### Request Structure (Paperclip → Operator)
-
-Headers:
-
-```text
-x-aep-execution-source: paperclip
-x-paperclip-shared-secret: <optional, required only when PAPERCLIP_AUTH_REQUIRED=true>
-```
-
-```json
-{
-  "departmentId": "aep-infra-ops",
-  "employeeId": "emp_infra_ops_manager_01",
-  "roleId": "infra-ops-manager",
-  "trigger": "paperclip",
-  "policyVersion": "commit10-stageD",
-  "companyId": "company-12345",
-  "heartbeatId": "hb-...",
-  "taskId": "task-...",
-  "targetEmployeeIdsOverride": ["emp_timeout_recovery_01"]
-}
-```
-
-Required Paperclip fields:
-
-- `companyId`
-- `taskId`
-- `heartbeatId`
-
-Optional hardening env vars:
-
-- `PAPERCLIP_AUTH_REQUIRED` (`true|false`)
-- `PAPERCLIP_SHARED_SECRET`
-
-Fallback env var:
-
-- `AEP_CRON_FALLBACK_ENABLED` (`true|false`)
-
-#### Response Structure (Operator → Paperclip)
-
-```json
-{
-  "ok": true,
-  "executionContext": {
-    "executionSource": "paperclip",
-    "companyId": "company-12345",
-    "taskId": "task-...",
-    "heartbeatId": "hb-...",
-    "receivedAt": 1743000000000
-  },
-  "routing": {
-    "employeeId": "emp_infra_ops_manager_01",
-    "workerId": null
-  },
-  "executionSource": "paperclip",
-  "cronFallbackRecommended": false,
-  "request": { /* adapted employee run request */ },
-  "result": { /* employee/manager execution result */ }
-}
-```
-
-**Key fields:**
-
-- `executionSource: "paperclip"` — this was company-driven execution, not cron fallback
-- `executionContext.executionSource: "paperclip"` — explicit provenance for audit/logging
-- `cronFallbackRecommended: false` — no need to re-invoke via cron
-- `routing` — resolved employee/worker targeting used for this run
-
-Scheduler mode visibility:
-
-- `GET /agent/scheduler-status` returns:
-  - `primaryScheduler: "paperclip"`
-  - `cronFallbackEnabled: boolean`
+Request and response payload details for `/agent/run`, `/agent/scheduler-status`, and related runtime surfaces are centralized in [APII.md](/Users/titan/projects/aep/APII.md).
 
 ### Company Responsibility
 
@@ -184,38 +114,7 @@ open → acknowledged → resolved
 
 ### Transitions
 
-#### Acknowledge
-
-```
-POST /agent/escalations/acknowledge?id=<escalationId>
-Headers: x-actor: <actor-id>
-```
-
-Moves an escalation from `open` → `acknowledged`. Records `acknowledgedAt` and `acknowledgedBy`.
-
-```json
-{
-  "ok": true,
-  "escalation": {
-    "escalationId": "...",
-    "state": "acknowledged",
-    "acknowledgedAt": "2025-01-15T10:35:00Z",
-    "acknowledgedBy": "company-operator"
-  }
-}
-```
-
-#### Resolve
-
-```
-POST /agent/escalations/resolve
-Content-Type: application/json
-Headers: x-actor: <actor-id>
-
-{ "id": "<escalationId>", "note": "Root cause fixed: budget limits updated" }
-```
-
-Moves an escalation from `acknowledged` → `resolved`. Records `resolvedAt`, `resolvedBy`, and optional `resolutionNote`.
+Concrete escalation endpoint contracts are documented in [APII.md](/Users/titan/projects/aep/APII.md).
 
 #### Invalid Transitions
 
@@ -223,29 +122,6 @@ Attempting an invalid transition (e.g. `open → resolved`, or re-acknowledging)
 
 ```json
 { "ok": false, "error": "Invalid escalation transition: open → resolved" }
-```
-
-### State Filtering
-
-```
-GET /agent/escalations?state=open&limit=20
-GET /agent/escalations?state=acknowledged&limit=20
-GET /agent/escalations?state=resolved&limit=20
-```
-
-### Schema (with lifecycle fields)
-
-```json
-{
-  "escalationId": "2025-01-15T10:30:00Z:cross_worker_budget_pressure:department",
-  "timestamp": "2025-01-15T10:30:00Z",
-  "state": "open | acknowledged | resolved",
-  "acknowledgedAt": "...",
-  "acknowledgedBy": "...",
-  "resolvedAt": "...",
-  "resolvedBy": "...",
-  "resolutionNote": "..."
-}
 ```
 
 ---
@@ -287,51 +163,7 @@ An escalation record is created when a manager decision is:
 }
 ```
 
-### API Routes
-
-#### GET `/agent/escalations?limit=50&state=open`
-
-Fetch recent escalation records, optionally filtered by state._
-
-```json
-{
-  "ok": true,
-  "count": 12,
-  "escalations": [ /* escalation records */ ]
-}
-```
-
-#### GET `/agent/control-history?employeeId=emp_123&limit=100`
-
-Fetch the audit trail of state transitions for an employee's runtime control state.
-
-_Response:_
-
-```json
-{
-  "ok": true,
-  "count": 45,
-  "entries": [
-    {
-      "historyId": "emp_timeout_recovery_01:2025-01-15T10:30:00Z",
-      "timestamp": "2025-01-15T10:30:00Z",
-      "employeeId": "emp_timeout_recovery_01",
-      "previousState": {
-        "state": "enabled",
-        "blocked": false
-      },
-      "nextState": {
-        "state": "restricted",
-        "blocked": false
-      },
-      "transition": "enabled → restricted",
-      "reason": "repeated_verification_failures",
-      "updatedByEmployeeId": "emp_infra_ops_manager_01",
-      "policyVersion": "commit10-stageD"
-    }
-  ]
-}
-```
+Endpoint-level route reference is centralized in [APII.md](/Users/titan/projects/aep/APII.md).
 
 ---
 
@@ -368,26 +200,7 @@ All three logs are **append-only, immutable**:
   - Runtime control transitions per employee
    - who changed it, why, when, under which policy
 
-### Governance Hints
-
-Each employee in `/agent/employees` includes:
-
-```json
-{
-  "governance": {
-    "companyPrimaryEntryPoint": "/agent/run",
-    "cronFallbackEnabled": true,
-    "escalationRoute": "/agent/escalations",
-    "controlHistoryRoute": "/agent/control-history?employeeId=emp_timeout_recovery_01"
-  }
-}
-```
-
-This explicitly tells the company:
-
-- "Call `/agent/run` to coordinate with me"
-- "I can bootstrap via cron if you don't call frequently"
-- "My escalations and audit trail are at these routes"
+Governance-facing route references are centralized in [APII.md](/Users/titan/projects/aep/APII.md).
 
 ---
 

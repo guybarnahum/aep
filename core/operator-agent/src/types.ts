@@ -67,6 +67,20 @@ export interface EmployeePromptProfile {
   updatedAt: string;
 }
 
+export interface EmployeePersonaGenerationPublicResult {
+  bio?: string;
+  tone?: string;
+  skills?: string[];
+  appearanceSummary?: string;
+  birthYear?: number;
+  avatarUrl?: string;
+}
+
+export interface EmployeePersonaGenerationResult {
+  publicProfile: EmployeePersonaGenerationPublicResult;
+  promptProfileStatus: "draft" | "approved";
+}
+
 export interface EmployeeCognitionStructured {
   intent?: string;
   riskLevel?: "low" | "medium" | "high";

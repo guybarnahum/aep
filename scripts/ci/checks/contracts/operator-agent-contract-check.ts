@@ -327,6 +327,53 @@ async function main(): Promise<void> {
     }
   }
 
+  const personaTestEmployee = await client.createEmployee({
+    teamId: "team_validation",
+    roleId: "validation-engineer",
+    employeeName: `Persona Test ${Date.now()}`,
+    employmentStatus: "draft",
+    runtimeStatus: "planned",
+    schedulerMode: "manual_only",
+    reason: "CI persona contract check",
+    approvedBy: "ci-operator-agent-client",
+  });
+
+  if (!personaTestEmployee.ok || !personaTestEmployee.employeeId) {
+    throw new Error("Expected employee creation to succeed for persona test");
+  }
+
+  const personaEmployeeId = String(personaTestEmployee.employeeId);
+
+  const generatedPersona = await client.generateEmployeePersona(
+    personaEmployeeId,
+    {
+      description:
+        "Analytical validation engineer who is methodical, evidence-driven, and calm under pressure.",
+      strengths: ["Validation planning", "Evidence quality", "Structured debugging"],
+      workingStyle: "Structured, calm, and highly explicit in handoffs.",
+      appearancePrompt:
+        "Mid-30s validation engineer with a precise, calm, technical presence.",
+      birthYear: 1992,
+    },
+  );
+
+  if (!generatedPersona.ok) {
+    throw new Error("Expected persona generation to succeed");
+  }
+
+  if (generatedPersona.generated.promptProfileStatus !== "draft") {
+    throw new Error("Expected generated persona prompt profile status=draft");
+  }
+
+  if (!generatedPersona.generated.publicProfile.bio) {
+    throw new Error("Expected generated persona to include public bio");
+  }
+
+  const approvedPersona = await client.approveEmployeePersona(personaEmployeeId);
+  if (!approvedPersona.ok || approvedPersona.promptProfileStatus !== "approved") {
+    throw new Error("Expected persona approval to succeed");
+  }
+
   const productManagerWebRole = rolesResponse.roles.find(
     (role) => role.roleId === "product-manager-web",
   );
@@ -454,6 +501,7 @@ async function main(): Promise<void> {
     employeeCount: employeesResponse.count,
     roleCount: rolesResponse.count,
     lifecycleEventCount: lifecycleEvents.count,
+    personaEmployeeId,
     managerLogCount: managerLog.count,
     controlsListed: employeeControls.count,
     workLogCount: workLog.count,

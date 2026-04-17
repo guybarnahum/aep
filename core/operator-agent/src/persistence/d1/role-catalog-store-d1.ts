@@ -85,3 +85,29 @@ export async function listRoleCatalog(
 
   return (rows.results ?? []).map(rowToRoleProjection);
 }
+
+export async function getRoleCatalogEntry(
+  env: OperatorAgentEnv,
+  roleId: string,
+): Promise<RoleJobDescriptionProjection | null> {
+  const db = requireDb(env);
+  const row = await db
+    .prepare(
+      `SELECT
+         role_id,
+         title,
+         team_id,
+         job_description_text,
+         responsibilities_json,
+         success_metrics_json,
+         constraints_json,
+         seniority_level
+       FROM roles_catalog
+       WHERE role_id = ?
+       LIMIT 1`,
+    )
+    .bind(roleId)
+    .first<RoleCatalogRow>();
+
+  return row ? rowToRoleProjection(row) : null;
+}

@@ -11,7 +11,9 @@ import { handleResolveEscalation } from "./routes/escalations-resolve";
 import { handleHealthz } from "./routes/healthz";
 import { handleEmployeeControls } from "./routes/employee-controls";
 import { handleEmployeeEmploymentEvents } from "./routes/employee-employment-events";
+import { handleApproveEmployeePersona } from "./routes/employee-approve-persona";
 import { handleEmployeeEffectivePolicy } from "./routes/employee-effective-policy";
+import { handleGenerateEmployeePersona } from "./routes/employee-generate-persona";
 import { handleEmployeeLifecycleAction } from "./routes/employee-lifecycle-actions";
 import { handleEmployees } from "./routes/employees";
 import { handleEmployeeScope } from "./routes/employee-scope";
@@ -279,6 +281,28 @@ async function dispatch(request: Request, env: OperatorAgentEnv): Promise<Respon
       request,
       env,
       decodeURIComponent(employeeEmploymentEventsMatch[1]),
+    );
+  }
+
+  const employeeGeneratePersonaMatch = url.pathname.match(
+    /^\/agent\/employees\/([^/]+)\/generate-persona$/,
+  );
+  if (employeeGeneratePersonaMatch) {
+    return handleGenerateEmployeePersona(
+      request,
+      env,
+      decodeURIComponent(employeeGeneratePersonaMatch[1]),
+    );
+  }
+
+  const employeeApprovePersonaMatch = url.pathname.match(
+    /^\/agent\/employees\/([^/]+)\/approve-persona$/,
+  );
+  if (employeeApprovePersonaMatch) {
+    return handleApproveEmployeePersona(
+      request,
+      env,
+      decodeURIComponent(employeeApprovePersonaMatch[1]),
     );
   }
 

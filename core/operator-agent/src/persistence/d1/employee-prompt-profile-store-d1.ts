@@ -67,3 +67,85 @@ export async function getEmployeePromptProfile(
 
   return row ? rowToEmployeePromptProfile(row) : null;
 }
+
+export async function upsertEmployeePromptProfile(
+  env: OperatorAgentEnv,
+  profile: {
+    employeeId: string;
+    basePrompt: string;
+    decisionStyle?: string;
+    collaborationStyle?: string;
+    identitySeed?: string;
+    portraitPrompt?: string;
+    promptVersion: string;
+    status: "draft" | "approved";
+  },
+): Promise<void> {
+  const db = requireDb(env);
+  const existing = await getEmployeePromptProfile(env, profile.employeeId);
+
+  await db
+    .prepare(
+      `INSERT INTO employee_prompt_profiles (
+         employee_id,
+         base_prompt,
+         decision_style,
+         collaboration_style,
+         identity_seed,
+         portrait_prompt,
+         prompt_version,
+         status,
+         created_at,
+         updated_at
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+       ON CONFLICT(employee_id) DO UPDATE SET
+         base_prompt = excluded.base_prompt,
+         decision_style = excluded.decision_style,
+         collaboration_style = excluded.collaboration_style,
+         identity_seed = excluded.identity_seed,
+         portrait_prompt = excluded.portrait_prompt,
+         prompt_version = excluded.prompt_version,
+         status = excluded.status,
+         updated_at = CURRENT_TIMESTAMP`,
+    )
+    .bind(
+      profile.employeeId,
+      profile.basePrompt,
+      profile.decisionStyle ?? existing?.decisionStyle ?? null,
+      profile.collaborationStyle ?? existing?.collaborationStyle ?? null,
+      profile.identitySeed ?? existing?.identitySeed ?? null,
+      profile.portraitPrompt ?? existing?.portraitPrompt ?? null,
+      profile.promptVersion,
+      profile.status,
+    )
+    .run();
+}
+
+export async function approveEmployeePromptProfile(
+  env: OperatorAgentEnv,
+  employeeId: string,
+): Promise<EmployeePromptProfile> {
+  const db = requireDb(env);
+  const existing = await getEmployeePromptProfile(env, employeeId);
+
+  if (!existing) {
+    throw new Error(`Prompt profile not found for ${employeeId}`);
+  }
+
+  await db
+    .prepare(
+      `UPDATE employee_prompt_profiles
+       SET status = 'approved',
+           updated_at = CURRENT_TIMESTAMP
+       WHERE employee_id = ?`,
+    )
+    .bind(employeeId)
+    .run();
+
+  const approved = await getEmployeePromptProfile(env, employeeId);
+  if (!approved) {
+    throw new Error(`Prompt profile disappeared for ${employeeId}`);
+  }
+
+  return approved;
+}
