@@ -36,6 +36,7 @@ function hasOperatorAgentSchemaEnv(): boolean {
 }
 
 function main(): void {
+  runNpmScript("test:unit:operator-agent");
   runNpmScript("typecheck:operator-agent");
 
   const checks: CheckSpec[] = [];

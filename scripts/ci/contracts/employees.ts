@@ -151,6 +151,8 @@ export type EmployeePersonaGenerationResponse = {
   generated: {
     publicProfile: EmployeePersonaGenerationPublicResult;
     promptProfileStatus: "draft" | "approved";
+    synthesisMode?: "ai" | "fallback";
+    model?: string;
   };
 };
 

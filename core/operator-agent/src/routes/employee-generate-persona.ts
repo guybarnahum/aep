@@ -92,7 +92,7 @@ export async function handleGenerateEmployeePersona(
       throw new Error(`Role not found: ${roleId}`);
     }
 
-    const generated = generateEmployeePersona({
+    const generated = await generateEmployeePersona({
       employeeName: body.employeeName ?? employee.employee_name,
       role,
       description: body.description,
@@ -100,7 +100,7 @@ export async function handleGenerateEmployeePersona(
       workingStyle: body.workingStyle,
       appearancePrompt: body.appearancePrompt,
       birthYear: body.birthYear,
-    });
+    }, env);
 
     await updateEmployeeProfile(env, employeeId, {
       employeeName: body.employeeName,
@@ -128,6 +128,8 @@ export async function handleGenerateEmployeePersona(
       generated: {
         publicProfile: generated.publicProfile,
         promptProfileStatus: "draft",
+        synthesisMode: generated.synthesisMode,
+        model: generated.model,
       },
     });
   } catch (error) {

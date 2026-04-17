@@ -10,7 +10,7 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  test:
+  preflight:
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -30,10 +30,12 @@ jobs:
       - name: Generate build metadata
         run: ./scripts/ci/generate-build-meta.sh
 
+      - run: npm run test:backend
+
       - run: npm test
 
   deploy-staging-env:
-    needs: test
+    needs: preflight
     uses: ./.github/workflows/_deploy_environment.yml
     with:
       environment_name: staging
@@ -142,6 +144,7 @@ jobs:
 
   final-summary:
     needs:
+      - preflight
       - deploy-staging-env
       - validate-staging-environment
       - validate-staging-schema
@@ -156,6 +159,7 @@ jobs:
         run: |
           echo "## Staging aggregate summary" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Preflight: ${{ needs.preflight.result }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- Deploy environment: ${{ needs.deploy-staging-env.result }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- Environment layer: ${{ needs.validate-staging-environment.outputs.outcome }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- Schema layer: ${{ needs.validate-staging-schema.outputs.outcome }}" >> "$GITHUB_STEP_SUMMARY"
@@ -175,7 +179,9 @@ jobs:
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "### Lane verdict" >> "$GITHUB_STEP_SUMMARY"
 
-          if [[ "${{ needs.deploy-staging-env.result }}" != "success" ]]; then
+          if [[ "${{ needs.preflight.result }}" != "success" ]]; then
+            echo "- ❌ Staging deploy lane failed during preflight validation." >> "$GITHUB_STEP_SUMMARY"
+          elif [[ "${{ needs.deploy-staging-env.result }}" != "success" ]]; then
             echo "- ❌ Staging deploy lane failed during environment bring-up." >> "$GITHUB_STEP_SUMMARY"
           elif [[ "${{ needs.validate-staging-environment.outputs.outcome }}" != "success" ]]; then
             echo "- ❌ Staging environment deployed, but environment-layer validation failed." >> "$GITHUB_STEP_SUMMARY"

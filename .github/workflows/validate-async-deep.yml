@@ -34,7 +34,32 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash -eo pipefail {0}
+    env:
+      GIT_SHA: ${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Generate build metadata
+        run: ./scripts/ci/generate-build-meta.sh
+
+      - run: npm run test:backend
+
+      - run: npm test
+
   deploy-async-environment:
+    needs: preflight
     uses: ./.github/workflows/_deploy_environment.yml
     with:
       environment_name: async-validation
@@ -119,6 +144,7 @@ jobs:
 
   final-summary:
     needs:
+      - preflight
       - deploy-async-environment
       - validate-runtime-read-safety
       - validate-async-orchestration
@@ -131,6 +157,7 @@ jobs:
         run: |
           echo "## Async deep validation aggregate summary" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Preflight: ${{ needs.preflight.result }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- Environment deploy: ${{ needs.deploy-async-environment.result }}" >> "$GITHUB_STEP_SUMMARY"
 
           if [[ "${{ inputs.run_runtime_read_safety }}" == "true" ]]; then
@@ -175,6 +202,11 @@ jobs:
 
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "### Lane verdict" >> "$GITHUB_STEP_SUMMARY"
+
+          if [[ "${{ needs.preflight.result }}" != "success" ]]; then
+            echo "- ❌ Async deep validation lane failed during preflight validation." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
 
           if [[ "${{ needs.deploy-async-environment.result }}" != "success" ]]; then
             echo "- ❌ Async deep validation lane failed during environment bring-up." >> "$GITHUB_STEP_SUMMARY"

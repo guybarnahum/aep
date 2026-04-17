@@ -27,7 +27,7 @@ jobs:
             exit 1
           fi
 
-  test:
+  preflight:
     needs: confirm
     runs-on: ubuntu-latest
     defaults:
@@ -48,10 +48,12 @@ jobs:
       - name: Generate build metadata
         run: ./scripts/ci/generate-build-meta.sh
 
+      - run: npm run test:backend
+
       - run: npm test
 
   deploy-production-env:
-    needs: test
+    needs: preflight
     uses: ./.github/workflows/_deploy_environment.yml
     with:
       environment_name: production
@@ -160,6 +162,7 @@ jobs:
   final-summary:
     needs:
       - confirm
+      - preflight
       - deploy-production-env
       - validate-production-environment
       - validate-production-schema
@@ -175,6 +178,7 @@ jobs:
           echo "## Production aggregate summary" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "- Confirmation: ${{ needs.confirm.result }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Preflight: ${{ needs.preflight.result }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- Deploy environment: ${{ needs.deploy-production-env.result }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- Environment layer: ${{ needs.validate-production-environment.outputs.outcome }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- Schema layer: ${{ needs.validate-production-schema.outputs.outcome }}" >> "$GITHUB_STEP_SUMMARY"
@@ -196,6 +200,8 @@ jobs:
 
           if [[ "${{ needs.confirm.result }}" != "success" ]]; then
             echo "- ❌ Production deploy was not confirmed." >> "$GITHUB_STEP_SUMMARY"
+          elif [[ "${{ needs.preflight.result }}" != "success" ]]; then
+            echo "- ❌ Production deploy lane failed during preflight validation." >> "$GITHUB_STEP_SUMMARY"
           elif [[ "${{ needs.deploy-production-env.result }}" != "success" ]]; then
             echo "- ❌ Production deploy lane failed during environment bring-up." >> "$GITHUB_STEP_SUMMARY"
           elif [[ "${{ needs.validate-production-environment.outputs.outcome }}" != "success" ]]; then

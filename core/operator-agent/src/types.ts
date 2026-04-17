@@ -79,6 +79,8 @@ export interface EmployeePersonaGenerationPublicResult {
 export interface EmployeePersonaGenerationResult {
   publicProfile: EmployeePersonaGenerationPublicResult;
   promptProfileStatus: "draft" | "approved";
+  synthesisMode?: "ai" | "fallback";
+  model?: string;
 }
 
 export interface EmployeeCognitionStructured {

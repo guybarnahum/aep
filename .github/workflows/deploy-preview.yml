@@ -9,7 +9,7 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  test:
+  preflight:
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -29,10 +29,12 @@ jobs:
       - name: Generate build metadata
         run: ./scripts/ci/generate-build-meta.sh
 
+      - run: npm run test:backend
+
       - run: npm test
 
   deploy-preview-env:
-    needs: test
+    needs: preflight
     uses: ./.github/workflows/_deploy_preview_environment.yml
     with:
       environment_name: preview
@@ -58,6 +60,7 @@ jobs:
 
   final-summary:
     needs:
+      - preflight
       - deploy-preview-env
       - validate-preview-post-deploy
     if: always()
@@ -67,6 +70,7 @@ jobs:
         run: |
           echo "## Preview aggregate summary" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Preflight: ${{ needs.preflight.result }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- Deploy environment: ${{ needs.deploy-preview-env.result }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- Preview key: ${{ needs.deploy-preview-env.outputs.preview_key }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- Worker name: ${{ needs.deploy-preview-env.outputs.worker_name }}" >> "$GITHUB_STEP_SUMMARY"
@@ -86,7 +90,9 @@ jobs:
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "### Lane verdict" >> "$GITHUB_STEP_SUMMARY"
 
-          if [[ "${{ needs.deploy-preview-env.result }}" != "success" ]]; then
+          if [[ "${{ needs.preflight.result }}" != "success" ]]; then
+            echo "- ❌ Preview deploy lane failed during preflight validation." >> "$GITHUB_STEP_SUMMARY"
+          elif [[ "${{ needs.deploy-preview-env.result }}" != "success" ]]; then
             echo "- ❌ Preview deploy lane failed during environment bring-up." >> "$GITHUB_STEP_SUMMARY"
           elif [[ "${{ needs.validate-preview-post-deploy.outputs.enabled }}" == "true" && "${{ needs.validate-preview-post-deploy.outputs.outcome }}" != "success" ]]; then
             echo "- ❌ Preview environment deployed, but scenario-layer validation failed." >> "$GITHUB_STEP_SUMMARY"

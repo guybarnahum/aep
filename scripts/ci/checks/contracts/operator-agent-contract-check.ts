@@ -369,6 +369,20 @@ async function main(): Promise<void> {
     throw new Error("Expected generated persona to include public bio");
   }
 
+  if (
+    generatedPersona.generated.synthesisMode !== "ai" &&
+    generatedPersona.generated.synthesisMode !== "fallback"
+  ) {
+    throw new Error("Expected generated persona synthesisMode to be ai or fallback");
+  }
+
+  if (
+    generatedPersona.generated.synthesisMode === "ai" &&
+    typeof generatedPersona.generated.model !== "string"
+  ) {
+    throw new Error("Expected AI persona generation to report model");
+  }
+
   const approvedPersona = await client.approveEmployeePersona(personaEmployeeId);
   if (!approvedPersona.ok || approvedPersona.promptProfileStatus !== "approved") {
     throw new Error("Expected persona approval to succeed");
