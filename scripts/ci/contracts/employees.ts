@@ -1,5 +1,13 @@
 export type EmployeeRuntimeStatus = "implemented" | "planned" | "disabled";
 
+export type EmployeeEmploymentStatus =
+  | "draft"
+  | "active"
+  | "on_leave"
+  | "retired"
+  | "terminated"
+  | "archived";
+
 export type EmployeeControlState =
   | "enabled"
   | "disabled_pending_review"
@@ -38,8 +46,27 @@ export type EmployeePublicProfile = {
   avatarUrl?: string;
 };
 
+export type EmployeePublicLink = {
+  type: "github" | "linkedin" | "website" | "x" | "portfolio";
+  url: string;
+  verified: boolean;
+  visibility: "public" | "org";
+};
+
+export type EmployeeVisualIdentityPublic = {
+  birthYear?: number;
+  appearanceSummary?: string;
+  avatarUrl?: string;
+};
+
+export type EmployeeEmploymentProjection = {
+  employmentStatus: EmployeeEmploymentStatus;
+  schedulerMode: string;
+};
+
 export type EmployeeProjection = {
   identity: EmployeeIdentity;
+  employment: EmployeeEmploymentProjection;
   runtime: {
     runtimeStatus: EmployeeRuntimeStatus;
     effectiveAuthority?: EmployeeAuthority;
@@ -47,6 +74,8 @@ export type EmployeeProjection = {
     effectiveState?: EffectiveState;
   };
   publicProfile?: EmployeePublicProfile;
+  publicLinks?: EmployeePublicLink[];
+  visualIdentity?: EmployeeVisualIdentityPublic;
   hasCognitiveProfile: boolean;
 };
 
@@ -54,6 +83,23 @@ export type EmployeesListResponse = {
   ok: true;
   count: number;
   employees: EmployeeProjection[];
+};
+
+export type RoleJobDescriptionProjection = {
+  roleId: string;
+  title: string;
+  teamId: string;
+  jobDescriptionText: string;
+  responsibilities: string[];
+  successMetrics: string[];
+  constraints: string[];
+  seniorityLevel: string;
+};
+
+export type RolesListResponse = {
+  ok: true;
+  count: number;
+  roles: RoleJobDescriptionProjection[];
 };
 
 export type EmployeeScopeResponse = {

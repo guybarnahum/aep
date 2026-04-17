@@ -10,6 +10,7 @@ import type {
   EmployeeEffectivePolicyResponse,
   EmployeesListResponse,
   EmployeeScopeResponse,
+  RolesListResponse,
   SchedulerStatusResponse,
 } from "../contracts/employees";
 import type {
@@ -146,6 +147,7 @@ export function createOperatorAgentClient(
     async listEmployees(params?: {
       status?: string;
       teamId?: string;
+      employmentStatus?: string;
     }): Promise<EmployeesListResponse> {
       const search = new URLSearchParams();
 
@@ -157,8 +159,26 @@ export function createOperatorAgentClient(
         search.set("teamId", params.teamId);
       }
 
+      if (params?.employmentStatus) {
+        search.set("employmentStatus", params.employmentStatus);
+      }
+
       return getJson<EmployeesListResponse>(
         buildUrl("/agent/employees", search),
+      );
+    },
+
+    async listRoles(params?: {
+      teamId?: string;
+    }): Promise<RolesListResponse> {
+      const search = new URLSearchParams();
+
+      if (params?.teamId) {
+        search.set("teamId", params.teamId);
+      }
+
+      return getJson<RolesListResponse>(
+        buildUrl("/agent/roles", search),
       );
     },
 

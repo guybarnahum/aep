@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "wrangler dev",
     "check": "tsc --noEmit",
+    "test": "npm --prefix ../.. run test:backend",
     "coordination-schema-check": "tsx ../../scripts/ci/checks/schema/company-coordination-schema-check.ts"
   }
 }

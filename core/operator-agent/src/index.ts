@@ -13,6 +13,7 @@ import { handleEmployeeControls } from "./routes/employee-controls";
 import { handleEmployeeEffectivePolicy } from "./routes/employee-effective-policy";
 import { handleEmployees } from "./routes/employees";
 import { handleEmployeeScope } from "./routes/employee-scope";
+import { handleRoles } from "./routes/roles";
 import { handleManagerLog } from "./routes/manager-log";
 import { handleRun } from "./routes/run";
 import { handleRunOnce } from "./routes/run-once";
@@ -104,6 +105,10 @@ async function dispatch(request: Request, env: OperatorAgentEnv): Promise<Respon
 
   if (url.pathname === "/agent/run-once") {
     return handleRunOnce(request, env);
+  }
+
+  if (url.pathname === "/agent/roles") {
+    return handleRoles(request, env);
   }
 
   if (url.pathname === "/agent/work-log") {

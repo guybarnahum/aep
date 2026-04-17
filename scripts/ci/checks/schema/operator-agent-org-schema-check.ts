@@ -133,6 +133,10 @@ function main(): void {
     "employees_catalog",
     "employee_scope_bindings",
     "org_policy_overlays",
+    "roles_catalog",
+    "employee_public_links",
+    "employee_visual_identity",
+    "employee_employment_events",
   ];
 
   for (const tableName of expectedTables) {
@@ -142,8 +146,8 @@ function main(): void {
   const employeeCatalogCount = getCount(
     "SELECT COUNT(*) AS count FROM employees_catalog",
   );
-  if (employeeCatalogCount < 7) {
-    throw new Error(`Expected at least 7 employee catalog rows, got ${employeeCatalogCount}`);
+  if (employeeCatalogCount < 9) {
+    throw new Error(`Expected at least 9 employee catalog rows, got ${employeeCatalogCount}`);
   }
 
   assertIds(
@@ -152,19 +156,42 @@ function main(): void {
       "emp_timeout_recovery_01",
       "emp_retry_supervisor_01",
       "emp_infra_ops_manager_01",
+      "emp_pm_01",
       "emp_product_manager_web_01",
       "emp_frontend_engineer_01",
       "emp_validation_pm_01",
       "emp_validation_engineer_01",
+      "emp_val_specialist_01",
     ],
     "employee",
   );
+
+  const rolesCatalogCount = getCount(
+    "SELECT COUNT(*) AS count FROM roles_catalog",
+  );
+  if (rolesCatalogCount < 11) {
+    throw new Error(`Expected at least 11 role catalog rows, got ${rolesCatalogCount}`);
+  }
 
   const scopeBindingCount = getCount(
     "SELECT COUNT(*) AS count FROM employee_scope_bindings",
   );
   if (scopeBindingCount < 10) {
     throw new Error(`Expected at least 10 employee scope bindings, got ${scopeBindingCount}`);
+  }
+
+  const employmentStatusRows = execSql(
+    "SELECT DISTINCT employment_status FROM employees_catalog ORDER BY employment_status",
+  );
+
+  const employmentStatuses = new Set(
+    employmentStatusRows.map((row) => String(row.employment_status ?? "")),
+  );
+
+  if (!employmentStatuses.has("active")) {
+    throw new Error(
+      `Expected employees_catalog.employment_status to include active, got ${JSON.stringify([...employmentStatuses])}`,
+    );
   }
 
   const providerRows = execSql(
@@ -194,6 +221,7 @@ function main(): void {
   console.log("operator-agent-org-schema-check passed", {
     tablesValidated: expectedTables.length,
     employeeCatalogCount,
+    rolesCatalogCount,
     scopeBindingCount,
   });
 }

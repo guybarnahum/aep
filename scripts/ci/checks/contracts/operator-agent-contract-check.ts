@@ -25,6 +25,11 @@ async function main(): Promise<void> {
 
   const employees = employeesResponse.employees;
 
+  const rolesResponse = await client.listRoles();
+  if (!rolesResponse.ok) {
+    throw new Error("/agent/roles did not return ok=true");
+  }
+
   const plannedEmployees = await client.listEmployees({ status: "planned" });
   if (!plannedEmployees.ok) {
     throw new Error("/agent/employees?status=planned did not return ok=true");
@@ -138,6 +143,14 @@ async function main(): Promise<void> {
     throw new Error("Expected timeout recovery employee runtimeStatus=implemented");
   }
 
+  if (timeoutRecoveryEmployee.employment.employmentStatus !== "active") {
+    throw new Error("Expected timeout recovery employee employmentStatus=active");
+  }
+
+  if (!Array.isArray(timeoutRecoveryEmployee.publicLinks)) {
+    throw new Error("Expected timeout recovery employee publicLinks array");
+  }
+
   const productManagerWeb = employees.find(
     (employee) => employee.identity.employeeId === "emp_product_manager_web_01",
   );
@@ -152,6 +165,29 @@ async function main(): Promise<void> {
 
   if (productManagerWeb.identity.teamId !== "team_web_product") {
     throw new Error("Expected product manager web teamId=team_web_product");
+  }
+
+  if (productManagerWeb.employment.employmentStatus !== "active") {
+    throw new Error("Expected product manager web employmentStatus=active");
+  }
+
+  const productManagerWebRole = rolesResponse.roles.find(
+    (role) => role.roleId === "product-manager-web",
+  );
+
+  if (!productManagerWebRole) {
+    throw new Error("Expected /agent/roles to include product-manager-web");
+  }
+
+  if (productManagerWebRole.teamId !== "team_web_product") {
+    throw new Error("Expected product-manager-web role teamId=team_web_product");
+  }
+
+  if (
+    !Array.isArray(productManagerWebRole.responsibilities) ||
+    productManagerWebRole.responsibilities.length === 0
+  ) {
+    throw new Error("Expected product-manager-web role to expose responsibilities");
   }
 
   const timeoutScope = await client.getEmployeeScope("emp_timeout_recovery_01");
@@ -260,6 +296,7 @@ async function main(): Promise<void> {
 
   console.log("operator-agent-contract-check passed", {
     employeeCount: employeesResponse.count,
+    roleCount: rolesResponse.count,
     managerLogCount: managerLog.count,
     controlsListed: employeeControls.count,
     workLogCount: workLog.count,

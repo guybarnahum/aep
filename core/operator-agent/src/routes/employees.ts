@@ -1,5 +1,8 @@
 import { createStores } from "@aep/operator-agent/lib/store-factory";
-import { listEmployeeCatalog } from "@aep/operator-agent/lib/employee-catalog-store-d1";
+import {
+  listEmployeeCatalog,
+  listEmployeePublicLinks,
+} from "@aep/operator-agent/lib/employee-catalog-store-d1";
 import { resolveAllowedScope } from "@aep/operator-agent/lib/org-scope-resolver";
 import {
   mergeAuthority,
@@ -18,6 +21,7 @@ import {
 import { getEmployeeById } from "@aep/operator-agent/org/employees";
 import type {
   AgentRoleId,
+  EmployeeEmploymentStatus,
   EmployeeProjection,
   EmployeeRuntimeStatus,
   OperatorAgentEnv,
@@ -94,6 +98,20 @@ function getRuntimeStatus(args: {
   return args.hasRuntimeEmployee ? "implemented" : "disabled";
 }
 
+function toEmploymentStatus(value: string): EmployeeEmploymentStatus {
+  switch (value) {
+    case "draft":
+    case "active":
+    case "on_leave":
+    case "retired":
+    case "terminated":
+    case "archived":
+      return value;
+    default:
+      return "active";
+  }
+}
+
 export async function handleEmployees(
   request: Request,
   env?: OperatorAgentEnv,
@@ -116,13 +134,19 @@ export async function handleEmployees(
   const companyId = url.searchParams.get("companyId") ?? undefined;
   const teamId = url.searchParams.get("teamId") ?? undefined;
   const status = url.searchParams.get("status") ?? undefined;
+  const employmentStatus = url.searchParams.get("employmentStatus") ?? undefined;
 
   const store = createStores(env).employeeControls;
   const catalogEntries = await listEmployeeCatalog(env, {
     companyId,
     teamId,
     status,
+    employmentStatus,
   });
+  const publicLinksByEmployeeId = await listEmployeePublicLinks(
+    env,
+    catalogEntries.map((entry) => entry.employeeId),
+  );
 
   const employees: EmployeeProjection[] = await Promise.all(
     catalogEntries.map(async (catalogEntry) => {
@@ -138,6 +162,8 @@ export async function handleEmployees(
         skills: parseSkillsJson(catalogEntry.skillsJson),
         avatarUrl: catalogEntry.photoUrl,
       };
+      const publicLinks =
+        publicLinksByEmployeeId[catalogEntry.employeeId] ?? [];
 
       const hasCognitiveProfile = Boolean(
         catalogEntry.bio ||
@@ -156,10 +182,25 @@ export async function handleEmployees(
       if (!runtimeEmployee) {
         return {
           identity,
+          employment: {
+            employmentStatus: toEmploymentStatus(catalogEntry.employmentStatus),
+            schedulerMode: catalogEntry.schedulerMode,
+          },
           runtime: {
             runtimeStatus,
           },
           publicProfile,
+          publicLinks,
+          visualIdentity:
+            catalogEntry.appearanceSummary ||
+            typeof catalogEntry.birthYear === "number" ||
+            catalogEntry.photoUrl
+              ? {
+                  birthYear: catalogEntry.birthYear,
+                  appearanceSummary: catalogEntry.appearanceSummary,
+                  avatarUrl: catalogEntry.photoUrl,
+                }
+              : undefined,
           hasCognitiveProfile,
         };
       }
@@ -182,6 +223,10 @@ export async function handleEmployees(
 
       return {
         identity,
+        employment: {
+          employmentStatus: toEmploymentStatus(catalogEntry.employmentStatus),
+          schedulerMode: catalogEntry.schedulerMode,
+        },
         runtime: {
           runtimeStatus,
           effectiveState: {
@@ -203,6 +248,17 @@ export async function handleEmployees(
           effectiveBudget,
         },
         publicProfile,
+        publicLinks,
+        visualIdentity:
+          catalogEntry.appearanceSummary ||
+          typeof catalogEntry.birthYear === "number" ||
+          catalogEntry.photoUrl
+            ? {
+                birthYear: catalogEntry.birthYear,
+                appearanceSummary: catalogEntry.appearanceSummary,
+                avatarUrl: catalogEntry.photoUrl,
+              }
+            : undefined,
         hasCognitiveProfile,
       };
     }),

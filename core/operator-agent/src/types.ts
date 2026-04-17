@@ -7,10 +7,38 @@ export type EmployeeRuntimeStatus =
   | "planned"
   | "disabled";
 
+export type EmployeeEmploymentStatus =
+  | "draft"
+  | "active"
+  | "on_leave"
+  | "retired"
+  | "terminated"
+  | "archived";
+
+export type EmployeePublicLinkType =
+  | "github"
+  | "linkedin"
+  | "website"
+  | "x"
+  | "portfolio";
+
 export interface EmployeePublicProfile {
   displayName: string;
   bio?: string;
   skills?: string[];
+  avatarUrl?: string;
+}
+
+export interface EmployeePublicLink {
+  type: EmployeePublicLinkType;
+  url: string;
+  verified: boolean;
+  visibility: "public" | "org";
+}
+
+export interface EmployeeVisualIdentityPublic {
+  birthYear?: number;
+  appearanceSummary?: string;
   avatarUrl?: string;
 }
 
@@ -45,6 +73,10 @@ export interface EmployeeProjection {
     teamId: TeamId;
     roleId: AgentRoleId;
   };
+  employment: {
+    employmentStatus: EmployeeEmploymentStatus;
+    schedulerMode: string;
+  };
   runtime: {
     runtimeStatus: EmployeeRuntimeStatus;
     effectiveState?: {
@@ -55,7 +87,20 @@ export interface EmployeeProjection {
     effectiveAuthority?: AgentAuthority;
   };
   publicProfile?: EmployeePublicProfile;
+  publicLinks?: EmployeePublicLink[];
+  visualIdentity?: EmployeeVisualIdentityPublic;
   hasCognitiveProfile: boolean;
+}
+
+export interface RoleJobDescriptionProjection {
+  roleId: AgentRoleId;
+  title: string;
+  teamId: TeamId;
+  jobDescriptionText: string;
+  responsibilities: string[];
+  successMetrics: string[];
+  constraints: string[];
+  seniorityLevel: string;
 }
 
 export type CoordinationTaskStatus =
