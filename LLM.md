@@ -4,7 +4,7 @@ Repository (source of truth):
 👉 https://github.com/guybarnahum/aep
 
 The repository code is the source of truth.  
-This document is aligned to commit `fe72350b0c294554789fbbd16a09449d10c39a54`.
+This document is aligned to commit `cfb9e335464e7215930f62c45c23637d1f4c5a47`.
 
 Endpoint documentation note for future LLM sessions:
 
@@ -15,6 +15,32 @@ Endpoint documentation note for future LLM sessions:
 ```bash
 titan@Titans-MacBook-Pro aep % tree . --gitignore
 .
+├── .github
+│   └── workflows
+│       ├── README.md
+│       ├── _deploy-dashboard-pages.yml
+│       ├── _deploy_environment.yml
+│       ├── _deploy_preview_environment.yml
+│       ├── _validate_async_orchestration.yml
+│       ├── _validate_contracts_layer.yml
+│       ├── _validate_environment_layer.yml
+│       ├── _validate_escalation_integrity.yml
+│       ├── _validate_multi_worker_safety.yml
+│       ├── _validate_operator_governance.yml
+│       ├── _validate_operator_surface.yml
+│       ├── _validate_paperclip_handoff.yml
+│       ├── _validate_policy_layer.yml
+│       ├── _validate_post_deploy.yml
+│       ├── _validate_runtime_read_safety.yml
+│       ├── _validate_schema_layer.yml
+│       ├── deploy-preview.yml
+│       ├── deploy-production.yml
+│       ├── deploy-staging.yml
+│       ├── destroy-preview.yml
+│       ├── free-leaked-resouces.yml
+│       ├── inject-doc-includes.yml
+│       ├── validate-async-deep.yml
+│       └── validate-async-environment.yml
 ├── apps
 │   ├── dashboard
 │   │   ├── index.html
@@ -408,6 +434,7 @@ titan@Titans-MacBook-Pro aep % tree . --gitignore
 │   │   │   ├── retry.ts
 │   │   │   ├── run-checks.ts
 │   │   │   ├── run-observe.ts
+│   │   │   ├── run-operator-agent-backend-tests.ts
 │   │   │   └── validation-dispatch.ts
 │   │   └── verify-staging-layered.sh
 │   ├── deploy
