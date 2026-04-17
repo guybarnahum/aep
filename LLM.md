@@ -4,7 +4,7 @@ Repository (source of truth):
 👉 https://github.com/guybarnahum/aep
 
 The repository code is the source of truth.  
-This document is aligned to commit `0674ae83cb27977d33cce8075a27df661c543757`.
+This document is aligned to commit `7fa8e9bf60070efe450a930c00d6d8d7717da6dd`.
 ```bash
 titan@Titans-MacBook-Pro aep % tree . --gitignore
 .
@@ -555,17 +555,163 @@ All canonical state must remain in:
 * escalations
 * audit / mapping tables
 
-## Cognition boundary
+## Employee Cognition Boundary
 
-LLM cognition belongs inside the employee boundary.
+Employees have a strict separation between:
 
-Rules:
+* public profile (visible)
+* private cognition (hidden)
 
-* private reasoning remains private
-* bounded public rationale is published
-* threads are publication surfaces, not cognition dumps
-* no route-level free-form cognition generation
-* no shared hidden company brain
+Private cognition includes:
+
+* base_prompt
+* identity_seed
+* decision_style
+* collaboration_style
+* portrait_prompt
+* internal reasoning
+
+These MUST NEVER be exposed via:
+
+* APIs
+* UI
+* threads
+* artifacts
+
+Only bounded public rationale may be published.
+
+## Employees as Persons
+
+Employees are durable digital persons.
+
+They have:
+
+* identity (name, age)
+* team and role
+* job description
+* public profile (bio, skills)
+* digital footprint (GitHub, LinkedIn)
+* visual embodiment
+* employment history
+* work history
+
+Employees persist across:
+
+* tasks
+* roles
+* teams
+* lifecycle transitions
+
+They are not ephemeral agents.
+
+## Job Description (JD)
+
+Each role has a Job Description (JD) which defines:
+
+* responsibilities
+* success metrics
+* constraints
+
+JDs are:
+
+* public
+* stable
+* company-owned
+
+JDs are NOT prompts.
+
+They influence behavior indirectly through:
+
+JD → tasks → execution → outputs
+
+## Employee Lifecycle
+
+Employees have explicit lifecycle states:
+
+* draft
+* active
+* on_leave
+* retired
+* terminated
+* archived
+
+Lifecycle transitions must be:
+
+* explicit
+* auditable
+* thread-linked
+
+## Runtime vs Employment
+
+Runtime control is separate from employment.
+
+Examples:
+
+* disabled → runtime control
+* restricted → runtime control
+* on_leave → employment state
+* terminated → employment state
+
+Do not conflate these.
+
+## Work Continuity
+
+When an employee becomes unavailable, the system must resolve open work via:
+
+* reassignment
+* escalation
+* deferral
+* blocking with reason
+
+Defaults:
+
+* on_leave → reassign or escalate
+* terminated → reassign immediately
+* disabled → retry then escalate
+
+Authorship is immutable.
+Responsibility is transferable.
+
+## Visual Identity
+
+Employees have a visual identity.
+
+Public:
+
+* avatar
+* age
+* appearance summary
+
+Private:
+
+* visual_base_prompt
+* portrait_prompt
+
+Appearance evolves with age.
+
+Private visual prompts must not be exposed.
+
+## Performance Reviews
+
+Performance reviews are grounded in:
+
+* job description expectations
+* observable work
+* canonical artifacts and threads
+
+Reviews must not expose:
+
+* prompts
+* internal reasoning
+* personality configuration
+
+Reviews may drive:
+
+* promotion
+* reassignment
+* coaching
+* restriction
+* termination
 
 ## Explainability boundary
 

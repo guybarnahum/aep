@@ -2,7 +2,7 @@
 
 AEP is the **infra department of a zero-employee company**.
 
-It is a system for modeling and operating digital employees: teams, managers, tasks, governance, and cognition. AEP is intended to serve as the kernel of a real agentic organization.
+It is a system for modeling and operating digital employees: teams, managers, tasks, governance, and bounded cognition. AEP is intended to serve as the kernel of a real agentic organization.
 
 ---
 
@@ -120,40 +120,62 @@ That means:
 
 ## Employees
 
-Each employee is a bounded unit with three layers:
+Each employee is a durable digital person with a bounded execution model.
 
-### 1. Identity and runtime
-The employee’s role in the org:
+### 1. Identity, role, and employment
+The employee's public organizational identity:
 
 - company
 - team
 - role
-- runtime status
+- name / age
+- employment state
+- job description
 - authority
 - budget
-- operational state
 
-### 2. Public profile
+The job description is public, stable, and company-owned. It defines responsibilities, success metrics, and constraints. It is not a prompt.
+
+### 2. Runtime control
+The employee's execution posture:
+
+- runtime status
+- runtime control state
+- policy overlays
+- operational constraints
+
+Runtime control is separate from employment state.
+
+Examples:
+
+- `disabled` and `restricted` are runtime control outcomes
+- `on_leave` and `terminated` are employment lifecycle states
+
+### 3. Public profile
 The human-facing projection:
 
 - display name
 - skills
 - bio
 - avatar / representation
+- appearance summary
+- public links / digital footprint
 
-### 3. Private cognitive layer
-The internal employee mind:
+### 4. Private cognition
+The internal employee boundary:
 
-- prompt profile
+- base prompt / prompt profile
 - decision style
 - identity seed
-- memory and reasoning over time
+- collaboration style
+- portrait prompt
+- internal reasoning
 
 A core rule of AEP is:
 
-> cognition belongs inside the employee
+> public profile is visible, private cognition is hidden
 
-There is no global shared agent mind.
+Only bounded public rationale may be published. There is no global shared agent mind.
 
 ---
 
@@ -415,7 +437,14 @@ Over time, humans should also be able to:
 - receive summaries in familiar channels
 
 The intention is not to expose raw private cognition by default.  
-Instead, AEP should expose **legible work artifacts**: plans, results, rationale summaries, and communication threads.
+Instead, AEP should expose **legible work artifacts**: plans, results, bounded public rationale, and communication threads.
+
+That excludes:
+
+- prompts
+- personality configuration
+- portrait prompts
+- internal reasoning
 
 ---
 
@@ -447,6 +476,7 @@ A few principles remain central:
 - trace and audit are first-class
 - the UI is a mirror of the system, not the source of truth
 - cognition stays inside the employee boundary
+- runtime control and employment lifecycle must remain distinct
 - human collaboration should feel natural without requiring raw hidden reasoning
 - external tools like Slack or email must not replace the internal system model
 

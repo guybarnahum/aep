@@ -4,7 +4,7 @@ The operator-agent is a network of autonomous workers that implement AEP's infra
 
 Current repo state:
 
-- operator-agent governance and control state is persisted in D1
+- operator-agent governance and runtime control state is persisted in D1
 - the control-plane now exposes separate org inventory APIs backed by the Commit 13 catalog substrate
 - that org catalog is still additive; operator-agent execution remains source-configured until later catalog-authoritative commits land
 
@@ -16,9 +16,21 @@ Current repo state:
 
 The operator-agent implements an **employee-based actor model**:
 
+- Each employee is a durable digital person rather than an ephemeral agent
 - Each employee has an `employeeId`, `roleId`, `authority`, and `budget`
+- Each role is expected to have a public job description that defines responsibilities, success metrics, and constraints
 - Employees operate independently within their constraints
 - Employees can coordinate and escalate to managers when needed
+
+Public profile and private cognition remain separate. The operator-agent may publish bounded public rationale, but it should not expose private prompts or internal reasoning through its public surfaces.
+
+### Employment vs Runtime Control
+
+The operator-agent currently governs **runtime control**, not the full employment lifecycle.
+
+- `disabled_pending_review`, `disabled_by_manager`, and `restricted` are runtime control states
+- employment states such as `on_leave` or `terminated` belong to the broader employee model
+- these concepts should not be conflated in API semantics or documentation
 
 ### Departments
 
@@ -283,7 +295,7 @@ Fetch recent escalation records, optionally filtered by state._
 
 #### GET `/agent/control-history?employeeId=emp_123&limit=100`
 
-Fetch the audit trail of state transitions for an employee's control state.
+Fetch the audit trail of state transitions for an employee's runtime control state.
 
 _Response:_
 
@@ -321,7 +333,7 @@ _Response:_
 
 The `policyVersion` field enables **auditable governance transitions**:
 
-- Every decision, escalation, and control state change records its policy version
+- Every decision, escalation, and runtime control state change records its policy version
 - Audit trail links decision to specific policy version
 - Company can reason about "what policy generated this decision"
 - Policy upgrades can be audited for impact
@@ -345,7 +357,7 @@ All three logs are **append-only, immutable**:
    - severity, affected parties, recommendations
 
 4. **Control History** — `/agent/control-history`
-   - State transitions per employee
+  - Runtime control transitions per employee
    - who changed it, why, when, under which policy
 
 ### Governance Hints
@@ -405,7 +417,7 @@ Validates the full audit trail:
 - Manager invocation creates decision+escalation records
 - escalations and control-history logs are populated
 - escalation severity/status/reason are well-formed
-- control state transitions are auditable
+- runtime control transitions are auditable
 
 ---
 
