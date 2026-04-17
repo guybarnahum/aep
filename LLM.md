@@ -4,7 +4,7 @@ Repository (source of truth):
 👉 https://github.com/guybarnahum/aep
 
 The repository code is the source of truth.  
-This document is aligned to commit `7fa8e9bf60070efe450a930c00d6d8d7717da6dd`.
+This document is aligned to commit `fe72350b0c294554789fbbd16a09449d10c39a54`.
 ```bash
 titan@Titans-MacBook-Pro aep % tree . --gitignore
 .
@@ -555,9 +555,9 @@ All canonical state must remain in:
 * escalations
 * audit / mapping tables
 
-## Employee Cognition Boundary
+## Cognition boundary
 
-Employees have a strict separation between:
+LLM cognition belongs inside the employee boundary.
 
 * public profile (visible)
 * private cognition (hidden)
@@ -580,13 +580,17 @@ These MUST NEVER be exposed via:
 
 Only bounded public rationale may be published.
 
-## Employees as Persons
+* private reasoning remains private
+* bounded public rationale is published
+* threads are publication surfaces, not cognition dumps
+* no route-level free-form cognition generation
+* no shared hidden company brain
 
-Employees are durable digital persons.
+## Employees as persons boundary
 
-They have:
+Employees are durable digital persons with:
 
-* identity (name, age)
+* public identity
 * team and role
 * job description
 * public profile (bio, skills)
@@ -594,19 +598,20 @@ They have:
 * visual embodiment
 * employment history
 * work history
+* visual embodiment
 
-Employees persist across:
+But employees also contain a private internal self.
 
 * tasks
 * roles
 * teams
 * lifecycle transitions
 
-They are not ephemeral agents.
+Those private fields MUST NEVER be exposed through:
 
 ## Job Description (JD)
 
-Each role has a Job Description (JD) which defines:
+The company interacts with employees, not with prompts.
 
 * responsibilities
 * success metrics
@@ -637,31 +642,31 @@ Employees have explicit lifecycle states:
 
 Lifecycle transitions must be:
 
-* explicit
-* auditable
-* thread-linked
+JDs are NOT prompts and must not become a hidden cognition leak path.
 
-## Runtime vs Employment
+## Runtime vs employment boundary
 
-Runtime control is separate from employment.
+Runtime control is separate from employment state.
 
 Examples:
 
-* disabled → runtime control
-* restricted → runtime control
-* on_leave → employment state
-* terminated → employment state
+* disabled / restricted = runtime control
+* on_leave = employment state
+* retired = employment state
+* terminated = employment state
 
-Do not conflate these.
+Do not conflate runtime disablement with lifecycle transitions.
 
-## Work Continuity
+## Work continuity boundary
 
-When an employee becomes unavailable, the system must resolve open work via:
+When an employee becomes unavailable, authorship remains immutable but responsibility may transfer.
+
+The system must resolve open work via canonical state using:
 
 * reassignment
 * escalation
 * deferral
-* blocking with reason
+* blocking with explicit reason
 
 Defaults:
 
@@ -695,13 +700,15 @@ Private visual prompts must not be exposed.
 
 Performance reviews are grounded in:
 
-* job description expectations
+* job descriptions
 * observable work
-* canonical artifacts and threads
+* canonical artifacts
+* canonical threads
+* governance records
 
-Reviews must not expose:
+Performance reviews must NOT expose:
 
-* prompts
+* prompt internals
 * internal reasoning
 * personality configuration
 
@@ -733,6 +740,67 @@ All control must be explicit and routed through canonical primitives:
 * escalations
 * control surfaces
 
+# PR PATCH LIST RULES (STRICT)
+
+You are generating a precise, copy-pasteable patch for a codebase.
+Output requirements (STRICT)
+
+1. FIRST: output a FILE-BY-FILE PATCH LIST (diff-style, PARTIAL ONLY)
+
+For EACH modified file:
+
+path/to/file.ext
+
+@@ <context or function/class name>
+- <old code>
++ <new code>
+
+Rules:
+
+* ONLY include CHANGED sections (no full file replacements)
+* Include enough surrounding context to locate the change
+* Use valid unified diff style (@@ blocks)
+* Multiple @@ blocks per file if needed
+* Do NOT include unchanged code outside context
+* Do NOT summarize changes
+* Do NOT omit necessary imports/types if they are modified
+* Ensure patches are syntactically correct and realistically applicable
+
+⸻
+
+2. AFTER all patches: output the COMMIT MESSAGE
+
+Format:
+
+commit-type(subsystem): short_title 
+
+coomit body:
+    * 5–10 lines describing:
+    * what changed
+    * why it changed
+    * key implementation details
+    * any constraints or follow-ups
+
+Where commit-type is one of: feat | fix | chore | refactor | ...
+Where subsystem is: docs | test | ci | ...
+
+⸻
+
+3. Ordering:
+
+* Files in logical dependency order (e.g., types → logic → API → UI → tests)
+* Within each file, order @@ blocks top-to-bottom
+
+⸻
+
+4. STRICT OUTPUT:
+
+* No commentary outside this structure
+* No explanations before or after
+* Only emit:
+    * file patch sections
+    * then commit message
+ 
 ---
 
 # 4. Current repo-aligned system state
@@ -1138,7 +1206,12 @@ The system now needs validation under real usage:
 * output quality and operational behavior
 * Slack/email channel-based interaction patterns
 
-The next step is to validate autonomy and improve the surfaces based on real system behavior.
+* employee lifecycle
+* role and job-description management
+* employee embodiment as durable persons
+* work continuity when employees become unavailable
+* performance reviews grounded in canonical evidence
+* org-management UI for hiring, reassignment, leave, retirement, and termination
 
 ---
 
@@ -1262,6 +1335,7 @@ Where:
 - work is attributable
 - teams are legible
 - the organization can be navigated
+
 
 ---
 
@@ -1543,108 +1617,144 @@ The system now provides:
 * identity continuity
 * operational UI surfaces
 
-Next phase is NOT PR13 yet.
+The next major phase is now PR13.
 
-Instead:
+PR13 is focused on:
 
-* validate autonomy
-* run real agentic workflows
-* inspect outputs and behavior
-* improve UI based on real usage
-* extend Slack/email into structured channels
+* employee lifecycle
+* employees as durable persons
+* job descriptions as public role contracts
+* work continuity under employee unavailability
+* performance reviews grounded in canonical work
+* org-management UI
 
 ---
 
-# 11. Current focus (post-PR12)
+# 11. Current focus (PR13 planning)
 
-We are now:
+We are now planning and executing PR13 as a staged expansion of the organization model.
+
+The goal is to move from:
+
+* visible employees
+
+to:
+
+* manageable employees with lifecycle, embodiment, continuity, and review
 
 * validating that agents can perform real work loops autonomously
 * inspecting task → execution → validation → governance flows
 * improving UI based on real system behavior
 * extending Slack/email mirroring into channel-based interaction
 
-PR13 is intentionally paused until autonomy is proven.
+* canonicality
+* bounded cognition
+* explicit governance
+* immutable authorship
+* transferability of responsibility
 
 ---
 
-# 12. The next LLM session should:
+# 12. PR13 milestone plan
+
+## PR13A — Employee lifecycle schema + public role model
+
+Deliver:
+
+* canonical employee lifecycle states
+* role and job-description model
+* employment history
+* public links / footprint
+* visual identity public/private split
+* read routes and projections
+
+## PR13B — Lifecycle actions + employment governance
+
+Deliver:
+
+* hire / create employee
+* activate
+* reassign team
+* change role
+* start leave / end leave
+* retire
+* terminate
+* rehire
+* archive
+
+## PR13C — Embodiment + persona generation
+
+Deliver:
+
+* draft employee creation from textual description
+* public profile generation
+* private prompt-profile generation
+* visual identity generation scaffolding
+* approval flow for generated private profiles
+
+## PR13D — Work continuity + responsibility transfer
+
+Deliver:
+
+* continuity policy model
+* explicit handling for on_leave / retired / terminated / runtime-disabled employees
+* reassignment / escalation / defer / block outcomes
+* continuity visibility in canonical work surfaces
+
+## PR13E — Job descriptions + performance reviews
+
+Deliver:
+
+* canonical JD model
+* review dimensions per role
+* review cycles
+* evidence-linked performance reviews
+* review-driven promotion / coaching / reassignment / restriction recommendations
+
+## PR13F — People / org-management UI
+
+Deliver:
+
+* people directory
+* employee detail
+* hiring flows
+* lifecycle action surfaces
+* role / JD detail
+* performance review views
+* org and staffing management surfaces
+
+## PR13G — Hardening + policy + realism pass
+
+Deliver:
+
+* lifecycle invariants
+* continuity edge-case handling
+* policy hardening
+* CI coverage
+* docs and UX tightening
+
+---
+
+# 13. The next LLM session should:
 
 1. read this file fully
 2. inspect the repo at the target commit
 3. trust the repo over this doc if they diverge
 4. treat PR12 as complete
-5. Wait on PR13: 
-* deeper multi-agent collaboration mechanics
-* richer multi-agent coordination
-* cross-team consensus and negotiation on “what”
-* manager / worker / validator loops across multiple concurrent tasks
-* governed company-wide operating behavior
+5. treat PR13 as the active next phase
+6. implement PR13 one milestone at a time in order:
+   * PR13A
+   * PR13B
+   * PR13C
+   * PR13D
+   * PR13E
+   * PR13F
+   * PR13G
+7. preserve the cognition boundary while expanding employee embodiment and lifecycle
 
-12.1 IMEPLENTATION PR PATCH LIST
-
-You are generating a precise, copy-pasteable patch for a codebase.
-Output requirements (STRICT)
-
-12.1.1. FIRST: output a FILE-BY-FILE PATCH LIST (diff-style, PARTIAL ONLY)
-
-For EACH modified file:
-
-path/to/file.ext
-
-@@ <context or function/class name>
-- <old code>
-+ <new code>
-
-Rules:
-
-* ONLY include CHANGED sections (no full file replacements)
-* Include enough surrounding context to locate the change
-* Use valid unified diff style (@@ blocks)
-* Multiple @@ blocks per file if needed
-* Do NOT include unchanged code outside context
-* Do NOT summarize changes
-* Do NOT omit necessary imports/types if they are modified
-* Ensure patches are syntactically correct and realistically applicable
-
-⸻
-
-12.1.2. AFTER all patches: output the COMMIT MESSAGE
-
-Format:
-
-commit-type(subsystem): short_title 
-
-coomit body:
-    * 5–10 lines describing:
-    * what changed
-    * why it changed
-    * key implementation details
-    * any constraints or follow-ups
-
-Where commit-type is one of: feat | fix | chore | refactor | ...
-Where subsystem is: docs | test | ci | ...
-
-⸻
-
-12.1.3. Ordering:
-
-* Files in logical dependency order (e.g., types → logic → API → UI → tests)
-* Within each file, order @@ blocks top-to-bottom
-
-⸻
-
-12.1.4. STRICT OUTPUT:
-
-* No commentary outside this structure
-* No explanations before or after
-* Only emit:
-    * file patch sections
-    * then commit message
- 
 ---
 
-# 13. Final continuity note
+# 14. Final continuity note
 
 Optimize for:
 
