@@ -76,12 +76,6 @@ async function main(): Promise<void> {
     webTeamEmployees.employees.map((employee) => employee.identity.employeeId),
   );
 
-  if (webTeamEmployeeIds.size !== 2) {
-    throw new Error(
-      `Expected team_web_product filter to return exactly 2 employees, got ${webTeamEmployeeIds.size}`,
-    );
-  }
-
   for (const employeeId of [
     "emp_product_manager_web_01",
     "emp_frontend_engineer_01",
@@ -100,6 +94,14 @@ async function main(): Promise<void> {
   ]) {
     if (webTeamEmployeeIds.has(employeeId)) {
       throw new Error(`Expected web team filter to exclude ${employeeId}`);
+    }
+  }
+
+  for (const employee of webTeamEmployees.employees) {
+    if (employee.identity.teamId !== "team_web_product") {
+      throw new Error(
+        `Expected web team filter to return only team_web_product employees, got ${employee.identity.employeeId} on ${employee.identity.teamId}`,
+      );
     }
   }
 
