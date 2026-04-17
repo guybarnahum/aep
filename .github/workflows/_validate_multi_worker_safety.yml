@@ -151,6 +151,15 @@ jobs:
         run: |
           npm run ci:agent-timeout-recovery-check 2>&1 | tee agent-timeout-recovery.log
 
+      - name: Task reassignment continuity
+        id: task_reassignment_continuity
+        if: steps.operator_agent_config.outputs.enabled == 'true' && steps.wait_operator_agent.outcome == 'success'
+        env:
+          CONTROL_PLANE_BASE_URL: ${{ env.CONTROL_PLANE_BASE_URL }}
+          OPERATOR_AGENT_BASE_URL: ${{ env.OPERATOR_AGENT_BASE_URL }}
+        run: |
+          npm run ci:task-reassignment-continuity-check 2>&1 | tee task-reassignment-continuity.log
+
       - name: Capture outputs
         id: capture
         if: always()
@@ -159,6 +168,7 @@ jobs:
             local logs=(
               multi-worker-department.log
               agent-timeout-recovery.log
+              task-reassignment-continuity.log
             )
             local found=""
             for log_file in "${logs[@]}"; do
@@ -189,7 +199,7 @@ jobs:
             OUTCOME="failure"
           elif [[ "$ENABLED" == "true" && "${{ steps.wait_operator_agent.outcome }}" != "success" ]]; then
             OUTCOME="failure"
-          elif [[ "$ENABLED" == "true" && ( "${{ steps.multi_worker_department.outcome }}" != "success" || "${{ steps.agent_timeout_recovery.outcome }}" != "success" ) ]]; then
+          elif [[ "$ENABLED" == "true" && ( "${{ steps.multi_worker_department.outcome }}" != "success" || "${{ steps.agent_timeout_recovery.outcome }}" != "success" || "${{ steps.task_reassignment_continuity.outcome }}" != "success" ) ]]; then
             OUTCOME="failure"
           fi
 
@@ -204,6 +214,7 @@ jobs:
             local logs=(
               multi-worker-department.log
               agent-timeout-recovery.log
+              task-reassignment-continuity.log
             )
             local found=""
             for log_file in "${logs[@]}"; do
@@ -237,6 +248,7 @@ jobs:
           OPERATOR_AGENT_READINESS_OUTCOME="${{ steps.wait_operator_agent.outcome }}"
           MULTI_WORKER_OUTCOME="${{ steps.multi_worker_department.outcome }}"
           TIMEOUT_RECOVERY_OUTCOME="${{ steps.agent_timeout_recovery.outcome }}"
+          TASK_REASSIGNMENT_CONTINUITY_OUTCOME="${{ steps.task_reassignment_continuity.outcome }}"
           OPERATOR_WARNINGS="$(collect_operator_warnings)"
           HAS_OPERATOR_WARNINGS="false"
           if [[ -n "$OPERATOR_WARNINGS" ]]; then
@@ -267,6 +279,9 @@ jobs:
           echo "- $(status_emoji "$TIMEOUT_RECOVERY_OUTCOME") Agent timeout recovery: $TIMEOUT_RECOVERY_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
           echo "  - Validates safe recovery from agent timeouts" >> "$GITHUB_STEP_SUMMARY"
           echo "  - Ensures no budget corruption on timeout" >> "$GITHUB_STEP_SUMMARY"
+          echo "- $(status_emoji "$TASK_REASSIGNMENT_CONTINUITY_OUTCOME") Task reassignment continuity: $TASK_REASSIGNMENT_CONTINUITY_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
+          echo "  - Validates lifecycle-driven responsibility transfer on leave and termination" >> "$GITHUB_STEP_SUMMARY"
+          echo "  - Confirms durable task_reassignments audit rows and triggering lifecycle linkage" >> "$GITHUB_STEP_SUMMARY"
 
           if [[ "${{ steps.operator_agent_config.outputs.enabled }}" != "true" ]]; then
             if [[ "${{ steps.operator_agent_config.outputs.reason }}" == "missing" ]]; then
@@ -297,6 +312,8 @@ jobs:
             echo "- Multi-worker department safety failed. Inspect cross-worker coordination, approval gating logic, and state consistency." >> "$GITHUB_STEP_SUMMARY"
           elif [[ "${{ steps.operator_agent_config.outputs.enabled }}" == "true" && "$TIMEOUT_RECOVERY_OUTCOME" != "success" ]]; then
             echo "- Agent timeout recovery failed. Inspect timeout handling, budget preservation, and retry/resume logic." >> "$GITHUB_STEP_SUMMARY"
+          elif [[ "${{ steps.operator_agent_config.outputs.enabled }}" == "true" && "$TASK_REASSIGNMENT_CONTINUITY_OUTCOME" != "success" ]]; then
+            echo "- Task reassignment continuity failed. Inspect lifecycle-driven continuity logic, replacement selection, and task_reassignments audit writes." >> "$GITHUB_STEP_SUMMARY"
           else
             echo "- Multi-worker safety suite passed." >> "$GITHUB_STEP_SUMMARY"
           fi

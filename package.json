@@ -77,6 +77,7 @@
     "ci:approval-thread-delegation-check": "tsx scripts/ci/checks/scenarios/approval-thread-delegation-check.ts",
     "ci:escalation-thread-delegation-check": "tsx scripts/ci/checks/scenarios/escalation-thread-delegation-check.ts",
     "ci:repeated-validation-persona-continuity-check": "tsx scripts/ci/checks/scenarios/repeated-validation-persona-continuity-check.ts",
+      "ci:task-reassignment-continuity-check": "tsx scripts/ci/checks/scenarios/task-reassignment-continuity-check.ts",
     "ci:validation-loop-feedback-check": "tsx scripts/ci/checks/scenarios/validation-loop-feedback-check.ts",
     "ci:human-visibility-summary-check": "tsx scripts/ci/checks/scenarios/human-visibility-summary-check.ts",
     "ci:repeated-pm-persona-continuity-check": "tsx scripts/ci/checks/scenarios/repeated-pm-persona-continuity-check.ts",
