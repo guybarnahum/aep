@@ -452,7 +452,7 @@ async function main(): Promise<void> {
       source: "ci-review-check",
     },
   });
-  if (!reviewArtifact?.ok || typeof reviewArtifact.id !== "string") {
+  if (!reviewArtifact?.ok || typeof reviewArtifact.artifactId !== "string") {
     throw new Error("Expected review evidence artifact creation to succeed");
   }
 
@@ -483,7 +483,7 @@ async function main(): Promise<void> {
       ],
       evidence: [
         { evidenceType: "task", evidenceId: reviewTask.taskId },
-        { evidenceType: "artifact", evidenceId: reviewArtifact.id },
+        { evidenceType: "artifact", evidenceId: reviewArtifact.artifactId },
       ],
       createdBy: "ci-operator-agent-client",
       approvedBy: "ci-operator-agent-client",
