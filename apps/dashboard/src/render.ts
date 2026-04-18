@@ -1,6 +1,12 @@
 // --- Safe helpers for employee rendering ---
 function getEmployeeDisplayState(employee: OperatorEmployeeRecord): string {
   if (
+    employee.employment?.employmentStatus &&
+    employee.employment.employmentStatus !== "active"
+  ) {
+    return employee.employment.employmentStatus;
+  }
+  if (
     employee.runtime.runtimeStatus === "implemented" &&
     employee.runtime.effectiveState?.state
   ) {
@@ -23,6 +29,21 @@ function getEmployeeBudgetSummary(employee: OperatorEmployeeRecord): string {
 }
 
 function getEmployeeGovernanceSummary(employee: OperatorEmployeeRecord): string {
+  if (employee.employment?.employmentStatus === "draft") {
+    return "Draft employee record awaiting activation.";
+  }
+  if (employee.employment?.employmentStatus === "on_leave") {
+    return "Employee is on leave; continuity logic may reassign work.";
+  }
+  if (employee.employment?.employmentStatus === "retired") {
+    return "Retired employee record retained for continuity and review history.";
+  }
+  if (employee.employment?.employmentStatus === "terminated") {
+    return "Terminated employee retained for audit and reassignment continuity.";
+  }
+  if (employee.employment?.employmentStatus === "archived") {
+    return "Archived employee record outside the active roster.";
+  }
   if (employee.runtime.runtimeStatus === "planned") {
     return "Planned employee — not yet implemented in runtime.";
   }
@@ -63,6 +84,7 @@ function renderEmployeeCard(employee: OperatorEmployeeRecord, selectedEmployeeId
 
       <div class="governance-grid" style="border-top: 1px solid var(--border); padding-top: 12px;">
         <div class="muted small">Runtime: ${escapeHtml(employee.runtime.runtimeStatus)}</div>
+        <div class="muted small">Employment: ${escapeHtml(employee.employment?.employmentStatus ?? "active")}</div>
         <div class="muted small">Budget: ${escapeHtml(getEmployeeBudgetSummary(employee))}</div>
         <div class="muted small">Cognitive profile: ${employee.hasCognitiveProfile ? "present" : "absent"}</div>
         <div class="muted small">${escapeHtml(getEmployeeGovernanceSummary(employee))}</div>
@@ -109,10 +131,14 @@ import type {
   CausalityLink,
   ControlHistoryRecord,
   DecisionSeverityFilter,
+  EmployeeEmploymentEvent,
   EmployeeContinuityOverview,
   EmployeeControlOverview,
   EmployeeEffectivePolicyOverview,
   EmployeeMessageRecord,
+  EmployeePerformanceReviewRecord,
+  EmployeeReviewCycleRecord,
+  EmployeeReviewDimension,
   DepartmentFilters,
   DepartmentOverview,
   EmployeeRuntimeStatusFilter,
@@ -127,6 +153,7 @@ import type {
   NarrativeTimelineItem,
   OperatorEmployeeRecord,
   OrgPresenceOverview,
+  RoleJobDescriptionProjection,
   TaskArtifactRecord,
   TaskDependency,
   TaskDetail,
@@ -153,15 +180,21 @@ function escapeHtml(value: unknown): string {
 
 function statusClass(status: string | null | undefined): string {
   switch (status) {
+    case "active":
     case "implemented":
       return "status status-completed";
+    case "draft":
     case "planned":
       return "status status-waiting";
+    case "retired":
+    case "terminated":
+    case "archived":
     case "disabled":
       return "status status-failed";
     case "completed":
     case "enabled":
     case "resolved":
+    case "promote":
       return "status status-completed";
     case "failed":
     case "critical":
@@ -169,11 +202,16 @@ function statusClass(status: string | null | undefined): string {
       return "status status-failed";
     case "waiting":
     case "acknowledged":
+    case "coach":
+    case "no_change":
+    case "closed":
     case "disabled_pending_review":
     case "expired":
       return "status status-waiting";
     case "running":
+    case "reassign":
       return "status status-running";
+    case "on_leave":
     case "queued":
       return "status status-open";
     case "blocked":
@@ -192,6 +230,7 @@ function statusClass(status: string | null | undefined): string {
       return "status status-restricted";
     case "manual_escalation":
       return "status status-open";
+    case "restrict":
     case "restricted":
     case "warning":
       return "status status-restricted";
@@ -1056,7 +1095,7 @@ export function renderToolbar(args: {
 }
 
 export function renderPrimaryNav(args: {
-  activeView: "tenant" | "department" | "work" | "company" | "mirrors" | "activity";
+  activeView: "tenant" | "department" | "work" | "people" | "company" | "mirrors" | "activity";
   tenantHref: string;
 }): string {
   return `
@@ -1070,6 +1109,9 @@ export function renderPrimaryNav(args: {
         </a>
         <a class="view-nav-link ${args.activeView === "activity" ? "view-nav-link-active" : ""}" href="#activity">
           Activity
+        </a>
+        <a class="view-nav-link ${args.activeView === "people" ? "view-nav-link-active" : ""}" href="#employees">
+          People
         </a>
         <a class="view-nav-link ${args.activeView === "company" ? "view-nav-link-active" : ""}" href="#company">
           Company
@@ -1867,6 +1909,170 @@ function renderEmployeeContinuityPanel(
   `;
 }
 
+function renderPublicLinksList(employee: OperatorEmployeeRecord): string {
+  if (!employee.publicLinks || employee.publicLinks.length === 0) {
+    return `<div class="empty-state small-empty">No public links recorded.</div>`;
+  }
+
+  return `
+    <div class="mini-list">
+      ${employee.publicLinks
+        .map(
+          (link) => `
+            <a class="mini-list-item" href="${escapeHtml(link.url)}" target="_blank" rel="noreferrer">
+              <div>
+                <strong>${escapeHtml(link.type)}</strong>
+                <div class="muted small">${escapeHtml(link.url)}</div>
+              </div>
+              <div class="mini-list-meta">
+                <span class="status">${escapeHtml(link.visibility)}</span>
+                <span class="muted small">${link.verified ? "verified" : "unverified"}</span>
+              </div>
+            </a>
+          `,
+        )
+        .join("")}
+    </div>
+  `;
+}
+
+function renderRoleDimensionList(dimensions: EmployeeReviewDimension[]): string {
+  if (dimensions.length === 0) {
+    return `<div class="empty-state small-empty">No review dimensions defined for this role.</div>`;
+  }
+
+  return `
+    <div class="mini-list">
+      ${dimensions
+        .map(
+          (dimension) => `
+            <article class="mini-list-item">
+              <div>
+                <strong>${escapeHtml(dimension.label)}</strong>
+                <div class="muted small">${escapeHtml(dimension.description)}</div>
+              </div>
+              <div class="mini-list-meta">
+                ${renderCompactPill("Weight", dimension.weight)}
+                <span class="muted small">${escapeHtml(dimension.key)}</span>
+              </div>
+            </article>
+          `,
+        )
+        .join("")}
+    </div>
+  `;
+}
+
+function renderEmploymentEventsList(events: EmployeeEmploymentEvent[]): string {
+  if (events.length === 0) {
+    return `<div class="empty-state small-empty">No employment lifecycle events recorded.</div>`;
+  }
+
+  return `
+    <div class="mini-list">
+      ${events
+        .map(
+          (event) => `
+            <article class="mini-list-item">
+              <div>
+                <strong>${escapeHtml(event.eventType.replaceAll("_", " "))}</strong>
+                <div class="muted small">${escapeHtml(event.reason ?? "No reason captured")}</div>
+                <div class="muted small">${escapeHtml(event.fromTeamId ?? "—")} → ${escapeHtml(event.toTeamId ?? "—")} · ${escapeHtml(event.fromRoleId ?? "—")} → ${escapeHtml(event.toRoleId ?? "—")}</div>
+              </div>
+              <div class="mini-list-meta">
+                ${renderCompactHtmlPill("Effective", formatTimestamp(event.effectiveAt))}
+                ${event.approvedBy ? renderCompactPill("Approved", event.approvedBy) : ""}
+              </div>
+            </article>
+          `,
+        )
+        .join("")}
+    </div>
+  `;
+}
+
+function renderReviewCycleList(reviewCycles: EmployeeReviewCycleRecord[]): string {
+  if (reviewCycles.length === 0) {
+    return `<div class="empty-state small-empty">No review cycles created yet.</div>`;
+  }
+
+  return `
+    <div class="mini-list">
+      ${reviewCycles
+        .map(
+          (reviewCycle) => `
+            <article class="mini-list-item">
+              <div>
+                <strong>${escapeHtml(reviewCycle.name)}</strong>
+                <div class="muted small">${formatTimestamp(reviewCycle.periodStart)} → ${formatTimestamp(reviewCycle.periodEnd)}</div>
+              </div>
+              <div class="mini-list-meta">
+                <span class="${statusClass(reviewCycle.status)}">${escapeHtml(reviewCycle.status)}</span>
+              </div>
+            </article>
+          `,
+        )
+        .join("")}
+    </div>
+  `;
+}
+
+function renderEmployeeReviewsList(
+  reviews: EmployeePerformanceReviewRecord[],
+  reviewCyclesById: Map<string, EmployeeReviewCycleRecord>,
+): string {
+  if (reviews.length === 0) {
+    return `<div class="empty-state small-empty">No employee reviews recorded yet.</div>`;
+  }
+
+  return `
+    <div class="mini-list">
+      ${reviews
+        .map((review) => {
+          const cycle = reviewCyclesById.get(review.reviewCycleId);
+          return `
+            <article class="mini-list-item">
+              <div>
+                <strong>${escapeHtml(cycle?.name ?? review.reviewCycleId)}</strong>
+                <div class="muted small">${escapeHtml(review.summary)}</div>
+                <div class="muted small">strengths: ${escapeHtml(review.strengths.join(", ") || "none")} · gaps: ${escapeHtml(review.gaps.join(", ") || "none")}</div>
+              </div>
+              <div class="mini-list-meta">
+                ${review.recommendations.map((recommendation) => `<span class="${statusClass(recommendation.recommendationType)}">${escapeHtml(recommendation.recommendationType)}</span>`).join("")}
+                ${renderCompactPill("Evidence", review.evidence.length)}
+              </div>
+            </article>
+          `;
+        })
+        .join("")}
+    </div>
+  `;
+}
+
+function renderRoleCard(
+  role: RoleJobDescriptionProjection,
+  employeeCount: number,
+): string {
+  return `
+    <article class="directory-card">
+      <div class="work-card-top">
+        <div>
+          <h3><a href="#role/${encodeURIComponent(role.roleId)}">${escapeHtml(role.title)}</a></h3>
+          <div class="muted small">${escapeHtml(role.roleId)} · ${escapeHtml(role.teamId)}</div>
+        </div>
+        <span class="status">${escapeHtml(role.seniorityLevel)}</span>
+      </div>
+      <p class="muted">${escapeHtml(role.jobDescriptionText)}</p>
+      <div class="meta-grid">
+        ${renderCompactPill("Employees", employeeCount)}
+        ${renderCompactPill("Responsibilities", role.responsibilities.length)}
+        ${renderCompactPill("Metrics", role.successMetrics.length)}
+        ${renderCompactPill("Review dims", role.reviewDimensions?.length ?? 0)}
+      </div>
+    </article>
+  `;
+}
+
 function renderSimpleTaskList(tasks: TaskRecord[]): string {
   if (tasks.length === 0) {
     return `<div class="empty-state small-empty">No tasks.</div>`;
@@ -1907,10 +2113,20 @@ function renderSimpleThreadList(threads: MessageThreadRecord[]): string {
   `;
 }
 
-export function renderEmployeesDirectory(overview: OrgPresenceOverview): string {
+export function renderEmployeesDirectory(
+  overview: OrgPresenceOverview,
+  roles: RoleJobDescriptionProjection[],
+  reviewCycles: EmployeeReviewCycleRecord[],
+): string {
   const employees = [...overview.employees].sort((a, b) =>
     getEmployeeDisplayName(a).localeCompare(getEmployeeDisplayName(b)),
   );
+  const activeEmployees = employees.filter(
+    (entry) => entry.employment.employmentStatus === "active",
+  ).length;
+  const leaveEmployees = employees.filter(
+    (entry) => entry.employment.employmentStatus === "on_leave",
+  ).length;
 
   return `
     <section class="panel">
@@ -1920,9 +2136,113 @@ export function renderEmployeesDirectory(overview: OrgPresenceOverview): string 
       </div>
       <div class="summary-grid">
         ${renderSummaryCard("Employees", employees.length, `${employees.filter((entry) => entry.runtime.runtimeStatus === "implemented").length} implemented`)}
+        ${renderSummaryCard("Active employment", activeEmployees, `${leaveEmployees} on leave`)}
         ${renderSummaryCard("With cognition", employees.filter((entry) => entry.hasCognitiveProfile).length, "cognitive profile present")}
-        ${renderSummaryCard("Teams", uniqueTeamIds(overview).length, "visible team presence")}
-        ${renderSummaryCard("Active tasks", overview.tasks.length, "canonical work linked below")}
+        ${renderSummaryCard("Roles", roles.length, "job descriptions available")}
+        ${renderSummaryCard("Review cycles", reviewCycles.length, "review cadence defined")}
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-header">
+        <h2>People management</h2>
+        <p class="muted">Create employee records and review cycles directly against the operator-agent catalog.</p>
+      </div>
+      <div class="management-grid">
+        <form class="management-form" id="people-create-employee-form">
+          <h3>Create employee</h3>
+          <label>
+            <span>Name</span>
+            <input name="employeeName" required placeholder="Avery Patel" />
+          </label>
+          <label>
+            <span>Employee ID</span>
+            <input name="employeeId" placeholder="optional override" />
+          </label>
+          <label>
+            <span>Team</span>
+            <input name="teamId" required placeholder="team_web_product" />
+          </label>
+          <label>
+            <span>Role</span>
+            <select name="roleId" required>
+              <option value="">Select role</option>
+              ${roles.map((role) => `<option value="${escapeHtml(role.roleId)}">${escapeHtml(role.title)} (${escapeHtml(role.roleId)})</option>`).join("")}
+            </select>
+          </label>
+          <label>
+            <span>Runtime status</span>
+            <select name="runtimeStatus">
+              <option value="active">active</option>
+              <option value="planned">planned</option>
+              <option value="disabled">disabled</option>
+            </select>
+          </label>
+          <label>
+            <span>Employment status</span>
+            <select name="employmentStatus">
+              <option value="draft">draft</option>
+              <option value="active" selected>active</option>
+            </select>
+          </label>
+          <label>
+            <span>Scheduler mode</span>
+            <input name="schedulerMode" value="auto" />
+          </label>
+          <label>
+            <span>Bio</span>
+            <textarea name="bio" rows="4" placeholder="Short public biography"></textarea>
+          </label>
+          <label>
+            <span>Skills</span>
+            <input name="skills" placeholder="discovery, planning, coordination" />
+          </label>
+          <label>
+            <span>Approved by</span>
+            <input name="approvedBy" value="dashboard-operator" />
+          </label>
+          <button class="button" type="submit">Create employee</button>
+        </form>
+
+        <form class="management-form" id="people-create-review-cycle-form">
+          <h3>Create review cycle</h3>
+          <label>
+            <span>Name</span>
+            <input name="name" required placeholder="Q3 2026 performance review" />
+          </label>
+          <label>
+            <span>Period start</span>
+            <input name="periodStart" type="date" required />
+          </label>
+          <label>
+            <span>Period end</span>
+            <input name="periodEnd" type="date" required />
+          </label>
+          <label>
+            <span>Status</span>
+            <select name="status">
+              <option value="draft">draft</option>
+              <option value="active">active</option>
+              <option value="closed">closed</option>
+            </select>
+          </label>
+          <label>
+            <span>Created by</span>
+            <input name="createdBy" value="dashboard-operator" />
+          </label>
+          <button class="button" type="submit">Create cycle</button>
+          ${renderReviewCycleList(reviewCycles)}
+        </form>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-header">
+        <h2>Role catalog</h2>
+        <p class="muted">Job descriptions and review dimensions used for lifecycle and performance workflows.</p>
+      </div>
+      <div class="service-grid">
+        ${roles.map((role) => renderRoleCard(role, employees.filter((employee) => employee.identity.roleId === role.roleId).length)).join("")}
       </div>
     </section>
 
@@ -1948,6 +2268,10 @@ export function renderEmployeeDetail(
   controlOverview: EmployeeControlOverview,
   effectivePolicy: EmployeeEffectivePolicyOverview,
   continuityOverview: EmployeeContinuityOverview,
+  employmentEvents: EmployeeEmploymentEvent[],
+  reviews: EmployeePerformanceReviewRecord[],
+  reviewCycles: EmployeeReviewCycleRecord[],
+  roles: RoleJobDescriptionProjection[],
 ): string {
   const employee = overview.employees.find((entry) => entry.identity.employeeId === employeeId);
 
@@ -1962,6 +2286,8 @@ export function renderEmployeeDetail(
 
   const relatedTasks = overview.tasks.filter((task) => employeeTouchesTask(task, employeeId));
   const relatedThreads = overview.threads.filter((thread) => employeeTouchesThread(thread, employeeId));
+  const role = roles.find((entry) => entry.roleId === employee.identity.roleId) ?? null;
+  const reviewCyclesById = new Map(reviewCycles.map((entry) => [entry.reviewCycleId, entry]));
 
   return `
     <a class="back-link" href="#employees">← Back to employees</a>
@@ -1979,6 +2305,182 @@ export function renderEmployeeDetail(
         ${renderSummaryCard("Threads", relatedThreads.length, "created or owned thread presence")}
         ${renderSummaryCard("Team", employee.identity.teamId, "home team")}
         ${renderSummaryCard("Role", employee.identity.roleId, "runtime role")}
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-header">
+        <h3>Employment and role</h3>
+        <p class="muted">Catalog lifecycle state, public links, and current role definition.</p>
+      </div>
+      <div class="summary-grid">
+        ${renderSummaryCard("Employment", employee.employment.employmentStatus, employee.employment.schedulerMode)}
+        ${renderSummaryCard("Role title", role?.title ?? employee.identity.roleId, role?.seniorityLevel ?? employee.identity.teamId)}
+        ${renderSummaryCard("Public links", employee.publicLinks?.length ?? 0, "profile endpoints")}
+        ${renderSummaryCard("Reviews", reviews.length, "performance reviews recorded")}
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-header"><h3>Public links</h3></div>
+      ${renderPublicLinksList(employee)}
+    </section>
+
+    <section class="panel">
+      <div class="panel-header"><h3>Employment events</h3></div>
+      ${renderEmploymentEventsList(employmentEvents)}
+    </section>
+
+    <section class="panel">
+      <div class="panel-header"><h3>Performance reviews</h3></div>
+      ${renderEmployeeReviewsList(reviews, reviewCyclesById)}
+    </section>
+
+    <section class="panel">
+      <div class="panel-header"><h3>Role expectations</h3></div>
+      <div class="section-stack">
+        ${role
+          ? `
+            <div class="directory-card">
+              <div class="work-card-top">
+                <div>
+                  <strong><a href="#role/${encodeURIComponent(role.roleId)}">${escapeHtml(role.title)}</a></strong>
+                  <div class="muted small">${escapeHtml(role.roleId)} · ${escapeHtml(role.teamId)}</div>
+                </div>
+                <span class="status">${escapeHtml(role.seniorityLevel)}</span>
+              </div>
+              <p class="muted">${escapeHtml(role.jobDescriptionText)}</p>
+            </div>
+            ${renderRoleDimensionList(role.reviewDimensions ?? [])}
+          `
+          : `<div class="empty-state small-empty">No role catalog entry found for ${escapeHtml(employee.identity.roleId)}.</div>`}
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-header">
+        <h3>Manage employee</h3>
+        <p class="muted">Update public profile fields, trigger lifecycle changes, or record a review.</p>
+      </div>
+      <div class="management-grid">
+        <form class="management-form" id="employee-profile-form" data-employee-id="${escapeHtml(employee.identity.employeeId)}">
+          <h4>Update profile</h4>
+          <label>
+            <span>Name</span>
+            <input name="employeeName" value="${escapeHtml(employee.publicProfile?.displayName ?? employee.identity.employeeId)}" />
+          </label>
+          <label>
+            <span>Scheduler mode</span>
+            <input name="schedulerMode" value="${escapeHtml(employee.employment.schedulerMode)}" />
+          </label>
+          <label>
+            <span>Bio</span>
+            <textarea name="bio" rows="4">${escapeHtml(employee.publicProfile?.bio ?? "")}</textarea>
+          </label>
+          <label>
+            <span>Skills</span>
+            <input name="skills" value="${escapeHtml(employee.publicProfile?.skills?.join(", ") ?? "")}" />
+          </label>
+          <label>
+            <span>Avatar URL</span>
+            <input name="avatarUrl" value="${escapeHtml(employee.publicProfile?.avatarUrl ?? employee.visualIdentity?.avatarUrl ?? "")}" />
+          </label>
+          <label>
+            <span>Appearance summary</span>
+            <textarea name="appearanceSummary" rows="3">${escapeHtml(employee.visualIdentity?.appearanceSummary ?? "")}</textarea>
+          </label>
+          <label>
+            <span>Birth year</span>
+            <input name="birthYear" type="number" min="1900" max="2100" value="${escapeHtml(employee.visualIdentity?.birthYear ?? "")}" />
+          </label>
+          <label>
+            <span>Public links</span>
+            <textarea name="publicLinks" rows="4" placeholder="github|https://github.com/example|true|public">${escapeHtml((employee.publicLinks ?? []).map((link) => `${link.type}|${link.url}|${String(link.verified)}|${link.visibility}`).join("\n"))}</textarea>
+          </label>
+          <button class="button" type="submit">Update profile</button>
+        </form>
+
+        <form class="management-form" id="employee-lifecycle-form" data-employee-id="${escapeHtml(employee.identity.employeeId)}">
+          <h4>Lifecycle action</h4>
+          <label>
+            <span>Action</span>
+            <select name="action">
+              <option value="activate">activate</option>
+              <option value="reassign-team">reassign-team</option>
+              <option value="change-role">change-role</option>
+              <option value="start-leave">start-leave</option>
+              <option value="end-leave">end-leave</option>
+              <option value="retire">retire</option>
+              <option value="terminate">terminate</option>
+              <option value="rehire">rehire</option>
+              <option value="archive">archive</option>
+            </select>
+          </label>
+          <label>
+            <span>To team</span>
+            <input name="toTeamId" placeholder="required for reassign-team" />
+          </label>
+          <label>
+            <span>To role</span>
+            <select name="toRoleId">
+              <option value="">Select role</option>
+              ${roles.map((entry) => `<option value="${escapeHtml(entry.roleId)}">${escapeHtml(entry.title)} (${escapeHtml(entry.roleId)})</option>`).join("")}
+            </select>
+          </label>
+          <label>
+            <span>Reason</span>
+            <textarea name="reason" rows="3" placeholder="Why this lifecycle action is needed"></textarea>
+          </label>
+          <label>
+            <span>Approved by</span>
+            <input name="approvedBy" value="dashboard-operator" />
+          </label>
+          <label>
+            <span>Effective at</span>
+            <input name="effectiveAt" type="datetime-local" />
+          </label>
+          <button class="button" type="submit">Apply lifecycle action</button>
+        </form>
+
+        <form class="management-form" id="employee-review-form" data-employee-id="${escapeHtml(employee.identity.employeeId)}">
+          <h4>Record review</h4>
+          <label>
+            <span>Review cycle</span>
+            <select name="reviewCycleId" required>
+              <option value="">Select cycle</option>
+              ${reviewCycles.map((reviewCycle) => `<option value="${escapeHtml(reviewCycle.reviewCycleId)}">${escapeHtml(reviewCycle.name)} (${escapeHtml(reviewCycle.status)})</option>`).join("")}
+            </select>
+          </label>
+          <label>
+            <span>Summary</span>
+            <textarea name="summary" rows="4" required placeholder="Performance summary"></textarea>
+          </label>
+          <label>
+            <span>Strengths</span>
+            <input name="strengths" placeholder="execution, collaboration" />
+          </label>
+          <label>
+            <span>Gaps</span>
+            <input name="gaps" placeholder="prioritization, test depth" />
+          </label>
+          <label>
+            <span>Dimension scores</span>
+            <textarea name="dimensionScores" rows="4" placeholder="system_thinking|4|Strong decomposition"></textarea>
+          </label>
+          <label>
+            <span>Recommendations</span>
+            <textarea name="recommendations" rows="4" placeholder="coach|Improve stakeholder communication"></textarea>
+          </label>
+          <label>
+            <span>Evidence</span>
+            <textarea name="evidence" rows="4" placeholder="task|task_123&#10;artifact|artifact_456"></textarea>
+          </label>
+          <label>
+            <span>Created by</span>
+            <input name="createdBy" value="dashboard-operator" />
+          </label>
+          <button class="button" type="submit">Create review</button>
+        </form>
       </div>
     </section>
 
@@ -2123,6 +2625,10 @@ export function renderCompanyOverview(overview: OrgPresenceOverview): string {
           <strong>Employees</strong>
           <span class="muted small">Public employee profiles and work presence</span>
         </a>
+        <a class="nav-card" href="#roles">
+          <strong>Roles</strong>
+          <span class="muted small">Job descriptions, review dimensions, and staffing context</span>
+        </a>
         <a class="nav-card" href="#teams">
           <strong>Teams</strong>
           <span class="muted small">Team-level work, roadmaps, and employee grouping</span>
@@ -2152,6 +2658,111 @@ export function renderCompanyOverview(overview: OrgPresenceOverview): string {
     <section class="panel">
       <div class="panel-header"><h3>Roadmap snapshot</h3></div>
       ${renderRoadmapsTable(overview.roadmaps)}
+    </section>
+  `;
+}
+
+export function renderRolesCatalog(
+  roles: RoleJobDescriptionProjection[],
+  overview: OrgPresenceOverview,
+): string {
+  const sortedRoles = [...roles].sort((left, right) => left.title.localeCompare(right.title));
+
+  return `
+    <section class="panel">
+      <div class="panel-header">
+        <h2>Roles</h2>
+        <p class="muted">Canonical job descriptions and performance review dimensions from the operator-agent role catalog.</p>
+      </div>
+      <div class="summary-grid">
+        ${renderSummaryCard("Roles", sortedRoles.length, "catalog entries")}
+        ${renderSummaryCard("Teams", new Set(sortedRoles.map((entry) => entry.teamId)).size, "teams represented")}
+        ${renderSummaryCard("Review dimensions", sortedRoles.reduce((sum, entry) => sum + (entry.reviewDimensions?.length ?? 0), 0), "total score dimensions")}
+        ${renderSummaryCard("Employees mapped", overview.employees.filter((employee) => sortedRoles.some((role) => role.roleId === employee.identity.roleId)).length, "employees with cataloged roles")}
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-header"><h3>Catalog</h3></div>
+      <div class="service-grid">
+        ${sortedRoles.map((role) => renderRoleCard(role, overview.employees.filter((employee) => employee.identity.roleId === role.roleId).length)).join("")}
+      </div>
+    </section>
+  `;
+}
+
+export function renderRoleDetail(
+  roleId: string,
+  roles: RoleJobDescriptionProjection[],
+  overview: OrgPresenceOverview,
+  reviewCycles: EmployeeReviewCycleRecord[],
+): string {
+  const role = roles.find((entry) => entry.roleId === roleId);
+  if (!role) {
+    return `
+      <section class="panel">
+        <a class="back-link" href="#roles">← Back to roles</a>
+        <div class="empty-state">Role ${escapeHtml(roleId)} not found.</div>
+      </section>
+    `;
+  }
+
+  const employees = overview.employees.filter((employee) => employee.identity.roleId === role.roleId);
+
+  return `
+    <section class="panel">
+      <a class="back-link" href="#roles">← Back to roles</a>
+      <div class="panel-header">
+        <h2>${escapeHtml(role.title)}</h2>
+        <p class="muted">${escapeHtml(role.roleId)} · ${escapeHtml(role.teamId)} · ${escapeHtml(role.seniorityLevel)}</p>
+      </div>
+      <div class="summary-grid">
+        ${renderSummaryCard("Employees", employees.length, "current roster")}
+        ${renderSummaryCard("Responsibilities", role.responsibilities.length, "role expectations")}
+        ${renderSummaryCard("Success metrics", role.successMetrics.length, "evaluation signals")}
+        ${renderSummaryCard("Review cycles", reviewCycles.length, "available for assessment")}
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-header"><h3>Job description</h3></div>
+      <p class="muted">${escapeHtml(role.jobDescriptionText)}</p>
+      <div class="management-grid">
+        <div class="directory-card">
+          <h4>Responsibilities</h4>
+          <ul>
+            ${role.responsibilities.map((entry) => `<li>${escapeHtml(entry)}</li>`).join("")}
+          </ul>
+        </div>
+        <div class="directory-card">
+          <h4>Success metrics</h4>
+          <ul>
+            ${role.successMetrics.map((entry) => `<li>${escapeHtml(entry)}</li>`).join("")}
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-header"><h3>Constraints and review dimensions</h3></div>
+      <div class="management-grid">
+        <div class="directory-card">
+          <h4>Constraints</h4>
+          <ul>
+            ${role.constraints.map((entry) => `<li>${escapeHtml(entry)}</li>`).join("")}
+          </ul>
+        </div>
+        <div>
+          ${renderRoleDimensionList(role.reviewDimensions ?? [])}
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-header"><h3>Current employees</h3></div>
+      <div class="service-grid">
+        ${employees.map((employee) => `<a class="unstyled-link" href="#employee/${encodeURIComponent(employee.identity.employeeId)}">${renderEmployeeCard(employee, null)}</a>`).join("")}
+      </div>
     </section>
   `;
 }

@@ -28,7 +28,9 @@ a:hover {
 }
 
 button,
-input {
+input,
+select,
+textarea {
   font: inherit;
 }
 
@@ -595,6 +597,54 @@ button:disabled {
   color: #dbeafe;
 }
 
+.directory-card {
+  border-radius: 16px;
+  padding: 16px;
+  background: rgba(10, 17, 30, 0.7);
+  border: 1px solid rgba(148, 163, 184, 0.14);
+}
+
+.management-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.management-form {
+  display: grid;
+  gap: 12px;
+  align-content: start;
+  padding: 16px;
+  border-radius: 16px;
+  background: rgba(2, 8, 23, 0.5);
+  border: 1px solid rgba(148, 163, 184, 0.12);
+}
+
+.management-form label {
+  display: grid;
+  gap: 6px;
+}
+
+.management-form input,
+.management-form select,
+.management-form textarea {
+  width: 100%;
+  color: inherit;
+  background: #0f172a;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  border-radius: 10px;
+  padding: 8px 10px;
+}
+
+.management-form textarea {
+  resize: vertical;
+}
+
+.section-stack {
+  display: grid;
+  gap: 16px;
+}
+
 @media (max-width: 920px) {
   .pager {
     grid-template-columns: 1fr;
@@ -607,6 +657,10 @@ button:disabled {
 
   .summary-grid,
   .governance-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .management-grid {
     grid-template-columns: 1fr;
   }
 

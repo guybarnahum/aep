@@ -1778,9 +1778,9 @@ Deliver:
 * reassignment / escalation / defer / block outcomes
 * continuity visibility in canonical work surfaces
 
-## PR13E — Job descriptions + performance reviews
+## PR13E — Job descriptions + performance reviews (COMPLETED)
 
-Deliver:
+Implemented:
 
 * canonical JD model
 * review dimensions per role
@@ -1788,9 +1788,23 @@ Deliver:
 * evidence-linked performance reviews
 * review-driven promotion / coaching / reassignment / restriction recommendations
 
-## PR13F — People / org-management UI
+Operator-agent now exposes canonical people-review surfaces through:
 
-Deliver:
+* `GET /agent/roles`
+* `GET /agent/review-cycles`
+* `POST /agent/review-cycles`
+* `GET /agent/employees/:employeeId/reviews`
+* `POST /agent/employees/:employeeId/reviews`
+
+Important invariant:
+
+* employee review dimensions come from canonical role contracts
+* review evidence links point to canonical tasks, artifacts, or threads
+* public role/JD/review surfaces do not expose private cognition or prompt internals
+
+## PR13F — People / org-management UI (COMPLETED)
+
+Implemented:
 
 * people directory
 * employee detail
@@ -1799,6 +1813,27 @@ Deliver:
 * role / JD detail
 * performance review views
 * org and staffing management surfaces
+
+The dashboard now includes canonical people-management routes:
+
+* `#employees`
+* `#employee/:employeeId`
+* `#roles`
+* `#role/:roleId`
+
+The dashboard now supports direct canonical write flows for:
+
+* employee creation
+* employee profile updates
+* employee lifecycle transitions
+* review-cycle creation
+* employee-review creation
+
+Important invariant:
+
+* the dashboard remains a surface over canonical operator-agent routes
+* it does not create a parallel people-management state model
+* lifecycle and review changes remain explicit, auditable HTTP mutations
 
 ## PR13G — Hardening + policy + realism pass
 

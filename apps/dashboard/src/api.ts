@@ -3,9 +3,15 @@ import type {
   CreateCanonicalThreadMessageResponse,
   DelegateTaskFromThreadInput,
   DelegateTaskFromThreadResponse,
+  EmployeeEmploymentEvent,
   EmployeeContinuityOverview,
   EmployeeControlOverview,
   EmployeeEffectivePolicyOverview,
+  EmployeePerformanceRecommendation,
+  EmployeePerformanceReviewEvidence,
+  EmployeePerformanceReviewRecord,
+  EmployeePublicLink,
+  EmployeeReviewCycleRecord,
   ExternalMirrorOverview,
   MessageThreadDetail,
   MessageThreadRecord,
@@ -13,6 +19,7 @@ import type {
   NarrativeTimeline,
   NarrativeTimelineItem,
   OrgPresenceOverview,
+  RoleJobDescriptionProjection,
   TaskDetail,
   TaskRecord,
   ApprovalRecord,
@@ -21,6 +28,7 @@ import type {
   EscalationMutationResponse,
   EscalationRecord,
   ManagerDecisionRecord,
+  EmployeeEmploymentStatus,
   OperatorEmployeeRecord,
   SchedulerStatus,
   ServiceOverview,
@@ -35,6 +43,10 @@ function normalizeEmployeeRecord(
 ): OperatorEmployeeRecord {
   return {
     ...employee,
+    employment: {
+      employmentStatus: employee.employment?.employmentStatus ?? "active",
+      schedulerMode: employee.employment?.schedulerMode ?? "auto",
+    },
     runtime: {
       ...employee.runtime,
       effectiveState: employee.runtime?.effectiveState,
@@ -42,7 +54,19 @@ function normalizeEmployeeRecord(
       effectiveAuthority: employee.runtime?.effectiveAuthority,
     },
     publicProfile: employee.publicProfile,
+    publicLinks: Array.isArray(employee.publicLinks) ? employee.publicLinks : [],
+    visualIdentity: employee.visualIdentity,
     hasCognitiveProfile: employee.hasCognitiveProfile === true,
+  };
+}
+
+function normalizeRole(role: RoleJobDescriptionProjection): RoleJobDescriptionProjection {
+  return {
+    ...role,
+    responsibilities: Array.isArray(role.responsibilities) ? role.responsibilities : [],
+    successMetrics: Array.isArray(role.successMetrics) ? role.successMetrics : [],
+    constraints: Array.isArray(role.constraints) ? role.constraints : [],
+    reviewDimensions: Array.isArray(role.reviewDimensions) ? role.reviewDimensions : [],
   };
 }
 
@@ -93,6 +117,104 @@ async function postJson<T>(
 
   return (await response.json()) as T;
 }
+
+async function patchJson<T>(
+  baseUrl: string,
+  path: string,
+  body: Record<string, unknown>,
+): Promise<T> {
+  const response = await fetch(`${baseUrl}${path}`, {
+    method: "PATCH",
+    headers: {
+      "content-type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(
+      `Request failed: ${response.status} ${response.statusText}${text ? ` — ${text}` : ""}`,
+    );
+  }
+
+  return (await response.json()) as T;
+}
+
+export type CreateEmployeeRequest = {
+  employeeId?: string;
+  companyId?: string;
+  teamId: string;
+  roleId: string;
+  employeeName: string;
+  runtimeStatus?: "planned" | "active" | "disabled";
+  employmentStatus?: EmployeeEmploymentStatus;
+  schedulerMode?: string;
+  bio?: string;
+  tone?: string;
+  skills?: string[];
+  avatarUrl?: string;
+  appearanceSummary?: string;
+  birthYear?: number;
+  publicLinks?: EmployeePublicLink[];
+  approvedBy?: string;
+  threadId?: string;
+  effectiveAt?: string;
+  reason?: string;
+};
+
+export type UpdateEmployeeProfileRequest = {
+  employeeName?: string;
+  schedulerMode?: string;
+  bio?: string;
+  tone?: string;
+  skills?: string[];
+  avatarUrl?: string;
+  appearanceSummary?: string;
+  birthYear?: number;
+  publicLinks?: EmployeePublicLink[];
+};
+
+export type EmployeeLifecycleAction =
+  | "activate"
+  | "reassign-team"
+  | "change-role"
+  | "start-leave"
+  | "end-leave"
+  | "retire"
+  | "terminate"
+  | "rehire"
+  | "archive";
+
+export type RunEmployeeLifecycleActionRequest = {
+  toTeamId?: string;
+  toRoleId?: string;
+  reason?: string;
+  approvedBy?: string;
+  threadId?: string;
+  effectiveAt?: string;
+};
+
+export type CreateReviewCycleRequest = {
+  companyId?: string;
+  name: string;
+  periodStart: string;
+  periodEnd: string;
+  status?: "draft" | "active" | "closed";
+  createdBy?: string;
+};
+
+export type CreateEmployeeReviewRequest = {
+  reviewCycleId: string;
+  summary: string;
+  strengths: string[];
+  gaps: string[];
+  dimensionScores: Array<{ key: string; score: number; note?: string }>;
+  recommendations: EmployeePerformanceRecommendation[];
+  evidence: EmployeePerformanceReviewEvidence[];
+  createdBy?: string;
+  approvedBy?: string;
+};
 
 export async function getTenants(): Promise<TenantSummary[]> {
   const payload = await getJson<{ tenants: TenantSummary[] }>(
@@ -282,6 +404,130 @@ export async function getEmployeeContinuityOverview(
     recentManagerDecisions,
     recentControlHistory,
   };
+}
+
+export async function getRoles(teamId?: string): Promise<RoleJobDescriptionProjection[]> {
+  const path = teamId
+    ? `/agent/roles?teamId=${encodeURIComponent(teamId)}`
+    : "/agent/roles";
+  const payload = await getJson<{
+    ok: boolean;
+    count: number;
+    roles: RoleJobDescriptionProjection[];
+  }>(getOperatorAgentBaseUrl(), path);
+  return (payload.roles ?? []).map(normalizeRole);
+}
+
+export async function getReviewCycles(): Promise<EmployeeReviewCycleRecord[]> {
+  const payload = await getJson<{
+    ok: boolean;
+    count: number;
+    reviewCycles: EmployeeReviewCycleRecord[];
+  }>(getOperatorAgentBaseUrl(), "/agent/review-cycles");
+  return payload.reviewCycles ?? [];
+}
+
+export async function getEmployeeEmploymentEvents(
+  employeeId: string,
+): Promise<EmployeeEmploymentEvent[]> {
+  const payload = await getJson<{
+    ok: boolean;
+    employeeId: string;
+    count: number;
+    events: EmployeeEmploymentEvent[];
+  }>(
+    getOperatorAgentBaseUrl(),
+    `/agent/employees/${encodeURIComponent(employeeId)}/employment-events`,
+  );
+  return payload.events ?? [];
+}
+
+export async function getEmployeeReviews(
+  employeeId: string,
+): Promise<EmployeePerformanceReviewRecord[]> {
+  const payload = await getJson<{
+    ok: boolean;
+    employeeId: string;
+    count: number;
+    reviews: EmployeePerformanceReviewRecord[];
+  }>(
+    getOperatorAgentBaseUrl(),
+    `/agent/employees/${encodeURIComponent(employeeId)}/reviews`,
+  );
+  return payload.reviews ?? [];
+}
+
+export async function createEmployee(
+  request: CreateEmployeeRequest,
+): Promise<{ ok: boolean; employeeId: string; employmentStatus: EmployeeEmploymentStatus }> {
+  return postJson<{
+    ok: boolean;
+    employeeId: string;
+    employmentStatus: EmployeeEmploymentStatus;
+  }>(getOperatorAgentBaseUrl(), "/agent/employees", request);
+}
+
+export async function updateEmployeeProfile(
+  employeeId: string,
+  request: UpdateEmployeeProfileRequest,
+): Promise<{ ok: boolean; employeeId: string }> {
+  return patchJson<{ ok: boolean; employeeId: string }>(
+    getOperatorAgentBaseUrl(),
+    `/agent/employees/${encodeURIComponent(employeeId)}`,
+    request,
+  );
+}
+
+export async function runEmployeeLifecycleAction(
+  employeeId: string,
+  action: EmployeeLifecycleAction,
+  request: RunEmployeeLifecycleActionRequest,
+): Promise<{
+  ok: boolean;
+  employeeId: string;
+  employmentStatus: EmployeeEmploymentStatus;
+  teamId: string;
+  roleId: string;
+  action: string;
+}> {
+  return postJson<{
+    ok: boolean;
+    employeeId: string;
+    employmentStatus: EmployeeEmploymentStatus;
+    teamId: string;
+    roleId: string;
+    action: string;
+  }>(
+    getOperatorAgentBaseUrl(),
+    `/agent/employees/${encodeURIComponent(employeeId)}/${action}`,
+    request,
+  );
+}
+
+export async function createReviewCycle(
+  request: CreateReviewCycleRequest,
+): Promise<EmployeeReviewCycleRecord> {
+  const payload = await postJson<{
+    ok: boolean;
+    reviewCycle: EmployeeReviewCycleRecord;
+  }>(getOperatorAgentBaseUrl(), "/agent/review-cycles", request);
+  return payload.reviewCycle;
+}
+
+export async function createEmployeeReview(
+  employeeId: string,
+  request: CreateEmployeeReviewRequest,
+): Promise<EmployeePerformanceReviewRecord> {
+  const payload = await postJson<{
+    ok: boolean;
+    employeeId: string;
+    review: EmployeePerformanceReviewRecord;
+  }>(
+    getOperatorAgentBaseUrl(),
+    `/agent/employees/${encodeURIComponent(employeeId)}/reviews`,
+    request,
+  );
+  return payload.review;
 }
 
 export async function getExternalMirrorOverview(): Promise<ExternalMirrorOverview> {

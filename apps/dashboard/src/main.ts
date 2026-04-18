@@ -12,18 +12,25 @@ import {
   acknowledgeEscalationFromThread,
   approveApproval,
   approveFromThread,
+  createEmployee,
+  createEmployeeReview,
   createCanonicalThreadMessage,
+  createReviewCycle,
   delegateTaskFromThread,
   getApiBaseUrl,
   getEmployeeContinuityOverview,
   getEmployeeControlOverview,
   getEmployeeEffectivePolicy,
+  getEmployeeEmploymentEvents,
+  getEmployeeReviews,
   getExternalMirrorOverview,
   getMessageThreadDetail,
   getMessageThreads,
   getNarrativeTimeline,
   getDepartmentOverview,
   getOrgPresenceOverview,
+  getReviewCycles,
+  getRoles,
   getTaskDetail,
   getWorkTasks,
   getOperatorAgentBaseUrl,
@@ -34,10 +41,13 @@ import {
   rejectFromThread,
   resolveEscalation,
   resolveEscalationFromThread,
+  runEmployeeLifecycleAction,
+  updateEmployeeProfile,
 } from "./api";
 import type {
   DepartmentFilters,
   DepartmentPaginationState,
+  EmployeePublicLink,
   OrgPresenceOverview,
   PageSize,
   TenantSummary,
@@ -51,6 +61,8 @@ import {
   renderExternalMirrorOverview,
   renderNarrativeTimeline,
   renderPrimaryNav,
+  renderRoleDetail,
+  renderRolesCatalog,
   renderServiceOverview,
   renderTaskDetail,
   renderTeamDetail,
@@ -91,6 +103,8 @@ type Route =
   | { kind: "thread"; threadId: string }
   | { kind: "employees" }
   | { kind: "employee"; employeeId: string }
+  | { kind: "roles" }
+  | { kind: "role"; roleId: string }
   | { kind: "teams" }
   | { kind: "team"; teamId: string }
   | { kind: "company" }
@@ -364,6 +378,10 @@ function getRoute(defaultTenantId: string): Route {
     return { kind: "employees" };
   }
 
+  if (hash === "roles") {
+    return { kind: "roles" };
+  }
+
   if (hash === "teams") {
     return { kind: "teams" };
   }
@@ -398,6 +416,14 @@ function getRoute(defaultTenantId: string): Route {
     return {
       kind: "employee",
       employeeId: decodeURIComponent(employeeMatch[1]),
+    };
+  }
+
+  const roleMatch = hash.match(/^role\/(.+)$/);
+  if (roleMatch?.[1]) {
+    return {
+      kind: "role",
+      roleId: decodeURIComponent(roleMatch[1]),
     };
   }
 
@@ -733,6 +759,249 @@ function parseOptionalJsonObject(
   return parsed as Record<string, unknown>;
 }
 
+function splitCommaValues(raw: string): string[] {
+  return raw
+    .split(/[\n,]/)
+    .map((value) => value.trim())
+    .filter(Boolean);
+}
+
+function parsePublicLinks(raw: string): EmployeePublicLink[] {
+  return raw
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const [type, url, verified, visibility] = line.split("|").map((value) => value.trim());
+      if (!type || !url) {
+        throw new Error("Each public link must use type|url|verified|visibility format.");
+      }
+
+      return {
+        type: (type || "website") as EmployeePublicLink["type"],
+        url,
+        verified: verified === "true",
+        visibility: (visibility || "public") as EmployeePublicLink["visibility"],
+      };
+    });
+}
+
+function toIsoDate(value: string): string | undefined {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return undefined;
+  }
+
+  const candidate = trimmed.includes("T") ? trimmed : `${trimmed}T00:00:00.000Z`;
+  const parsed = new Date(candidate);
+  if (Number.isNaN(parsed.getTime())) {
+    throw new Error(`Invalid date value: ${value}`);
+  }
+
+  return parsed.toISOString();
+}
+
+function parseDimensionScores(raw: string): Array<{ key: string; score: number; note?: string }> {
+  return raw
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const [key, scoreRaw, note] = line.split("|").map((value) => value.trim());
+      const score = Number(scoreRaw);
+      if (!key || Number.isNaN(score)) {
+        throw new Error("Each dimension score must use key|score|optional note format.");
+      }
+
+      return {
+        key,
+        score,
+        note: note || undefined,
+      };
+    });
+}
+
+function parseRecommendations(raw: string): Array<{ recommendationType: "promote" | "coach" | "reassign" | "restrict" | "no_change"; summary: string }> {
+  return raw
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const [recommendationType, summary] = line.split("|").map((value) => value.trim());
+      if (!recommendationType || !summary) {
+        throw new Error("Each recommendation must use type|summary format.");
+      }
+
+      return {
+        recommendationType: recommendationType as "promote" | "coach" | "reassign" | "restrict" | "no_change",
+        summary,
+      };
+    });
+}
+
+function parseEvidence(raw: string): Array<{ evidenceType: "task" | "artifact" | "thread"; evidenceId: string }> {
+  return raw
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const [evidenceType, evidenceId] = line.split("|").map((value) => value.trim());
+      if (!evidenceType || !evidenceId) {
+        throw new Error("Each evidence entry must use type|id format.");
+      }
+
+      return {
+        evidenceType: evidenceType as "task" | "artifact" | "thread",
+        evidenceId,
+      };
+    });
+}
+
+function attachPeopleHandlers(): void {
+  const createEmployeeForm = document.querySelector<HTMLFormElement>("#people-create-employee-form");
+  const createReviewCycleForm = document.querySelector<HTMLFormElement>("#people-create-review-cycle-form");
+
+  createEmployeeForm?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const formData = new FormData(createEmployeeForm);
+
+    try {
+      setMutationStatus("Creating employee…");
+      void renderRoute();
+      await createEmployee({
+        employeeId: String(formData.get("employeeId") ?? "").trim() || undefined,
+        employeeName: String(formData.get("employeeName") ?? "").trim(),
+        teamId: String(formData.get("teamId") ?? "").trim(),
+        roleId: String(formData.get("roleId") ?? "").trim(),
+        runtimeStatus: String(formData.get("runtimeStatus") ?? "active").trim() as "planned" | "active" | "disabled",
+        employmentStatus: String(formData.get("employmentStatus") ?? "active").trim() as "draft" | "active",
+        schedulerMode: String(formData.get("schedulerMode") ?? "auto").trim(),
+        bio: String(formData.get("bio") ?? "").trim() || undefined,
+        skills: splitCommaValues(String(formData.get("skills") ?? "")),
+        approvedBy: String(formData.get("approvedBy") ?? "").trim() || undefined,
+      });
+      setMutationStatus("Employee created.");
+    } catch (error) {
+      setMutationStatus(error instanceof Error ? error.message : "Failed to create employee");
+    }
+    void renderRoute();
+  });
+
+  createReviewCycleForm?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const formData = new FormData(createReviewCycleForm);
+
+    try {
+      setMutationStatus("Creating review cycle…");
+      void renderRoute();
+      await createReviewCycle({
+        name: String(formData.get("name") ?? "").trim(),
+        periodStart: toIsoDate(String(formData.get("periodStart") ?? "")) ?? "",
+        periodEnd: toIsoDate(String(formData.get("periodEnd") ?? "")) ?? "",
+        status: String(formData.get("status") ?? "draft").trim() as "draft" | "active" | "closed",
+        createdBy: String(formData.get("createdBy") ?? "").trim() || undefined,
+      });
+      setMutationStatus("Review cycle created.");
+    } catch (error) {
+      setMutationStatus(error instanceof Error ? error.message : "Failed to create review cycle");
+    }
+    void renderRoute();
+  });
+}
+
+function attachEmployeeManagementHandlers(): void {
+  const profileForm = document.querySelector<HTMLFormElement>("#employee-profile-form");
+  const lifecycleForm = document.querySelector<HTMLFormElement>("#employee-lifecycle-form");
+  const reviewForm = document.querySelector<HTMLFormElement>("#employee-review-form");
+
+  profileForm?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const employeeId = profileForm.dataset.employeeId;
+    if (!employeeId) return;
+    const formData = new FormData(profileForm);
+
+    try {
+      setMutationStatus(`Updating ${employeeId} profile…`);
+      void renderRoute();
+      await updateEmployeeProfile(employeeId, {
+        employeeName: String(formData.get("employeeName") ?? "").trim() || undefined,
+        schedulerMode: String(formData.get("schedulerMode") ?? "").trim() || undefined,
+        bio: String(formData.get("bio") ?? "").trim() || undefined,
+        skills: splitCommaValues(String(formData.get("skills") ?? "")),
+        avatarUrl: String(formData.get("avatarUrl") ?? "").trim() || undefined,
+        appearanceSummary: String(formData.get("appearanceSummary") ?? "").trim() || undefined,
+        birthYear: String(formData.get("birthYear") ?? "").trim()
+          ? Number(String(formData.get("birthYear") ?? "").trim())
+          : undefined,
+        publicLinks: parsePublicLinks(String(formData.get("publicLinks") ?? "")),
+      });
+      setMutationStatus(`Updated ${employeeId} profile.`);
+    } catch (error) {
+      setMutationStatus(error instanceof Error ? error.message : "Failed to update employee profile");
+    }
+    void renderRoute();
+  });
+
+  lifecycleForm?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const employeeId = lifecycleForm.dataset.employeeId;
+    if (!employeeId) return;
+    const formData = new FormData(lifecycleForm);
+    const action = String(formData.get("action") ?? "activate").trim() as
+      | "activate"
+      | "reassign-team"
+      | "change-role"
+      | "start-leave"
+      | "end-leave"
+      | "retire"
+      | "terminate"
+      | "rehire"
+      | "archive";
+
+    try {
+      setMutationStatus(`Applying ${action} for ${employeeId}…`);
+      void renderRoute();
+      await runEmployeeLifecycleAction(employeeId, action, {
+        toTeamId: String(formData.get("toTeamId") ?? "").trim() || undefined,
+        toRoleId: String(formData.get("toRoleId") ?? "").trim() || undefined,
+        reason: String(formData.get("reason") ?? "").trim() || undefined,
+        approvedBy: String(formData.get("approvedBy") ?? "").trim() || undefined,
+        effectiveAt: toIsoDate(String(formData.get("effectiveAt") ?? "")),
+      });
+      setMutationStatus(`Applied ${action} for ${employeeId}.`);
+    } catch (error) {
+      setMutationStatus(error instanceof Error ? error.message : "Failed to apply lifecycle action");
+    }
+    void renderRoute();
+  });
+
+  reviewForm?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const employeeId = reviewForm.dataset.employeeId;
+    if (!employeeId) return;
+    const formData = new FormData(reviewForm);
+
+    try {
+      setMutationStatus(`Creating review for ${employeeId}…`);
+      void renderRoute();
+      await createEmployeeReview(employeeId, {
+        reviewCycleId: String(formData.get("reviewCycleId") ?? "").trim(),
+        summary: String(formData.get("summary") ?? "").trim(),
+        strengths: splitCommaValues(String(formData.get("strengths") ?? "")),
+        gaps: splitCommaValues(String(formData.get("gaps") ?? "")),
+        dimensionScores: parseDimensionScores(String(formData.get("dimensionScores") ?? "")),
+        recommendations: parseRecommendations(String(formData.get("recommendations") ?? "")),
+        evidence: parseEvidence(String(formData.get("evidence") ?? "")),
+        createdBy: String(formData.get("createdBy") ?? "").trim() || undefined,
+      });
+      setMutationStatus(`Created review for ${employeeId}.`);
+    } catch (error) {
+      setMutationStatus(error instanceof Error ? error.message : "Failed to create employee review");
+    }
+    void renderRoute();
+  });
+}
+
 function attachThreadInteractionHandlers(threadId: string): void {
   const composeForm = document.querySelector<HTMLFormElement>("#thread-compose-form");
   const subjectInput = document.querySelector<HTMLInputElement>("#thread-compose-subject");
@@ -985,6 +1254,7 @@ async function renderRoute(): Promise<void> {
       "department",
       "work",
       "employees",
+      "roles",
       "teams",
       "company",
       "mirrors",
@@ -1042,7 +1312,10 @@ async function renderRoute(): Promise<void> {
             ? "work"
             : route.kind === "employees" ||
                 route.kind === "employee" ||
-                route.kind === "teams" ||
+                route.kind === "roles" ||
+                route.kind === "role"
+              ? "people"
+              : route.kind === "teams" ||
                 route.kind === "team" ||
                 route.kind === "company"
               ? "company"
@@ -1058,6 +1331,8 @@ async function renderRoute(): Promise<void> {
           route.kind === "thread" ||
           route.kind === "employees" ||
           route.kind === "employee" ||
+          route.kind === "roles" ||
+          route.kind === "role" ||
           route.kind === "teams" ||
           route.kind === "team" ||
           route.kind === "company" ||
@@ -1083,19 +1358,33 @@ async function renderRoute(): Promise<void> {
     } else if (
       route.kind === "employees" ||
       route.kind === "employee" ||
+      route.kind === "roles" ||
+      route.kind === "role" ||
       route.kind === "teams" ||
       route.kind === "team" ||
       route.kind === "company"
     ) {
       const orgOverview: OrgPresenceOverview = await getOrgPresenceOverview();
+      const [roles, reviewCycles] = await Promise.all([
+        getRoles(),
+        getReviewCycles(),
+      ]);
 
       if (route.kind === "employees") {
-        content += renderEmployeesDirectory(orgOverview);
+        content += renderEmployeesDirectory(orgOverview, roles, reviewCycles);
       } else if (route.kind === "employee") {
-        const [controlOverview, effectivePolicy, continuityOverview] = await Promise.all([
+        const [
+          controlOverview,
+          effectivePolicy,
+          continuityOverview,
+          employmentEvents,
+          reviews,
+        ] = await Promise.all([
           getEmployeeControlOverview(route.employeeId),
           getEmployeeEffectivePolicy(route.employeeId),
           getEmployeeContinuityOverview(route.employeeId),
+          getEmployeeEmploymentEvents(route.employeeId),
+          getEmployeeReviews(route.employeeId),
         ]);
         content += renderEmployeeDetail(
           orgOverview,
@@ -1103,7 +1392,15 @@ async function renderRoute(): Promise<void> {
           controlOverview,
           effectivePolicy,
           continuityOverview,
+          employmentEvents,
+          reviews,
+          reviewCycles,
+          roles,
         );
+      } else if (route.kind === "roles") {
+        content += renderRolesCatalog(roles, orgOverview);
+      } else if (route.kind === "role") {
+        content += renderRoleDetail(route.roleId, roles, orgOverview, reviewCycles);
       } else if (route.kind === "teams") {
         content += renderTeamsOverview(orgOverview);
       } else if (route.kind === "team") {
@@ -1144,6 +1441,14 @@ async function renderRoute(): Promise<void> {
 
     if (route.kind === "thread") {
       attachThreadInteractionHandlers(route.threadId);
+    }
+
+    if (route.kind === "employees") {
+      attachPeopleHandlers();
+    }
+
+    if (route.kind === "employee") {
+      attachEmployeeManagementHandlers();
     }
 
     syncAutoRefresh();

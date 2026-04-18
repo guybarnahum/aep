@@ -128,6 +128,39 @@ export type EmployeeRuntimeStatus =
   | "implemented"
   | "planned"
   | "disabled";
+
+export type EmployeeEmploymentStatus =
+  | "draft"
+  | "active"
+  | "on_leave"
+  | "retired"
+  | "terminated"
+  | "archived";
+
+export type EmployeeEmploymentEventType =
+  | "hired"
+  | "activated"
+  | "reassigned"
+  | "role_changed"
+  | "went_on_leave"
+  | "returned_from_leave"
+  | "retired"
+  | "terminated"
+  | "rehired"
+  | "archived";
+
+export type EmployeePublicLink = {
+  type: "github" | "linkedin" | "website" | "x" | "portfolio";
+  url: string;
+  verified: boolean;
+  visibility: "public" | "org";
+};
+
+export type EmployeeVisualIdentityPublic = {
+  birthYear?: number;
+  appearanceSummary?: string;
+  avatarUrl?: string;
+};
 export type TeamRoadmap = {
   id: string;
   team_id: string;
@@ -235,12 +268,18 @@ export type OperatorEmployeeRecord = {
       blocked: boolean;
     };
   };
+  employment: {
+    employmentStatus: EmployeeEmploymentStatus;
+    schedulerMode: string;
+  };
   publicProfile?: {
     displayName: string;
     bio?: string;
     skills?: string[];
     avatarUrl?: string;
   };
+  publicLinks?: EmployeePublicLink[];
+  visualIdentity?: EmployeeVisualIdentityPublic;
   hasCognitiveProfile: boolean;
 };
 
@@ -520,6 +559,91 @@ export type OrgPresenceOverview = {
   threads: MessageThreadRecord[];
   roadmaps: TeamRoadmap[];
   schedulerStatus: SchedulerStatus;
+};
+
+export type RoleJobDescriptionProjection = {
+  roleId: string;
+  title: string;
+  teamId: string;
+  jobDescriptionText: string;
+  responsibilities: string[];
+  successMetrics: string[];
+  constraints: string[];
+  seniorityLevel: string;
+  reviewDimensions?: EmployeeReviewDimension[];
+};
+
+export type EmployeeReviewRecommendationType =
+  | "promote"
+  | "coach"
+  | "reassign"
+  | "restrict"
+  | "no_change";
+
+export type EmployeeReviewDimension = {
+  key: string;
+  label: string;
+  description: string;
+  weight: number;
+};
+
+export type EmployeeEmploymentEvent = {
+  eventId: string;
+  employeeId: string;
+  eventType: EmployeeEmploymentEventType;
+  fromTeamId?: string;
+  toTeamId?: string;
+  fromRoleId?: string;
+  toRoleId?: string;
+  effectiveAt: string;
+  reason?: string;
+  approvedBy?: string;
+  threadId?: string;
+  createdAt?: string;
+};
+
+export type EmployeeReviewCycleRecord = {
+  reviewCycleId: string;
+  companyId: string;
+  name: string;
+  periodStart: string;
+  periodEnd: string;
+  status: "draft" | "active" | "closed";
+  createdBy?: string;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export type EmployeePerformanceReviewEvidence = {
+  evidenceType: "task" | "artifact" | "thread";
+  evidenceId: string;
+};
+
+export type EmployeePerformanceRecommendation = {
+  recommendationType: EmployeeReviewRecommendationType;
+  summary: string;
+};
+
+export type EmployeePerformanceReviewRecord = {
+  reviewId: string;
+  reviewCycleId: string;
+  employeeId: string;
+  roleId: string;
+  teamId: string;
+  summary: string;
+  strengths: string[];
+  gaps: string[];
+  dimensionScores: Array<{
+    key: string;
+    score: number;
+    note?: string;
+  }>;
+  recommendations: EmployeePerformanceRecommendation[];
+  evidence: EmployeePerformanceReviewEvidence[];
+  createdBy?: string;
+  approvedBy?: string;
+  createdAt?: string;
+  updatedAt?: string;
 };
 
 export type CreateCanonicalThreadMessageInput = {

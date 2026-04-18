@@ -54,19 +54,23 @@ Base service: `core/operator-agent`
 `GET /agent/roles`
 
 - Lists public role contracts from `roles_catalog`.
+- Includes canonical job-description fields and optional `reviewDimensions` used by dashboard role detail and employee-review forms.
 
 `GET /agent/employees`
 
 - Lists employees.
 - Supports filters such as `status`, `teamId`, and `employmentStatus`.
+- Important dashboard contract: employee projections include separate `employment` and `runtime` blocks plus public-profile fields, public links, and optional visual identity.
 
 `POST /agent/employees`
 
 - Creates a draft or active employee record with public profile fields and lifecycle metadata.
+- This is the dashboard hiring / staffing creation surface.
 
 `PATCH /agent/employees/:employeeId`
 
 - Updates employee public/profile and scheduling fields.
+- This is the dashboard employee-profile management surface.
 
 `GET /agent/employees/:employeeId/scope`
 
@@ -79,6 +83,25 @@ Base service: `core/operator-agent`
 `GET /agent/employees/:employeeId/employment-events`
 
 - Returns lifecycle event history for the employee.
+
+`GET /agent/review-cycles`
+
+- Lists canonical employee review cycles.
+- Used by the dashboard people-management and employee-review surfaces.
+
+`POST /agent/review-cycles`
+
+- Creates a canonical review cycle with `name`, `periodStart`, `periodEnd`, and optional `status` / `createdBy`.
+
+`GET /agent/employees/:employeeId/reviews`
+
+- Lists evidence-linked performance reviews for the employee.
+
+`POST /agent/employees/:employeeId/reviews`
+
+- Creates an evidence-linked employee performance review.
+- Important invariant: submitted `dimensionScores` keys must match the selected role's canonical `reviewDimensions`.
+- Evidence items reference canonical `task`, `artifact`, or `thread` ids.
 
 `POST /agent/employees/:employeeId/generate-persona`
 
@@ -110,6 +133,7 @@ Base service: `core/operator-agent`
 
 - Apply explicit employment lifecycle transitions.
 - These mutate employment state, team assignment, or role assignment depending on action.
+- Dashboard-facing flow note: these routes are the canonical write path for leave, reassignment, role change, retirement, termination, rehire, and archive operations. They must not be bypassed by direct catalog writes.
 
 ### Controls, Governance, And Audit
 

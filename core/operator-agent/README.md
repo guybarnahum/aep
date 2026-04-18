@@ -26,11 +26,18 @@ Public profile and private cognition remain separate. The operator-agent may pub
 
 ### Employment vs Runtime Control
 
-The operator-agent currently governs **runtime control**, not the full employment lifecycle.
+The operator-agent now exposes both **employment lifecycle** and **runtime control** surfaces.
 
 - `disabled_pending_review`, `disabled_by_manager`, and `restricted` are runtime control states
-- employment states such as `on_leave` or `terminated` belong to the broader employee model
+- employment states such as `draft`, `active`, `on_leave`, `retired`, `terminated`, and `archived` belong to the employee lifecycle model
+- lifecycle actions, employment-event history, review cycles, and employee performance reviews are canonical operator-agent surfaces used directly by the dashboard
 - these concepts should not be conflated in API semantics or documentation
+
+Important boundary:
+
+- lifecycle changes alter employment and staffing state
+- runtime control changes alter execution posture
+- performance reviews and role review dimensions are governance artifacts over employee development, not hidden prompt state
 
 ### Persistence Boundary
 

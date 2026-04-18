@@ -4,19 +4,45 @@
 
 The AEP Dashboard is the operator-facing UI for AEP.
 
-It currently combines two live views:
+It currently combines two live surfaces:
 
 - control-plane views:
   - tenants
   - services
 - operator-agent views:
   - employees
+  - employee detail
+  - roles and job descriptions
+  - review cycles
+  - employee performance reviews
+  - employee employment-event history
+  - employee lifecycle actions
   - escalations
   - approvals
   - manager log
   - control history
   - roadmaps
   - scheduler status
+
+The dashboard now includes both read and write people-management flows over canonical operator-agent routes.
+
+Current dashboard people/org routes include:
+
+- `#employees`
+- `#employee/:employeeId`
+- `#roles`
+- `#role/:roleId`
+- `#teams`
+- `#team/:teamId`
+- `#company`
+
+Current dashboard write flows include:
+
+- create employee
+- update employee public/profile fields
+- apply lifecycle actions such as leave, reassign-team, change-role, retire, terminate, rehire, and archive
+- create review cycles
+- create employee performance reviews linked to canonical task/artifact/thread evidence
 
 It is a static Vite app and should be deployed separately from the Workers.
 
@@ -107,3 +133,9 @@ This keeps:
 - browser-based access direct and transparent
 
 The dashboard does not proxy the APIs. It uses the configured base URLs directly.
+
+Important invariant:
+
+- the dashboard is only a surface over canonical control-plane and operator-agent routes
+- employee lifecycle and review mutations must go through those HTTP routes
+- the dashboard does not own a parallel people-management state model
