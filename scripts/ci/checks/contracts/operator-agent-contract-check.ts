@@ -6,40 +6,125 @@ import { handleOperatorAgentSoftSkip } from "../../shared/soft-skip";
 
 export {};
 
+const SYNTHETIC_EMPLOYEE_NAME_PREFIXES = ["Lifecycle Test ", "Persona Test "];
+
+function isSyntheticContractTestEmployee(employee: {
+  publicProfile?: { displayName?: string };
+}): boolean {
+  const displayName = employee.publicProfile?.displayName ?? "";
+  return SYNTHETIC_EMPLOYEE_NAME_PREFIXES.some((prefix) =>
+    displayName.startsWith(prefix),
+  );
+}
+
+async function cleanupSyntheticContractTestEmployees(args: {
+  client: ReturnType<typeof createOperatorAgentClient>;
+  phase: "before" | "after";
+}): Promise<void> {
+  const employeesResponse = await args.client.listEmployees();
+  if (!employeesResponse.ok) {
+    throw new Error("Failed to list employees during synthetic employee cleanup");
+  }
+
+  const syntheticEmployees = employeesResponse.employees.filter(
+    isSyntheticContractTestEmployee,
+  );
+
+  if (syntheticEmployees.length === 0) {
+    return;
+  }
+
+  console.warn(
+    `[operator-agent-contract-check] synthetic test employees detected ${args.phase} run: ${syntheticEmployees
+      .map(
+        (employee) =>
+          `${employee.publicProfile?.displayName ?? employee.identity.employeeId} (${employee.identity.employeeId})`,
+      )
+      .join(", ")}`,
+  );
+
+  for (const employee of syntheticEmployees) {
+    const employeeId = employee.identity.employeeId;
+    const employmentStatus = employee.employment.employmentStatus;
+
+    if (employmentStatus === "archived") {
+      continue;
+    }
+
+    if (employmentStatus !== "terminated" && employmentStatus !== "retired") {
+      const terminateResult = await args.client.runEmployeeLifecycleAction(
+        employeeId,
+        "terminate",
+        {
+          reason: `CI synthetic employee cleanup (${args.phase})`,
+          approvedBy: "ci-operator-agent-client",
+        },
+      );
+
+      if (!terminateResult.ok) {
+        throw new Error(
+          `Failed to terminate synthetic employee ${employeeId} during ${args.phase} cleanup`,
+        );
+      }
+    }
+
+    const archiveResult = await args.client.runEmployeeLifecycleAction(
+      employeeId,
+      "archive",
+      {
+        reason: `CI synthetic employee cleanup (${args.phase})`,
+        approvedBy: "ci-operator-agent-client",
+      },
+    );
+
+    if (!archiveResult.ok) {
+      throw new Error(
+        `Failed to archive synthetic employee ${employeeId} during ${args.phase} cleanup`,
+      );
+    }
+  }
+}
+
 async function main(): Promise<void> {
   const client = createOperatorAgentClient();
 
-  let employeesResponse;
-  try {
-    employeesResponse = await client.listEmployees();
-  } catch (err) {
-    if (handleOperatorAgentSoftSkip("operator-agent-contract-check", err)) {
-      process.exit(0);
-    }
-    throw err;
-  }
-
-  if (!employeesResponse.ok) {
-    throw new Error("/agent/employees did not return ok=true");
-  }
-
-  const employees = employeesResponse.employees;
-
-  const rolesResponse = await client.listRoles();
-  if (!rolesResponse.ok) {
-    throw new Error("/agent/roles did not return ok=true");
-  }
-
-  const reviewCycleResult = await client.createReviewCycle({
-    name: `Cycle ${Date.now()}`,
-    periodStart: "2026-01-01T00:00:00.000Z",
-    periodEnd: "2026-03-31T23:59:59.000Z",
-    status: "active",
-    createdBy: "ci-operator-agent-client",
+  await cleanupSyntheticContractTestEmployees({
+    client,
+    phase: "before",
   });
-  if (!reviewCycleResult.ok || !reviewCycleResult.reviewCycle.reviewCycleId) {
-    throw new Error("Expected review cycle creation to succeed");
-  }
+
+  try {
+    let employeesResponse;
+    try {
+      employeesResponse = await client.listEmployees();
+    } catch (err) {
+      if (handleOperatorAgentSoftSkip("operator-agent-contract-check", err)) {
+        process.exit(0);
+      }
+      throw err;
+    }
+
+    if (!employeesResponse.ok) {
+      throw new Error("/agent/employees did not return ok=true");
+    }
+
+    const employees = employeesResponse.employees;
+
+    const rolesResponse = await client.listRoles();
+    if (!rolesResponse.ok) {
+      throw new Error("/agent/roles did not return ok=true");
+    }
+
+    const reviewCycleResult = await client.createReviewCycle({
+      name: `Cycle ${Date.now()}`,
+      periodStart: "2026-01-01T00:00:00.000Z",
+      periodEnd: "2026-03-31T23:59:59.000Z",
+      status: "active",
+      createdBy: "ci-operator-agent-client",
+    });
+    if (!reviewCycleResult.ok || !reviewCycleResult.reviewCycle.reviewCycleId) {
+      throw new Error("Expected review cycle creation to succeed");
+    }
 
   const plannedEmployees = await client.listEmployees({ status: "planned" });
   if (!plannedEmployees.ok) {
@@ -623,22 +708,28 @@ async function main(): Promise<void> {
     }
   }
 
-  console.log("operator-agent-contract-check passed", {
-    employeeCount: employeesResponse.count,
-    roleCount: rolesResponse.count,
-    reviewCycleId: reviewCycleResult.reviewCycle.reviewCycleId,
-    reviewId: reviewCreateResult.review.reviewId,
-    lifecycleEventCount: lifecycleEvents.count,
-    personaEmployeeId,
-    managerLogCount: managerLog.count,
-    controlsListed: employeeControls.count,
-    workLogCount: workLog.count,
-    escalationsCount: escalations.count,
-    controlHistoryCount: controlHistory.count,
-    approvalsCount: approvals.count,
-    primaryScheduler: schedulerStatus.primaryScheduler,
-    cronFallbackEnabled: schedulerStatus.cronFallbackEnabled,
-  });
+    console.log("operator-agent-contract-check passed", {
+      employeeCount: employeesResponse.count,
+      roleCount: rolesResponse.count,
+      reviewCycleId: reviewCycleResult.reviewCycle.reviewCycleId,
+      reviewId: reviewCreateResult.review.reviewId,
+      lifecycleEventCount: lifecycleEvents.count,
+      personaEmployeeId,
+      managerLogCount: managerLog.count,
+      controlsListed: employeeControls.count,
+      workLogCount: workLog.count,
+      escalationsCount: escalations.count,
+      controlHistoryCount: controlHistory.count,
+      approvalsCount: approvals.count,
+      primaryScheduler: schedulerStatus.primaryScheduler,
+      cronFallbackEnabled: schedulerStatus.cronFallbackEnabled,
+    });
+  } finally {
+    await cleanupSyntheticContractTestEmployees({
+      client,
+      phase: "after",
+    });
+  }
 }
 
 main().catch((error) => {
