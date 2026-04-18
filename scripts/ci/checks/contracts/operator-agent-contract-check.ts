@@ -296,6 +296,7 @@ async function main(): Promise<void> {
     employmentStatus: "draft",
     runtimeStatus: "planned",
     schedulerMode: "manual_only",
+    isSynthetic: true,
     bio: "Lifecycle test employee",
     tone: "Professional",
     skills: ["Planning"],
@@ -463,6 +464,7 @@ async function main(): Promise<void> {
     employmentStatus: "draft",
     runtimeStatus: "planned",
     schedulerMode: "manual_only",
+    isSynthetic: true,
     reason: "CI persona contract check",
     approvedBy: "ci-operator-agent-client",
   });

@@ -69,6 +69,7 @@ export type CreateEmployeeInput = {
   appearanceSummary?: string;
   birthYear?: number;
   publicLinks?: EmployeePublicLink[];
+  isSynthetic?: boolean;
   approvedBy?: string;
   threadId?: string;
   effectiveAt?: string;
@@ -551,9 +552,10 @@ export async function createEmployee(
          status,
          employment_status,
          scheduler_mode,
+         is_synthetic,
          created_at,
          updated_at
-       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .bind(
       employeeId,
@@ -564,6 +566,7 @@ export async function createEmployee(
       runtimeStatus,
       employmentStatus,
       schedulerMode,
+      input.isSynthetic === true ? 1 : 0,
       timestamp,
       timestamp,
     )

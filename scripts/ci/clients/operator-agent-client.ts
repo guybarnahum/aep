@@ -100,6 +100,7 @@ export type CreateEmployeeRequest = {
   appearanceSummary?: string;
   birthYear?: number;
   publicLinks?: EmployeePublicLink[];
+  isSynthetic?: boolean;
   approvedBy?: string;
   threadId?: string;
   effectiveAt?: string;
@@ -253,7 +254,10 @@ export function createOperatorAgentClient(
     },
 
     async createEmployee(body: CreateEmployeeRequest): Promise<any> {
-      return postJson(buildUrl("/agent/employees"), body);
+      return postJson(buildUrl("/agent/employees"), {
+        ...body,
+        isSynthetic: body.isSynthetic === true,
+      });
     },
 
     async updateEmployee(

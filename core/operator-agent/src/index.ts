@@ -55,6 +55,7 @@ import {
 } from "./routes/thread-escalation-actions";
 import { handleDelegateTaskFromThread } from "./routes/thread-delegate-task";
 import { handleSeedApproval } from "./routes/te-seed-approval";
+import { handlePurgeEmployee } from "./routes/te-purge-employee";
 import { handleSeedWorkLog } from "./routes/te-seed-work-log";
 import { handleWorkLog } from "./routes/work-log";
 import { handleScheduledCron } from "./triggers/scheduled";
@@ -433,6 +434,13 @@ async function dispatch(request: Request, env: OperatorAgentEnv): Promise<Respon
     url.pathname === "/agent/te/seed-work-log"
   ) {
     return handleSeedWorkLog(request, env);
+  }
+
+  if (
+    env.ENABLE_TEST_ENDPOINTS === "true" &&
+    url.pathname === "/agent/te/purge-employee"
+  ) {
+    return handlePurgeEmployee(request, env);
   }
 
   if (
