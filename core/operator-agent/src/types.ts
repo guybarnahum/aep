@@ -135,6 +135,7 @@ export interface RoleJobDescriptionProjection {
   successMetrics: string[];
   constraints: string[];
   seniorityLevel: string;
+  reviewDimensions?: EmployeeReviewDimension[];
 }
 
 export interface EmployeeEmploymentEventRecord {
@@ -161,6 +162,64 @@ export interface TaskReassignmentRecord {
   triggeredByEventId?: string;
   threadId?: string;
   createdAt: string;
+}
+
+export type EmployeeReviewRecommendationType =
+  | "promote"
+  | "coach"
+  | "reassign"
+  | "restrict"
+  | "no_change";
+
+export interface EmployeeReviewDimension {
+  key: string;
+  label: string;
+  description: string;
+  weight: number;
+}
+
+export interface EmployeeReviewCycleRecord {
+  reviewCycleId: string;
+  companyId: CompanyId;
+  name: string;
+  periodStart: string;
+  periodEnd: string;
+  status: "draft" | "active" | "closed";
+  createdBy?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface EmployeePerformanceReviewEvidence {
+  evidenceType: "task" | "artifact" | "thread";
+  evidenceId: string;
+}
+
+export interface EmployeePerformanceRecommendation {
+  recommendationType: EmployeeReviewRecommendationType;
+  summary: string;
+}
+
+export interface EmployeePerformanceReviewRecord {
+  reviewId: string;
+  reviewCycleId: string;
+  employeeId: string;
+  roleId: AgentRoleId;
+  teamId: TeamId;
+  summary: string;
+  strengths: string[];
+  gaps: string[];
+  dimensionScores: Array<{
+    key: string;
+    score: number;
+    note?: string;
+  }>;
+  recommendations: EmployeePerformanceRecommendation[];
+  evidence: EmployeePerformanceReviewEvidence[];
+  createdBy?: string;
+  approvedBy?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export type CoordinationTaskStatus =

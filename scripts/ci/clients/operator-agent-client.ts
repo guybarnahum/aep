@@ -12,8 +12,12 @@ import type {
   EmployeePersonaApprovalResponse,
   EmployeePersonaGenerationResponse,
   EmployeePublicLink,
+  EmployeeReviewCreateResponse,
+  EmployeeReviewsListResponse,
   EmployeesListResponse,
   EmployeeScopeResponse,
+  ReviewCycleCreateResponse,
+  ReviewCyclesListResponse,
   RolesListResponse,
   SchedulerStatusResponse,
 } from "../contracts/employees";
@@ -122,6 +126,38 @@ export type GenerateEmployeePersonaRequest = {
   workingStyle?: string;
   appearancePrompt?: string;
   birthYear?: number;
+};
+
+export type CreateReviewCycleRequest = {
+  companyId?: string;
+  name: string;
+  periodStart: string;
+  periodEnd: string;
+  status?: "draft" | "active" | "closed";
+  createdBy?: string;
+};
+
+export type CreateEmployeeReviewRequest = {
+  reviewCycleId: string;
+  summary: string;
+  strengths?: string[];
+  gaps?: string[];
+  dimensionScores: Array<{ key: string; score: number; note?: string }>;
+  recommendations: Array<{
+    recommendationType:
+      | "promote"
+      | "coach"
+      | "reassign"
+      | "restrict"
+      | "no_change";
+    summary: string;
+  }>;
+  evidence: Array<{
+    evidenceType: "task" | "artifact" | "thread";
+    evidenceId: string;
+  }>;
+  createdBy?: string;
+  approvedBy?: string;
 };
 
 export type CreateMessageThreadRequest = {
@@ -247,6 +283,21 @@ export function createOperatorAgentClient(
       );
     },
 
+    async listReviewCycles(): Promise<ReviewCyclesListResponse> {
+      return getJson<ReviewCyclesListResponse>(
+        buildUrl("/agent/review-cycles"),
+      );
+    },
+
+    async createReviewCycle(
+      body: CreateReviewCycleRequest,
+    ): Promise<ReviewCycleCreateResponse> {
+      return postJson<ReviewCycleCreateResponse>(
+        buildUrl("/agent/review-cycles"),
+        body,
+      );
+    },
+
     async getEmployeeScope(employeeId: string): Promise<EmployeeScopeResponse> {
       return getJson<EmployeeScopeResponse>(
         buildUrl(`/agent/employees/${encodeURIComponent(employeeId)}/scope`),
@@ -270,6 +321,24 @@ export function createOperatorAgentClient(
         buildUrl(
           `/agent/employees/${encodeURIComponent(employeeId)}/employment-events`,
         ),
+      );
+    },
+
+    async listEmployeeReviews(
+      employeeId: string,
+    ): Promise<EmployeeReviewsListResponse> {
+      return getJson<EmployeeReviewsListResponse>(
+        buildUrl(`/agent/employees/${encodeURIComponent(employeeId)}/reviews`),
+      );
+    },
+
+    async createEmployeeReview(
+      employeeId: string,
+      body: CreateEmployeeReviewRequest,
+    ): Promise<EmployeeReviewCreateResponse> {
+      return postJson<EmployeeReviewCreateResponse>(
+        buildUrl(`/agent/employees/${encodeURIComponent(employeeId)}/reviews`),
+        body,
       );
     },
 

@@ -30,6 +30,17 @@ async function main(): Promise<void> {
     throw new Error("/agent/roles did not return ok=true");
   }
 
+  const reviewCycleResult = await client.createReviewCycle({
+    name: `Cycle ${Date.now()}`,
+    periodStart: "2026-01-01T00:00:00.000Z",
+    periodEnd: "2026-03-31T23:59:59.000Z",
+    status: "active",
+    createdBy: "ci-operator-agent-client",
+  });
+  if (!reviewCycleResult.ok || !reviewCycleResult.reviewCycle.reviewCycleId) {
+    throw new Error("Expected review cycle creation to succeed");
+  }
+
   const plannedEmployees = await client.listEmployees({ status: "planned" });
   if (!plannedEmployees.ok) {
     throw new Error("/agent/employees?status=planned did not return ok=true");
@@ -410,6 +421,104 @@ async function main(): Promise<void> {
     throw new Error("Expected product-manager-web role to expose responsibilities");
   }
 
+  if (
+    !Array.isArray(productManagerWebRole.reviewDimensions) ||
+    productManagerWebRole.reviewDimensions.length === 0
+  ) {
+    throw new Error("Expected product-manager-web role to expose reviewDimensions");
+  }
+
+  const reviewTask = await client.createTask({
+    companyId: "company_internal_aep",
+    originatingTeamId: "team_web_product",
+    assignedTeamId: "team_web_product",
+    assignedEmployeeId: "emp_product_manager_web_01",
+    createdByEmployeeId: "emp_infra_ops_manager_01",
+    taskType: "plan-feature",
+    title: `Review evidence task ${Date.now()}`,
+    payload: { source: "ci-review-check" },
+  });
+  if (!reviewTask?.ok || typeof reviewTask.taskId !== "string") {
+    throw new Error("Expected review evidence task creation to succeed");
+  }
+
+  const reviewArtifact = await client.createTaskArtifact(reviewTask.taskId, {
+    companyId: "company_internal_aep",
+    createdByEmployeeId: "emp_product_manager_web_01",
+    artifactType: "plan",
+    summary: "Review evidence artifact",
+    content: {
+      kind: "execution_plan",
+      source: "ci-review-check",
+    },
+  });
+  if (!reviewArtifact?.ok || typeof reviewArtifact.id !== "string") {
+    throw new Error("Expected review evidence artifact creation to succeed");
+  }
+
+  const reviewCreateResult = await client.createEmployeeReview(
+    "emp_product_manager_web_01",
+    {
+      reviewCycleId: reviewCycleResult.reviewCycle.reviewCycleId,
+      summary: "Strong planning quality with room to improve coordination clarity.",
+      strengths: ["Planning quality", "Structured sequencing"],
+      gaps: ["Cross-team coordination clarity"],
+      dimensionScores: [
+        {
+          key: "planning_quality",
+          score: 5,
+          note: "Consistently produces clear planning structure.",
+        },
+        {
+          key: "coordination",
+          score: 3,
+          note: "Coordination is improving but still uneven.",
+        },
+      ],
+      recommendations: [
+        {
+          recommendationType: "coach",
+          summary: "Coach on clearer cross-team delegation framing.",
+        },
+      ],
+      evidence: [
+        { evidenceType: "task", evidenceId: reviewTask.taskId },
+        { evidenceType: "artifact", evidenceId: reviewArtifact.id },
+      ],
+      createdBy: "ci-operator-agent-client",
+      approvedBy: "ci-operator-agent-client",
+    },
+  );
+  if (!reviewCreateResult.ok || !reviewCreateResult.review.reviewId) {
+    throw new Error("Expected employee review creation to succeed");
+  }
+
+  const employeeReviews = await client.listEmployeeReviews(
+    "emp_product_manager_web_01",
+  );
+  if (!employeeReviews.ok || employeeReviews.count < 1) {
+    throw new Error("Expected employee reviews list to include created review");
+  }
+
+  const createdReview = employeeReviews.reviews.find(
+    (review) => review.reviewId === reviewCreateResult.review.reviewId,
+  );
+  if (!createdReview) {
+    throw new Error("Expected created review to be returned from employee reviews list");
+  }
+
+  if (
+    !createdReview.recommendations.some(
+      (recommendation) => recommendation.recommendationType === "coach",
+    )
+  ) {
+    throw new Error("Expected created review to include coach recommendation");
+  }
+
+  if (createdReview.evidence.length < 2) {
+    throw new Error("Expected created review to include evidence links");
+  }
+
   const timeoutScope = await client.getEmployeeScope("emp_timeout_recovery_01");
   if (!timeoutScope.ok) {
     throw new Error("/agent/employees/:id/scope did not return ok=true");
@@ -517,6 +626,8 @@ async function main(): Promise<void> {
   console.log("operator-agent-contract-check passed", {
     employeeCount: employeesResponse.count,
     roleCount: rolesResponse.count,
+    reviewCycleId: reviewCycleResult.reviewCycle.reviewCycleId,
+    reviewId: reviewCreateResult.review.reviewId,
     lifecycleEventCount: lifecycleEvents.count,
     personaEmployeeId,
     managerLogCount: managerLog.count,

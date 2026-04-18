@@ -15,10 +15,12 @@ import { handleApproveEmployeePersona } from "./routes/employee-approve-persona"
 import { handleEmployeeEffectivePolicy } from "./routes/employee-effective-policy";
 import { handleGenerateEmployeePersona } from "./routes/employee-generate-persona";
 import { handleEmployeeLifecycleAction } from "./routes/employee-lifecycle-actions";
+import { handleEmployeeReviews } from "./routes/employee-reviews";
 import { handleEmployees } from "./routes/employees";
 import { handleEmployeeScope } from "./routes/employee-scope";
 import { handleUpdateEmployee } from "./routes/employee-update";
 import { handleRoles } from "./routes/roles";
+import { handleReviewCycles } from "./routes/review-cycles";
 import { handleManagerLog } from "./routes/manager-log";
 import { handleRun } from "./routes/run";
 import { handleRunOnce } from "./routes/run-once";
@@ -114,6 +116,10 @@ async function dispatch(request: Request, env: OperatorAgentEnv): Promise<Respon
 
   if (url.pathname === "/agent/roles") {
     return handleRoles(request, env);
+  }
+
+  if (url.pathname === "/agent/review-cycles") {
+    return handleReviewCycles(request, env);
   }
 
   if (url.pathname === "/agent/work-log") {
@@ -281,6 +287,17 @@ async function dispatch(request: Request, env: OperatorAgentEnv): Promise<Respon
       request,
       env,
       decodeURIComponent(employeeEmploymentEventsMatch[1]),
+    );
+  }
+
+  const employeeReviewsMatch = url.pathname.match(
+    /^\/agent\/employees\/([^/]+)\/reviews$/,
+  );
+  if (employeeReviewsMatch) {
+    return handleEmployeeReviews(
+      request,
+      env,
+      decodeURIComponent(employeeReviewsMatch[1]),
     );
   }
 

@@ -106,6 +106,21 @@ export type RoleJobDescriptionProjection = {
   successMetrics: string[];
   constraints: string[];
   seniorityLevel: string;
+  reviewDimensions?: EmployeeReviewDimension[];
+};
+
+export type EmployeeReviewRecommendationType =
+  | "promote"
+  | "coach"
+  | "reassign"
+  | "restrict"
+  | "no_change";
+
+export type EmployeeReviewDimension = {
+  key: string;
+  label: string;
+  description: string;
+  weight: number;
 };
 
 export type RolesListResponse = {
@@ -171,6 +186,74 @@ export type EmployeePersonaApprovalResponse = {
   ok: true;
   employeeId: string;
   promptProfileStatus: "draft" | "approved";
+};
+
+export type EmployeeReviewCycleRecord = {
+  reviewCycleId: string;
+  companyId: string;
+  name: string;
+  periodStart: string;
+  periodEnd: string;
+  status: "draft" | "active" | "closed";
+  createdBy?: string;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export type EmployeePerformanceReviewEvidence = {
+  evidenceType: "task" | "artifact" | "thread";
+  evidenceId: string;
+};
+
+export type EmployeePerformanceRecommendation = {
+  recommendationType: EmployeeReviewRecommendationType;
+  summary: string;
+};
+
+export type EmployeePerformanceReviewRecord = {
+  reviewId: string;
+  reviewCycleId: string;
+  employeeId: string;
+  roleId: string;
+  teamId: string;
+  summary: string;
+  strengths: string[];
+  gaps: string[];
+  dimensionScores: Array<{
+    key: string;
+    score: number;
+    note?: string;
+  }>;
+  recommendations: EmployeePerformanceRecommendation[];
+  evidence: EmployeePerformanceReviewEvidence[];
+  createdBy?: string;
+  approvedBy?: string;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export type ReviewCyclesListResponse = {
+  ok: true;
+  count: number;
+  reviewCycles: EmployeeReviewCycleRecord[];
+};
+
+export type ReviewCycleCreateResponse = {
+  ok: true;
+  reviewCycle: EmployeeReviewCycleRecord;
+};
+
+export type EmployeeReviewsListResponse = {
+  ok: true;
+  employeeId: string;
+  count: number;
+  reviews: EmployeePerformanceReviewRecord[];
+};
+
+export type EmployeeReviewCreateResponse = {
+  ok: true;
+  employeeId: string;
+  review: EmployeePerformanceReviewRecord;
 };
 
 export type EmployeeScopeResponse = {

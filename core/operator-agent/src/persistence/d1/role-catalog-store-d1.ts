@@ -22,6 +22,14 @@ type RoleCatalogRow = {
   seniority_level: string;
 };
 
+type RoleReviewDimensionRow = {
+  role_id: RoleJobDescriptionProjection["roleId"];
+  dimension_key: string;
+  label: string;
+  description: string;
+  weight: number | string;
+};
+
 function parseStringArray(value: string): string[] {
   try {
     const parsed = JSON.parse(value);
@@ -35,6 +43,7 @@ function parseStringArray(value: string): string[] {
 
 function rowToRoleProjection(
   row: RoleCatalogRow,
+  reviewDimensions?: RoleJobDescriptionProjection["reviewDimensions"],
 ): RoleJobDescriptionProjection {
   return {
     roleId: row.role_id,
@@ -45,7 +54,52 @@ function rowToRoleProjection(
     successMetrics: parseStringArray(row.success_metrics_json),
     constraints: parseStringArray(row.constraints_json),
     seniorityLevel: row.seniority_level,
+    reviewDimensions,
   };
+}
+
+async function getRoleReviewDimensionsMap(
+  env: OperatorAgentEnv,
+  roleIds: string[],
+): Promise<Record<string, RoleJobDescriptionProjection["reviewDimensions"]>> {
+  if (roleIds.length === 0) {
+    return {};
+  }
+
+  const db = requireDb(env);
+  const placeholders = roleIds.map(() => "?").join(", ");
+  const rows = await db
+    .prepare(
+      `SELECT
+         role_id,
+         dimension_key,
+         label,
+         description,
+         weight
+       FROM role_review_dimensions
+       WHERE role_id IN (${placeholders})
+       ORDER BY role_id, dimension_key`,
+    )
+    .bind(...roleIds)
+    .all<RoleReviewDimensionRow>();
+
+  const out: Record<string, NonNullable<RoleJobDescriptionProjection["reviewDimensions"]>> = {};
+  for (const row of rows.results ?? []) {
+    if (!out[row.role_id]) {
+      out[row.role_id] = [];
+    }
+    out[row.role_id].push({
+      key: row.dimension_key,
+      label: row.label,
+      description: row.description,
+      weight:
+        typeof row.weight === "number"
+          ? row.weight
+          : Number.parseFloat(String(row.weight)),
+    });
+  }
+
+  return out;
 }
 
 export async function listRoleCatalog(
@@ -83,7 +137,12 @@ export async function listRoleCatalog(
     .bind(...bindings)
     .all<RoleCatalogRow>();
 
-  return (rows.results ?? []).map(rowToRoleProjection);
+  const roleIds = (rows.results ?? []).map((row) => row.role_id);
+  const reviewDimensionsMap = await getRoleReviewDimensionsMap(env, roleIds);
+
+  return (rows.results ?? []).map((row) =>
+    rowToRoleProjection(row, reviewDimensionsMap[row.role_id]),
+  );
 }
 
 export async function getRoleCatalogEntry(
@@ -109,5 +168,10 @@ export async function getRoleCatalogEntry(
     .bind(roleId)
     .first<RoleCatalogRow>();
 
-  return row ? rowToRoleProjection(row) : null;
+  if (!row) {
+    return null;
+  }
+
+  const reviewDimensionsMap = await getRoleReviewDimensionsMap(env, [roleId]);
+  return rowToRoleProjection(row, reviewDimensionsMap[roleId]);
 }
