@@ -2,6 +2,16 @@ name: Free Leaked Resources
 
 on:
   workflow_dispatch:
+    inputs:
+      target_environment:
+        description: "GitHub Actions environment to use for this cleanup run"
+        required: true
+        default: "async-validation"
+        type: choice
+        options:
+          - async-validation
+          - staging
+          - production
   schedule:
     - cron: "17 9 * * *"
 
@@ -13,7 +23,7 @@ jobs:
   free-leaked-resources:
     runs-on: ubuntu-latest
     environment:
-      name: async-validation
+      name: ${{ github.event_name == 'workflow_dispatch' && inputs.target_environment || 'async-validation' }}
     defaults:
       run:
         shell: bash -eo pipefail {0}
@@ -29,6 +39,16 @@ jobs:
           cache: npm
 
       - run: npm ci
+
+      - name: Resolve target environment
+        id: target_environment
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            TARGET_ENV="${{ inputs.target_environment }}"
+          else
+            TARGET_ENV="async-validation"
+          fi
+          echo "target_environment=$TARGET_ENV" >> "$GITHUB_OUTPUT"
 
       - name: Cleanup synthetic CI employees (pre)
         env:
@@ -51,6 +71,8 @@ jobs:
         if: always()
         run: |
           echo "## Free leaked resources summary" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Target environment: ${{ steps.target_environment.outputs.target_environment }}" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
 
           if [[ -f free-leaked-resources.log ]]; then
