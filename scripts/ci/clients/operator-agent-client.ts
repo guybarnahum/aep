@@ -12,6 +12,7 @@ import type {
   EmployeePersonaApprovalResponse,
   EmployeePersonaGenerationResponse,
   EmployeePublicLink,
+  PurgeSyntheticEmployeeResponse,
   EmployeeReviewCreateResponse,
   EmployeeReviewsListResponse,
   EmployeesListResponse,
@@ -258,6 +259,15 @@ export function createOperatorAgentClient(
         ...body,
         isSynthetic: body.isSynthetic === true,
       });
+    },
+
+    async purgeSyntheticEmployee(
+      employeeId: string,
+    ): Promise<PurgeSyntheticEmployeeResponse> {
+      return postJson<PurgeSyntheticEmployeeResponse>(
+        buildUrl("/agent/te/purge-employee"),
+        { employeeId },
+      );
     },
 
     async updateEmployee(

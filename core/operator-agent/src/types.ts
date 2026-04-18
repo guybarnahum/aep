@@ -110,6 +110,7 @@ export interface EmployeeProjection {
   employment: {
     employmentStatus: EmployeeEmploymentStatus;
     schedulerMode: string;
+    isSynthetic?: boolean;
   };
   runtime: {
     runtimeStatus: EmployeeRuntimeStatus;

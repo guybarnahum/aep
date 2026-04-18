@@ -46,6 +46,7 @@ function normalizeEmployeeRecord(
     employment: {
       employmentStatus: employee.employment?.employmentStatus ?? "active",
       schedulerMode: employee.employment?.schedulerMode ?? "auto",
+      isSynthetic: employee.employment?.isSynthetic === true,
     },
     runtime: {
       ...employee.runtime,

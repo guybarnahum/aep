@@ -274,6 +274,7 @@ export async function handleEmployees(
           employment: {
             employmentStatus: toEmploymentStatus(catalogEntry.employmentStatus),
             schedulerMode: catalogEntry.schedulerMode,
+            isSynthetic: catalogEntry.isSynthetic,
           },
           runtime: {
             runtimeStatus,
@@ -315,6 +316,7 @@ export async function handleEmployees(
         employment: {
           employmentStatus: toEmploymentStatus(catalogEntry.employmentStatus),
           schedulerMode: catalogEntry.schedulerMode,
+          isSynthetic: catalogEntry.isSynthetic,
         },
         runtime: {
           runtimeStatus,

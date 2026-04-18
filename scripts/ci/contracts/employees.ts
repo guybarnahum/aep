@@ -74,6 +74,7 @@ export type EmployeeVisualIdentityPublic = {
 export type EmployeeEmploymentProjection = {
   employmentStatus: EmployeeEmploymentStatus;
   schedulerMode: string;
+  isSynthetic?: boolean;
 };
 
 export type EmployeeProjection = {
@@ -254,6 +255,15 @@ export type EmployeeReviewCreateResponse = {
   ok: true;
   employeeId: string;
   review: EmployeePerformanceReviewRecord;
+};
+
+export type PurgeSyntheticEmployeeResponse = {
+  ok: boolean;
+  employeeId: string;
+  employeeName?: string;
+  employmentStatus?: EmployeeEmploymentStatus;
+  purged?: boolean;
+  error?: string;
 };
 
 export type EmployeeScopeResponse = {

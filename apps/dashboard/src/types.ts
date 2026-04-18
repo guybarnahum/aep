@@ -271,6 +271,7 @@ export type OperatorEmployeeRecord = {
   employment: {
     employmentStatus: EmployeeEmploymentStatus;
     schedulerMode: string;
+    isSynthetic?: boolean;
   };
   publicProfile?: {
     displayName: string;

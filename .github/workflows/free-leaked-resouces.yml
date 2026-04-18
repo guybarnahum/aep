@@ -30,6 +30,12 @@ jobs:
 
       - run: npm ci
 
+      - name: Cleanup synthetic CI employees (pre)
+        env:
+          OPERATOR_AGENT_BASE_URL: ${{ secrets.OPERATOR_AGENT_BASE_URL }}
+        run: |
+          npm run ci:purge-synthetic-employees -- pre
+
       - name: Free orphaned preview and test resources
         id: free_leaked_resources
         env:
@@ -51,3 +57,10 @@ jobs:
           else
             echo "- No reaper log found." >> "$GITHUB_STEP_SUMMARY"
           fi
+
+      - name: Cleanup synthetic CI employees (post)
+        if: always()
+        env:
+          OPERATOR_AGENT_BASE_URL: ${{ secrets.OPERATOR_AGENT_BASE_URL }}
+        run: |
+          npm run ci:purge-synthetic-employees -- post

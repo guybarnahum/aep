@@ -150,6 +150,7 @@ export async function listEmployeeCatalog(
          e.status,
          e.employment_status,
          e.scheduler_mode,
+        e.is_synthetic,
          p.bio,
          p.tone,
          p.skills_json,
@@ -176,6 +177,7 @@ export async function listEmployeeCatalog(
       status: string;
       employment_status: string;
       scheduler_mode: string;
+      is_synthetic?: number | string | null;
       bio?: string | null;
       tone?: string | null;
       skills_json?: string | null;
@@ -206,6 +208,7 @@ export async function getEmployeeCatalogEntry(
          e.status,
          e.employment_status,
          e.scheduler_mode,
+        e.is_synthetic,
          e.created_at,
          e.updated_at,
          p.bio,
