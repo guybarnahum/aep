@@ -6,7 +6,15 @@ import { handleOperatorAgentSoftSkip } from "../../shared/soft-skip";
 export {};
 
 async function purgeSyntheticEmployees(phase: "pre" | "post"): Promise<void> {
-  const client = createOperatorAgentClient();
+  let client: ReturnType<typeof createOperatorAgentClient>;
+  try {
+    client = createOperatorAgentClient();
+  } catch (err) {
+    if (handleOperatorAgentSoftSkip("purge-synthetic-employees", err)) {
+      process.exit(0);
+    }
+    throw err;
+  }
 
   let employeesResponse;
   try {
