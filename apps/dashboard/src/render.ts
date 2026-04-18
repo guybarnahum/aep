@@ -2622,8 +2622,8 @@ export function renderCompanyOverview(overview: OrgPresenceOverview): string {
       </div>
       <div class="company-link-grid">
         <a class="nav-card" href="#employees">
-          <strong>Employees</strong>
-          <span class="muted small">Public employee profiles and work presence</span>
+          <strong>People</strong>
+          <span class="muted small">Directory, staffing, lifecycle, and employee presence</span>
         </a>
         <a class="nav-card" href="#roles">
           <strong>Roles</strong>

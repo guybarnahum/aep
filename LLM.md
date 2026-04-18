@@ -4,7 +4,7 @@ Repository (source of truth):
 👉 https://github.com/guybarnahum/aep
 
 The repository code is the source of truth.  
-This document is aligned to commit `253227bac0f0b45d8a3d0f95c7ab98113036108a`.
+This document is aligned to commit `eb7f7f60bb39089de341ffb00669618b57e5a805`.
 
 Endpoint documentation note for future LLM sessions:
 
@@ -172,6 +172,7 @@ titan@Titans-MacBook-Pro aep % tree . --gitignore
 │   │   │   │       ├── employee-prompt-profile-store-d1.ts
 │   │   │   │       ├── escalation-log-d1.ts
 │   │   │   │       ├── manager-decision-log-d1.ts
+│   │   │   │       ├── performance-review-store-d1.ts
 │   │   │   │       ├── role-catalog-store-d1.ts
 │   │   │   │       ├── task-reassignment-store-d1.ts
 │   │   │   │       ├── task-store-d1.ts
@@ -199,6 +200,7 @@ titan@Titans-MacBook-Pro aep % tree . --gitignore
 │   │   │   │   ├── employee-effective-policy.ts
 │   │   │   │   ├── employee-generate-persona.ts
 │   │   │   │   ├── employee-lifecycle-actions.ts
+│   │   │   │   ├── employee-reviews.ts
 │   │   │   │   ├── employee-scope.ts
 │   │   │   │   ├── employee-update.ts
 │   │   │   │   ├── employees.ts
@@ -211,6 +213,7 @@ titan@Titans-MacBook-Pro aep % tree . --gitignore
 │   │   │   │   ├── messages.ts
 │   │   │   │   ├── run-once.ts
 │   │   │   │   ├── run.ts
+│   │   │   │   ├── review-cycles.ts
 │   │   │   │   ├── scheduler-status.ts
 │   │   │   │   ├── task-artifacts.ts
 │   │   │   │   ├── tasks.ts
@@ -299,7 +302,8 @@ titan@Titans-MacBook-Pro aep % tree . --gitignore
 │   │   │       ├── 0020_external_action_records.sql
 │   │   │       ├── 0021_external_interaction_policy.sql
 │   │   │       ├── 0022_employee_lifecycle_foundation.sql
-│   │   │       └── 0023_task_reassignment.sql
+│   │   │       ├── 0023_task_reassignment.sql
+│   │   │       └── 0024_performance_reviews.sql
 │   │   └── wrangler
 │   │       └── README.md
 │   └── github
@@ -899,6 +903,8 @@ At this commit, the system supports:
 - external interaction policy and audit hardening
 - validation-result artifacts and validation loop feedback
 - human-facing task/thread visibility summaries on canonical read surfaces
+- canonical role review dimensions, review cycles, and evidence-linked performance reviews
+- dashboard-backed people / org-management surfaces over canonical routes
 
 Important runtime rules:
 
@@ -1835,15 +1841,22 @@ Important invariant:
 * it does not create a parallel people-management state model
 * lifecycle and review changes remain explicit, auditable HTTP mutations
 
-## PR13G — Hardening + policy + realism pass
+## PR13G — Hardening + policy + realism pass (COMPLETED)
 
-Deliver:
+Implemented:
 
-* lifecycle invariants
-* continuity edge-case handling
-* policy hardening
-* CI coverage
-* docs and UX tightening
+* lifecycle invariant hardening for invalid transition combinations
+* stronger review-policy realism checks on cycle status, evidence existence, and high-impact recommendation approval
+* expanded CI negative-case coverage for lifecycle and review invariants
+* company-view copy tightening so people-management terminology is consistent
+* LLM.md tree/state refresh to match the repo more closely
+
+Important invariant:
+
+* archived employees are not a generic active lifecycle target
+* reviews may only be created against active review cycles
+* review evidence must point to canonical tasks, artifacts, or threads that exist
+* high-impact review recommendations remain explicit and approval-linked
 
 ---
 
@@ -1854,7 +1867,7 @@ Deliver:
 3. trust the repo over this doc if they diverge
 4. treat PR12 as complete
 5. treat PR13 as the active next phase
-6. implement PR13 one milestone at a time in order:
+6. treat PR13A through PR13G as complete in the repo state reflected here, and only start a new PR13.x milestone after checking current code:
    * PR13A
    * PR13B
    * PR13C

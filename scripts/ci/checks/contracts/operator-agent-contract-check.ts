@@ -6,6 +6,24 @@ import { handleOperatorAgentSoftSkip } from "../../shared/soft-skip";
 
 export {};
 
+async function expectRequestFailure(
+  label: string,
+  request: () => Promise<unknown>,
+  expectedMessagePart: string,
+): Promise<void> {
+  try {
+    await request();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (!message.includes(expectedMessagePart)) {
+      throw new Error(`${label} failed with unexpected message: ${message}`);
+    }
+    return;
+  }
+
+  throw new Error(`${label} unexpectedly succeeded`);
+}
+
 const SYNTHETIC_EMPLOYEE_NAME_PREFIXES = ["Lifecycle Test ", "Persona Test "];
 
 function isSyntheticContractTestEmployee(employee: {
@@ -315,6 +333,16 @@ async function main(): Promise<void> {
     throw new Error("Expected activate lifecycle action to succeed");
   }
 
+  await expectRequestFailure(
+    "archive-active-employee",
+    () =>
+      client.runEmployeeLifecycleAction(lifecycleEmployeeId, "archive", {
+        reason: "CI invalid archive-from-active check",
+        approvedBy: "ci-operator-agent-client",
+      }),
+    "archive is only allowed for retired or terminated employees",
+  );
+
   const changeRoleResult = await client.runEmployeeLifecycleAction(
     lifecycleEmployeeId,
     "change-role",
@@ -604,6 +632,103 @@ async function main(): Promise<void> {
     throw new Error("Expected created review to include evidence links");
   }
 
+  const draftReviewCycleResult = await client.createReviewCycle({
+    name: `Draft Cycle ${Date.now()}`,
+    periodStart: "2026-04-01T00:00:00.000Z",
+    periodEnd: "2026-06-30T23:59:59.000Z",
+    status: "draft",
+    createdBy: "ci-operator-agent-client",
+  });
+  if (
+    !draftReviewCycleResult.ok ||
+    !draftReviewCycleResult.reviewCycle.reviewCycleId
+  ) {
+    throw new Error("Expected draft review cycle creation to succeed");
+  }
+
+  await expectRequestFailure(
+    "draft-review-cycle-review-create",
+    () =>
+      client.createEmployeeReview("emp_product_manager_web_01", {
+        reviewCycleId: draftReviewCycleResult.reviewCycle.reviewCycleId,
+        summary: "Should fail on inactive review cycle.",
+        strengths: ["Planning quality"],
+        gaps: ["None"],
+        dimensionScores: [
+          {
+            key: "planning_quality",
+            score: 4,
+          },
+        ],
+        recommendations: [
+          {
+            recommendationType: "no_change",
+            summary: "No change recommendation for invariant test.",
+          },
+        ],
+        evidence: [{ evidenceType: "task", evidenceId: reviewTask.taskId }],
+        createdBy: "ci-operator-agent-client",
+      }),
+    "Reviews may only be created in active review cycles",
+  );
+
+  await expectRequestFailure(
+    "missing-review-evidence",
+    () =>
+      client.createEmployeeReview("emp_product_manager_web_01", {
+        reviewCycleId: reviewCycleResult.reviewCycle.reviewCycleId,
+        summary: "Should fail on missing evidence.",
+        strengths: ["Planning quality"],
+        gaps: ["None"],
+        dimensionScores: [
+          {
+            key: "planning_quality",
+            score: 4,
+          },
+        ],
+        recommendations: [
+          {
+            recommendationType: "no_change",
+            summary: "No change recommendation for invariant test.",
+          },
+        ],
+        evidence: [
+          {
+            evidenceType: "task",
+            evidenceId: "task_missing_review_evidence",
+          },
+        ],
+        createdBy: "ci-operator-agent-client",
+      }),
+    "Evidence not found for task:task_missing_review_evidence",
+  );
+
+  await expectRequestFailure(
+    "high-impact-review-without-approval",
+    () =>
+      client.createEmployeeReview("emp_product_manager_web_01", {
+        reviewCycleId: reviewCycleResult.reviewCycle.reviewCycleId,
+        summary: "Should fail without approvedBy for promote recommendation.",
+        strengths: ["Planning quality"],
+        gaps: ["None"],
+        dimensionScores: [
+          {
+            key: "planning_quality",
+            score: 5,
+          },
+        ],
+        recommendations: [
+          {
+            recommendationType: "promote",
+            summary: "Recommend promotion.",
+          },
+        ],
+        evidence: [{ evidenceType: "task", evidenceId: reviewTask.taskId }],
+        createdBy: "ci-operator-agent-client",
+      }),
+    "approvedBy is required for promote, reassign, or restrict recommendations",
+  );
+
   const timeoutScope = await client.getEmployeeScope("emp_timeout_recovery_01");
   if (!timeoutScope.ok) {
     throw new Error("/agent/employees/:id/scope did not return ok=true");
@@ -712,6 +837,7 @@ async function main(): Promise<void> {
       employeeCount: employeesResponse.count,
       roleCount: rolesResponse.count,
       reviewCycleId: reviewCycleResult.reviewCycle.reviewCycleId,
+      draftReviewCycleId: draftReviewCycleResult.reviewCycle.reviewCycleId,
       reviewId: reviewCreateResult.review.reviewId,
       lifecycleEventCount: lifecycleEvents.count,
       personaEmployeeId,

@@ -662,6 +662,48 @@ function assertHighImpactApproval(
   }
 }
 
+function assertLifecycleMutationAllowed(args: {
+  action: EmployeeLifecycleActionInput["action"];
+  employmentStatus: EmployeeEmploymentStatus;
+}): void {
+  const status = args.employmentStatus;
+
+  switch (args.action) {
+    case "reassign_team":
+    case "change_role":
+      if (!["draft", "active", "on_leave"].includes(status)) {
+        throw new Error(
+          `${args.action} is not allowed for employmentStatus=${status}`,
+        );
+      }
+      return;
+    case "start_leave":
+    case "end_leave":
+      if (!["active", "on_leave"].includes(status)) {
+        throw new Error(
+          `${args.action} is not allowed for employmentStatus=${status}`,
+        );
+      }
+      return;
+    case "terminate":
+      if (status === "terminated" || status === "archived") {
+        throw new Error(
+          `${args.action} is not allowed for employmentStatus=${status}`,
+        );
+      }
+      return;
+    case "archive":
+      if (!["retired", "terminated"].includes(status)) {
+        throw new Error(
+          `archive is only allowed for retired or terminated employees; got employmentStatus=${status}`,
+        );
+      }
+      return;
+    default:
+      return;
+  }
+}
+
 export async function applyEmployeeLifecycleAction(
   env: OperatorAgentEnv,
   employeeId: string,
@@ -679,6 +721,10 @@ export async function applyEmployeeLifecycleAction(
   }
 
   assertHighImpactApproval(input.action, input.approvedBy);
+  assertLifecycleMutationAllowed({
+    action: input.action,
+    employmentStatus: existing.employment_status as EmployeeEmploymentStatus,
+  });
 
   let nextEmploymentStatus = existing.employment_status as EmployeeEmploymentStatus;
   let nextTeamId = existing.team_id;
