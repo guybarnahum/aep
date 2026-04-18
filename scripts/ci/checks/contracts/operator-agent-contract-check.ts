@@ -27,6 +27,8 @@ async function expectRequestFailure(
 const SYNTHETIC_EMPLOYEE_NAME_PREFIXES = ["Lifecycle Test ", "Persona Test "];
 
 function isSyntheticContractTestEmployee(employee: {
+  identity: { employeeId: string };
+  employment: { employmentStatus: string };
   publicProfile?: { displayName?: string };
 }): boolean {
   const displayName = employee.publicProfile?.displayName ?? "";
@@ -48,12 +50,16 @@ async function cleanupSyntheticContractTestEmployees(args: {
     isSyntheticContractTestEmployee,
   );
 
-  if (syntheticEmployees.length === 0) {
+  const actionableSyntheticEmployees = syntheticEmployees.filter(
+    (employee) => employee.employment.employmentStatus !== "archived",
+  );
+
+  if (actionableSyntheticEmployees.length === 0) {
     return;
   }
 
   console.warn(
-    `[operator-agent-contract-check] synthetic test employees detected ${args.phase} run: ${syntheticEmployees
+    `[operator-agent-contract-check] synthetic test employees detected ${args.phase} run: ${actionableSyntheticEmployees
       .map(
         (employee) =>
           `${employee.publicProfile?.displayName ?? employee.identity.employeeId} (${employee.identity.employeeId})`,
@@ -61,13 +67,9 @@ async function cleanupSyntheticContractTestEmployees(args: {
       .join(", ")}`,
   );
 
-  for (const employee of syntheticEmployees) {
+  for (const employee of actionableSyntheticEmployees) {
     const employeeId = employee.identity.employeeId;
     const employmentStatus = employee.employment.employmentStatus;
-
-    if (employmentStatus === "archived") {
-      continue;
-    }
 
     if (employmentStatus !== "terminated" && employmentStatus !== "retired") {
       const terminateResult = await args.client.runEmployeeLifecycleAction(
