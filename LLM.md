@@ -4,12 +4,13 @@ Repository (source of truth):
 👉 https://github.com/guybarnahum/aep
 
 The repository code is the source of truth.  
-This document is aligned to commit `eb7f7f60bb39089de341ffb00669618b57e5a805`.
+This document is aligned to commit `65d5e56fb5dc961e4cbb76fc86baee1a72e13e20`.
 
 Endpoint documentation note for future LLM sessions:
 
-- HTTP endpoint documentation is centralized in `API.md`
+- HTTP endpoint documentation is centralized in `API.md` at this commit
 - treat `API.md` as the canonical API reference before inferring routes from scattered docs
+- if the repo later renames `API.md` or `APII.md`, use that renamed file as the same canonical API reference
 - use `LLM.md` for architecture, continuity, and task context; use `API.md` for concrete route surfaces and invariants
 
 ```bash
@@ -217,6 +218,7 @@ titan@Titans-MacBook-Pro aep % tree . --gitignore
 │   │   │   │   ├── scheduler-status.ts
 │   │   │   │   ├── task-artifacts.ts
 │   │   │   │   ├── tasks.ts
+│   │   │   │   ├── te-purge-employee.ts
 │   │   │   │   ├── te-seed-approval.ts
 │   │   │   │   ├── te-seed-work-log.ts
 │   │   │   │   ├── thread-approval-actions.ts
@@ -303,7 +305,8 @@ titan@Titans-MacBook-Pro aep % tree . --gitignore
 │   │   │       ├── 0021_external_interaction_policy.sql
 │   │   │       ├── 0022_employee_lifecycle_foundation.sql
 │   │   │       ├── 0023_task_reassignment.sql
-│   │   │       └── 0024_performance_reviews.sql
+│   │   │       ├── 0024_performance_reviews.sql
+│   │   │       └── 0025_employee_synthetic_flag.sql
 │   │   └── wrangler
 │   │       └── README.md
 │   └── github
@@ -403,6 +406,7 @@ titan@Titans-MacBook-Pro aep % tree . --gitignore
 │   │   │   │   ├── paperclip-first-execution-check.ts
 │   │   │   │   ├── pm-planning-task-graph-check.ts
 │   │   │   │   ├── post-deploy-validation.ts
+│   │   │   │   ├── purge-synthetic-employees.ts
 │   │   │   │   ├── repeated-pm-persona-continuity-check.ts
 │   │   │   │   ├── repeated-validation-persona-continuity-check.ts
 │   │   │   │   ├── run-recurring-validation.ts
@@ -905,6 +909,9 @@ At this commit, the system supports:
 - human-facing task/thread visibility summaries on canonical read surfaces
 - canonical role review dimensions, review cycles, and evidence-linked performance reviews
 - dashboard-backed people / org-management surfaces over canonical routes
+- synthetic employee flagging (`is_synthetic`) and archived-only synthetic purge support
+- cleanup-token authorized synthetic purge path for non-test-endpoint environments
+- CI synthetic employee cleanup scenario and environment-targeted leaked-resource cleanup workflow
 
 Important runtime rules:
 
@@ -1850,6 +1857,8 @@ Implemented:
 * expanded CI negative-case coverage for lifecycle and review invariants
 * company-view copy tightening so people-management terminology is consistent
 * LLM.md tree/state refresh to match the repo more closely
+* synthetic purge now exists as a narrowly scoped cleanup/admin surface for `is_synthetic = true` and `employment_status = archived`
+* authorization may come from `ENABLE_TEST_ENDPOINTS=true` or an explicit cleanup token
 
 Important invariant:
 

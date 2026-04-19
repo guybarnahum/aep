@@ -1,4 +1,4 @@
-# APII — Endpoint Reference
+# API — Endpoint Reference
 
 This document is the canonical endpoint reference for AEP HTTP surfaces.
 
@@ -12,7 +12,7 @@ Notes:
 
 - test-only routes are explicitly marked
 - route implementation remains the source of truth
-- architecture and product rationale stay in package README files and in [LLM.md](/Users/titan/projects/aep/LLM.md)
+- architecture and product rationale stay in package README files and in `LLM.md`
 
 ## Operator Agent
 
@@ -65,6 +65,7 @@ Base service: `core/operator-agent`
 `POST /agent/employees`
 
 - Creates a draft or active employee record with public profile fields and lifecycle metadata.
+- Supports synthetic employee creation for CI/test fixtures through `isSynthetic`.
 - This is the dashboard hiring / staffing creation surface.
 
 `PATCH /agent/employees/:employeeId`
@@ -101,7 +102,12 @@ Base service: `core/operator-agent`
 
 - Creates an evidence-linked employee performance review.
 - Important invariant: submitted `dimensionScores` keys must match the selected role's canonical `reviewDimensions`.
-- Evidence items reference canonical `task`, `artifact`, or `thread` ids.
+- Important invariant: employee employment status must be one of `active`, `on_leave`, `retired`, or `terminated`.
+- Important invariant: the referenced review cycle must exist and be `active`.
+- Important invariant: at least one dimension score, one recommendation, and one evidence item are required.
+- Important invariant: each dimension score must be in the range `1..5`.
+- Important invariant: evidence items must reference canonical `task`, `artifact`, or `thread` ids that actually exist.
+- Important invariant: `approvedBy` is required for high-impact recommendations (`promote`, `reassign`, `restrict`).
 
 `POST /agent/employees/:employeeId/generate-persona`
 
@@ -286,6 +292,14 @@ The following must not be assumed by reusable validation workflows unless explic
 
 `POST /agent/te/seed-work-log`
 
+`POST /agent/te/purge-employee`
+
+- Purges a synthetic employee fixture by `employeeId`.
+- Important invariant: only employees with `is_synthetic = 1` may be purged.
+- Important invariant: purge is only allowed when `employment_status = archived`.
+- Authorization rule: purge is allowed when `ENABLE_TEST_ENDPOINTS === "true"` or when a valid cleanup token is provided.
+- This is not a normal product lifecycle route and must not be used for real employees.
+
 `POST /agent/work-log/seed`
 
 Guidance:
@@ -293,6 +307,7 @@ Guidance:
 - reusable validation lanes must avoid assuming test-only `/agent/te/...` endpoints exist
 - prefer live state where possible
 - soft-skip cleanly when environment-specific setup is absent
+- `POST /agent/te/purge-employee` is a special cleanup/admin exception and may be authorized by cleanup token even when other test-only routes are disabled
 
 ## Control Plane
 
