@@ -19,6 +19,22 @@ AEP models:
 - task-based coordination across teams
 - human-visible governance and observability
 
+The concrete end-state is not a generic multi-agent demo.
+
+It is an operating company made of durable digital employees and teams with distinct responsibilities:
+
+- a **Web team** to design and build websites and webapps
+- an **Infra team** to deploy and monitor websites and webapps across Cloudflare and AWS
+- a **Validation team** to test development and deployed systems and report issues
+- **PM roles** to turn research, customer needs, and requests into scoped work
+- **HR / staffing roles** to define job descriptions and ask humans to create or approve employees
+
+The company must also support:
+
+- external collaboration through Slack, email, and later Jira-like systems
+- autonomous team heartbeat loops across communicate -> design -> delegate -> execute -> deliver
+- a tightly controlled super-admin debug surface for internal cognition inspection
+
 ---
 
 ## What AEP is
@@ -72,6 +88,28 @@ The future company layer will add:
 - strategy
 - higher-level organizational behavior
 
+In practical terms, that future company layer is expected to evolve toward:
+
+- project intake and client-facing work definition
+- persistent team operating loops
+- staffing and HR workflows
+- external system adapters that remain non-canonical
+- product delivery loops for real websites and webapps
+
+---
+
+## Forcing-function products
+
+The immediate projects that should shape AEP's roadmap are concrete and operational:
+
+- a customer-facing marketing website that presents company identity, celebrates the digital employees, and channels new project intake
+- websites and webapps designed and delivered by the Web team
+- deployment and monitoring of those systems by the Infra team
+- validation of development and deployed systems by the Validation team
+- human-readable and human-writeable external collaboration surfaces through email, Slack, and later Jira-like ticket systems
+
+These are not side demos. They are the forcing function that turns AEP from an internal runtime into an operational digital company.
+
 ### CI / validation architecture
 
 The CI system is now structured as a layered validation model rather than a flat collection of one-off scripts.
@@ -115,6 +153,14 @@ That means:
 - employees act within authority and budget
 - managers supervise and intervene
 - outputs become visible and reviewable
+
+The longer-term operating loop is richer than a single execution hop. AEP is moving toward a company heartbeat:
+
+```text
+research / request -> PM framing -> design -> delegation -> execution -> validation -> deployment / delivery -> follow-up communication
+```
+
+The current repository already has strong primitives for tasks, threads, approvals, escalations, and visibility. The main remaining gap is to turn those primitives into persistent team behavior loops.
 
 ---
 
@@ -465,6 +511,53 @@ Slack and email are adapters for:
 - notifications
 - approvals
 - stakeholder visibility
+
+The same rule should apply to Jira or similar ticketing systems as they are introduced:
+
+- AEP remains canonical for work state, provenance, and governance
+- Jira-like systems are projection and collaboration adapters
+- human edits in external systems must reconcile back through canonical AEP routes and mappings
+
+---
+
+## Current gap to the goal
+
+The main gap is no longer foundational primitives. The repo already has durable employees, lifecycle, task coordination, canonical threads, mirrors, governance, and people-management surfaces.
+
+The larger gap is organizational behavior:
+
+- teams are present, but not yet fully operating as persistent autonomous units
+- PM, dev, infra, validation, and HR roles exist more as cataloged and UI-visible structure than as full work-producing loops
+- project / client / intake flows are still weak compared with the target company model
+- Slack and email mirroring exist, but account provisioning and operational team usage are not yet first-class product features
+- Jira-like ticket integration is not yet present
+- the debug-only "god view" into inner cognition is intentionally absent today and would require a narrow, explicit super-admin boundary
+
+So the next phase is not "add more agent primitives." It is:
+
+> turn the current runtime into an operating digital company with real team loops and real product output
+
+---
+
+## Near-term evolution plan
+
+The most important next steps are:
+
+1. **Team work loops**
+  - make Web, Infra, and Validation operate as real team-level execution units
+  - add heartbeat behavior around communicate -> design -> delegate -> execute -> deliver
+
+2. **Project and intake model**
+  - add the business-facing layer that converts leads, research, and customer needs into canonical work
+
+3. **Role-realism pass**
+  - strengthen PM, dev, infra, validation, and HR role contracts so they produce distinct kinds of work
+
+4. **External collaboration adapters**
+  - expand Slack, email, and later Jira while preserving AEP as the source of truth
+
+5. **Super-admin debug policy**
+  - add a tightly scoped introspection path for cognition debugging without breaking default privacy boundaries
 
 ---
 

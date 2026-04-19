@@ -4,7 +4,7 @@ Repository (source of truth):
 👉 https://github.com/guybarnahum/aep
 
 The repository code is the source of truth.  
-This document is aligned to commit `65d5e56fb5dc961e4cbb76fc86baee1a72e13e20`.
+This document is aligned to commit `7c4a6af9cdf1c2de4b04aa1bf9fb30d6f9fd3695`.
 
 Endpoint documentation note for future LLM sessions:
 
@@ -525,6 +525,16 @@ It IS:
 
 > an organization runtime
 
+More concretely, the intended company shape is:
+
+- a **Web team** that designs and builds websites and webapps
+- an **Infra team** that deploys and monitors those systems on Cloudflare and AWS
+- a **Validation team** that tests dev and deployed systems and reports issues
+- **PM roles** that define work from research, customer needs, and requests
+- **HR / staffing roles** that define job descriptions and request human-approved employee creation
+
+The target is not a generic "agent platform." It is a real operational digital company with durable people, durable teams, and explicit governed work.
+
 ---
 
 # 2. Canonical architectural model
@@ -577,6 +587,15 @@ Task decisions record:
 - private internal monologue where applicable
 
 Private cognition stays private.
+
+### External mappings
+Slack/email mirroring, external thread mappings, inbound replies, and explicit external actions are projections and interaction surfaces layered on top of canonical AEP threads/messages.
+
+This same boundary should hold for future Jira-like systems:
+
+- AEP remains canonical for work state and provenance
+- external ticket systems are adapters and projections
+- external mutation must reconcile through canonical AEP routes, mappings, and audit
 
 ### Approvals and escalations
 Approvals and escalations are explicit governance primitives.  
@@ -917,6 +936,14 @@ Important runtime rules:
 
 - endpoint documentation is centralized in `API.md`; consult it first for route details
 - canonical company is `company_internal_aep`
+
+Current practical interpretation of the repo state:
+
+- the foundational runtime primitives are strong
+- PR12 company / work / mirror / activity UI is present
+- PR13 lifecycle / persona / review / people-management surfaces are present
+- the main remaining gap is not primitive storage or routing
+- the main remaining gap is turning teams and roles into persistent operating loops with business-facing intake and delivery
 
 ---
 
@@ -1294,6 +1321,18 @@ The next major product gap is organizational operations over embodied employees:
 * work continuity when employees become unavailable
 * performance reviews grounded in canonical evidence
 * org-management UI for hiring, reassignment, leave, retirement, and termination
+
+That earlier gap is now only part of the picture. The larger gap to the intended company model is:
+
+- Web / Infra / Validation are not yet fully realized as autonomous operating teams
+- PM behavior is not yet strong enough as a first-class work-definition loop
+- HR/staffing exists in lifecycle form but not yet as a richer organizational-design workflow
+- project intake, customer requests, and client-facing backlog shaping are still weak
+- external systems such as Slack/email are present as adapters, but operational provisioning and team usage are still incomplete
+- Jira-like ticket reflection is not yet implemented
+- there is currently no super-admin-only debug view into private cognition; the default boundary is intentionally strict
+
+So the next phase should focus on **organizational behavior and business-facing operating loops**, not on inventing new core primitives casually.
 
 ---
 
@@ -1710,6 +1749,16 @@ PR13 is focused on:
 * performance reviews grounded in canonical work
 * org-management UI
 
+Beyond PR13, the next meaningful phase is not just "more employee management."
+
+It is the transition from:
+
+- visible governed employees
+
+to:
+
+- functioning autonomous teams that can intake, design, delegate, execute, validate, deploy, and communicate as a company
+
 ---
 
 # 11. Current focus (PR13 planning)
@@ -1731,6 +1780,15 @@ PR13 must preserve:
 * explicit governance
 * immutable authorship
 * transferability of responsibility
+
+After verifying PR13A-G in code, the active strategic focus should shift toward team-level operation.
+
+That means:
+
+- making Web / Infra / Validation real operating units
+- strengthening PM-driven work definition
+- adding business/project intake as canonical work inputs
+- preserving the existing employee boundary and canonical thread/task/artifact model while moving toward autonomous company heartbeat behavior
 
 ---
 
@@ -1873,6 +1931,69 @@ Important invariant:
 
 ---
 
+# 12.5 Goal-oriented gap assessment
+
+The intended end-state for AEP is a digital company with at least these operational team shapes:
+
+- Web team
+- Infra team
+- Validation team
+- PM roles
+- HR / staffing roles
+
+And these forcing-function outputs:
+
+- a customer-facing marketing website
+- websites and webapps delivered by the company
+- deployment/monitoring across Cloudflare and AWS
+- employee-facing email identities
+- team Slack mirroring
+- Jira-like human-readable/human-writeable work reflection
+
+Relative to that goal, the repo today already has:
+
+- durable employees
+- lifecycle and review surfaces
+- canonical tasks, artifacts, and message threads
+- external mirroring substrate
+- governance and visibility surfaces
+
+Relative to that goal, the repo still materially lacks:
+
+- persistent team heartbeat loops
+- richer project / client / intake modeling
+- stronger PM / dev / infra / validation role behavior separation
+- HR as a fuller staffing workflow rather than only lifecycle mutation
+- external provisioning and operational integration for Slack/email/Jira-like systems
+- a tightly scoped super-admin cognition-debug surface
+
+The important conclusion is:
+
+> AEP does not mainly need new storage primitives right now.  
+> It mainly needs team operating behavior layered onto the primitives it already has.
+
+---
+
+# 12.6 Likely next phase after PR13
+
+After PR13 verification and closeout, the next phase should focus on **team operating loops**.
+
+The likely first step is a team-heartbeat / team-work-loop phase that makes teams behave as persistent execution units rather than passive catalog partitions.
+
+Expected emphasis:
+
+- PM framing of work
+- Web implementation work
+- Infra deploy/monitor work
+- Validation execution/reporting work
+- canonical publication of summaries into threads
+- reuse of existing task / artifact / approval / escalation primitives
+
+Do not invent a parallel company model for this.  
+Build it on top of the existing canonical AEP model.
+
+---
+
 # 13. The next LLM session should:
 
 1. read this file fully
@@ -1889,6 +2010,10 @@ Important invariant:
    * PR13F
    * PR13G
 7. preserve the cognition boundary while expanding employee embodiment and lifecycle
+8. understand that the strategic goal is a real operating digital company with Web, Infra, Validation, PM, and later HR/staffing roles
+9. prefer evolving team behavior and business-facing intake over inventing new primitives casually
+10. preserve the rule that Slack/email/Jira-like systems are adapters, not the source of truth
+11. treat any future super-admin cognition-debug surface as an explicit, narrow exception to the normal privacy boundary, never as the default read model
 
 ---
 
