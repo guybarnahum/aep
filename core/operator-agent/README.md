@@ -69,7 +69,7 @@ Current operators:
 
 ## Company Handoff & Paperclip Integration
 
-Endpoint documentation for operator-agent now lives in [APII.md](/Users/titan/projects/aep/APII.md). Keep this README focused on architecture, behavior, and operating model.
+Endpoint documentation for operator-agent now lives in [API.md](/Users/titan/projects/aep/API.md). Keep this README focused on architecture, behavior, and operating model.
 
 ### Execution Model: Paperclip-First
 
@@ -88,7 +88,7 @@ Valid `x-aep-execution-source` values:
 
 If the header is missing, `/agent/run` returns `400`.
 
-Request and response payload details for `/agent/run`, `/agent/scheduler-status`, and related runtime surfaces are centralized in [APII.md](/Users/titan/projects/aep/APII.md).
+Request and response payload details for `/agent/run`, `/agent/scheduler-status`, and related runtime surfaces are centralized in [API.md](/Users/titan/projects/aep/API.md).
 
 ### Company Responsibility
 
@@ -121,7 +121,7 @@ open → acknowledged → resolved
 
 ### Transitions
 
-Concrete escalation endpoint contracts are documented in [APII.md](/Users/titan/projects/aep/APII.md).
+Concrete escalation endpoint contracts are documented in [API.md](/Users/titan/projects/aep/API.md).
 
 #### Invalid Transitions
 
@@ -170,7 +170,7 @@ An escalation record is created when a manager decision is:
 }
 ```
 
-Endpoint-level route reference is centralized in [APII.md](/Users/titan/projects/aep/APII.md).
+Endpoint-level route reference is centralized in [API.md](/Users/titan/projects/aep/API.md).
 
 ---
 
@@ -207,7 +207,7 @@ All three logs are **append-only, immutable**:
   - Runtime control transitions per employee
    - who changed it, why, when, under which policy
 
-Governance-facing route references are centralized in [APII.md](/Users/titan/projects/aep/APII.md).
+Governance-facing route references are centralized in [API.md](/Users/titan/projects/aep/API.md).
 
 ---
 

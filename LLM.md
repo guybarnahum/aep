@@ -8,9 +8,9 @@ This document is aligned to commit `eb7f7f60bb39089de341ffb00669618b57e5a805`.
 
 Endpoint documentation note for future LLM sessions:
 
-- HTTP endpoint documentation is centralized in `APII.md`
-- treat `APII.md` as the canonical API reference before inferring routes from scattered docs
-- use `LLM.md` for architecture, continuity, and task context; use `APII.md` for concrete route surfaces and invariants
+- HTTP endpoint documentation is centralized in `API.md`
+- treat `API.md` as the canonical API reference before inferring routes from scattered docs
+- use `LLM.md` for architecture, continuity, and task context; use `API.md` for concrete route surfaces and invariants
 
 ```bash
 titan@Titans-MacBook-Pro aep % tree . --gitignore
@@ -309,7 +309,7 @@ titan@Titans-MacBook-Pro aep % tree . --gitignore
 │   └── github
 │       └── workflows
 │           └── README.md
-├── APII.md
+├── API.md
 ├── LLM.md
 ├── package-lock.json
 ├── package.json
@@ -908,7 +908,7 @@ At this commit, the system supports:
 
 Important runtime rules:
 
-- endpoint documentation is centralized in `APII.md`; consult it first for route details
+- endpoint documentation is centralized in `API.md`; consult it first for route details
 - canonical company is `company_internal_aep`
 
 ---
@@ -1421,7 +1421,7 @@ The dashboard now supports human participation through canonical AEP thread rout
 ### Implemented
 
 * thread detail includes a canonical message composer
-* endpoint documentation and route invariants are centralized in `APII.md`
+* endpoint documentation and route invariants are centralized in `API.md`
 * approvals remain explicit thread actions
 * escalations remain explicit thread actions
 * free-form thread participation does not become hidden governance mutation
