@@ -52,8 +52,8 @@ jobs:
 
       - name: Cleanup synthetic CI employees (pre)
         env:
-          OPERATOR_AGENT_BASE_URL: ${{ secrets.OPERATOR_AGENT_BASE_URL }}
-          OPERATOR_AGENT_CLEANUP_TOKEN: ${{ secrets.OPERATOR_AGENT_CLEANUP_TOKEN }}
+          OPERATOR_AGENT_BASE_URL: ${{ vars.OPERATOR_AGENT_BASE_URL }}
+          OPERATOR_AGENT_CLEANUP_TOKEN: ${{ vars.OPERATOR_AGENT_CLEANUP_TOKEN }}
         run: |
           npm run ci:purge-synthetic-employees -- pre
 
@@ -84,7 +84,7 @@ jobs:
       - name: Cleanup synthetic CI employees (post)
         if: always()
         env:
-          OPERATOR_AGENT_BASE_URL: ${{ secrets.OPERATOR_AGENT_BASE_URL }}
-          OPERATOR_AGENT_CLEANUP_TOKEN: ${{ secrets.OPERATOR_AGENT_CLEANUP_TOKEN }}
+          OPERATOR_AGENT_BASE_URL: ${{ vars.OPERATOR_AGENT_BASE_URL }}
+          OPERATOR_AGENT_CLEANUP_TOKEN: ${{ vars.OPERATOR_AGENT_CLEANUP_TOKEN }}
         run: |
           npm run ci:purge-synthetic-employees -- post
