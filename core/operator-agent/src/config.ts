@@ -12,6 +12,7 @@ export interface OperatorAgentConfig {
   managerObservedEmployeeIds: string[];
   managerReviewWindowMs: number;
   managerQuietPeriodMs: number;
+  syntheticEmployeeCleanupToken: string;
 }
 
 function readEnvString(
@@ -137,6 +138,11 @@ export function getConfig(env?: Record<string, unknown>): OperatorAgentConfig {
       env,
       "OPERATOR_AGENT_MANAGER_QUIET_PERIOD_MS",
       15 * 60 * 1000
+    ),
+    syntheticEmployeeCleanupToken: readEnvString(
+      env,
+      "SYNTHETIC_EMPLOYEE_CLEANUP_TOKEN",
+      ""
     ),
   };
 }

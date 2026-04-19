@@ -1857,7 +1857,10 @@ Important invariant:
 * reviews may only be created against active review cycles
 * review evidence must point to canonical tasks, artifacts, or threads that exist
 * high-impact review recommendations remain explicit and approval-linked
-* only `is_synthetic = true` employees may be permanently purged (CI/test-only path)
+* only `is_synthetic = true` employees may be permanently purged
+* purge additionally requires `employment_status = archived`
+* purge authorization is allowed either through `ENABLE_TEST_ENDPOINTS=true` or an explicit cleanup token
+* future tightening should route purge through a narrower internal admin policy gate
 
 ---
 

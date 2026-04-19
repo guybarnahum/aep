@@ -1,4 +1,5 @@
 import type { OperatorAgentEnv } from "@aep/operator-agent/types";
+import { getConfig } from "@aep/operator-agent/config";
 
 type PurgeEmployeeBody = {
   employeeId?: string;
@@ -19,16 +20,47 @@ function requireDb(env: OperatorAgentEnv): D1Database {
   return env.OPERATOR_AGENT_DB;
 }
 
+function hasAuthorizedCleanupAccess(
+  request: Request,
+  env: OperatorAgentEnv,
+): boolean {
+  if (env.ENABLE_TEST_ENDPOINTS === "true") {
+    return true;
+  }
+
+  const config = getConfig(env);
+  if (!config.syntheticEmployeeCleanupToken) {
+    return false;
+  }
+
+  const providedToken =
+    request.headers.get("x-aep-cleanup-token")?.trim() ??
+    request.headers.get("authorization")?.replace(/^Bearer\s+/i, "").trim() ??
+    "";
+
+  return (
+    providedToken.length > 0 &&
+    providedToken === config.syntheticEmployeeCleanupToken
+  );
+}
+
 export async function handlePurgeEmployee(
   request: Request,
   env: OperatorAgentEnv,
 ): Promise<Response> {
-  if (env.ENABLE_TEST_ENDPOINTS !== "true") {
-    return new Response("Not Found", { status: 404 });
-  }
-
   if (request.method !== "POST") {
     return new Response("Method Not Allowed", { status: 405 });
+  }
+
+  if (!hasAuthorizedCleanupAccess(request, env)) {
+    return Response.json(
+      {
+        ok: false,
+        error:
+          "Synthetic employee purge requires ENABLE_TEST_ENDPOINTS=true or a valid cleanup token",
+      },
+      { status: 403 },
+    );
   }
 
   let body: PurgeEmployeeBody;
@@ -70,6 +102,20 @@ export async function handlePurgeEmployee(
       { status: 400 },
     );
   }
+
+  if (employee.employment_status !== "archived") {
+    return Response.json(
+      {
+        ok: false,
+        error: `Refusing to purge employee ${employeeId} unless employment_status=archived`,
+      },
+      { status: 400 },
+    );
+  }
+
+  // Future tightening:
+  // - require an internal admin policy decision in canonical state
+  // - optionally scope cleanup token usage to specific environments or callers
 
   await db
     .prepare(

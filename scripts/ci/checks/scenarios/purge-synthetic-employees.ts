@@ -48,6 +48,12 @@ async function purgeSyntheticEmployees(phase: "pre" | "post"): Promise<void> {
       .join(", ")}`,
   );
 
+  if (!process.env.OPERATOR_AGENT_CLEANUP_TOKEN?.trim()) {
+    console.warn(
+      "purge-synthetic-employees: OPERATOR_AGENT_CLEANUP_TOKEN is not set; purge depends on ENABLE_TEST_ENDPOINTS in the target worker",
+    );
+  }
+
   for (const employee of syntheticEmployees) {
     const employeeId = employee.identity.employeeId;
     const employmentStatus = employee.employment.employmentStatus;

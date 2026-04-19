@@ -436,10 +436,7 @@ async function dispatch(request: Request, env: OperatorAgentEnv): Promise<Respon
     return handleSeedWorkLog(request, env);
   }
 
-  if (
-    env.ENABLE_TEST_ENDPOINTS === "true" &&
-    url.pathname === "/agent/te/purge-employee"
-  ) {
+  if (url.pathname === "/agent/te/purge-employee") {
     return handlePurgeEmployee(request, env);
   }
 
