@@ -1,7 +1,5 @@
 PRAGMA foreign_keys = OFF;
 
-BEGIN TRANSACTION;
-
 UPDATE employee_scope_bindings
 SET
   binding_id = REPLACE(binding_id, 'emp_timeout_recovery_01', 'op001'),
@@ -79,7 +77,5 @@ UPDATE employees_catalog SET id = 'pm002' WHERE id = 'emp_product_manager_web_01
 UPDATE employees_catalog SET id = 'dv001' WHERE id = 'emp_frontend_engineer_01';
 UPDATE employees_catalog SET id = 'pm003' WHERE id = 'emp_validation_pm_01';
 UPDATE employees_catalog SET id = 'qa001' WHERE id = 'emp_validation_engineer_01';
-
-COMMIT;
 
 PRAGMA foreign_keys = ON;
