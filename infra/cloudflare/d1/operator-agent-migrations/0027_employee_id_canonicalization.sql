@@ -1,7 +1,5 @@
 PRAGMA foreign_keys = OFF;
 
-BEGIN TRANSACTION;
-
 CREATE TEMP TABLE employee_id_map (
   old_id TEXT PRIMARY KEY,
   new_id TEXT NOT NULL
@@ -265,7 +263,5 @@ SET id = (SELECT new_id FROM employee_id_map WHERE old_id = id)
 WHERE id IN (SELECT old_id FROM employee_id_map);
 
 DROP TABLE employee_id_map;
-
-COMMIT;
 
 PRAGMA foreign_keys = ON;
