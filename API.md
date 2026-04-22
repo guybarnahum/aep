@@ -70,7 +70,7 @@ Base service: `core/operator-agent`
 - Creates a draft or active employee record with public profile fields and lifecycle metadata.
 - Supports synthetic employee creation for CI/test fixtures through `isSynthetic`.
 - Important invariant: when `employeeId` is omitted, the operator-agent derives the new employee ID from `roles_catalog.employee_id_code` using the canonical `<two-letter-code><3-digit-sequence>` format (for example `qa001`, `pm001`, `dv001`).
-- Important invariant: seeded runtime employees, config defaults, and CI fixtures now use the same canonical format as well. New code should not introduce legacy `emp_*` seeded IDs.
+- Important invariant: runtime authority and budget are owned by role profiles in code, but live runtime employee instances are resolved from D1 by company, team, and role intent. CI checks that exercise live runtime behavior should discover employee IDs from `/agent/employees` instead of assuming a seeded instance ID.
 - This is the dashboard hiring / staffing creation surface.
 
 `PATCH /agent/employees/:employeeId`

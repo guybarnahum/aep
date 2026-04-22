@@ -1,11 +1,11 @@
 import { adaptPaperclipRequest, adaptPaperclipResponse } from "@aep/operator-agent/adapters/paperclip";
 import { parseExecutionContext } from "@aep/operator-agent/lib/execution-context";
 import { executeEmployeeRun, toErrorResponse } from "@aep/operator-agent/lib/execute-employee-run";
+import { resolveRuntimeEmployeeById } from "@aep/operator-agent/persistence/d1/runtime-employee-resolver-d1";
 import { getTaskStore } from "@aep/operator-agent/lib/store-factory";
 import { validatePaperclipAuth } from "@aep/operator-agent/lib/paperclip-auth";
 import { validatePaperclipRunRequest } from "@aep/operator-agent/lib/validate-paperclip-request";
 import { COMPANY_INTERNAL_AEP, type CompanyId } from "@aep/operator-agent/org/company";
-import { getEmployeeById } from "@aep/operator-agent/org/employees";
 import {
   TEAM_INFRA,
   TEAM_VALIDATION,
@@ -331,7 +331,9 @@ async function claimTaskIfPresent(
   const employeeId = typeof asRecord(body).employeeId === "string"
     ? (asRecord(body).employeeId as string)
     : null;
-  const employee = employeeId ? getEmployeeById(employeeId) : undefined;
+  const employee = employeeId
+    ? await resolveRuntimeEmployeeById(env, employeeId)
+    : undefined;
   const requestedTeamId = typeof asRecord(body).teamId === "string"
     ? (asRecord(body).teamId as string)
     : undefined;

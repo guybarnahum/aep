@@ -1,8 +1,8 @@
 import { createStores } from "@aep/operator-agent/lib/store-factory";
 import { getEmployeeCatalogEntry } from "@aep/operator-agent/persistence/d1/employee-catalog-store-d1";
+import { resolveRuntimeEmployeeById } from "@aep/operator-agent/persistence/d1/runtime-employee-resolver-d1";
 import { mergeAuthority, mergeBudget } from "@aep/operator-agent/lib/policy-merge";
 import { resolveAllowedScope } from "@aep/operator-agent/lib/org-scope-resolver";
-import { getEmployeeById } from "@aep/operator-agent/org/employees";
 import type { OperatorAgentEnv } from "@aep/operator-agent/types";
 
 export async function handleEmployeeEffectivePolicy(
@@ -25,7 +25,7 @@ export async function handleEmployeeEffectivePolicy(
     );
   }
 
-  const runtimeEmployee = getEmployeeById(employeeId);
+  const runtimeEmployee = await resolveRuntimeEmployeeById(env, employeeId);
   const scope = await resolveAllowedScope(env, employeeId);
 
   if (!runtimeEmployee) {

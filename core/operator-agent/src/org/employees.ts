@@ -1,23 +1,33 @@
-import { COMPANY_INTERNAL_AEP } from "@aep/operator-agent/org/company";
-import {
-  EMPLOYEE_INFRA_OPS_MANAGER_ID,
-  EMPLOYEE_RELIABILITY_ENGINEER_ID,
-  EMPLOYEE_RETRY_SUPERVISOR_ID,
-  EMPLOYEE_TIMEOUT_RECOVERY_ID,
-} from "@aep/operator-agent/org/employee-ids";
+import { COMPANY_INTERNAL_AEP, type CompanyId } from "@aep/operator-agent/org/company";
 import { SERVICE_CONTROL_PLANE } from "@aep/operator-agent/org/services";
-import { TEAM_INFRA, TEAM_VALIDATION } from "@aep/operator-agent/org/teams";
-import type { AgentEmployeeDefinition, AgentRoleId } from "@aep/operator-agent/types";
+import {
+  TEAM_INFRA,
+  TEAM_VALIDATION,
+  type TeamId,
+} from "@aep/operator-agent/org/teams";
+import type {
+  AgentAuthority,
+  AgentBudget,
+  AgentEmployeeDefinition,
+  AgentRoleId,
+  EscalationPolicy,
+} from "@aep/operator-agent/types";
 
-export const timeoutRecoveryEmployee: AgentEmployeeDefinition = {
-  identity: {
-    employeeId: EMPLOYEE_TIMEOUT_RECOVERY_ID,
-    employeeName: "Timeout Recovery Operator",
-    companyId: COMPANY_INTERNAL_AEP,
-    teamId: TEAM_INFRA,
-    roleId: "timeout-recovery-operator",
-    managerRoleId: "infra-ops-manager",
-  },
+export interface RuntimeRoleProfile {
+  roleId: AgentRoleId;
+  companyId: CompanyId;
+  teamId: TeamId;
+  managerRoleId?: AgentRoleId;
+  authority: AgentAuthority;
+  budget: AgentBudget;
+  escalation: EscalationPolicy;
+}
+
+const timeoutRecoveryProfile: RuntimeRoleProfile = {
+  roleId: "timeout-recovery-operator",
+  companyId: COMPANY_INTERNAL_AEP,
+  teamId: TEAM_INFRA,
+  managerRoleId: "infra-ops-manager",
   authority: {
     allowedOperatorActions: ["advance-timeout"],
     allowedTenants: ["tenant_internal_aep", "tenant_qa"],
@@ -39,15 +49,11 @@ export const timeoutRecoveryEmployee: AgentEmployeeDefinition = {
   },
 };
 
-export const retrySupervisorEmployee: AgentEmployeeDefinition = {
-  identity: {
-    employeeId: EMPLOYEE_RETRY_SUPERVISOR_ID,
-    employeeName: "Retry Supervisor",
-    companyId: COMPANY_INTERNAL_AEP,
-    teamId: TEAM_INFRA,
-    roleId: "retry-supervisor",
-    managerRoleId: "infra-ops-manager",
-  },
+const retrySupervisorProfile: RuntimeRoleProfile = {
+  roleId: "retry-supervisor",
+  companyId: COMPANY_INTERNAL_AEP,
+  teamId: TEAM_INFRA,
+  managerRoleId: "infra-ops-manager",
   authority: {
     allowedOperatorActions: ["advance-timeout"],
     allowedTenants: ["tenant_qa", "tenant_internal_aep"],
@@ -69,14 +75,10 @@ export const retrySupervisorEmployee: AgentEmployeeDefinition = {
   },
 };
 
-export const infraOpsManagerEmployee: AgentEmployeeDefinition = {
-  identity: {
-    employeeId: EMPLOYEE_INFRA_OPS_MANAGER_ID,
-    employeeName: "Infra Ops Manager",
-    companyId: COMPANY_INTERNAL_AEP,
-    teamId: TEAM_INFRA,
-    roleId: "infra-ops-manager",
-  },
+const infraOpsManagerProfile: RuntimeRoleProfile = {
+  roleId: "infra-ops-manager",
+  companyId: COMPANY_INTERNAL_AEP,
+  teamId: TEAM_INFRA,
   authority: {
     allowedOperatorActions: ["advance-timeout"],
     allowedTenants: ["tenant_internal_aep", "tenant_qa"],
@@ -98,16 +100,11 @@ export const infraOpsManagerEmployee: AgentEmployeeDefinition = {
   },
 };
 
-// Keep this employee explicit so live scope probes can detect stale deployments.
-export const reliabilityEngineerEmployee: AgentEmployeeDefinition = {
-  identity: {
-    employeeId: EMPLOYEE_RELIABILITY_ENGINEER_ID,
-    employeeName: "Validation Specialist",
-    companyId: COMPANY_INTERNAL_AEP,
-    teamId: TEAM_VALIDATION,
-    roleId: "reliability-engineer",
-    managerRoleId: "infra-ops-manager",
-  },
+const reliabilityEngineerProfile: RuntimeRoleProfile = {
+  roleId: "reliability-engineer",
+  companyId: COMPANY_INTERNAL_AEP,
+  teamId: TEAM_VALIDATION,
+  managerRoleId: "infra-ops-manager",
   authority: {
     allowedOperatorActions: ["execute-remediation", "propose-fix"],
     allowedTenants: ["tenant_internal_aep", "tenant_qa"],
@@ -129,25 +126,68 @@ export const reliabilityEngineerEmployee: AgentEmployeeDefinition = {
   },
 };
 
-export const operatorEmployees: AgentEmployeeDefinition[] = [
-  timeoutRecoveryEmployee,
-  retrySupervisorEmployee,
-  infraOpsManagerEmployee,
-  reliabilityEngineerEmployee,
-];
+const runtimeRoleProfiles = new Map<AgentRoleId, RuntimeRoleProfile>([
+  [timeoutRecoveryProfile.roleId, timeoutRecoveryProfile],
+  [retrySupervisorProfile.roleId, retrySupervisorProfile],
+  [infraOpsManagerProfile.roleId, infraOpsManagerProfile],
+  [reliabilityEngineerProfile.roleId, reliabilityEngineerProfile],
+]);
 
-export function getEmployeeById(
-  employeeId: string
-): AgentEmployeeDefinition | undefined {
-  return operatorEmployees.find(
-    (employee) => employee.identity.employeeId === employeeId
-  );
+function cloneAuthority(authority: AgentAuthority): AgentAuthority {
+  return {
+    ...authority,
+    allowedOperatorActions: [...authority.allowedOperatorActions],
+    allowedTenants: authority.allowedTenants
+      ? [...authority.allowedTenants]
+      : undefined,
+    allowedServices: authority.allowedServices
+      ? [...authority.allowedServices]
+      : undefined,
+    allowedEnvironmentNames: authority.allowedEnvironmentNames
+      ? [...authority.allowedEnvironmentNames]
+      : undefined,
+  };
 }
 
-export function getEmployeeByRole(
-  roleId: AgentRoleId
-): AgentEmployeeDefinition | undefined {
-  return operatorEmployees.find(
-    (employee) => employee.identity.roleId === roleId
-  );
+function cloneBudget(budget: AgentBudget): AgentBudget {
+  return { ...budget };
+}
+
+function cloneEscalation(escalation: EscalationPolicy): EscalationPolicy {
+  return { ...escalation };
+}
+
+export function getRuntimeRoleProfile(
+  roleId: AgentRoleId,
+): RuntimeRoleProfile | undefined {
+  return runtimeRoleProfiles.get(roleId);
+}
+
+export function buildRuntimeEmployeeDefinition(args: {
+  employeeId: string;
+  employeeName: string;
+  companyId: CompanyId;
+  teamId: TeamId;
+  roleId: AgentRoleId;
+  managerRoleId?: AgentRoleId;
+}): AgentEmployeeDefinition | undefined {
+  const profile = getRuntimeRoleProfile(args.roleId);
+
+  if (!profile) {
+    return undefined;
+  }
+
+  return {
+    identity: {
+      employeeId: args.employeeId,
+      employeeName: args.employeeName,
+      companyId: args.companyId,
+      teamId: args.teamId,
+      roleId: args.roleId,
+      managerRoleId: args.managerRoleId ?? profile.managerRoleId,
+    },
+    authority: cloneAuthority(profile.authority),
+    budget: cloneBudget(profile.budget),
+    escalation: cloneEscalation(profile.escalation),
+  };
 }

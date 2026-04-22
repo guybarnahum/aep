@@ -1,14 +1,16 @@
 /* eslint-disable no-console */
 
 import { createOperatorAgentClient } from "../../clients/operator-agent-client";
+import { resolveEmployeeIdByRole } from "../../lib/employee-resolution";
 import { handleOperatorAgentSoftSkip } from "../../shared/soft-skip";
-import * as employeeIds from "../../shared/employee-ids";
+import { resolveServiceBaseUrl } from "../../../lib/service-map";
 
 export {};
 
-const PM_EMPLOYEE_ID = employeeIds.EMPLOYEE_PRODUCT_MANAGER_WEB_ID;
 const PM_TEAM_ID = "team_web_product";
 const PM_ROLE_ID = "product-manager";
+const VALIDATION_TEAM_ID = "team_validation";
+const VALIDATION_ROLE_ID = "reliability-engineer";
 
 function getTaskEntries(response: any): any[] {
   if (Array.isArray(response?.tasks)) return response.tasks;
@@ -24,6 +26,10 @@ function softSkip(reason: string): never {
 
 async function main(): Promise<void> {
   const client = createOperatorAgentClient();
+  const agentBaseUrl = resolveServiceBaseUrl({
+    envVar: "OPERATOR_AGENT_BASE_URL",
+    serviceName: "operator-agent",
+  });
 
   try {
     await client.endpointExists("/agent/tasks");
@@ -34,6 +40,17 @@ async function main(): Promise<void> {
     throw err;
   }
 
+  const productManagerEmployeeId = await resolveEmployeeIdByRole({
+    agentBaseUrl,
+    roleId: PM_ROLE_ID,
+    teamId: PM_TEAM_ID,
+  });
+  const reliabilityEngineerEmployeeId = await resolveEmployeeIdByRole({
+    agentBaseUrl,
+    roleId: VALIDATION_ROLE_ID,
+    teamId: VALIDATION_TEAM_ID,
+  });
+
   const employees = await client.listEmployees();
 
   if (!employees?.ok || !Array.isArray(employees.employees)) {
@@ -42,7 +59,7 @@ async function main(): Promise<void> {
 
   const hasRuntimePm = employees.employees.some(
     (employee: any) =>
-      employee?.identity?.employeeId === PM_EMPLOYEE_ID
+      employee?.identity?.employeeId === productManagerEmployeeId
       && employee?.identity?.teamId === PM_TEAM_ID
       && employee?.identity?.roleId === PM_ROLE_ID,
   );
@@ -61,7 +78,7 @@ async function main(): Promise<void> {
   const result = await client.runEmployee({
     companyId: "company_internal_aep",
     teamId: PM_TEAM_ID,
-    employeeId: PM_EMPLOYEE_ID,
+    employeeId: productManagerEmployeeId,
     roleId: PM_ROLE_ID,
     trigger: "manual",
     policyVersion: "ci-pr11-5",
@@ -125,7 +142,7 @@ async function main(): Promise<void> {
     deployment: { teamId: "team_infra" },
     validation: {
       teamId: "team_validation",
-      employeeId: employeeIds.EMPLOYEE_RELIABILITY_ENGINEER_ID,
+      employeeId: reliabilityEngineerEmployeeId,
     },
   };
 
@@ -195,9 +212,9 @@ async function main(): Promise<void> {
     throw new Error(`Expected validate task assignedTeamId=team_validation: ${JSON.stringify(validateTask.task)}`);
   }
 
-  if (validateTask.task.assignedEmployeeId !== employeeIds.EMPLOYEE_RELIABILITY_ENGINEER_ID) {
+  if (validateTask.task.assignedEmployeeId !== reliabilityEngineerEmployeeId) {
     throw new Error(
-      `Expected validate task assignedEmployeeId=${employeeIds.EMPLOYEE_RELIABILITY_ENGINEER_ID}: ${JSON.stringify(validateTask.task)}`,
+      `Expected validate task assignedEmployeeId=${reliabilityEngineerEmployeeId}: ${JSON.stringify(validateTask.task)}`,
     );
   }
 

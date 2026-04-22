@@ -2,10 +2,10 @@ import { getConfig } from "@aep/operator-agent/config";
 import { getImplementationBindingExecutor } from "@aep/operator-agent/lib/implementation-binding-registry";
 import { createStores } from "@aep/operator-agent/lib/store-factory";
 import { mergeAuthority, mergeBudget } from "@aep/operator-agent/lib/policy-merge";
+import { resolveRuntimeEmployeeById } from "@aep/operator-agent/persistence/d1/runtime-employee-resolver-d1";
 import { validateRoleCatalogEntry } from "@aep/operator-agent/persistence/d1/role-catalog-store-d1";
 import { cloneAuthority } from "@aep/operator-agent/org/authority";
 import { cloneBudget } from "@aep/operator-agent/org/budgets";
-import { getEmployeeById } from "@aep/operator-agent/org/employees";
 import type { ExecutionContext } from "@aep/operator-agent/types/execution-provenance";
 import type {
   AgentExecutionResponse,
@@ -66,7 +66,15 @@ async function resolveRunContext(
   env?: OperatorAgentEnv,
   executionContext?: ExecutionContext,
 ): Promise<ResolvedEmployeeRunContext | EmployeeRunErrorResponse> {
-  const employee = getEmployeeById(request.employeeId);
+  if (!env?.OPERATOR_AGENT_DB) {
+    return {
+      ok: false,
+      status: "control_plane_unavailable",
+      error: "OPERATOR_AGENT_DB is required to resolve runtime employees",
+    };
+  }
+
+  const employee = await resolveRuntimeEmployeeById(env, request.employeeId);
   let roleCatalogEntry: ResolvedEmployeeRunContext["roleCatalogEntry"];
 
   if (!employee) {

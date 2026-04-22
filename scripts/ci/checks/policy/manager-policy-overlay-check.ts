@@ -3,10 +3,7 @@
 import { createOperatorAgentClient } from "../../clients/operator-agent-client";
 import { handleOperatorAgentSoftSkip } from "../../shared/soft-skip";
 import type { ManagerRunResponse } from "../../contracts/manager";
-import {
-  EMPLOYEE_INFRA_OPS_MANAGER_ID,
-  EMPLOYEE_TIMEOUT_RECOVERY_ID,
-} from "../../shared/employee-ids";
+import { resolveEmployeeIdByRole } from "../../lib/employee-resolution";
 
 export {};
 
@@ -14,17 +11,33 @@ const POLICY_VERSION = "commit10-stageB";
 
 async function main(): Promise<void> {
   const client = createOperatorAgentClient();
+  const agentBaseUrl = client.baseUrl;
+  const managerEmployeeId = await resolveEmployeeIdByRole({
+    agentBaseUrl,
+    roleId: "infra-ops-manager",
+    teamId: "team_infra",
+    runtimeStatus: "implemented",
+  });
+
+  const configuredObservedRoleId =
+    process.env.OPERATOR_AGENT_MANAGER_OBSERVED_ROLE_IDS
+      ?.split(",")
+      .map((value) => value.trim())
+      .find(Boolean) ?? "timeout-recovery-operator";
 
   const observedEmployeeId =
-    process.env.OPERATOR_AGENT_MANAGER_OBSERVED_EMPLOYEE_ID ??
-    EMPLOYEE_TIMEOUT_RECOVERY_ID;
+    await resolveEmployeeIdByRole({
+      agentBaseUrl,
+      roleId: configuredObservedRoleId,
+      runtimeStatus: "implemented",
+    });
 
   // ---- run manager
 
   const managerRun = await client.runEmployee<ManagerRunResponse>(
     {
       departmentId: "aep-infra-ops",
-      employeeId: EMPLOYEE_INFRA_OPS_MANAGER_ID,
+      employeeId: managerEmployeeId,
       roleId: "infra-ops-manager",
       trigger: "manual",
       policyVersion: POLICY_VERSION,
@@ -105,7 +118,9 @@ async function main(): Promise<void> {
   }
 
   console.log("manager-policy-overlay-check passed", {
+    managerEmployeeId,
     observedEmployeeId,
+    observedRoleId: configuredObservedRoleId,
     state: effectiveState.state,
     blocked: effectiveState.blocked,
     restrictionDecisions: managerRun.summary.restrictionDecisions,

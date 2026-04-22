@@ -1,11 +1,11 @@
 /* eslint-disable no-console */
 
 import { resolveServiceBaseUrl } from "../../../lib/service-map";
-import * as employeeIds from "../../shared/employee-ids";
 import {
   classifyOperatorAgentInfraError,
   handleOperatorAgentSoftSkip,
 } from "../../../lib/operator-agent-skip";
+import { resolveEmployeeIdByRole } from "../../lib/employee-resolution";
 
 export {};
 
@@ -371,13 +371,31 @@ async function main(): Promise<void> {
     envVar: "OPERATOR_AGENT_BASE_URL",
     serviceName: "operator-agent",
   });
+  const managerEmployeeId = await resolveEmployeeIdByRole({
+    agentBaseUrl,
+    roleId: "infra-ops-manager",
+    teamId: "team_infra",
+    runtimeStatus: "implemented",
+  });
+  const timeoutRecoveryEmployeeId = await resolveEmployeeIdByRole({
+    agentBaseUrl,
+    roleId: "timeout-recovery-operator",
+    teamId: "team_infra",
+    runtimeStatus: "implemented",
+  });
+  const retrySupervisorEmployeeId = await resolveEmployeeIdByRole({
+    agentBaseUrl,
+    roleId: "retry-supervisor",
+    teamId: "team_infra",
+    runtimeStatus: "implemented",
+  });
 
   // Seed a deterministic operator_action_failed entry so the manager is
   // guaranteed to emit at least one decision, enabling all provenance checks.
   let seeded: SeedEnvelope;
   try {
     seeded = await seedWorkLog(agentBaseUrl, {
-      employeeId: employeeIds.EMPLOYEE_TIMEOUT_RECOVERY_ID,
+      employeeId: timeoutRecoveryEmployeeId,
       result: "operator_action_failed",
       count: 1,
     });
@@ -424,8 +442,8 @@ async function main(): Promise<void> {
     companyId,
     originatingTeamId: "team_infra",
     assignedTeamId: "team_infra",
-    createdByEmployeeId: employeeIds.EMPLOYEE_INFRA_OPS_MANAGER_ID,
-    assignedEmployeeId: employeeIds.EMPLOYEE_INFRA_OPS_MANAGER_ID,
+    createdByEmployeeId: managerEmployeeId,
+    assignedEmployeeId: managerEmployeeId,
     taskType: "paperclip-manager-check",
     title: "paperclip first execution manager check",
     payload: {
@@ -436,7 +454,7 @@ async function main(): Promise<void> {
 
   const validBody = {
     teamId: "team_infra",
-    employeeId: employeeIds.EMPLOYEE_INFRA_OPS_MANAGER_ID,
+    employeeId: managerEmployeeId,
     roleId: "infra-ops-manager",
     trigger: "paperclip",
     policyVersion: "commit10-stageD",
@@ -444,8 +462,8 @@ async function main(): Promise<void> {
     taskId: managerTaskId,
     heartbeatId: `hb-${Date.now()}`,
     targetEmployeeIdsOverride: [
-      employeeIds.EMPLOYEE_TIMEOUT_RECOVERY_ID,
-      employeeIds.EMPLOYEE_RETRY_SUPERVISOR_ID,
+      timeoutRecoveryEmployeeId,
+      retrySupervisorEmployeeId,
     ],
   };
 
@@ -475,7 +493,7 @@ async function main(): Promise<void> {
 
   const managerLog = await waitForJsonMatch<ManagerLogEnvelope>({
     label: "paperclip manager-log provenance",
-    url: `${agentBaseUrl}/agent/manager-log?managerEmployeeId=${employeeIds.EMPLOYEE_INFRA_OPS_MANAGER_ID}&limit=100`,
+    url: `${agentBaseUrl}/agent/manager-log?managerEmployeeId=${managerEmployeeId}&limit=100`,
     matches: (json): json is ManagerLogEnvelope => {
       const envelope = json as ManagerLogEnvelope;
       return (envelope.entries ?? []).some(
@@ -537,14 +555,14 @@ async function main(): Promise<void> {
     companyId,
     originatingTeamId: "team_infra",
     assignedTeamId: "team_infra",
-    createdByEmployeeId: employeeIds.EMPLOYEE_INFRA_OPS_MANAGER_ID,
-    assignedEmployeeId: employeeIds.EMPLOYEE_TIMEOUT_RECOVERY_ID,
+    createdByEmployeeId: managerEmployeeId,
+    assignedEmployeeId: timeoutRecoveryEmployeeId,
     taskType: "paperclip-worker-check",
     title: "paperclip first execution worker check",
     payload: {
       scenario: "paperclip-first-execution-check",
       phase: "worker",
-      targetEmployeeId: employeeIds.EMPLOYEE_TIMEOUT_RECOVERY_ID,
+      targetEmployeeId: timeoutRecoveryEmployeeId,
     },
   });
 
@@ -556,7 +574,7 @@ async function main(): Promise<void> {
     agentBaseUrl,
     body: {
       teamId: "team_infra",
-      employeeId: employeeIds.EMPLOYEE_TIMEOUT_RECOVERY_ID,
+      employeeId: timeoutRecoveryEmployeeId,
       roleId: "timeout-recovery-operator",
       trigger: "paperclip",
       policyVersion: "commit10-stageD",
@@ -579,7 +597,7 @@ async function main(): Promise<void> {
 
   const workLog = await waitForJsonMatch<WorkLogEnvelope>({
     label: "paperclip worker work-log provenance",
-    url: `${agentBaseUrl}/agent/work-log?employeeId=${employeeIds.EMPLOYEE_TIMEOUT_RECOVERY_ID}&limit=100`,
+    url: `${agentBaseUrl}/agent/work-log?employeeId=${timeoutRecoveryEmployeeId}&limit=100`,
     matches: (json): json is WorkLogEnvelope => {
       const envelope = json as WorkLogEnvelope;
       return (envelope.entries ?? []).some(
@@ -625,13 +643,13 @@ async function main(): Promise<void> {
     agentBaseUrl,
     {
       teamId: "team_infra",
-      employeeId: employeeIds.EMPLOYEE_INFRA_OPS_MANAGER_ID,
+      employeeId: managerEmployeeId,
       roleId: "infra-ops-manager",
       trigger: "manual",
       policyVersion: "commit10-stageD",
       targetEmployeeIdsOverride: [
-        employeeIds.EMPLOYEE_TIMEOUT_RECOVERY_ID,
-        employeeIds.EMPLOYEE_RETRY_SUPERVISOR_ID,
+        timeoutRecoveryEmployeeId,
+        retrySupervisorEmployeeId,
       ],
     },
     {}
@@ -647,13 +665,13 @@ async function main(): Promise<void> {
     agentBaseUrl,
     {
       teamId: "team_infra",
-      employeeId: employeeIds.EMPLOYEE_INFRA_OPS_MANAGER_ID,
+      employeeId: managerEmployeeId,
       roleId: "infra-ops-manager",
       trigger: "manual",
       policyVersion: "commit10-stageD",
       targetEmployeeIdsOverride: [
-        employeeIds.EMPLOYEE_TIMEOUT_RECOVERY_ID,
-        employeeIds.EMPLOYEE_RETRY_SUPERVISOR_ID,
+        timeoutRecoveryEmployeeId,
+        retrySupervisorEmployeeId,
       ],
     },
     {
@@ -701,7 +719,7 @@ async function main(): Promise<void> {
 
   const refreshedManagerLog = await waitForJsonMatch<ManagerLogEnvelope>({
     label: "cron fallback manager-log provenance",
-    url: `${agentBaseUrl}/agent/manager-log?managerEmployeeId=${employeeIds.EMPLOYEE_INFRA_OPS_MANAGER_ID}&limit=100`,
+    url: `${agentBaseUrl}/agent/manager-log?managerEmployeeId=${managerEmployeeId}&limit=100`,
     matches: (json): json is ManagerLogEnvelope => {
       const envelope = json as ManagerLogEnvelope;
       return (envelope.entries ?? []).some(

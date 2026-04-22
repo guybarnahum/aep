@@ -2,20 +2,38 @@
 
 import { assert } from "../../shared/assert";
 import { createOperatorAgentClient } from "../../clients/operator-agent-client";
-import {
-  EMPLOYEE_PRODUCT_MANAGER_WEB_ID,
-  EMPLOYEE_RELIABILITY_ENGINEER_ID,
-  EMPLOYEE_TIMEOUT_RECOVERY_ID,
-  EMPLOYEE_VALIDATION_ENGINEER_ID,
-} from "../../shared/employee-ids";
+import { resolveEmployeeIdByRole } from "../../lib/employee-resolution";
 
 async function main(): Promise<void> {
   const client = createOperatorAgentClient();
+  const agentBaseUrl = client.baseUrl;
+  const timeoutRecoveryEmployeeId = await resolveEmployeeIdByRole({
+    agentBaseUrl,
+    roleId: "timeout-recovery-operator",
+    teamId: "team_infra",
+    runtimeStatus: "implemented",
+  });
+  const webProductManagerEmployeeId = await resolveEmployeeIdByRole({
+    agentBaseUrl,
+    roleId: "product-manager-web",
+    teamId: "team_web_product",
+  });
+  const validationEngineerEmployeeId = await resolveEmployeeIdByRole({
+    agentBaseUrl,
+    roleId: "validation-engineer",
+    teamId: "team_validation",
+  });
+  const reliabilityEngineerEmployeeId = await resolveEmployeeIdByRole({
+    agentBaseUrl,
+    roleId: "reliability-engineer",
+    teamId: "team_validation",
+    runtimeStatus: "implemented",
+  });
 
   // ---- timeout recovery employee scope
 
   const timeoutScope = await client.getEmployeeScope(
-    EMPLOYEE_TIMEOUT_RECOVERY_ID,
+    timeoutRecoveryEmployeeId,
   );
 
   assert.equal(timeoutScope.companyId, "company_internal_aep");
@@ -27,7 +45,7 @@ async function main(): Promise<void> {
   // ---- web product manager scope
 
   const webScope = await client.getEmployeeScope(
-    EMPLOYEE_PRODUCT_MANAGER_WEB_ID,
+    webProductManagerEmployeeId,
   );
 
   assert.equal(webScope.teamId, "team_web_product");
@@ -38,7 +56,7 @@ async function main(): Promise<void> {
   // ---- validation engineer scope
 
   const validationScope = await client.getEmployeeScope(
-    EMPLOYEE_VALIDATION_ENGINEER_ID,
+    validationEngineerEmployeeId,
   );
 
   assert.equal(validationScope.teamId, "team_validation");
@@ -49,7 +67,7 @@ async function main(): Promise<void> {
   // ---- validation specialist scope (cross-tenant coverage)
 
   const validationSpecialistScope = await client.getEmployeeScope(
-    EMPLOYEE_RELIABILITY_ENGINEER_ID,
+    reliabilityEngineerEmployeeId,
   );
 
   assert.equal(validationSpecialistScope.companyId, "company_internal_aep");
@@ -69,7 +87,7 @@ async function main(): Promise<void> {
   // ---- effective policy (implemented employee)
 
   const effectivePolicy = await client.getEmployeeEffectivePolicy(
-    EMPLOYEE_TIMEOUT_RECOVERY_ID,
+    timeoutRecoveryEmployeeId,
   );
 
   assert.equal(effectivePolicy.implemented, true);
@@ -85,7 +103,7 @@ async function main(): Promise<void> {
   // ---- effective policy (planned employee)
 
   const plannedPolicy = await client.getEmployeeEffectivePolicy(
-    EMPLOYEE_PRODUCT_MANAGER_WEB_ID,
+    webProductManagerEmployeeId,
   );
 
   assert.equal(plannedPolicy.implemented, false);

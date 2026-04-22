@@ -1,7 +1,6 @@
 /* eslint-disable no-console */
 
 import { execFileSync } from "node:child_process";
-import { SEEDED_EMPLOYEE_IDS } from "../../shared/employee-ids";
 
 export {};
 
@@ -107,19 +106,6 @@ function assertTableExists(tableName: string): void {
   }
 }
 
-function assertIds(sql: string, expectedIds: string[], label: string): void {
-  const rows = execSql(sql);
-  const actualIds = new Set(
-    rows.map((row) => String(row.id ?? "")).filter(Boolean),
-  );
-
-  for (const expectedId of expectedIds) {
-    if (!actualIds.has(expectedId)) {
-      throw new Error(`Missing ${label}: ${expectedId}`);
-    }
-  }
-}
-
 function assertNoRows(sql: string, message: string): void {
   const rows = execSql(sql);
   if (rows.length > 0) {
@@ -158,12 +144,6 @@ function main(): void {
     throw new Error(`Expected at least 9 employee catalog rows, got ${employeeCatalogCount}`);
   }
 
-  assertIds(
-    "SELECT id FROM employees_catalog ORDER BY id",
-    [...SEEDED_EMPLOYEE_IDS],
-    "employee",
-  );
-
   const rolesCatalogCount = getCount(
     "SELECT COUNT(*) AS count FROM roles_catalog",
   );
@@ -187,6 +167,20 @@ function main(): void {
        )
      ORDER BY role_id`,
     "Found runtime-enabled roles without a valid implementation_binding",
+  );
+
+  assertNoRows(
+    `SELECT r.role_id
+     FROM roles_catalog r
+     LEFT JOIN employees_catalog e
+       ON e.role_id = r.role_id
+      AND e.status = 'active'
+      AND e.employment_status = 'active'
+     WHERE r.runtime_enabled = 1
+     GROUP BY r.role_id
+     HAVING COUNT(e.id) = 0
+     ORDER BY r.role_id`,
+    "Found runtime-enabled roles without at least one active employee instance",
   );
 
   const scopeBindingCount = getCount(

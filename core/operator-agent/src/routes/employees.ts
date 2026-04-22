@@ -20,7 +20,10 @@ import {
   TEAM_WEB_PRODUCT,
   type TeamId,
 } from "@aep/operator-agent/org/teams";
-import { getEmployeeById } from "@aep/operator-agent/org/employees";
+import {
+  buildRuntimeEmployeeDefinition,
+  getRuntimeRoleProfile,
+} from "@aep/operator-agent/org/employees";
 import type {
   AgentRoleId,
   EmployeeEmploymentStatus,
@@ -233,12 +236,6 @@ export async function handleEmployees(
 
   const employees: EmployeeProjection[] = await Promise.all(
     catalogEntries.map(async (catalogEntry) => {
-      const runtimeEmployee = getEmployeeById(catalogEntry.employeeId);
-      const runtimeStatus = getRuntimeStatus({
-        catalogStatus: catalogEntry.status,
-        hasRuntimeEmployee: Boolean(runtimeEmployee),
-      });
-
       const publicProfile = {
         displayName: catalogEntry.employeeName,
         bio: catalogEntry.bio,
@@ -268,6 +265,24 @@ export async function handleEmployees(
         teamId: toTeamId(catalogEntry.teamId),
         roleId: role.roleId,
       };
+
+      const runtimeEmployee =
+        catalogEntry.status === "active" &&
+        catalogEntry.employmentStatus === "active" &&
+        getRuntimeRoleProfile(role.roleId)
+          ? buildRuntimeEmployeeDefinition({
+              employeeId: catalogEntry.employeeId,
+              employeeName: catalogEntry.employeeName,
+              companyId: identity.companyId,
+              teamId: identity.teamId,
+              roleId: role.roleId,
+              managerRoleId: role.managerRoleId,
+            })
+          : undefined;
+      const runtimeStatus = getRuntimeStatus({
+        catalogStatus: catalogEntry.status,
+        hasRuntimeEmployee: Boolean(runtimeEmployee),
+      });
 
       if (!runtimeEmployee) {
         return {

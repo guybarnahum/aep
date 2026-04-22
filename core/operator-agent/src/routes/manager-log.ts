@@ -1,5 +1,7 @@
 import { createStores } from "@aep/operator-agent/lib/store-factory";
-import { EMPLOYEE_INFRA_OPS_MANAGER_ID } from "@aep/operator-agent/org/employee-ids";
+import { COMPANY_INTERNAL_AEP } from "@aep/operator-agent/org/company";
+import { TEAM_INFRA } from "@aep/operator-agent/org/teams";
+import { resolveRuntimeEmployeeByRole } from "@aep/operator-agent/persistence/d1/runtime-employee-resolver-d1";
 import type { OperatorAgentEnv } from "@aep/operator-agent/types";
 
 export async function handleManagerLog(
@@ -17,8 +19,39 @@ export async function handleManagerLog(
     Math.min(100, limitParam ? Number(limitParam) || 20 : 20)
   );
 
-  const managerEmployeeId =
-    url.searchParams.get("managerEmployeeId") ?? EMPLOYEE_INFRA_OPS_MANAGER_ID;
+  const requestedManagerEmployeeId = url.searchParams.get("managerEmployeeId");
+  let managerEmployeeId = requestedManagerEmployeeId;
+
+  if (!managerEmployeeId) {
+    if (!env?.OPERATOR_AGENT_DB) {
+      return Response.json(
+        {
+          ok: false,
+          error: "managerEmployeeId is required when OPERATOR_AGENT_DB is unavailable",
+        },
+        { status: 503 },
+      );
+    }
+
+    const manager = await resolveRuntimeEmployeeByRole({
+      env,
+      companyId: COMPANY_INTERNAL_AEP,
+      teamId: TEAM_INFRA,
+      roleId: "infra-ops-manager",
+    });
+
+    if (!manager) {
+      return Response.json(
+        {
+          ok: false,
+          error: "Unable to resolve default infra-ops-manager",
+        },
+        { status: 404 },
+      );
+    }
+
+    managerEmployeeId = manager.identity.employeeId;
+  }
 
   const stores = createStores(env ?? {});
   const entries = await stores.managerDecisions.list({

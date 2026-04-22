@@ -1,8 +1,9 @@
 /* eslint-disable no-console */
 
 import { createOperatorAgentClient } from "../../clients/operator-agent-client";
+import { resolveEmployeeIdByRole } from "../../lib/employee-resolution";
 import { handleOperatorAgentSoftSkip } from "../../shared/soft-skip";
-import { EMPLOYEE_PRODUCT_MANAGER_WEB_ID } from "../../shared/employee-ids";
+import { resolveServiceBaseUrl } from "../../../lib/service-map";
 
 export {};
 
@@ -14,6 +15,10 @@ function getTaskEntries(response: any): any[] {
 
 async function main(): Promise<void> {
   const client = createOperatorAgentClient();
+  const agentBaseUrl = resolveServiceBaseUrl({
+    envVar: "OPERATOR_AGENT_BASE_URL",
+    serviceName: "operator-agent",
+  });
 
   try {
     await client.endpointExists("/agent/tasks");
@@ -23,6 +28,12 @@ async function main(): Promise<void> {
     }
     throw err;
   }
+
+  const productManagerEmployeeId = await resolveEmployeeIdByRole({
+    agentBaseUrl,
+    roleId: "product-manager",
+    teamId: "team_web_product",
+  });
 
   const before = await client.listTasks({
     companyId: "company_internal_aep",
@@ -34,7 +45,7 @@ async function main(): Promise<void> {
   const result = await client.runEmployee({
     companyId: "company_internal_aep",
     teamId: "team_web_product",
-    employeeId: EMPLOYEE_PRODUCT_MANAGER_WEB_ID,
+    employeeId: productManagerEmployeeId,
     roleId: "product-manager",
     trigger: "manual",
     policyVersion: "ci-pr11b",

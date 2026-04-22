@@ -2,6 +2,7 @@ import { getConfig } from "@aep/operator-agent/config";
 import { getApprovalPolicy } from "@aep/operator-agent/lib/approval-policy";
 import { createStores } from "@aep/operator-agent/lib/store-factory";
 import { listAgentWorkLogEntries } from "@aep/operator-agent/lib/work-log-reader";
+import { resolveRuntimeEmployeeIdsByRoles } from "@aep/operator-agent/persistence/d1/runtime-employee-resolver-d1";
 import { SERVICE_CONTROL_PLANE } from "@aep/operator-agent/org/services";
 import type {
   IApprovalStore,
@@ -217,10 +218,11 @@ function buildControlHistoryRecord(args: {
   };
 }
 
-function resolveObservedEmployeeIds(
+async function resolveObservedEmployeeIds(
   context: ResolvedEmployeeRunContext,
-  config: ReturnType<typeof getConfig>
-): string[] {
+  config: ReturnType<typeof getConfig>,
+  env?: OperatorAgentEnv,
+): Promise<string[]> {
   if (
     context.request.targetEmployeeIdsOverride &&
     context.request.targetEmployeeIdsOverride.length > 0
@@ -230,7 +232,16 @@ function resolveObservedEmployeeIds(
   if (context.request.targetEmployeeIdOverride) {
     return [context.request.targetEmployeeIdOverride];
   }
-  return config.managerObservedEmployeeIds;
+
+  if (!env?.OPERATOR_AGENT_DB) {
+    return [];
+  }
+
+  return resolveRuntimeEmployeeIdsByRoles({
+    env,
+    companyId: context.employee.identity.companyId,
+    roleIds: config.managerObservedRoleIds,
+  });
 }
 
 // Company-origin provenance should come from executionContext, not the
@@ -391,7 +402,7 @@ export async function runInfraOpsManager(
   const manager = context.employee;
   const nowIso = new Date().toISOString();
 
-  const observedEmployeeIds = resolveObservedEmployeeIds(context, config);
+  const observedEmployeeIds = await resolveObservedEmployeeIds(context, config, env);
 
   const decisions: ManagerDecision[] = [];
   const stores = createStores(env ?? {});

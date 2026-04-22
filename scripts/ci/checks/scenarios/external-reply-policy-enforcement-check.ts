@@ -1,8 +1,9 @@
 /* eslint-disable no-console */
 
 import { createOperatorAgentClient } from "../../clients/operator-agent-client";
+import { resolveEmployeeIdsByKey } from "../../lib/employee-resolution";
 import { handleOperatorAgentSoftSkip } from "../../shared/soft-skip";
-import * as employeeIds from "../../shared/employee-ids";
+import { resolveServiceBaseUrl } from "../../../lib/service-map";
 
 export {};
 
@@ -23,6 +24,10 @@ function assert(condition: unknown, message: string): void {
 
 async function main(): Promise<void> {
   const client = createOperatorAgentClient();
+  const agentBaseUrl = resolveServiceBaseUrl({
+    envVar: "OPERATOR_AGENT_BASE_URL",
+    serviceName: "operator-agent",
+  });
 
   try {
     await client.endpointExists("/agent/messages/inbound");
@@ -33,10 +38,29 @@ async function main(): Promise<void> {
     throw error;
   }
 
+  const liveEmployeeIds = await resolveEmployeeIdsByKey({
+    agentBaseUrl,
+    employees: [
+      {
+        key: "manager",
+        roleId: "infra-ops-manager",
+        teamId: "team_infra",
+        runtimeStatus: "implemented",
+      },
+      {
+        key: "reliabilityEngineer",
+        roleId: "reliability-engineer",
+        teamId: "team_validation",
+      },
+    ],
+  });
+  const managerEmployeeId = liveEmployeeIds.manager;
+  const reliabilityEngineerEmployeeId = liveEmployeeIds.reliabilityEngineer;
+
   const thread = await client.createMessageThread({
     companyId: "company_internal_aep",
     topic: "PR10E external reply policy enforcement",
-    createdByEmployeeId: employeeIds.EMPLOYEE_INFRA_OPS_MANAGER_ID,
+    createdByEmployeeId: managerEmployeeId,
     relatedTaskId: "task_pr10e_reply_policy",
     visibility: "internal",
     externalInteractionPolicy: {
@@ -55,8 +79,8 @@ async function main(): Promise<void> {
   const outbound = await client.createMessage({
     companyId: "company_internal_aep",
     threadId: thread.threadId,
-    senderEmployeeId: employeeIds.EMPLOYEE_INFRA_OPS_MANAGER_ID,
-    receiverEmployeeId: employeeIds.EMPLOYEE_RELIABILITY_ENGINEER_ID,
+    senderEmployeeId: managerEmployeeId,
+    receiverEmployeeId: reliabilityEngineerEmployeeId,
     type: "coordination",
     source: "internal",
     subject: "PR10E reply policy anchor",

@@ -1,7 +1,9 @@
 import { getConfig } from "@aep/operator-agent/config";
 import { makeCronFallbackContext } from "@aep/operator-agent/lib/execution-context";
 import { executeEmployeeRun } from "@aep/operator-agent/lib/execute-employee-run";
-import { infraOpsManagerEmployee } from "@aep/operator-agent/org/employees";
+import { COMPANY_INTERNAL_AEP } from "@aep/operator-agent/org/company";
+import { TEAM_INFRA } from "@aep/operator-agent/org/teams";
+import { resolveRuntimeEmployeeByRole } from "@aep/operator-agent/persistence/d1/runtime-employee-resolver-d1";
 import type {
   EmployeeRunRequest,
   ManagerDecisionResponse,
@@ -22,7 +24,17 @@ export async function handleManagerCron(
   env: OperatorAgentEnv
 ): Promise<void> {
   const config = getConfig(env);
-  const employee = infraOpsManagerEmployee;
+  const employee = await resolveRuntimeEmployeeByRole({
+    env,
+    companyId: COMPANY_INTERNAL_AEP,
+    teamId: TEAM_INFRA,
+    roleId: "infra-ops-manager",
+  });
+
+  if (!employee) {
+    throw new Error("Unable to resolve active infra-ops-manager from D1");
+  }
+
   const executionContext = makeCronFallbackContext(employee.identity.employeeId);
 
   const runRequest: EmployeeRunRequest = {
@@ -32,7 +44,6 @@ export async function handleManagerCron(
     roleId: employee.identity.roleId,
     trigger: "cron",
     policyVersion: config.policyVersion,
-    targetEmployeeIdsOverride: config.managerObservedEmployeeIds,
   };
 
   const result = await executeEmployeeRun(runRequest, env, executionContext);

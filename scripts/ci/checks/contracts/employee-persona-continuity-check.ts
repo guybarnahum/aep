@@ -1,5 +1,6 @@
 import { createOperatorAgentClient } from "../../clients/operator-agent-client";
-import * as employeeIds from "../../shared/employee-ids";
+import { resolveEmployeeIdsByKey } from "../../lib/employee-resolution";
+import { resolveServiceBaseUrl } from "../../../lib/service-map";
 
 const FORBIDDEN_PERSONA_FIELDS = [
   "decisionStyle",
@@ -125,6 +126,10 @@ async function loadCandidateTasks(
 
 async function findPersonaSamples(
   client: ReturnType<typeof createOperatorAgentClient>,
+  employeeIdsByKey: {
+    productManager: string;
+    reliabilityEngineer: string;
+  },
 ): Promise<{
   pmSample?: {
     taskId: string;
@@ -164,14 +169,14 @@ async function findPersonaSamples(
     if (!artifact) continue;
 
     const employeeId = extractEmployeeId(taskDetail as Record<string, unknown>);
-    if (employeeId === employeeIds.EMPLOYEE_PRODUCT_MANAGER_ID && !pmSample) {
+    if (employeeId === employeeIdsByKey.productManager && !pmSample) {
       pmSample = {
         taskId: task.id,
         taskDetail: taskDetail as Record<string, unknown>,
         artifact,
       };
     }
-    if (employeeId === employeeIds.EMPLOYEE_RELIABILITY_ENGINEER_ID && !validationSample) {
+    if (employeeId === employeeIdsByKey.reliabilityEngineer && !validationSample) {
       validationSample = {
         taskId: task.id,
         taskDetail: taskDetail as Record<string, unknown>,
@@ -227,7 +232,32 @@ async function assertThreadStyleConsistency(args: {
 
 async function main(): Promise<void> {
   const client = createOperatorAgentClient();
-  const { pmSample, validationSample } = await findPersonaSamples(client);
+  const agentBaseUrl = resolveServiceBaseUrl({
+    envVar: "OPERATOR_AGENT_BASE_URL",
+    serviceName: "operator-agent",
+  });
+  const employeeIdsByKey = await resolveEmployeeIdsByKey({
+    agentBaseUrl,
+    employees: [
+      {
+        key: "productManager",
+        roleId: "product-manager",
+        teamId: "team_web_product",
+      },
+      {
+        key: "reliabilityEngineer",
+        roleId: "reliability-engineer",
+        teamId: "team_validation",
+      },
+    ],
+  });
+  const { pmSample, validationSample } = await findPersonaSamples(
+    client,
+    {
+      productManager: employeeIdsByKey.productManager,
+      reliabilityEngineer: employeeIdsByKey.reliabilityEngineer,
+    },
+  );
 
   if (!pmSample || !validationSample) {
     console.warn(

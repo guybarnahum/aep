@@ -6,13 +6,12 @@ import type {
   RoleJobDescriptionProjection,
 } from "@aep/operator-agent/types";
 import {
-  EMPLOYEE_INFRA_OPS_MANAGER_ID,
-  EMPLOYEE_RELIABILITY_ENGINEER_ID,
-} from "../org/employee-ids";
-import {
   loadEmployeeCognitionInputForRun,
   thinkWithinEmployeeBoundary,
 } from "./employee-cognition";
+
+const EMPLOYEE_INFRA_OPS_MANAGER_ID = "emp_infra_mgr_01";
+const EMPLOYEE_RELIABILITY_ENGINEER_ID = "emp_val_reliability_01";
 
 type FakeD1ResultRow = Record<string, unknown>;
 

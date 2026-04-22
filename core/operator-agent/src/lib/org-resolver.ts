@@ -1,5 +1,5 @@
-import { EMPLOYEE_RELIABILITY_ENGINEER_ID } from "@aep/operator-agent/org/employee-ids";
-import type { OperatorAgentEnv } from "@aep/operator-agent/types";
+import { resolveRuntimeEmployeeByRole } from "@aep/operator-agent/persistence/d1/runtime-employee-resolver-d1";
+import type { AgentRoleId, OperatorAgentEnv } from "@aep/operator-agent/types";
 
 export type OrgCapability =
   | "design"
@@ -36,15 +36,15 @@ const DEFAULT_CAPABILITY_TEAM_MAP: Record<OrgCapability, string> = {
   validation: "team_validation",
 };
 
-function defaultEmployeeForTask(args: {
+function defaultRoleForTask(args: {
   teamId: string;
   taskType: string;
-}): string | undefined {
+}): AgentRoleId | undefined {
   if (
     args.teamId === "team_validation"
     && args.taskType === "validate-deployment"
   ) {
-    return EMPLOYEE_RELIABILITY_ENGINEER_ID;
+    return "reliability-engineer";
   }
 
   return undefined;
@@ -104,11 +104,24 @@ export function createOrgResolver(
       teamId: string;
       taskType: string;
     }): Promise<ResolvedTaskAssignee> {
+      const roleId = defaultRoleForTask({
+        teamId: args.teamId,
+        taskType: args.taskType,
+      });
+
+      if (!roleId || !env?.OPERATOR_AGENT_DB) {
+        return {};
+      }
+
+      const employee = await resolveRuntimeEmployeeByRole({
+        env,
+        companyId: args.companyId as Parameters<typeof resolveRuntimeEmployeeByRole>[0]["companyId"],
+        teamId: args.teamId as Parameters<typeof resolveRuntimeEmployeeByRole>[0]["teamId"],
+        roleId,
+      });
+
       return {
-        employeeId: defaultEmployeeForTask({
-          teamId: args.teamId,
-          taskType: args.taskType,
-        }),
+        employeeId: employee?.identity.employeeId,
       };
     },
   };

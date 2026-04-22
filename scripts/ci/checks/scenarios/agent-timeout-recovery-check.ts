@@ -2,7 +2,7 @@
 
 import { handleOperatorAgentSoftSkip } from "../../../lib/operator-agent-skip";
 import { resolveServiceBaseUrl } from "../../../lib/service-map";
-import * as employeeIds from "../../shared/employee-ids";
+import { resolveEmployeeIdsByKey } from "../../lib/employee-resolution";
 
 export {};
 
@@ -429,6 +429,7 @@ function sleep(ms: number): Promise<void> {
 
 async function runAgent(
   agentBaseUrl: string,
+  timeoutRecoveryEmployeeId: string,
   overrides?: {
     budgetOverride?: Record<string, unknown>;
     authorityOverride?: Record<string, unknown>;
@@ -444,7 +445,7 @@ async function runAgent(
     body: JSON.stringify({
       companyId: COMPANY_ID,
       teamId: TEAM_ID,
-      employeeId: employeeIds.EMPLOYEE_TIMEOUT_RECOVERY_ID,
+      employeeId: timeoutRecoveryEmployeeId,
       roleId: "timeout-recovery-operator",
       trigger: "manual",
       policyVersion: STAGE6_POLICY_VERSION,
@@ -457,7 +458,8 @@ async function runAgent(
 
 async function runAgentViaPaperclip(
   agentBaseUrl: string,
-  taskId: string
+  taskId: string,
+  timeoutRecoveryEmployeeId: string,
 ): Promise<PaperclipAgentRunResponse> {
   const response = await fetch(`${agentBaseUrl}/agent/run`, {
     method: "POST",
@@ -468,7 +470,7 @@ async function runAgentViaPaperclip(
     body: JSON.stringify({
       companyId: COMPANY_ID,
       teamId: TEAM_ID,
-      employeeId: employeeIds.EMPLOYEE_TIMEOUT_RECOVERY_ID,
+      employeeId: timeoutRecoveryEmployeeId,
       roleId: "timeout-recovery-operator",
       policyVersion: STAGE6_POLICY_VERSION,
       trigger: "paperclip",
@@ -490,7 +492,11 @@ async function runAgentCompatibility(agentBaseUrl: string): Promise<AgentRunResp
   return readJson<AgentRunResponse>(response);
 }
 
-async function runManager(agentBaseUrl: string): Promise<ManagerRunResponse> {
+async function runManager(
+  agentBaseUrl: string,
+  managerEmployeeId: string,
+  timeoutRecoveryEmployeeId: string,
+): Promise<ManagerRunResponse> {
   const response = await fetch(`${agentBaseUrl}/agent/run`, {
     method: "POST",
     headers: {
@@ -501,30 +507,36 @@ async function runManager(agentBaseUrl: string): Promise<ManagerRunResponse> {
     body: JSON.stringify({
       companyId: COMPANY_ID,
       teamId: TEAM_ID,
-      employeeId: employeeIds.EMPLOYEE_INFRA_OPS_MANAGER_ID,
+      employeeId: managerEmployeeId,
       roleId: "infra-ops-manager",
       trigger: "manual",
       policyVersion: STAGE6_POLICY_VERSION,
-      targetEmployeeIdOverride: employeeIds.EMPLOYEE_TIMEOUT_RECOVERY_ID,
+      targetEmployeeIdOverride: timeoutRecoveryEmployeeId,
     }),
   });
 
   return readJson<ManagerRunResponse>(response);
 }
 
-async function getManagerLog(agentBaseUrl: string): Promise<{
+async function getManagerLog(
+  agentBaseUrl: string,
+  managerEmployeeId: string,
+): Promise<{
   ok: true;
   managerEmployeeId: string;
   count: number;
   entries: ManagerDecision[];
 }> {
   const response = await fetch(
-    `${agentBaseUrl}/agent/manager-log?managerEmployeeId=${employeeIds.EMPLOYEE_INFRA_OPS_MANAGER_ID}&limit=20`
+    `${agentBaseUrl}/agent/manager-log?managerEmployeeId=${managerEmployeeId}&limit=20`
   );
   return readJson(response);
 }
 
-async function getEmployeeControls(agentBaseUrl: string): Promise<{
+async function getEmployeeControls(
+  agentBaseUrl: string,
+  employeeId: string,
+): Promise<{
   ok: true;
   employeeId?: string;
   control?: EmployeeControlRecord | null;
@@ -538,13 +550,14 @@ async function getEmployeeControls(agentBaseUrl: string): Promise<{
   };
 }> {
   const response = await fetch(
-    `${agentBaseUrl}/agent/employee-controls?employeeId=${employeeIds.EMPLOYEE_TIMEOUT_RECOVERY_ID}`
+    `${agentBaseUrl}/agent/employee-controls?employeeId=${employeeId}`
   );
   return readJson(response);
 }
 
 async function runWorkerAfterManagerDisable(
-  agentBaseUrl: string
+  agentBaseUrl: string,
+  timeoutRecoveryEmployeeId: string,
 ): Promise<EmployeeControlBlockedResponse | AgentRunResponse> {
   const response = await fetch(`${agentBaseUrl}/agent/run`, {
     method: "POST",
@@ -556,7 +569,7 @@ async function runWorkerAfterManagerDisable(
     body: JSON.stringify({
       companyId: COMPANY_ID,
       teamId: TEAM_ID,
-      employeeId: employeeIds.EMPLOYEE_TIMEOUT_RECOVERY_ID,
+      employeeId: timeoutRecoveryEmployeeId,
       roleId: "timeout-recovery-operator",
       trigger: "manual",
       policyVersion: STAGE6_POLICY_VERSION,
@@ -575,8 +588,27 @@ async function main(): Promise<void> {
     envVar: "OPERATOR_AGENT_BASE_URL",
     serviceName: "operator-agent",
   });
+  const liveEmployeeIds = await resolveEmployeeIdsByKey({
+    agentBaseUrl,
+    employees: [
+      {
+        key: "timeoutRecovery",
+        roleId: "timeout-recovery-operator",
+        teamId: TEAM_ID,
+        runtimeStatus: "implemented",
+      },
+      {
+        key: "infraOpsManager",
+        roleId: "infra-ops-manager",
+        teamId: TEAM_ID,
+        runtimeStatus: "implemented",
+      },
+    ],
+  });
+  const timeoutRecoveryEmployeeId = liveEmployeeIds.timeoutRecovery;
+  const managerEmployeeId = liveEmployeeIds.infraOpsManager;
 
-  const overrideProbe = await runAgent(agentBaseUrl, {
+  const overrideProbe = await runAgent(agentBaseUrl, timeoutRecoveryEmployeeId, {
     budgetOverride: {
       maxActionsPerScan: 1,
     },
@@ -615,19 +647,20 @@ async function main(): Promise<void> {
     companyId: COMPANY_ID,
     originatingTeamId: TEAM_ID,
     assignedTeamId: TEAM_ID,
-    createdByEmployeeId: employeeIds.EMPLOYEE_INFRA_OPS_MANAGER_ID,
-    assignedEmployeeId: employeeIds.EMPLOYEE_TIMEOUT_RECOVERY_ID,
+    createdByEmployeeId: managerEmployeeId,
+    assignedEmployeeId: timeoutRecoveryEmployeeId,
     taskType: "agent-timeout-recovery-check",
     title: "agent timeout recovery check",
     payload: {
       scenario: "agent-timeout-recovery-check",
-      employeeId: employeeIds.EMPLOYEE_TIMEOUT_RECOVERY_ID,
+      employeeId: timeoutRecoveryEmployeeId,
     },
   });
 
   const paperclipProbe = await runAgentViaPaperclip(
     agentBaseUrl,
-    timeoutRecoveryTaskId
+    timeoutRecoveryTaskId,
+    timeoutRecoveryEmployeeId,
   );
 
   if (paperclipProbe.request.trigger !== "paperclip") {
@@ -711,7 +744,7 @@ async function main(): Promise<void> {
       jobId: eligibleJob.id,
     });
 
-    const firstRun = await runAgent(agentBaseUrl);
+    const firstRun = await runAgent(agentBaseUrl, timeoutRecoveryEmployeeId);
 
     if (isBlockedResponse(firstRun)) {
       throw new Error(
@@ -781,7 +814,7 @@ async function main(): Promise<void> {
       evidence: verification.evidence,
     });
 
-    const secondRun = await runAgent(agentBaseUrl);
+    const secondRun = await runAgent(agentBaseUrl, timeoutRecoveryEmployeeId);
     if (isBlockedResponse(secondRun)) {
       throw new Error(
         `Worker unexpectedly blocked before second-run non-action check: ${secondRun.control.reason}`
@@ -833,9 +866,13 @@ async function main(): Promise<void> {
     console.log("Verified /agent/run-once compatibility path (worker disabled baseline)");
   }
 
-  const managerRun = await runManager(agentBaseUrl);
+  const managerRun = await runManager(
+    agentBaseUrl,
+    managerEmployeeId,
+    timeoutRecoveryEmployeeId,
+  );
 
-  if (managerRun.employee.employeeId !== employeeIds.EMPLOYEE_INFRA_OPS_MANAGER_ID) {
+  if (managerRun.employee.employeeId !== managerEmployeeId) {
     throw new Error(
       `Unexpected manager employeeId: ${managerRun.employee.employeeId}`
     );
@@ -843,10 +880,10 @@ async function main(): Promise<void> {
 
   if (
     !Array.isArray(managerRun.observedEmployeeIds) ||
-    !managerRun.observedEmployeeIds.includes(employeeIds.EMPLOYEE_TIMEOUT_RECOVERY_ID)
+    !managerRun.observedEmployeeIds.includes(timeoutRecoveryEmployeeId)
   ) {
     throw new Error(
-      `Expected observedEmployeeIds to include ${employeeIds.EMPLOYEE_TIMEOUT_RECOVERY_ID}, got ${JSON.stringify(managerRun.observedEmployeeIds)}`
+      `Expected observedEmployeeIds to include ${timeoutRecoveryEmployeeId}, got ${JSON.stringify(managerRun.observedEmployeeIds)}`
     );
   }
 
@@ -856,7 +893,7 @@ async function main(): Promise<void> {
     );
   }
 
-  const managerLog = await getManagerLog(agentBaseUrl);
+  const managerLog = await getManagerLog(agentBaseUrl, managerEmployeeId);
 
   if (!managerLog.ok) {
     throw new Error("Manager log route did not return ok=true");
@@ -867,7 +904,10 @@ async function main(): Promise<void> {
     managerLogCount: managerLog.count,
   });
 
-  const employeeControls = await getEmployeeControls(agentBaseUrl);
+  const employeeControls = await getEmployeeControls(
+    agentBaseUrl,
+    timeoutRecoveryEmployeeId,
+  );
 
   if (!employeeControls.ok) {
     throw new Error("Employee controls route did not return ok=true");
@@ -876,7 +916,10 @@ async function main(): Promise<void> {
   const workerEffectiveState = employeeControls.effectiveState;
 
   if (workerEffectiveState?.blocked) {
-    const blockedRun = await runWorkerAfterManagerDisable(agentBaseUrl);
+    const blockedRun = await runWorkerAfterManagerDisable(
+      agentBaseUrl,
+      timeoutRecoveryEmployeeId,
+    );
 
     if (!isBlockedResponse(blockedRun)) {
       throw new Error(

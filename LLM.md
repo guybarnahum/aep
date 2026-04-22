@@ -734,6 +734,7 @@ These fields help the runtime stay data-driven without making public JDs into pr
 Private role-level cognitive scaffolding belongs in private prompt-profile tables, not in public role reads.
 
 Employee creation should derive new employee IDs from `roles_catalog.employee_id_code`, not from hardcoded TS maps.
+Runtime policy should stay code-owned at the role layer. Live runtime paths should not hardcode employee instance IDs; they should resolve active employees from D1 by company, team, and role intent, and CI should discover current runtime employees from `/agent/employees` when it needs live identities.
 The intended canonical format is:
 
 * `<two-letter-role-code><3-digit-sequence>`

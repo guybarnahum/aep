@@ -1,8 +1,9 @@
 /* eslint-disable no-console */
 
 import { createOperatorAgentClient } from "../../clients/operator-agent-client";
+import { resolveEmployeeIdsByKey } from "../../lib/employee-resolution";
 import { handleOperatorAgentSoftSkip } from "../../shared/soft-skip";
-import * as employeeIds from "../../shared/employee-ids";
+import { resolveServiceBaseUrl } from "../../../lib/service-map";
 
 export {};
 
@@ -77,6 +78,10 @@ function findArtifactByKind(
 
 async function main(): Promise<void> {
   const client = createOperatorAgentClient();
+  const agentBaseUrl = resolveServiceBaseUrl({
+    envVar: "OPERATOR_AGENT_BASE_URL",
+    serviceName: "operator-agent",
+  });
 
   try {
     await client.endpointExists("/agent/tasks");
@@ -87,12 +92,31 @@ async function main(): Promise<void> {
     throw error;
   }
 
+  const liveEmployeeIds = await resolveEmployeeIdsByKey({
+    agentBaseUrl,
+    employees: [
+      {
+        key: "manager",
+        roleId: "infra-ops-manager",
+        teamId: "team_infra",
+        runtimeStatus: "implemented",
+      },
+      {
+        key: "reliabilityEngineer",
+        roleId: "reliability-engineer",
+        teamId: "team_validation",
+      },
+    ],
+  });
+  const managerEmployeeId = liveEmployeeIds.manager;
+  const reliabilityEngineerEmployeeId = liveEmployeeIds.reliabilityEngineer;
+
   const task = await client.createTask({
     companyId: "company_internal_aep",
     originatingTeamId: "team_infra",
     assignedTeamId: "team_validation",
-    assignedEmployeeId: employeeIds.EMPLOYEE_RELIABILITY_ENGINEER_ID,
-    createdByEmployeeId: employeeIds.EMPLOYEE_INFRA_OPS_MANAGER_ID,
+    assignedEmployeeId: reliabilityEngineerEmployeeId,
+    createdByEmployeeId: managerEmployeeId,
     taskType: "validate-deployment",
     title: "Validation loop feedback scenario check",
     payload: {
@@ -109,7 +133,7 @@ async function main(): Promise<void> {
   const thread = await client.createMessageThread({
     companyId: "company_internal_aep",
     topic: "Validation loop feedback thread",
-    createdByEmployeeId: employeeIds.EMPLOYEE_INFRA_OPS_MANAGER_ID,
+    createdByEmployeeId: managerEmployeeId,
     relatedTaskId: task.taskId,
     visibility: "org",
   });
@@ -121,7 +145,7 @@ async function main(): Promise<void> {
   const runResult = await client.runEmployee<any>({
     companyId: "company_internal_aep",
     teamId: "team_validation",
-    employeeId: employeeIds.EMPLOYEE_RELIABILITY_ENGINEER_ID,
+    employeeId: reliabilityEngineerEmployeeId,
     roleId: "reliability-engineer",
     trigger: "manual",
     policyVersion: "ci-validation-loop-feedback-check",

@@ -1,13 +1,10 @@
 import { getConfig } from "@aep/operator-agent/config";
 import { makeCronFallbackContext } from "@aep/operator-agent/lib/execution-context";
 import { executeEmployeeRun } from "@aep/operator-agent/lib/execute-employee-run";
-import {
-  reliabilityEngineerEmployee,
-  retrySupervisorEmployee,
-  timeoutRecoveryEmployee,
-} from "@aep/operator-agent/org/employees";
+import { COMPANY_INTERNAL_AEP } from "@aep/operator-agent/org/company";
+import { resolveRuntimeEmployeeByRole } from "@aep/operator-agent/persistence/d1/runtime-employee-resolver-d1";
 import type {
-  AgentEmployeeDefinition,
+  AgentRoleId,
   EmployeeRunRequest,
   OperatorAgentEnv,
   WorkerExecutionResponse,
@@ -15,12 +12,12 @@ import type {
 
 export function selectWorkersForCronTick(
   scheduledTimeMs: number,
-): AgentEmployeeDefinition[] {
+): AgentRoleId[] {
   const minuteSlot = Math.floor(scheduledTimeMs / 60_000);
-  const infraWorker =
-    minuteSlot % 2 === 0 ? timeoutRecoveryEmployee : retrySupervisorEmployee;
+  const infraWorker: AgentRoleId =
+    minuteSlot % 2 === 0 ? "timeout-recovery-operator" : "retry-supervisor";
 
-  return [infraWorker, reliabilityEngineerEmployee];
+  return [infraWorker, "reliability-engineer"];
 }
 
 export async function handleWorkerCron(
@@ -28,14 +25,31 @@ export async function handleWorkerCron(
   scheduledTimeMs = Date.now(),
 ): Promise<void> {
   const config = getConfig(env);
-  const workers = selectWorkersForCronTick(scheduledTimeMs);
+  const workerRoleIds = selectWorkersForCronTick(scheduledTimeMs);
+  const workers = await Promise.all(
+    workerRoleIds.map((roleId) =>
+      resolveRuntimeEmployeeByRole({
+        env,
+        companyId: COMPANY_INTERNAL_AEP,
+        roleId,
+      }),
+    ),
+  );
+
+  if (workers.some((employee) => !employee)) {
+    throw new Error("Unable to resolve one or more active cron workers from D1");
+  }
+
+  const resolvedWorkers = workers.filter(
+    (employee): employee is NonNullable<(typeof workers)[number]> => Boolean(employee),
+  );
 
   console.log("[operator-agent] selected worker cron roster", {
     scheduledTimeMs,
-    workerIds: workers.map((worker) => worker.identity.employeeId),
+    workerIds: resolvedWorkers.map((worker) => worker.identity.employeeId),
   });
 
-  for (const employee of workers) {
+  for (const employee of resolvedWorkers) {
     const executionContext = makeCronFallbackContext(employee.identity.employeeId);
 
     const runRequest: EmployeeRunRequest = {

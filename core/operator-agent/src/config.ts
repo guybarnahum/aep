@@ -1,7 +1,4 @@
-import {
-  EMPLOYEE_RETRY_SUPERVISOR_ID,
-  EMPLOYEE_TIMEOUT_RECOVERY_ID,
-} from "@aep/operator-agent/org/employee-ids";
+import type { AgentRoleId } from "@aep/operator-agent/types";
 
 export interface OperatorAgentConfig {
   serviceName: string;
@@ -13,8 +10,7 @@ export interface OperatorAgentConfig {
   paperclipAuthRequired: boolean;
   paperclipSharedSecret: string;
   cooldownMs: number;
-  managerObservedEmployeeId: string;
-  managerObservedEmployeeIds: string[];
+  managerObservedRoleIds: AgentRoleId[];
   managerReviewWindowMs: number;
   managerQuietPeriodMs: number;
   syntheticEmployeeCleanupToken: string;
@@ -124,16 +120,11 @@ export function getConfig(env?: Record<string, unknown>): OperatorAgentConfig {
     ),
     paperclipSharedSecret: readEnvString(env, "PAPERCLIP_SHARED_SECRET", ""),
     cooldownMs: readEnvNumber(env, "OPERATOR_AGENT_COOLDOWN_MS", 5 * 60 * 1000),
-    managerObservedEmployeeId: readEnvString(
+    managerObservedRoleIds: readEnvStringArray(
       env,
-      "OPERATOR_AGENT_MANAGER_OBSERVED_EMPLOYEE_ID",
-      EMPLOYEE_TIMEOUT_RECOVERY_ID
-    ),
-    managerObservedEmployeeIds: readEnvStringArray(
-      env,
-      "OPERATOR_AGENT_MANAGER_OBSERVED_EMPLOYEE_IDS",
-      [EMPLOYEE_TIMEOUT_RECOVERY_ID, EMPLOYEE_RETRY_SUPERVISOR_ID]
-    ),
+      "OPERATOR_AGENT_MANAGER_OBSERVED_ROLE_IDS",
+      ["timeout-recovery-operator", "retry-supervisor"]
+    ) as AgentRoleId[],
     managerReviewWindowMs: readEnvNumber(
       env,
       "OPERATOR_AGENT_MANAGER_REVIEW_WINDOW_MS",

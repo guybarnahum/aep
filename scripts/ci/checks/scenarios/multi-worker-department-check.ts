@@ -2,11 +2,7 @@
 
 import { handleOperatorAgentSoftSkip } from "../../../lib/operator-agent-skip";
 import { resolveServiceBaseUrl } from "../../../lib/service-map";
-import {
-  EMPLOYEE_INFRA_OPS_MANAGER_ID,
-  EMPLOYEE_RETRY_SUPERVISOR_ID,
-  EMPLOYEE_TIMEOUT_RECOVERY_ID,
-} from "../../shared/employee-ids";
+import { resolveEmployeeIdsByKey } from "../../lib/employee-resolution";
 
 export {};
 
@@ -161,6 +157,7 @@ async function runEmployee(
 
 async function runManager(
   agentBaseUrl: string,
+  managerEmployeeId: string,
   observedEmployeeIds: string[]
 ): Promise<ManagerRunResponse> {
   const response = await fetch(`${agentBaseUrl}/agent/run`, {
@@ -172,7 +169,7 @@ async function runManager(
     },
     body: JSON.stringify({
       departmentId: "aep-infra-ops",
-      employeeId: EMPLOYEE_INFRA_OPS_MANAGER_ID,
+      employeeId: managerEmployeeId,
       roleId: "infra-ops-manager",
       trigger: "manual",
       policyVersion: POLICY_VERSION,
@@ -187,6 +184,32 @@ async function main(): Promise<void> {
     envVar: "OPERATOR_AGENT_BASE_URL",
     serviceName: "operator-agent",
   });
+  const liveEmployeeIds = await resolveEmployeeIdsByKey({
+    agentBaseUrl,
+    employees: [
+      {
+        key: "timeoutRecovery",
+        roleId: "timeout-recovery-operator",
+        teamId: "team_infra",
+        runtimeStatus: "implemented",
+      },
+      {
+        key: "retrySupervisor",
+        roleId: "retry-supervisor",
+        teamId: "team_infra",
+        runtimeStatus: "implemented",
+      },
+      {
+        key: "infraOpsManager",
+        roleId: "infra-ops-manager",
+        teamId: "team_infra",
+        runtimeStatus: "implemented",
+      },
+    ],
+  });
+  const timeoutRecoveryEmployeeId = liveEmployeeIds.timeoutRecovery;
+  const retrySupervisorEmployeeId = liveEmployeeIds.retrySupervisor;
+  const managerEmployeeId = liveEmployeeIds.infraOpsManager;
 
   // 1. Assert all three employees exist
   const employees = await readJson<EmployeesResponse>(
@@ -197,25 +220,25 @@ async function main(): Promise<void> {
     throw new Error("/agent/employees did not return ok=true");
   }
 
-  const employeeIds = new Set(
+  const listedEmployeeIds = new Set(
     employees.employees.map((e) => e.identity.employeeId)
   );
 
-  if (!employeeIds.has(EMPLOYEE_TIMEOUT_RECOVERY_ID)) {
+  if (!listedEmployeeIds.has(timeoutRecoveryEmployeeId)) {
     throw new Error(
-      `Expected /agent/employees to include ${EMPLOYEE_TIMEOUT_RECOVERY_ID}`
+      `Expected /agent/employees to include ${timeoutRecoveryEmployeeId}`
     );
   }
 
-  if (!employeeIds.has(EMPLOYEE_RETRY_SUPERVISOR_ID)) {
+  if (!listedEmployeeIds.has(retrySupervisorEmployeeId)) {
     throw new Error(
-      `Expected /agent/employees to include ${EMPLOYEE_RETRY_SUPERVISOR_ID}`
+      `Expected /agent/employees to include ${retrySupervisorEmployeeId}`
     );
   }
 
-  if (!employeeIds.has(EMPLOYEE_INFRA_OPS_MANAGER_ID)) {
+  if (!listedEmployeeIds.has(managerEmployeeId)) {
     throw new Error(
-      `Expected /agent/employees to include ${EMPLOYEE_INFRA_OPS_MANAGER_ID}`
+      `Expected /agent/employees to include ${managerEmployeeId}`
     );
   }
 
@@ -228,7 +251,7 @@ async function main(): Promise<void> {
   // 2. Run the retry-supervisor worker and assert it returns workerRole
   const retrySupervisorRun = await runEmployee(
     agentBaseUrl,
-    EMPLOYEE_RETRY_SUPERVISOR_ID,
+    retrySupervisorEmployeeId,
     "aep-infra-ops",
     "retry-supervisor"
   );
@@ -246,8 +269,8 @@ async function main(): Promise<void> {
   }
 
   // 3. Run the manager observing both workers and assert perEmployee summaries
-  const workerIds = [EMPLOYEE_TIMEOUT_RECOVERY_ID, EMPLOYEE_RETRY_SUPERVISOR_ID];
-  const managerRun = await runManager(agentBaseUrl, workerIds);
+  const workerIds = [timeoutRecoveryEmployeeId, retrySupervisorEmployeeId];
+  const managerRun = await runManager(agentBaseUrl, managerEmployeeId, workerIds);
 
   if (managerRun.policyVersion !== POLICY_VERSION) {
     throw new Error(
@@ -255,7 +278,7 @@ async function main(): Promise<void> {
     );
   }
 
-  if (managerRun.employee.employeeId !== EMPLOYEE_INFRA_OPS_MANAGER_ID) {
+  if (managerRun.employee.employeeId !== managerEmployeeId) {
     throw new Error(
       `Unexpected manager employeeId: ${managerRun.employee.employeeId}`
     );
