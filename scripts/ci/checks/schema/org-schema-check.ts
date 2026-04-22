@@ -223,7 +223,6 @@ function main(): void {
      LEFT JOIN employee_scope_bindings b
        ON b.employee_id = e.id
      WHERE e.status = 'active'
-       AND e.employment_status = 'active'
      GROUP BY e.role_id
      HAVING COUNT(b.employee_id) < 1
      ORDER BY e.role_id`,
