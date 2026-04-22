@@ -473,6 +473,7 @@ export interface EmployeeRunRequest {
 export interface ResolvedEmployeeRunContext {
   request: EmployeeRunRequest;
   employee: AgentEmployeeDefinition;
+  roleCatalogEntry?: RoleJobDescriptionProjection;
   authority: AgentAuthority;
   budget: AgentBudget;
   policyVersion: string;

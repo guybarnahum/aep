@@ -752,6 +752,14 @@ Execution-facing role validation should also be catalog-driven:
 
 Do not reintroduce route-local hardcoded role allowlists for employee creation or execution validation.
 
+Execution dispatch should now follow this rule:
+
+* `roles_catalog.implementation_binding` selects the execution family
+* the runtime must resolve that binding through an explicit code-owned allowlist/registry
+* unknown bindings, missing bindings, or role/binding mismatches must fail closed
+
+Do not use open-ended dynamic dispatch, dynamic imports from DB strings, or any design where catalog edits alone can introduce arbitrary executable behavior.
+
 ## Employee Lifecycle
 
 Employees have explicit lifecycle states:

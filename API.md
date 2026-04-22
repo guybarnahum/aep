@@ -41,6 +41,7 @@ Base service: `core/operator-agent`
 - Executes the standard operator-agent routing flow.
 - Important invariant: if `/agent/run` receives a `taskId`, that task must already exist.
 - Important invariant: executable roles must exist in `roles_catalog`, belong to the employee's team, and have `runtime_enabled = true`.
+- Important invariant: execution dispatch is selected from the role's catalog `implementationBinding`, but only through a code-owned allowlisted registry. Unknown or unsupported bindings fail closed.
 
 `POST /agent/run-once`
 

@@ -1,9 +1,5 @@
-import { runPmAgent } from "@aep/operator-agent/agents/pm-agent";
 import { getConfig } from "@aep/operator-agent/config";
-import { runValidationAgent } from "@aep/operator-agent/agents/validation-agent";
-import { runInfraOpsManager } from "@aep/operator-agent/agents/infra-ops-manager";
-import { runRetrySupervisor } from "@aep/operator-agent/agents/retry-supervisor";
-import { runTimeoutRecoveryOperator } from "@aep/operator-agent/agents/timeout-recovery";
+import { getImplementationBindingExecutor } from "@aep/operator-agent/lib/implementation-binding-registry";
 import { createStores } from "@aep/operator-agent/lib/store-factory";
 import { mergeAuthority, mergeBudget } from "@aep/operator-agent/lib/policy-merge";
 import { validateRoleCatalogEntry } from "@aep/operator-agent/persistence/d1/role-catalog-store-d1";
@@ -71,6 +67,7 @@ async function resolveRunContext(
   executionContext?: ExecutionContext,
 ): Promise<ResolvedEmployeeRunContext | EmployeeRunErrorResponse> {
   const employee = getEmployeeById(request.employeeId);
+  let roleCatalogEntry: ResolvedEmployeeRunContext["roleCatalogEntry"];
 
   if (!employee) {
     return {
@@ -110,7 +107,7 @@ async function resolveRunContext(
 
   if (env?.OPERATOR_AGENT_DB) {
     try {
-      await validateRoleCatalogEntry(env, {
+      roleCatalogEntry = await validateRoleCatalogEntry(env, {
         roleId: request.roleId,
         teamId: employee.identity.teamId,
         requireRuntimeEnabled: true,
@@ -133,6 +130,7 @@ async function resolveRunContext(
   return {
     request,
     employee,
+    roleCatalogEntry,
     authority,
     budget,
     policyVersion: request.policyVersion,
@@ -247,32 +245,42 @@ export async function executeEmployeeRun(
     taskContext,
   };
 
-  switch (resolved.employee.identity.roleId) {
-    case "timeout-recovery-operator":
-      return runTimeoutRecoveryOperator(runContext, env);
-    case "retry-supervisor":
-      return runRetrySupervisor(runContext, env);
-    case "reliability-engineer":
-      return runValidationAgent(runContext, env);
-    case "infra-ops-manager":
-      return runInfraOpsManager(runContext, env);
-    case "product-manager":
-      return runPmAgent(runContext, env);
-    default:
-      throw Object.assign(
-        new Error(
-          `No execution handler implemented for roleId ${resolved.employee.identity.roleId}`
-        ),
-        {
-          response: {
-            ok: false,
-            status: "employee_not_found",
-            error: `No execution handler implemented for roleId ${resolved.employee.identity.roleId}`,
-          } satisfies EmployeeRunErrorResponse,
-          httpStatus: 404,
-        }
+  if (runContext.roleCatalogEntry?.implementationBinding) {
+    try {
+      const executor = getImplementationBindingExecutor(
+        runContext.roleCatalogEntry.implementationBinding,
       );
+      return await executor(runContext, env);
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : `Invalid implementation binding for roleId ${resolved.employee.identity.roleId}`;
+
+      throw Object.assign(new Error(message), {
+        response: {
+          ok: false,
+          status: "role_mismatch",
+          error: message,
+        } satisfies EmployeeRunErrorResponse,
+        httpStatus: 400,
+      });
+    }
   }
+
+  throw Object.assign(
+    new Error(
+      `Role ${resolved.employee.identity.roleId} is missing implementation_binding`,
+    ),
+    {
+      response: {
+        ok: false,
+        status: "role_mismatch",
+        error: `Role ${resolved.employee.identity.roleId} is missing implementation_binding`,
+      } satisfies EmployeeRunErrorResponse,
+      httpStatus: 400,
+    },
+  );
 }
 
 export function toErrorResponse(
