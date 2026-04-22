@@ -1,4 +1,170 @@
-PRAGMA foreign_keys = OFF;
+INSERT OR IGNORE INTO employees_catalog (
+  id,
+  company_id,
+  team_id,
+  employee_name,
+  role_id,
+  status,
+  scheduler_mode,
+  created_at,
+  updated_at
+)
+SELECT
+  'op001',
+  company_id,
+  team_id,
+  employee_name,
+  role_id,
+  status,
+  scheduler_mode,
+  created_at,
+  updated_at
+FROM employees_catalog
+WHERE id = 'emp_timeout_recovery_01';
+
+INSERT OR IGNORE INTO employees_catalog (
+  id,
+  company_id,
+  team_id,
+  employee_name,
+  role_id,
+  status,
+  scheduler_mode,
+  created_at,
+  updated_at
+)
+SELECT
+  'op002',
+  company_id,
+  team_id,
+  employee_name,
+  role_id,
+  status,
+  scheduler_mode,
+  created_at,
+  updated_at
+FROM employees_catalog
+WHERE id = 'emp_retry_supervisor_01';
+
+INSERT OR IGNORE INTO employees_catalog (
+  id,
+  company_id,
+  team_id,
+  employee_name,
+  role_id,
+  status,
+  scheduler_mode,
+  created_at,
+  updated_at
+)
+SELECT
+  'mg001',
+  company_id,
+  team_id,
+  employee_name,
+  role_id,
+  status,
+  scheduler_mode,
+  created_at,
+  updated_at
+FROM employees_catalog
+WHERE id = 'emp_infra_ops_manager_01';
+
+INSERT OR IGNORE INTO employees_catalog (
+  id,
+  company_id,
+  team_id,
+  employee_name,
+  role_id,
+  status,
+  scheduler_mode,
+  created_at,
+  updated_at
+)
+SELECT
+  'pm002',
+  company_id,
+  team_id,
+  employee_name,
+  role_id,
+  status,
+  scheduler_mode,
+  created_at,
+  updated_at
+FROM employees_catalog
+WHERE id = 'emp_product_manager_web_01';
+
+INSERT OR IGNORE INTO employees_catalog (
+  id,
+  company_id,
+  team_id,
+  employee_name,
+  role_id,
+  status,
+  scheduler_mode,
+  created_at,
+  updated_at
+)
+SELECT
+  'dv001',
+  company_id,
+  team_id,
+  employee_name,
+  role_id,
+  status,
+  scheduler_mode,
+  created_at,
+  updated_at
+FROM employees_catalog
+WHERE id = 'emp_frontend_engineer_01';
+
+INSERT OR IGNORE INTO employees_catalog (
+  id,
+  company_id,
+  team_id,
+  employee_name,
+  role_id,
+  status,
+  scheduler_mode,
+  created_at,
+  updated_at
+)
+SELECT
+  'pm003',
+  company_id,
+  team_id,
+  employee_name,
+  role_id,
+  status,
+  scheduler_mode,
+  created_at,
+  updated_at
+FROM employees_catalog
+WHERE id = 'emp_validation_pm_01';
+
+INSERT OR IGNORE INTO employees_catalog (
+  id,
+  company_id,
+  team_id,
+  employee_name,
+  role_id,
+  status,
+  scheduler_mode,
+  created_at,
+  updated_at
+)
+SELECT
+  'qa001',
+  company_id,
+  team_id,
+  employee_name,
+  role_id,
+  status,
+  scheduler_mode,
+  created_at,
+  updated_at
+FROM employees_catalog
+WHERE id = 'emp_validation_engineer_01';
 
 UPDATE employee_scope_bindings
 SET
@@ -70,12 +236,10 @@ SET
 WHERE employee_id = 'emp_validation_engineer_01'
    OR binding_id LIKE '%emp_validation_engineer_01%';
 
-UPDATE employees_catalog SET id = 'op001' WHERE id = 'emp_timeout_recovery_01';
-UPDATE employees_catalog SET id = 'op002' WHERE id = 'emp_retry_supervisor_01';
-UPDATE employees_catalog SET id = 'mg001' WHERE id = 'emp_infra_ops_manager_01';
-UPDATE employees_catalog SET id = 'pm002' WHERE id = 'emp_product_manager_web_01';
-UPDATE employees_catalog SET id = 'dv001' WHERE id = 'emp_frontend_engineer_01';
-UPDATE employees_catalog SET id = 'pm003' WHERE id = 'emp_validation_pm_01';
-UPDATE employees_catalog SET id = 'qa001' WHERE id = 'emp_validation_engineer_01';
-
-PRAGMA foreign_keys = ON;
+DELETE FROM employees_catalog WHERE id = 'emp_timeout_recovery_01';
+DELETE FROM employees_catalog WHERE id = 'emp_retry_supervisor_01';
+DELETE FROM employees_catalog WHERE id = 'emp_infra_ops_manager_01';
+DELETE FROM employees_catalog WHERE id = 'emp_product_manager_web_01';
+DELETE FROM employees_catalog WHERE id = 'emp_frontend_engineer_01';
+DELETE FROM employees_catalog WHERE id = 'emp_validation_pm_01';
+DELETE FROM employees_catalog WHERE id = 'emp_validation_engineer_01';
