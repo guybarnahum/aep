@@ -1,8 +1,3 @@
-import { runPmAgent } from "@aep/operator-agent/agents/pm-agent";
-import { runValidationAgent } from "@aep/operator-agent/agents/validation-agent";
-import { runInfraOpsManager } from "@aep/operator-agent/agents/infra-ops-manager";
-import { runRetrySupervisor } from "@aep/operator-agent/agents/retry-supervisor";
-import { runTimeoutRecoveryOperator } from "@aep/operator-agent/agents/timeout-recovery";
 import type {
   AgentExecutionResponse,
   OperatorAgentEnv,
@@ -14,15 +9,21 @@ type ImplementationBindingExecutor = (
   env?: OperatorAgentEnv,
 ) => Promise<AgentExecutionResponse>;
 
-function timeoutRecoveryWorkerExecutor(
+async function timeoutRecoveryWorkerExecutor(
   runContext: ResolvedEmployeeRunContext,
   env?: OperatorAgentEnv,
 ): Promise<AgentExecutionResponse> {
   switch (runContext.employee.identity.roleId) {
-    case "timeout-recovery-operator":
+    case "timeout-recovery-operator": {
+      const { runTimeoutRecoveryOperator } = await import(
+        "../agents/timeout-recovery"
+      );
       return runTimeoutRecoveryOperator(runContext, env);
-    case "retry-supervisor":
+    }
+    case "retry-supervisor": {
+      const { runRetrySupervisor } = await import("../agents/retry-supervisor");
       return runRetrySupervisor(runContext, env);
+    }
     default:
       throw new Error(
         `Implementation binding timeout-recovery-worker does not support roleId ${runContext.employee.identity.roleId}`,
@@ -30,7 +31,7 @@ function timeoutRecoveryWorkerExecutor(
   }
 }
 
-function infraOpsManagerExecutor(
+async function infraOpsManagerExecutor(
   runContext: ResolvedEmployeeRunContext,
   env?: OperatorAgentEnv,
 ): Promise<AgentExecutionResponse> {
@@ -40,10 +41,11 @@ function infraOpsManagerExecutor(
     );
   }
 
+  const { runInfraOpsManager } = await import("../agents/infra-ops-manager");
   return runInfraOpsManager(runContext, env);
 }
 
-function validationAgentExecutor(
+async function validationAgentExecutor(
   runContext: ResolvedEmployeeRunContext,
   env?: OperatorAgentEnv,
 ): Promise<AgentExecutionResponse> {
@@ -53,18 +55,21 @@ function validationAgentExecutor(
     );
   }
 
+  const { runValidationAgent } = await import("../agents/validation-agent");
   return runValidationAgent(runContext, env);
 }
 
-function pmAgentExecutor(
+async function pmAgentExecutor(
   runContext: ResolvedEmployeeRunContext,
   env?: OperatorAgentEnv,
 ): Promise<AgentExecutionResponse> {
   switch (runContext.employee.identity.roleId) {
     case "product-manager":
     case "product-manager-web":
-    case "validation-pm":
+    case "validation-pm": {
+      const { runPmAgent } = await import("../agents/pm-agent");
       return runPmAgent(runContext, env);
+    }
     default:
       throw new Error(
         `Implementation binding pm-agent does not support roleId ${runContext.employee.identity.roleId}`,

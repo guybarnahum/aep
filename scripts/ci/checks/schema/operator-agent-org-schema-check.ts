@@ -119,6 +119,13 @@ function assertIds(sql: string, expectedIds: string[], label: string): void {
   }
 }
 
+function assertNoRows(sql: string, message: string): void {
+  const rows = execSql(sql);
+  if (rows.length > 0) {
+    throw new Error(`${message}: ${JSON.stringify(rows)}`);
+  }
+}
+
 function main(): void {
   requireEnv("CLOUDFLARE_API_TOKEN");
   requireEnv("CLOUDFLARE_ACCOUNT_ID");
@@ -173,6 +180,24 @@ function main(): void {
     throw new Error(`Expected at least 11 role catalog rows, got ${rolesCatalogCount}`);
   }
 
+  assertNoRows(
+    `SELECT role_id, implementation_binding
+     FROM roles_catalog
+     WHERE runtime_enabled = 1
+       AND (
+         implementation_binding IS NULL
+         OR TRIM(implementation_binding) = ''
+         OR implementation_binding NOT IN (
+           'timeout-recovery-worker',
+           'infra-ops-manager',
+           'validation-agent',
+           'pm-agent'
+         )
+       )
+     ORDER BY role_id`,
+    "Found runtime-enabled roles without a valid implementation_binding",
+  );
+
   const scopeBindingCount = getCount(
     "SELECT COUNT(*) AS count FROM employee_scope_bindings",
   );
@@ -223,6 +248,7 @@ function main(): void {
     employeeCatalogCount,
     rolesCatalogCount,
     scopeBindingCount,
+    runtimeBindingAudit: "passed",
   });
 }
 
