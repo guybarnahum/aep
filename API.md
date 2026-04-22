@@ -117,6 +117,11 @@ Base service: `core/operator-agent`
 
 - Generates a public persona profile and draft prompt profile from role contract plus description input.
 
+Role cognition note:
+
+- runtime cognition assembly may combine public role-contract context with private role-level and employee-level prompt scaffolds plus bounded policy/task context
+- these private scaffolds remain internal and are not exposed by any public route
+
 `POST /agent/employees/:employeeId/approve-persona`
 
 - Approves the employee prompt profile previously generated or drafted.

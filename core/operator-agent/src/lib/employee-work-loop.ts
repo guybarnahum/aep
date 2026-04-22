@@ -1,7 +1,7 @@
 import {
+  loadEmployeeCognitionInputForRun,
   thinkWithinEmployeeBoundary,
 } from "@aep/operator-agent/lib/employee-cognition";
-import { getEmployeePromptProfile } from "@aep/operator-agent/persistence/d1/employee-prompt-profile-store-d1";
 import { getTaskStore } from "@aep/operator-agent/lib/store-factory";
 import type {
   EmployeeMessage,
@@ -159,15 +159,11 @@ export async function selectNextEmployeeLoopAction(
     };
   }
 
-  const promptProfile = await getEmployeePromptProfile(
-    env,
-    context.employee.identity.employeeId,
-  );
+  const cognitionInput = await loadEmployeeCognitionInputForRun(context, env);
 
   const cognition = await thinkWithinEmployeeBoundary(
     {
-      employee: context.employee.identity,
-      promptProfile,
+      ...cognitionInput,
       observations: buildObservations(loadedContext),
     },
     env,

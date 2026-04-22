@@ -479,6 +479,7 @@ export interface ResolvedEmployeeRunContext {
   policyVersion: string;
   executionContext?: ExecutionContext;
   taskContext?: ResolvedTaskExecutionContext;
+  effectiveControl?: ResolvedEmployeeControl;
 }
 
 export interface ResolvedTaskExecutionContext {

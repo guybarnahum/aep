@@ -240,6 +240,7 @@ export async function executeEmployeeRun(
     ...resolved,
     authority: effectivePolicy.authority,
     budget: effectivePolicy.budget,
+    effectiveControl: effectivePolicy.control,
     // taskContext is the bounded task/dependency/artifact input available to employee-local cognition.
     executionContext,
     taskContext,

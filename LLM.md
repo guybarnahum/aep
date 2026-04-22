@@ -760,6 +760,16 @@ Execution dispatch should now follow this rule:
 
 Do not use open-ended dynamic dispatch, dynamic imports from DB strings, or any design where catalog edits alone can introduce arbitrary executable behavior.
 
+Stage 5 cognition assembly should follow this layering:
+
+* public role contract (`roles_catalog`)
+* private role scaffold (`role_prompt_profiles`)
+* private employee prompt profile (`employee_prompt_profiles`)
+* effective policy/runtime context
+* bounded task/dependency/artifact context
+
+The role contract informs cognition indirectly and may be included as structured context, but public JDs must still not be treated as raw prompt internals exposed through APIs or UI.
+
 ## Employee Lifecycle
 
 Employees have explicit lifecycle states:

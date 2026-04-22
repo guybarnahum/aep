@@ -1,12 +1,12 @@
 import { getConfig } from "../config";
 import {
   derivePublicRationale,
+  loadEmployeeCognitionInputForRun,
   thinkWithinEmployeeBoundary,
 } from "../lib/employee-cognition";
 import { logInfo } from "../lib/logger";
 import { createOrgResolver } from "../lib/org-resolver";
 import type { OrgCapability } from "../lib/org-resolver";
-import { getEmployeePromptProfile } from "../persistence/d1/employee-prompt-profile-store-d1";
 import { publishTaskRationaleToThread } from "../lib/rationale-thread-publisher";
 import { getTaskStore } from "../lib/store-factory";
 import type { MessageThread, Task } from "../lib/store-types";
@@ -429,17 +429,11 @@ export async function runPmAgent(
     );
   }
 
-  const promptProfile = await getEmployeePromptProfile(
-    env,
-    context.employee.identity.employeeId,
-  );
+  const cognitionInput = await loadEmployeeCognitionInputForRun(context, env);
 
   const cognition = await thinkWithinEmployeeBoundary(
     {
-      employee: context.employee.identity,
-      promptProfile,
-      taskContext: context.taskContext,
-      executionContext: context.executionContext,
+      ...cognitionInput,
       observations: [
         `Roadmap objective: ${roadmap?.objective_title ?? "none"}`,
         `Current visible run count: ${currentRuns.length}`,
@@ -447,6 +441,7 @@ export async function runPmAgent(
         "Resolve team ownership by capability instead of hard-coding planning routes in the agent.",
       ],
       additionalContext: {
+        ...cognitionInput.additionalContext,
         roadmap: {
           id: roadmap?.id ?? null,
           title: roadmap?.objective_title ?? null,

@@ -1,11 +1,11 @@
 import {
   derivePublicRationale,
+  loadEmployeeCognitionInputForRun,
   thinkWithinEmployeeBoundary,
 } from "@aep/operator-agent/lib/employee-cognition";
 import {
   selectNextEmployeeLoopAction,
 } from "@aep/operator-agent/lib/employee-work-loop";
-import { getEmployeePromptProfile } from "@aep/operator-agent/persistence/d1/employee-prompt-profile-store-d1";
 import { logInfo } from "@aep/operator-agent/lib/logger";
 import { publishTaskRationaleToThread } from "@aep/operator-agent/lib/rationale-thread-publisher";
 import { getTaskStore } from "@aep/operator-agent/lib/store-factory";
@@ -315,17 +315,14 @@ async function processValidationTask(args: {
       useControlPlaneBinding: shouldUseControlPlaneBinding(args.task),
     });
 
-    const promptProfile = await getEmployeePromptProfile(
+    const cognitionInput = await loadEmployeeCognitionInputForRun(
+      args.context,
       args.env,
-      args.context.employee.identity.employeeId,
     );
 
     const cognition = await thinkWithinEmployeeBoundary(
       {
-        employee: args.context.employee.identity,
-        promptProfile,
-        taskContext: args.context.taskContext,
-        executionContext: args.context.executionContext,
+        ...cognitionInput,
         observations: [
           `Task ID: ${args.task.id}`,
           `Task type: ${args.task.taskType}`,

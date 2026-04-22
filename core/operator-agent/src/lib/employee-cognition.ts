@@ -1,4 +1,6 @@
-import { getEmployeePromptProfile } from "@aep/operator-agent/persistence/d1/employee-prompt-profile-store-d1";
+import { getEmployeePromptProfile } from "../persistence/d1/employee-prompt-profile-store-d1";
+import { getRoleCatalogEntry } from "../persistence/d1/role-catalog-store-d1";
+import { getRolePromptProfile } from "../persistence/d1/role-prompt-profile-store-d1";
 import type { Task } from "@aep/operator-agent/lib/store-types";
 
 const FORBIDDEN_PUBLIC_OUTPUT_TOKENS = [
@@ -32,7 +34,11 @@ import type {
   EmployeePromptProfile,
   EmployeePublicRationalePresentationStyle,
   OperatorAgentEnv,
+  ResolvedEmployeeControl,
+  ResolvedEmployeeRunContext,
   ResolvedTaskExecutionContext,
+  RoleJobDescriptionProjection,
+  RolePromptProfile,
 } from "@aep/operator-agent/types";
 
 const DEFAULT_AI_MODEL = "@cf/meta/llama-3.1-8b-instruct";
@@ -40,11 +46,21 @@ const DEFAULT_AI_MODEL = "@cf/meta/llama-3.1-8b-instruct";
 export interface EmployeeCognitionInput {
   employee: AgentIdentity;
   promptProfile?: EmployeePromptProfile | null;
+  rolePromptProfile?: RolePromptProfile | null;
+  roleContract?: RoleJobDescriptionProjection | null;
   taskContext?: ResolvedTaskExecutionContext;
   executionContext?: ExecutionContext;
   observations?: string[];
   additionalContext?: {
     roadmap?: Record<string, unknown>;
+    effectivePolicy?: {
+      authority?: unknown;
+      budget?: unknown;
+      control?: {
+        state: ResolvedEmployeeControl["state"];
+        blocked: boolean;
+      };
+    };
   };
 }
 
@@ -123,8 +139,43 @@ function mapCollaborationStyleToDirective(value?: string): string | undefined {
   }
 }
 
+function summarizeRoleContract(
+  roleContract?: RoleJobDescriptionProjection | null,
+): string {
+  if (!roleContract) {
+    return "No role contract.";
+  }
+
+  return [
+    `Role ID: ${roleContract.roleId}`,
+    `Title: ${roleContract.title}`,
+    `Team: ${roleContract.teamId}`,
+    `Job Description: ${roleContract.jobDescriptionText}`,
+    `Responsibilities: ${roleContract.responsibilities.join("; ") || "None"}`,
+    `Success Metrics: ${roleContract.successMetrics.join("; ") || "None"}`,
+    `Constraints: ${roleContract.constraints.join("; ") || "None"}`,
+    `Seniority Level: ${roleContract.seniorityLevel}`,
+  ].join("\n");
+}
+
+function summarizeEffectivePolicy(
+  value?: EmployeeCognitionInput["additionalContext"],
+): string {
+  const effectivePolicy = value?.effectivePolicy;
+  if (!effectivePolicy) {
+    return "No effective policy context.";
+  }
+
+  return [
+    `Authority: ${stringifyJson(effectivePolicy.authority ?? null)}`,
+    `Budget: ${stringifyJson(effectivePolicy.budget ?? null)}`,
+    `Control: ${stringifyJson(effectivePolicy.control ?? null)}`,
+  ].join("\n");
+}
+
 function buildPersonaContinuityDirectives(
   employee: AgentIdentity,
+  rolePromptProfile?: RolePromptProfile | null,
   promptProfile?: EmployeePromptProfile | null,
 ): PersonaContinuityDirectives {
   const personaAnchor = normalizeWhitespace(
@@ -143,11 +194,11 @@ function buildPersonaContinuityDirectives(
   );
 
   const decisionDirective = mapDecisionStyleToDirective(
-    promptProfile?.decisionStyle,
+    promptProfile?.decisionStyle ?? rolePromptProfile?.decisionStyle,
   );
 
   const collaborationDirective = mapCollaborationStyleToDirective(
-    promptProfile?.collaborationStyle,
+    promptProfile?.collaborationStyle ?? rolePromptProfile?.collaborationStyle,
   );
 
   const continuityDirective = promptProfile?.identitySeed
@@ -166,10 +217,13 @@ function buildPersonaContinuityDirectives(
 
 function buildPersonaStyledFallback(
   employee: AgentIdentity,
+  rolePromptProfile?: RolePromptProfile | null,
   promptProfile?: EmployeePromptProfile | null,
 ): PersonaStyledFallback {
-  const decisionStyle = promptProfile?.decisionStyle;
-  const collaborationStyle = promptProfile?.collaborationStyle;
+  const decisionStyle =
+    promptProfile?.decisionStyle ?? rolePromptProfile?.decisionStyle;
+  const collaborationStyle =
+    promptProfile?.collaborationStyle ?? rolePromptProfile?.collaborationStyle;
   const identitySeed = promptProfile?.identitySeed;
 
   if (
@@ -228,8 +282,10 @@ function buildPersonaStyledFallback(
 function derivePublicRationalePresentationStyle(
   input: EmployeeCognitionInput,
 ): EmployeePublicRationalePresentationStyle {
-  const decisionStyle = input.promptProfile?.decisionStyle;
-  const collaborationStyle = input.promptProfile?.collaborationStyle;
+  const decisionStyle =
+    input.promptProfile?.decisionStyle ?? input.rolePromptProfile?.decisionStyle;
+  const collaborationStyle =
+    input.promptProfile?.collaborationStyle ?? input.rolePromptProfile?.collaborationStyle;
 
   if (
     decisionStyle === "analytical_and_evidence_first" ||
@@ -314,18 +370,29 @@ function summarizeObservations(observations?: string[]): string {
 
 function buildEmployeeSystemPrompt(input: EmployeeCognitionInput): string {
   const profile = input.promptProfile;
+  const rolePromptProfile = input.rolePromptProfile;
   const continuity = buildPersonaContinuityDirectives(
     input.employee,
+    input.rolePromptProfile,
     input.promptProfile,
   );
 
-  const profilePrompt = profile?.basePrompt?.trim().length
-    ? profile.basePrompt.trim()
-    : [
-        `You are ${input.employee.employeeName}, role ${input.employee.roleId}, inside AEP.`,
-        "You operate within an explicit task-and-thread-based organizational substrate.",
-        "You keep private reasoning private and produce concise reviewable summaries.",
-      ].join(" ");
+  const roleBasePrompt = rolePromptProfile?.basePromptTemplate?.trim();
+  const employeeBasePrompt = profile?.basePrompt?.trim();
+
+  const profilePrompt = [
+    roleBasePrompt,
+    employeeBasePrompt,
+    !roleBasePrompt && !employeeBasePrompt
+      ? [
+          `You are ${input.employee.employeeName}, role ${input.employee.roleId}, inside AEP.`,
+          "You operate within an explicit task-and-thread-based organizational substrate.",
+          "You keep private reasoning private and produce concise reviewable summaries.",
+        ].join(" ")
+      : "",
+  ]
+    .filter(Boolean)
+    .join("\n\n");
 
   return [
     profilePrompt,
@@ -339,6 +406,9 @@ function buildEmployeeSystemPrompt(input: EmployeeCognitionInput): string {
       : "",
     continuity.continuityDirective
       ? `[CONTINUITY]\n${continuity.continuityDirective}`
+      : "",
+    input.roleContract
+      ? `[ROLE CONTRACT]\n${summarizeRoleContract(input.roleContract)}`
       : "",
     "",
     "Rules:",
@@ -358,6 +428,9 @@ function buildEmployeeUserPrompt(input: EmployeeCognitionInput): string {
     "[EMPLOYEE IDENTITY]",
     stringifyJson(input.employee),
     "",
+    "[ROLE CONTRACT]",
+    summarizeRoleContract(input.roleContract),
+    "",
     "[TASK CONTEXT]",
     summarizeTaskContext(input.taskContext),
     "",
@@ -375,6 +448,9 @@ function buildEmployeeUserPrompt(input: EmployeeCognitionInput): string {
     "",
     "[ADDITIONAL CONTEXT]",
     stringifyJson(input.additionalContext ?? null),
+    "",
+    "[EFFECTIVE POLICY]",
+    summarizeEffectivePolicy(input.additionalContext),
     "",
     "[OUTPUT FORMAT]",
     'Return strict JSON with keys: "privateReasoning", "publicSummary", and optional "structured".',
@@ -517,7 +593,11 @@ function fallbackCognition(input: EmployeeCognitionInput): EmployeeCognitionResu
   const firstObservation = input.observations?.[0] ?? "No observation provided.";
   const taskType = input.taskContext?.task.taskType ?? "unknown-task";
   const taskTitle = input.taskContext?.task.title ?? "Untitled task";
-  const styled = buildPersonaStyledFallback(input.employee, input.promptProfile);
+  const styled = buildPersonaStyledFallback(
+    input.employee,
+    input.rolePromptProfile,
+    input.promptProfile,
+  );
   const presentationStyle = derivePublicRationalePresentationStyle(input);
 
   return {
@@ -535,12 +615,16 @@ function fallbackCognition(input: EmployeeCognitionInput): EmployeeCognitionResu
     ].join(" "),
     presentationStyle,
     structured: {
-      intent: `evaluate_${taskType.replace(/[^a-zA-Z0-9]+/g, "_").toLowerCase()}`,
+      intent:
+        input.roleContract?.roleId
+          ? `execute_${input.roleContract.roleId.replace(/[^a-zA-Z0-9]+/g, "_").toLowerCase()}`
+          : `evaluate_${taskType.replace(/[^a-zA-Z0-9]+/g, "_").toLowerCase()}`,
       riskLevel: styled.riskLevel ?? "medium",
       suggestedNextAction:
         styled.suggestedNextAction ?? "continue_with_explicit_task_flow",
     },
-    promptVersion: input.promptProfile?.promptVersion,
+    promptVersion:
+      input.promptProfile?.promptVersion ?? input.rolePromptProfile?.promptVersion,
   };
 }
 
@@ -577,7 +661,8 @@ async function invokeModelIfAvailable(
       publicSummary: parsed.publicSummary,
       presentationStyle,
       structured: parsed.structured,
-      promptVersion: input.promptProfile?.promptVersion,
+      promptVersion:
+        input.promptProfile?.promptVersion ?? input.rolePromptProfile?.promptVersion,
       model,
     };
   } catch {
@@ -764,17 +849,65 @@ export async function thinkWithinEmployeeBoundary(
   return fallbackCognition(input);
 }
 
+export async function loadEmployeeCognitionInputForRun(
+  context: ResolvedEmployeeRunContext,
+  env: OperatorAgentEnv,
+): Promise<EmployeeCognitionInput> {
+  const promptProfile = await getEmployeePromptProfile(
+    env,
+    context.employee.identity.employeeId,
+  );
+
+  const roleContract =
+    context.roleCatalogEntry
+    ?? (await getRoleCatalogEntry(env, context.employee.identity.roleId));
+
+  const rolePromptProfile = await getRolePromptProfile(
+    env,
+    context.employee.identity.roleId,
+  );
+
+  return {
+    employee: context.employee.identity,
+    promptProfile,
+    rolePromptProfile,
+    roleContract,
+    taskContext: context.taskContext,
+    executionContext: context.executionContext,
+    additionalContext: {
+      effectivePolicy: {
+        authority: context.authority,
+        budget: context.budget,
+        control: context.effectiveControl
+          ? {
+              state: context.effectiveControl.state,
+              blocked: context.effectiveControl.blocked,
+            }
+          : undefined,
+      },
+    },
+  };
+}
+
 export async function generateEmployeeInternalMonologue(
   args: GenerateEmployeeInternalMonologueArgs,
 ): Promise<string> {
   const promptProfile = args.env
     ? await getEmployeePromptProfile(args.env, args.employee.identity.employeeId)
     : null;
+  const roleContract = args.env
+    ? await getRoleCatalogEntry(args.env, args.employee.identity.roleId)
+    : null;
+  const rolePromptProfile = args.env
+    ? await getRolePromptProfile(args.env, args.employee.identity.roleId)
+    : null;
 
   const cognition = await thinkWithinEmployeeBoundary(
     {
       employee: args.employee.identity,
       promptProfile,
+      rolePromptProfile,
+      roleContract,
       observations: [
         `Task ID: ${args.task.id}`,
         `Task type: ${args.task.taskType}`,
