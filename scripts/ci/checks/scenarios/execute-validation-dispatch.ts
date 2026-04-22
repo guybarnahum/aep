@@ -58,9 +58,9 @@ async function main() {
     employees: [
       {
         key: "productManager",
-        roleId: "product-manager",
+        roleId: "product-manager-web",
         teamId: "team_web_product",
-        runtimeStatus: "implemented",
+        runtimeStatus: "planned",
       },
       {
         key: "reliabilityEngineer",
