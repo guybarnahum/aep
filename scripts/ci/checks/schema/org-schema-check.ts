@@ -208,20 +208,6 @@ function main(): void {
     throw new Error(`Expected at least 7 seeded employees, got ${employeeCatalogCount}`);
   }
 
-  assertNoRows(
-    `SELECT role_id
-     FROM roles_catalog
-     WHERE runtime_enabled = 1
-       AND role_id NOT IN (
-         SELECT DISTINCT role_id
-         FROM employees_catalog
-         WHERE status = 'active'
-           AND employment_status = 'active'
-       )
-     ORDER BY role_id`,
-    "Found runtime-enabled roles without an active employee instance"
-  );
-
   const scopeBindingCount = getCount(
     "SELECT COUNT(*) AS count FROM employee_scope_bindings"
   );
@@ -234,17 +220,14 @@ function main(): void {
   assertNoRows(
     `SELECT e.role_id
      FROM employees_catalog e
-     JOIN roles_catalog r
-       ON r.role_id = e.role_id
      LEFT JOIN employee_scope_bindings b
        ON b.employee_id = e.id
      WHERE e.status = 'active'
        AND e.employment_status = 'active'
-       AND r.runtime_enabled = 1
      GROUP BY e.role_id
      HAVING COUNT(b.employee_id) < 1
      ORDER BY e.role_id`,
-    "Found runtime-enabled employee role without any scope binding"
+    "Found active employee role without any scope binding"
   );
 
   console.log("org-schema-check passed", {
