@@ -54,7 +54,8 @@ Base service: `core/operator-agent`
 `GET /agent/roles`
 
 - Lists public role contracts from `roles_catalog`.
-- Includes canonical job-description fields and optional `reviewDimensions` used by dashboard role detail and employee-review forms.
+- Includes canonical job-description fields, runtime metadata (`employeeIdCode`, `runtimeEnabled`, `implementationBinding`, `managerRoleId`), and optional `reviewDimensions` used by dashboard role detail and employee-review forms.
+- Important invariant: role-level prompt scaffolding remains private and is not exposed through this route.
 
 `GET /agent/employees`
 

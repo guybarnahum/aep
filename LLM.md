@@ -723,6 +723,16 @@ They influence behavior indirectly through:
 
 JD → tasks → execution → outputs
 
+Role contracts may now also carry data-driven runtime metadata in `roles_catalog`, such as:
+
+* `employee_id_code`
+* `runtime_enabled`
+* `implementation_binding`
+* `manager_role_id`
+
+These fields help the runtime stay data-driven without making public JDs into prompts.
+Private role-level cognitive scaffolding belongs in private prompt-profile tables, not in public role reads.
+
 ## Employee Lifecycle
 
 Employees have explicit lifecycle states:
@@ -1872,6 +1882,7 @@ Important invariant:
 * employee review dimensions come from canonical role contracts
 * review evidence links point to canonical tasks, artifacts, or threads
 * public role/JD/review surfaces do not expose private cognition or prompt internals
+* role-level prompt scaffolding remains private even when role metadata becomes more data-driven
 
 ## PR13F — People / org-management UI (COMPLETED)
 

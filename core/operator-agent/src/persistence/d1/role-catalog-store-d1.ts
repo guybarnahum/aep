@@ -15,6 +15,10 @@ type RoleCatalogRow = {
   role_id: RoleJobDescriptionProjection["roleId"];
   title: string;
   team_id: RoleJobDescriptionProjection["teamId"];
+  employee_id_code?: string | null;
+  runtime_enabled?: number | string | null;
+  implementation_binding?: string | null;
+  manager_role_id?: RoleJobDescriptionProjection["roleId"] | null;
   job_description_text: string;
   responsibilities_json: string;
   success_metrics_json: string;
@@ -49,6 +53,15 @@ function rowToRoleProjection(
     roleId: row.role_id,
     title: row.title,
     teamId: row.team_id,
+    employeeIdCode: row.employee_id_code ?? undefined,
+    runtimeEnabled:
+      row.runtime_enabled === 1 || row.runtime_enabled === "1"
+        ? true
+        : row.runtime_enabled === 0 || row.runtime_enabled === "0"
+          ? false
+          : undefined,
+    implementationBinding: row.implementation_binding ?? undefined,
+    managerRoleId: row.manager_role_id ?? undefined,
     jobDescriptionText: row.job_description_text,
     responsibilities: parseStringArray(row.responsibilities_json),
     successMetrics: parseStringArray(row.success_metrics_json),
@@ -125,6 +138,10 @@ export async function listRoleCatalog(
          role_id,
          title,
          team_id,
+        employee_id_code,
+        runtime_enabled,
+        implementation_binding,
+        manager_role_id,
          job_description_text,
          responsibilities_json,
          success_metrics_json,
@@ -156,6 +173,10 @@ export async function getRoleCatalogEntry(
          role_id,
          title,
          team_id,
+        employee_id_code,
+        runtime_enabled,
+        implementation_binding,
+        manager_role_id,
          job_description_text,
          responsibilities_json,
          success_metrics_json,

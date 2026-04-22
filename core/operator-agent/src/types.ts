@@ -73,6 +73,18 @@ export interface EmployeePromptProfile {
   updatedAt: string;
 }
 
+export interface RolePromptProfile {
+  roleId: AgentRoleId;
+  basePromptTemplate: string;
+  decisionStyle?: string;
+  collaborationStyle?: string;
+  identitySeedTemplate?: string;
+  promptVersion: string;
+  status: "draft" | "approved";
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface EmployeePersonaGenerationPublicResult {
   bio?: string;
   tone?: string;
@@ -131,6 +143,10 @@ export interface RoleJobDescriptionProjection {
   roleId: AgentRoleId;
   title: string;
   teamId: TeamId;
+  employeeIdCode?: string;
+  runtimeEnabled?: boolean;
+  implementationBinding?: string;
+  managerRoleId?: AgentRoleId;
   jobDescriptionText: string;
   responsibilities: string[];
   successMetrics: string[];
