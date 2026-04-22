@@ -63,6 +63,8 @@ Base service: `core/operator-agent`
 
 - Lists employees.
 - Supports filters such as `status`, `teamId`, and `employmentStatus`.
+- This route is the canonical discovery surface for live employee instance resolution in CI and runtime-adjacent validation.
+- Checks that exercise live operator-agent behavior should resolve current employees by role/team intent from this route rather than assuming a fixed seeded employee id.
 - Important dashboard contract: employee projections include separate `employment` and `runtime` blocks plus public-profile fields, public links, and optional visual identity.
 
 `POST /agent/employees`

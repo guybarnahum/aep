@@ -1,12 +1,6 @@
 /* eslint-disable no-console */
 
 import { execFileSync } from "node:child_process";
-import {
-  EMPLOYEE_PRODUCT_MANAGER_WEB_ID,
-  EMPLOYEE_TIMEOUT_RECOVERY_ID,
-  EMPLOYEE_VALIDATION_ENGINEER_ID,
-  SEEDED_EMPLOYEE_IDS,
-} from "../../shared/employee-ids";
 
 export {};
 
@@ -124,6 +118,13 @@ function assertIds(sql: string, expectedIds: string[], label: string): void {
   }
 }
 
+function assertNoRows(sql: string, message: string): void {
+  const rows = execSql(sql);
+  if (rows.length > 0) {
+    throw new Error(`${message}: ${JSON.stringify(rows)}`);
+  }
+}
+
 function main(): void {
   requireEnv("CLOUDFLARE_API_TOKEN");
   requireEnv("CLOUDFLARE_ACCOUNT_ID");
@@ -200,10 +201,25 @@ function main(): void {
     "service"
   );
 
-  assertIds(
-    "SELECT id FROM employees_catalog ORDER BY id",
-    [...SEEDED_EMPLOYEE_IDS].filter((employeeId) => employeeId !== "pm001" && employeeId !== "qa002"),
-    "employee"
+  const employeeCatalogCount = getCount(
+    "SELECT COUNT(*) AS count FROM employees_catalog"
+  );
+  if (employeeCatalogCount < 7) {
+    throw new Error(`Expected at least 7 seeded employees, got ${employeeCatalogCount}`);
+  }
+
+  assertNoRows(
+    `SELECT role_id
+     FROM roles_catalog
+     WHERE runtime_enabled = 1
+       AND role_id NOT IN (
+         SELECT DISTINCT role_id
+         FROM employees_catalog
+         WHERE status = 'active'
+           AND employment_status = 'active'
+       )
+     ORDER BY role_id`,
+    "Found runtime-enabled roles without an active employee instance"
   );
 
   const scopeBindingCount = getCount(
@@ -215,22 +231,26 @@ function main(): void {
     );
   }
 
-  for (const employeeId of [
-    EMPLOYEE_TIMEOUT_RECOVERY_ID,
-    EMPLOYEE_PRODUCT_MANAGER_WEB_ID,
-    EMPLOYEE_VALIDATION_ENGINEER_ID,
-  ]) {
-    const count = getCount(
-      `SELECT COUNT(*) AS count FROM employee_scope_bindings WHERE employee_id = '${employeeId}'`
-    );
-    if (count < 1) {
-      throw new Error(`Expected scope binding for employee: ${employeeId}`);
-    }
-  }
+  assertNoRows(
+    `SELECT e.role_id
+     FROM employees_catalog e
+     JOIN roles_catalog r
+       ON r.role_id = e.role_id
+     LEFT JOIN employee_scope_bindings b
+       ON b.employee_id = e.id
+     WHERE e.status = 'active'
+       AND e.employment_status = 'active'
+       AND r.runtime_enabled = 1
+     GROUP BY e.role_id
+     HAVING COUNT(b.employee_id) < 1
+     ORDER BY e.role_id`,
+    "Found runtime-enabled employee role without any scope binding"
+  );
 
   console.log("org-schema-check passed", {
     tablesValidated: expectedTables.length,
     teamCount,
+    employeeCatalogCount,
     scopeBindingCount,
   });
 }

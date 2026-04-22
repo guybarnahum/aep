@@ -2,7 +2,7 @@
 
 import { handleOperatorAgentSoftSkip } from "../../../lib/operator-agent-skip";
 import { resolveServiceBaseUrl } from "../../../lib/service-map";
-import * as employeeIds from "../../shared/employee-ids";
+import { resolveEmployeeIdsByKey } from "../../lib/employee-resolution";
 
 export {};
 
@@ -127,13 +127,39 @@ async function main(): Promise<void> {
     envVar: "OPERATOR_AGENT_BASE_URL",
     serviceName: "operator-agent",
   });
+  const liveEmployeeIds = await resolveEmployeeIdsByKey({
+    agentBaseUrl,
+    employees: [
+      {
+        key: "infraOpsManager",
+        roleId: "infra-ops-manager",
+        teamId: TEAM_ID,
+        runtimeStatus: "implemented",
+      },
+      {
+        key: "timeoutRecovery",
+        roleId: "timeout-recovery-operator",
+        teamId: TEAM_ID,
+        runtimeStatus: "implemented",
+      },
+      {
+        key: "retrySupervisor",
+        roleId: "retry-supervisor",
+        teamId: TEAM_ID,
+        runtimeStatus: "implemented",
+      },
+    ],
+  });
+  const infraOpsManagerEmployeeId = liveEmployeeIds.infraOpsManager;
+  const timeoutRecoveryEmployeeId = liveEmployeeIds.timeoutRecovery;
+  const retrySupervisorEmployeeId = liveEmployeeIds.retrySupervisor;
 
   const taskId = await createTask(agentBaseUrl, {
     companyId: EXECUTION_COMPANY_ID,
     originatingTeamId: TEAM_ID,
     assignedTeamId: TEAM_ID,
-    createdByEmployeeId: employeeIds.EMPLOYEE_INFRA_OPS_MANAGER_ID,
-    assignedEmployeeId: employeeIds.EMPLOYEE_INFRA_OPS_MANAGER_ID,
+    createdByEmployeeId: infraOpsManagerEmployeeId,
+    assignedEmployeeId: infraOpsManagerEmployeeId,
     taskType: "paperclip-company-handoff-check",
     title: "paperclip company handoff check",
     payload: {
@@ -149,13 +175,13 @@ async function main(): Promise<void> {
     },
     body: JSON.stringify({
       teamId: TEAM_ID,
-      employeeId: employeeIds.EMPLOYEE_INFRA_OPS_MANAGER_ID,
+      employeeId: infraOpsManagerEmployeeId,
       roleId: "infra-ops-manager",
       trigger: "paperclip",
       policyVersion: POLICY_VERSION,
       targetEmployeeIdsOverride: [
-        employeeIds.EMPLOYEE_TIMEOUT_RECOVERY_ID,
-        employeeIds.EMPLOYEE_RETRY_SUPERVISOR_ID,
+        timeoutRecoveryEmployeeId,
+        retrySupervisorEmployeeId,
       ],
       companyId: EXECUTION_COMPANY_ID,
       heartbeatId: "hb-" + Date.now(),
@@ -203,9 +229,9 @@ async function main(): Promise<void> {
     );
   }
 
-  if (result.request.employeeId !== employeeIds.EMPLOYEE_INFRA_OPS_MANAGER_ID) {
+  if (result.request.employeeId !== infraOpsManagerEmployeeId) {
     throw new Error(
-      `Expected employeeId=${employeeIds.EMPLOYEE_INFRA_OPS_MANAGER_ID}, got ${result.request.employeeId}`
+      `Expected employeeId=${infraOpsManagerEmployeeId}, got ${result.request.employeeId}`
     );
   }
 

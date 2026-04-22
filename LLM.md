@@ -12,6 +12,9 @@ Endpoint documentation note for future LLM sessions:
 - treat `API.md` as the canonical API reference before inferring routes from scattered docs
 - if the repo later renames `API.md` or `APII.md`, use that renamed file as the same canonical API reference
 - use `LLM.md` for architecture, continuity, and task context; use `API.md` for concrete route surfaces and invariants
+- runtime-facing checks should resolve live employee instances from `/agent/employees` by role/team intent instead of assuming seeded employee ids
+- schema and surface checks should prefer role-oriented invariants over seeded-id assertions where practical
+- `scripts/ci/shared/employee-ids.ts` is legacy migration scaffolding only; do not add new importers, and remove it once the remaining CI checks are converted to live discovery
 
 ```bash
 titan@Titans-MacBook-Pro aep % tree . --gitignore

@@ -2,7 +2,7 @@
 
 import { handleOperatorAgentSoftSkip } from "../../../lib/operator-agent-skip";
 import { resolveServiceBaseUrl } from "../../../lib/service-map";
-import * as employeeIds from "../../shared/employee-ids";
+import { resolveEmployeeIdsByKey } from "../../lib/employee-resolution";
 
 export {};
 
@@ -60,6 +60,32 @@ async function main(): Promise<void> {
     envVar: "OPERATOR_AGENT_BASE_URL",
     serviceName: "operator-agent",
   });
+  const liveEmployeeIds = await resolveEmployeeIdsByKey({
+    agentBaseUrl,
+    employees: [
+      {
+        key: "infraOpsManager",
+        roleId: "infra-ops-manager",
+        teamId: "team_infra",
+        runtimeStatus: "implemented",
+      },
+      {
+        key: "timeoutRecovery",
+        roleId: "timeout-recovery-operator",
+        teamId: "team_infra",
+        runtimeStatus: "implemented",
+      },
+      {
+        key: "retrySupervisor",
+        roleId: "retry-supervisor",
+        teamId: "team_infra",
+        runtimeStatus: "implemented",
+      },
+    ],
+  });
+  const infraOpsManagerEmployeeId = liveEmployeeIds.infraOpsManager;
+  const timeoutRecoveryEmployeeId = liveEmployeeIds.timeoutRecovery;
+  const retrySupervisorEmployeeId = liveEmployeeIds.retrySupervisor;
 
   // Step 1: find an open escalation to use as test subject
   const listResponse = await readJson<EscalationsResponse>(
@@ -85,13 +111,13 @@ async function main(): Promise<void> {
       },
       body: JSON.stringify({
         departmentId: "aep-infra-ops",
-        employeeId: employeeIds.EMPLOYEE_INFRA_OPS_MANAGER_ID,
+        employeeId: infraOpsManagerEmployeeId,
         roleId: "infra-ops-manager",
         trigger: "manual",
         policyVersion: POLICY_VERSION,
         targetEmployeeIdsOverride: [
-          employeeIds.EMPLOYEE_TIMEOUT_RECOVERY_ID,
-          employeeIds.EMPLOYEE_RETRY_SUPERVISOR_ID,
+          timeoutRecoveryEmployeeId,
+          retrySupervisorEmployeeId,
         ],
       }),
     });
