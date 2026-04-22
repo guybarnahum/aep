@@ -1,14 +1,16 @@
 /* eslint-disable no-console */
 
 import { createOperatorAgentClient } from "../../clients/operator-agent-client";
+import { resolveServiceBaseUrl } from "../../../lib/service-map";
+import { resolveEmployeeIdsByKey } from "../../lib/employee-resolution";
 import { handleOperatorAgentSoftSkip } from "../../shared/soft-skip";
-import * as employeeIds from "../../shared/employee-ids";
 
 export {};
 
 const CHECK_NAME = "repeated-validation-persona-continuity-check";
 const CHECK_LABEL = "repeated validation persona continuity check";
-const TARGET_EMPLOYEE_ID = employeeIds.EMPLOYEE_RELIABILITY_ENGINEER_ID;
+let TARGET_EMPLOYEE_ID = "";
+let CREATED_BY_EMPLOYEE_ID = "";
 const EXPECTED_STYLE = "operational_evidence";
 const TARGET_TASK_TYPE = "validate-deployment";
 
@@ -130,7 +132,7 @@ async function createFreshValidationTask(
     originatingTeamId: "team_infra",
     assignedTeamId: "team_validation",
     assignedEmployeeId: TARGET_EMPLOYEE_ID,
-    createdByEmployeeId: employeeIds.EMPLOYEE_INFRA_OPS_MANAGER_ID,
+    createdByEmployeeId: CREATED_BY_EMPLOYEE_ID,
     taskType: TARGET_TASK_TYPE,
     title: `Repeated validation persona continuity ${suffix}`,
     payload: {
@@ -272,6 +274,29 @@ async function createFreshSamples(
 
 async function main(): Promise<void> {
   const client = createOperatorAgentClient();
+  const agentBaseUrl = resolveServiceBaseUrl({
+    envVar: "OPERATOR_AGENT_BASE_URL",
+    serviceName: "operator-agent",
+  });
+  const liveEmployeeIds = await resolveEmployeeIdsByKey({
+    agentBaseUrl,
+    employees: [
+      {
+        key: "infraOpsManager",
+        roleId: "infra-ops-manager",
+        teamId: "team_infra",
+        runtimeStatus: "implemented",
+      },
+      {
+        key: "reliabilityEngineer",
+        roleId: "reliability-engineer",
+        teamId: "team_validation",
+        runtimeStatus: "implemented",
+      },
+    ],
+  });
+  CREATED_BY_EMPLOYEE_ID = liveEmployeeIds.infraOpsManager;
+  TARGET_EMPLOYEE_ID = liveEmployeeIds.reliabilityEngineer;
 
   try {
     await client.endpointExists("/agent/tasks");

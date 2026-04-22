@@ -3,8 +3,9 @@
 import { execFileSync } from "node:child_process";
 
 import { createOperatorAgentClient } from "../../clients/operator-agent-client";
+import { resolveServiceBaseUrl } from "../../../lib/service-map";
+import { resolveEmployeeIdByRole } from "../../lib/employee-resolution";
 import { handleOperatorAgentSoftSkip } from "../../shared/soft-skip";
-import * as employeeIds from "../../shared/employee-ids";
 
 export {};
 
@@ -12,7 +13,7 @@ const CHECK_NAME = "task-reassignment-continuity-check";
 const TEAM_ID = "team_validation";
 const ROLE_ID = "validation-engineer";
 const COMPANY_ID = "company_internal_aep";
-const CREATED_BY_EMPLOYEE_ID = employeeIds.EMPLOYEE_INFRA_OPS_MANAGER_ID;
+let CREATED_BY_EMPLOYEE_ID = "";
 
 type SqlRow = Record<string, unknown>;
 
@@ -255,6 +256,16 @@ function cleanup(ids: {
 
 async function main(): Promise<void> {
   const client = createOperatorAgentClient();
+  const agentBaseUrl = resolveServiceBaseUrl({
+    envVar: "OPERATOR_AGENT_BASE_URL",
+    serviceName: "operator-agent",
+  });
+  CREATED_BY_EMPLOYEE_ID = await resolveEmployeeIdByRole({
+    agentBaseUrl,
+    roleId: "infra-ops-manager",
+    teamId: "team_infra",
+    runtimeStatus: "implemented",
+  });
 
   try {
     await client.endpointExists("/agent/tasks");

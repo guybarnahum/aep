@@ -1,6 +1,8 @@
 /* eslint-disable no-console */
 
 import { createOperatorAgentClient } from "../../clients/operator-agent-client";
+import { resolveServiceBaseUrl } from "../../../lib/service-map";
+import { resolveEmployeeIdsByKey } from "../../lib/employee-resolution";
 import {
   detectAdapterCapabilities,
   warnIfNoAdapters,
@@ -10,7 +12,6 @@ import {
   hasOptionalPostRoute,
 } from "../../shared/operator-agent-surface";
 import { handleOperatorAgentSoftSkip } from "../../shared/soft-skip";
-import * as employeeIds from "../../shared/employee-ids";
 
 export {};
 
@@ -32,6 +33,29 @@ function assert(condition: unknown, message: string): void {
 async function main(): Promise<void> {
   const client = createOperatorAgentClient();
   const baseUrl = client.baseUrl.replace(/\/$/, "");
+  const agentBaseUrl = resolveServiceBaseUrl({
+    envVar: "OPERATOR_AGENT_BASE_URL",
+    serviceName: "operator-agent",
+  });
+  const liveEmployeeIds = await resolveEmployeeIdsByKey({
+    agentBaseUrl,
+    employees: [
+      {
+        key: "infraOpsManager",
+        roleId: "infra-ops-manager",
+        teamId: "team_infra",
+        runtimeStatus: "implemented",
+      },
+      {
+        key: "reliabilityEngineer",
+        roleId: "reliability-engineer",
+        teamId: "team_validation",
+        runtimeStatus: "implemented",
+      },
+    ],
+  });
+  const infraOpsManagerEmployeeId = liveEmployeeIds.infraOpsManager;
+  const reliabilityEngineerEmployeeId = liveEmployeeIds.reliabilityEngineer;
 
   try {
     await client.endpointExists("/agent/messages/external-action");
@@ -61,14 +85,14 @@ async function main(): Promise<void> {
   warnIfNoAdapters(adapters);
 
   const seeded = await client.seedApproval({
-    requestedByEmployeeId: employeeIds.EMPLOYEE_INFRA_OPS_MANAGER_ID,
+    requestedByEmployeeId: infraOpsManagerEmployeeId,
     requestedByRoleId: "infra-ops-manager",
     actionType: "deploy-change",
     reason: "PR10D external action contract",
     message: "Seed approval thread for strict external action validation.",
     createThread: true,
     threadTopic: "PR10D external action contract",
-    threadReceiverEmployeeId: employeeIds.EMPLOYEE_RELIABILITY_ENGINEER_ID,
+    threadReceiverEmployeeId: reliabilityEngineerEmployeeId,
   });
 
   if (!(seeded as any)?.ok || !(seeded as any).threadId || !(seeded as any).approval?.approvalId) {
@@ -81,8 +105,8 @@ async function main(): Promise<void> {
   const outbound = await client.createMessage({
     companyId: "company_internal_aep",
     threadId,
-    senderEmployeeId: employeeIds.EMPLOYEE_INFRA_OPS_MANAGER_ID,
-    receiverEmployeeId: employeeIds.EMPLOYEE_RELIABILITY_ENGINEER_ID,
+    senderEmployeeId: infraOpsManagerEmployeeId,
+    receiverEmployeeId: reliabilityEngineerEmployeeId,
     type: "coordination",
     source: "internal",
     subject: "PR10D contract anchor",

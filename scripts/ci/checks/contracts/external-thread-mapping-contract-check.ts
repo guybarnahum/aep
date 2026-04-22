@@ -4,13 +4,15 @@ import { createServer } from "node:http";
 
 import { dispatchMessageMirrors } from "../../../../core/operator-agent/src/adapters/mirror-dispatcher";
 import type {
-import * as employeeIds from "../../shared/employee-ids";
   ExternalMessageProjection,
   ExternalThreadProjection,
   MirrorDeliveryRecord,
 } from "../../../../core/operator-agent/src/adapters/types";
 
 export {};
+
+const FIXTURE_INFRA_OPS_MANAGER_ID = "fixture_infra_ops_manager";
+const FIXTURE_RELIABILITY_ENGINEER_ID = "fixture_reliability_engineer";
 
 function assert(condition: unknown, message: string): void {
   if (!condition) {
@@ -118,12 +120,12 @@ async function main(): Promise<void> {
         messageId: "msg_pr10b_contract_success",
         threadId: "thr_pr10b_contract_success",
         body: "PR10B should project canonical messages into a stable external conversation.",
-        senderEmployeeId: employeeIds.EMPLOYEE_INFRA_OPS_MANAGER_ID,
+        senderEmployeeId: FIXTURE_INFRA_OPS_MANAGER_ID,
         createdAt: new Date().toISOString(),
         routing: {
           threadId: "thr_pr10b_contract_success",
           messageType: "coordination",
-          senderEmployeeId: employeeIds.EMPLOYEE_INFRA_OPS_MANAGER_ID,
+          senderEmployeeId: FIXTURE_INFRA_OPS_MANAGER_ID,
           humanVisibilityRequired: true,
         },
       },
@@ -166,12 +168,12 @@ async function main(): Promise<void> {
       messageId: "msg_pr10b_contract_failed",
       threadId: "thr_pr10b_contract_failed",
       body: "PR10B must not synthesize mappings when no mirror target resolves.",
-      senderEmployeeId: employeeIds.EMPLOYEE_RELIABILITY_ENGINEER_ID,
+      senderEmployeeId: FIXTURE_RELIABILITY_ENGINEER_ID,
       createdAt: new Date().toISOString(),
       routing: {
         threadId: "thr_pr10b_contract_failed",
         messageType: "coordination",
-        senderEmployeeId: employeeIds.EMPLOYEE_RELIABILITY_ENGINEER_ID,
+        senderEmployeeId: FIXTURE_RELIABILITY_ENGINEER_ID,
         humanVisibilityRequired: true,
       },
     },

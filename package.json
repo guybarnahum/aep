@@ -15,7 +15,7 @@
     "typecheck": "npm run typecheck:control-plane && npm run typecheck:operator-agent",
     "typecheck:control-plane": "tsc -p core/control-plane/tsconfig.json --noEmit",
     "typecheck:operator-agent": "tsc -p core/operator-agent/tsconfig.json --noEmit",
-    "test:unit:operator-agent": "tsx --test core/operator-agent/src/lib/employee-persona-generator.test.ts core/operator-agent/src/lib/implementation-binding-registry.test.ts core/operator-agent/src/lib/employee-cognition.test.ts",
+    "test:unit:operator-agent": "node scripts/ci/tasks/run-operator-agent-unit-tests.cjs",
     "test": "npm run test:unit:operator-agent && npm run typecheck && npm run build:ui",
     "test:backend": "tsx scripts/ci/tasks/run-operator-agent-backend-tests.ts",
     "dev:control-plane": "wrangler dev --config core/control-plane/wrangler.jsonc",

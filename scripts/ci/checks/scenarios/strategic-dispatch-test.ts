@@ -1,10 +1,22 @@
 import { executeEmployeeRun } from "@aep/operator-agent/lib/execute-employee-run";
-import { EMPLOYEE_PRODUCT_MANAGER_ID } from "../../shared/employee-ids";
+import { resolveServiceBaseUrl } from "../../../lib/service-map";
+import { resolveEmployeeIdByRole } from "../../lib/employee-resolution";
 
 async function main() {
+  const agentBaseUrl = resolveServiceBaseUrl({
+    envVar: "OPERATOR_AGENT_BASE_URL",
+    serviceName: "operator-agent",
+  });
+  const productManagerEmployeeId = await resolveEmployeeIdByRole({
+    agentBaseUrl,
+    roleId: "product-manager",
+    teamId: "team_web_product",
+    runtimeStatus: "implemented",
+  });
+
   // Simulate a Marcus (PM) run
   const response = await executeEmployeeRun({
-    employeeId: EMPLOYEE_PRODUCT_MANAGER_ID,
+    employeeId: productManagerEmployeeId,
     roleId: "product-manager",
     companyId: "company_internal_aep",
     teamId: "team_infra",

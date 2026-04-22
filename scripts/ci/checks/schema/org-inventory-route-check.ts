@@ -2,15 +2,6 @@
 
 import assert from "node:assert/strict";
 import { fetchJson } from "../../../lib/http-json";
-import {
-  EMPLOYEE_FRONTEND_ENGINEER_ID,
-  EMPLOYEE_INFRA_OPS_MANAGER_ID,
-  EMPLOYEE_PRODUCT_MANAGER_WEB_ID,
-  EMPLOYEE_RETRY_SUPERVISOR_ID,
-  EMPLOYEE_TIMEOUT_RECOVERY_ID,
-  EMPLOYEE_VALIDATION_ENGINEER_ID,
-  EMPLOYEE_VALIDATION_PM_ID,
-} from "../../shared/employee-ids";
 
 type JsonValue = unknown;
 
@@ -21,6 +12,17 @@ async function getJson(path: string): Promise<JsonValue> {
   }
 
   return fetchJson(baseUrl, path);
+}
+
+function readStringField(item: Record<string, unknown>, keys: string[]): string {
+  for (const key of keys) {
+    const value = item[key];
+    if (typeof value === "string" && value.length > 0) {
+      return value;
+    }
+  }
+
+  return "";
 }
 
 function expectIds(
@@ -107,28 +109,29 @@ async function main(): Promise<void> {
   const employees = (await getJson("/employees")) as {
     employees: Array<Record<string, unknown>>;
   };
-  expectIds(
-    employees.employees,
-    [
-      EMPLOYEE_TIMEOUT_RECOVERY_ID,
-      EMPLOYEE_RETRY_SUPERVISOR_ID,
-      EMPLOYEE_INFRA_OPS_MANAGER_ID,
-      EMPLOYEE_PRODUCT_MANAGER_WEB_ID,
-      EMPLOYEE_FRONTEND_ENGINEER_ID,
-      EMPLOYEE_VALIDATION_PM_ID,
-      EMPLOYEE_VALIDATION_ENGINEER_ID,
-    ],
-    "employee",
-    ["id", "employee_id"],
+  assert(
+    employees.employees.length >= 7,
+    `Expected at least 7 employee projections, got ${employees.employees.length}`,
   );
 
+  const webProductEmployee = employees.employees.find((employee) => {
+    const roleId = readStringField(employee, ["role_id", "roleId"]);
+    const teamId = readStringField(employee, ["team_id", "teamId"]);
+    return roleId === "product-manager-web" || teamId === "team_web_product";
+  });
+
+  assert(webProductEmployee, "Expected at least one web-product employee projection");
+
+  const webProductEmployeeId = readStringField(webProductEmployee, ["id", "employee_id"]);
+  assert(webProductEmployeeId, `Expected employee projection to expose an id: ${JSON.stringify(webProductEmployee)}`);
+
   const scope = (await getJson(
-    `/employees/${EMPLOYEE_PRODUCT_MANAGER_WEB_ID}/scope`,
+    `/employees/${webProductEmployeeId}/scope`,
   )) as {
     employee_id: string;
     scope_bindings: Array<Record<string, unknown>>;
   };
-  assert.equal(scope.employee_id, EMPLOYEE_PRODUCT_MANAGER_WEB_ID);
+  assert.equal(scope.employee_id, webProductEmployeeId);
   assert(scope.scope_bindings.length >= 1, "Expected employee scope bindings");
 
   const hasDashboardPreview = scope.scope_bindings.some(
@@ -138,7 +141,7 @@ async function main(): Promise<void> {
   );
   assert(
     hasDashboardPreview,
-    `Expected dashboard preview binding for ${EMPLOYEE_PRODUCT_MANAGER_WEB_ID}`,
+    `Expected dashboard preview binding for ${webProductEmployeeId}`,
   );
 
   console.log("org-inventory-route-check passed", {

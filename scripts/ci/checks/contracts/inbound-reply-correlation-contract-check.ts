@@ -1,8 +1,9 @@
 /* eslint-disable no-console */
 
 import { createOperatorAgentClient } from "../../clients/operator-agent-client";
+import { resolveServiceBaseUrl } from "../../../lib/service-map";
+import { resolveEmployeeIdsByKey } from "../../lib/employee-resolution";
 import { handleOperatorAgentSoftSkip } from "../../shared/soft-skip";
-import * as employeeIds from "../../shared/employee-ids";
 
 export {};
 
@@ -23,6 +24,29 @@ function assert(condition: unknown, message: string): void {
 
 async function main(): Promise<void> {
   const client = createOperatorAgentClient();
+  const agentBaseUrl = resolveServiceBaseUrl({
+    envVar: "OPERATOR_AGENT_BASE_URL",
+    serviceName: "operator-agent",
+  });
+  const liveEmployeeIds = await resolveEmployeeIdsByKey({
+    agentBaseUrl,
+    employees: [
+      {
+        key: "infraOpsManager",
+        roleId: "infra-ops-manager",
+        teamId: "team_infra",
+        runtimeStatus: "implemented",
+      },
+      {
+        key: "reliabilityEngineer",
+        roleId: "reliability-engineer",
+        teamId: "team_validation",
+        runtimeStatus: "implemented",
+      },
+    ],
+  });
+  const infraOpsManagerEmployeeId = liveEmployeeIds.infraOpsManager;
+  const reliabilityEngineerEmployeeId = liveEmployeeIds.reliabilityEngineer;
 
   try {
     await client.endpointExists("/agent/messages/inbound");
@@ -36,7 +60,7 @@ async function main(): Promise<void> {
   const thread = await client.createMessageThread({
     companyId: "company_internal_aep",
     topic: "PR10C inbound reply correlation contract check",
-    createdByEmployeeId: employeeIds.EMPLOYEE_INFRA_OPS_MANAGER_ID,
+    createdByEmployeeId: infraOpsManagerEmployeeId,
     relatedTaskId: "task_pr10c_inbound_contract",
     visibility: "internal",
   });
@@ -48,8 +72,8 @@ async function main(): Promise<void> {
   const outbound = await client.createMessage({
     companyId: "company_internal_aep",
     threadId: thread.threadId,
-    senderEmployeeId: employeeIds.EMPLOYEE_INFRA_OPS_MANAGER_ID,
-    receiverEmployeeId: employeeIds.EMPLOYEE_RELIABILITY_ENGINEER_ID,
+    senderEmployeeId: infraOpsManagerEmployeeId,
+    receiverEmployeeId: reliabilityEngineerEmployeeId,
     type: "coordination",
     source: "internal",
     subject: "PR10C correlation anchor",

@@ -2,7 +2,7 @@
 
 import { httpPost } from "../../../lib/http-json";
 import { retry } from "../../tasks/retry";
-import * as employeeIds from "../../shared/employee-ids";
+import { resolveEmployeeIdsByKey } from "../../lib/employee-resolution";
 
 export {};
 
@@ -53,6 +53,23 @@ function parseArgs(argv: string[]) {
 
 async function main() {
   const { operatorBaseUrl, targetUrl } = parseArgs(process.argv.slice(2));
+  const liveEmployeeIds = await resolveEmployeeIdsByKey({
+    agentBaseUrl: operatorBaseUrl,
+    employees: [
+      {
+        key: "productManager",
+        roleId: "product-manager",
+        teamId: "team_web_product",
+        runtimeStatus: "implemented",
+      },
+      {
+        key: "reliabilityEngineer",
+        roleId: "reliability-engineer",
+        teamId: "team_validation",
+        runtimeStatus: "implemented",
+      },
+    ],
+  });
 
   console.log("[DEBUG] operatorBaseUrl:", operatorBaseUrl);
   console.log("[DEBUG] targetUrl:", targetUrl);
@@ -71,8 +88,8 @@ async function main() {
         companyId: "company_internal_aep",
         originatingTeamId: "team_web_product",
         assignedTeamId: "team_validation",
-        createdByEmployeeId: employeeIds.EMPLOYEE_PRODUCT_MANAGER_ID,
-        assignedEmployeeId: employeeIds.EMPLOYEE_RELIABILITY_ENGINEER_ID,
+        createdByEmployeeId: liveEmployeeIds.productManager,
+        assignedEmployeeId: liveEmployeeIds.reliabilityEngineer,
         taskType: "validate-deployment",
         title: "Post-deploy validation health check",
         payload,

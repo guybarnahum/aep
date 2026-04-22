@@ -1,14 +1,15 @@
 /* eslint-disable no-console */
 
 import { createOperatorAgentClient } from "../../clients/operator-agent-client";
+import { resolveServiceBaseUrl } from "../../../lib/service-map";
+import { resolveEmployeeIdByRole } from "../../lib/employee-resolution";
 import { handleOperatorAgentSoftSkip } from "../../shared/soft-skip";
-import * as employeeIds from "../../shared/employee-ids";
 
 export {};
 
 const CHECK_NAME = "repeated-pm-persona-continuity-check";
 const CHECK_LABEL = "repeated PM persona continuity check";
-const TARGET_EMPLOYEE_ID = employeeIds.EMPLOYEE_PRODUCT_MANAGER_ID;
+let TARGET_EMPLOYEE_ID = "";
 const EXPECTED_STYLE = "structured_alignment";
 const FORBIDDEN_PRIVATE_FIELDS = [
   "decisionStyle",
@@ -227,6 +228,16 @@ function softSkip(reason: string): never {
 
 async function main(): Promise<void> {
   const client = createOperatorAgentClient();
+  const agentBaseUrl = resolveServiceBaseUrl({
+    envVar: "OPERATOR_AGENT_BASE_URL",
+    serviceName: "operator-agent",
+  });
+  TARGET_EMPLOYEE_ID = await resolveEmployeeIdByRole({
+    agentBaseUrl,
+    roleId: "product-manager",
+    teamId: "team_web_product",
+    runtimeStatus: "implemented",
+  });
 
   try {
     await client.endpointExists("/agent/tasks");

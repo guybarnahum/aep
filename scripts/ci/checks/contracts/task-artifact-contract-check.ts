@@ -1,13 +1,30 @@
 /* eslint-disable no-console */
 
 import { createOperatorAgentClient } from "../../clients/operator-agent-client";
+import { resolveServiceBaseUrl } from "../../../lib/service-map";
+import { resolveEmployeeIdsByKey } from "../../lib/employee-resolution";
 import { handleOperatorAgentSoftSkip } from "../../shared/soft-skip";
-import * as employeeIds from "../../shared/employee-ids";
 
 export {};
 
 async function main(): Promise<void> {
   const client = createOperatorAgentClient();
+  const agentBaseUrl = resolveServiceBaseUrl({
+    envVar: "OPERATOR_AGENT_BASE_URL",
+    serviceName: "operator-agent",
+  });
+  const liveEmployeeIds = await resolveEmployeeIdsByKey({
+    agentBaseUrl,
+    employees: [
+      {
+        key: "infraOpsManager",
+        roleId: "infra-ops-manager",
+        teamId: "team_infra",
+        runtimeStatus: "implemented",
+      },
+    ],
+  });
+  const infraOpsManagerEmployeeId = liveEmployeeIds.infraOpsManager;
 
   try {
     await client.endpointExists("/agent/tasks");
@@ -22,7 +39,7 @@ async function main(): Promise<void> {
     companyId: "company_internal_aep",
     originatingTeamId: "team_infra",
     assignedTeamId: "team_validation",
-    createdByEmployeeId: employeeIds.EMPLOYEE_INFRA_OPS_MANAGER_ID,
+    createdByEmployeeId: infraOpsManagerEmployeeId,
     taskType: "stage2-artifact-base",
     title: "Stage 2 artifact base task",
     payload: {
@@ -36,7 +53,7 @@ async function main(): Promise<void> {
 
   const planArtifact = await client.createTaskArtifact(task.taskId, {
     companyId: "company_internal_aep",
-    createdByEmployeeId: employeeIds.EMPLOYEE_INFRA_OPS_MANAGER_ID,
+    createdByEmployeeId: infraOpsManagerEmployeeId,
     artifactType: "plan",
     summary: "Initial execution plan",
     content: {
@@ -50,7 +67,7 @@ async function main(): Promise<void> {
 
   const resultArtifact = await client.createTaskArtifact(task.taskId, {
     companyId: "company_internal_aep",
-    createdByEmployeeId: employeeIds.EMPLOYEE_INFRA_OPS_MANAGER_ID,
+    createdByEmployeeId: infraOpsManagerEmployeeId,
     artifactType: "result",
     summary: "Execution result",
     content: {

@@ -1,13 +1,30 @@
 /* eslint-disable no-console */
 
 import { createOperatorAgentClient } from "../../clients/operator-agent-client";
+import { resolveServiceBaseUrl } from "../../../lib/service-map";
+import { resolveEmployeeIdsByKey } from "../../lib/employee-resolution";
 import { handleOperatorAgentSoftSkip } from "../../shared/soft-skip";
-import * as employeeIds from "../../shared/employee-ids";
 
 export {};
 
 async function main(): Promise<void> {
   const client = createOperatorAgentClient();
+  const agentBaseUrl = resolveServiceBaseUrl({
+    envVar: "OPERATOR_AGENT_BASE_URL",
+    serviceName: "operator-agent",
+  });
+  const liveEmployeeIds = await resolveEmployeeIdsByKey({
+    agentBaseUrl,
+    employees: [
+      {
+        key: "reliabilityEngineer",
+        roleId: "reliability-engineer",
+        teamId: "team_validation",
+        runtimeStatus: "implemented",
+      },
+    ],
+  });
+  const reliabilityEngineerEmployeeId = liveEmployeeIds.reliabilityEngineer;
 
   try {
     await client.endpointExists("/agent/message-threads");
@@ -71,7 +88,7 @@ async function main(): Promise<void> {
   const delegation = await client.delegateTaskFromThread(threadId, {
     originatingTeamId: "team_infra",
     assignedTeamId: "team_validation",
-    assignedEmployeeId: employeeIds.EMPLOYEE_RELIABILITY_ENGINEER_ID,
+    assignedEmployeeId: reliabilityEngineerEmployeeId,
     createdByEmployeeId: "scenario_operator",
     taskType: "escalation_followup",
     title: "Validate escalation resolution outcome",

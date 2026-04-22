@@ -1,8 +1,9 @@
 /* eslint-disable no-console */
 
 import { createOperatorAgentClient } from "../../clients/operator-agent-client";
+import { resolveServiceBaseUrl } from "../../../lib/service-map";
+import { resolveEmployeeIdsByKey } from "../../lib/employee-resolution";
 import { handleOperatorAgentSoftSkip } from "../../shared/soft-skip";
-import * as employeeIds from "../../shared/employee-ids";
 
 export {};
 
@@ -16,6 +17,29 @@ function getTargetUrl(): string {
 
 async function main(): Promise<void> {
   const client = createOperatorAgentClient();
+  const agentBaseUrl = resolveServiceBaseUrl({
+    envVar: "OPERATOR_AGENT_BASE_URL",
+    serviceName: "operator-agent",
+  });
+  const liveEmployeeIds = await resolveEmployeeIdsByKey({
+    agentBaseUrl,
+    employees: [
+      {
+        key: "infraOpsManager",
+        roleId: "infra-ops-manager",
+        teamId: "team_infra",
+        runtimeStatus: "implemented",
+      },
+      {
+        key: "reliabilityEngineer",
+        roleId: "reliability-engineer",
+        teamId: "team_validation",
+        runtimeStatus: "implemented",
+      },
+    ],
+  });
+  const infraOpsManagerEmployeeId = liveEmployeeIds.infraOpsManager;
+  const reliabilityEngineerEmployeeId = liveEmployeeIds.reliabilityEngineer;
 
   try {
     await client.endpointExists("/agent/tasks");
@@ -30,8 +54,8 @@ async function main(): Promise<void> {
     companyId: "company_internal_aep",
     originatingTeamId: "team_infra",
     assignedTeamId: "team_validation",
-    assignedEmployeeId: employeeIds.EMPLOYEE_RELIABILITY_ENGINEER_ID,
-    createdByEmployeeId: employeeIds.EMPLOYEE_INFRA_OPS_MANAGER_ID,
+    assignedEmployeeId: reliabilityEngineerEmployeeId,
+    createdByEmployeeId: infraOpsManagerEmployeeId,
     taskType: "validate-deployment",
     title: "PR7.1 cognitive run contract task",
     payload: {
@@ -47,7 +71,7 @@ async function main(): Promise<void> {
   const result = await client.runEmployee<any>({
     companyId: "company_internal_aep",
     teamId: "team_validation",
-    employeeId: employeeIds.EMPLOYEE_RELIABILITY_ENGINEER_ID,
+    employeeId: reliabilityEngineerEmployeeId,
     roleId: "reliability-engineer",
     trigger: "manual",
     policyVersion: "ci-task-run-cognitive-contract-check",

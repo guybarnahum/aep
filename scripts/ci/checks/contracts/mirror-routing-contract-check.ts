@@ -3,13 +3,16 @@
 import { dispatchMessageMirrors } from "../../../../core/operator-agent/src/adapters/mirror-dispatcher";
 import { resolveMirrorTargets } from "../../../../core/operator-agent/src/adapters/mirror-routing-policy";
 import type {
-import * as employeeIds from "../../shared/employee-ids";
   ExternalMessageProjection,
   ExternalThreadProjection,
   MirrorDeliveryRecord,
 } from "../../../../core/operator-agent/src/adapters/types";
 
 export {};
+
+const FIXTURE_PRODUCT_MANAGER_ID = "fixture_product_manager";
+const FIXTURE_INFRA_OPS_MANAGER_ID = "fixture_infra_ops_manager";
+const FIXTURE_RELIABILITY_ENGINEER_ID = "fixture_reliability_engineer";
 
 type EnvShape = {
   MIRROR_DEFAULT_SLACK_CHANNEL?: string;
@@ -37,7 +40,7 @@ async function main(): Promise<void> {
     threadId: "thr_approval",
     threadType: "approval",
     messageType: "coordination",
-    senderEmployeeId: employeeIds.EMPLOYEE_PRODUCT_MANAGER_ID,
+    senderEmployeeId: FIXTURE_PRODUCT_MANAGER_ID,
     humanVisibilityRequired: true,
   });
 
@@ -50,7 +53,7 @@ async function main(): Promise<void> {
     threadId: "thr_escalation",
     threadType: "escalation",
     messageType: "escalation",
-    senderEmployeeId: employeeIds.EMPLOYEE_INFRA_OPS_MANAGER_ID,
+    senderEmployeeId: FIXTURE_INFRA_OPS_MANAGER_ID,
     humanVisibilityRequired: true,
   });
 
@@ -63,7 +66,7 @@ async function main(): Promise<void> {
   const defaultTargets = resolveMirrorTargets(configuredEnv as any, {
     threadId: "thr_default",
     messageType: "coordination",
-    senderEmployeeId: employeeIds.EMPLOYEE_RELIABILITY_ENGINEER_ID,
+    senderEmployeeId: FIXTURE_RELIABILITY_ENGINEER_ID,
     humanVisibilityRequired: true,
   });
 
@@ -95,12 +98,12 @@ async function main(): Promise<void> {
       messageId: "msg_missing_config",
       threadId: "thr_missing_config",
       body: "Canonical agent-originated message",
-      senderEmployeeId: employeeIds.EMPLOYEE_RELIABILITY_ENGINEER_ID,
+      senderEmployeeId: FIXTURE_RELIABILITY_ENGINEER_ID,
       createdAt: new Date().toISOString(),
       routing: {
         threadId: "thr_missing_config",
         messageType: "coordination",
-        senderEmployeeId: employeeIds.EMPLOYEE_RELIABILITY_ENGINEER_ID,
+        senderEmployeeId: FIXTURE_RELIABILITY_ENGINEER_ID,
         humanVisibilityRequired: true,
       },
     },

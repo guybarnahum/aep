@@ -1,8 +1,9 @@
 /* eslint-disable no-console */
 
 import { createOperatorAgentClient } from "../../clients/operator-agent-client";
+import { resolveServiceBaseUrl } from "../../../lib/service-map";
+import { resolveEmployeeIdsByKey } from "../../lib/employee-resolution";
 import { handleOperatorAgentSoftSkip } from "../../shared/soft-skip";
-import * as employeeIds from "../../shared/employee-ids";
 
 export {};
 
@@ -16,6 +17,29 @@ function findAppliedActionMessage(messages: any[], actionType: string): any {
 
 async function main(): Promise<void> {
   const client = createOperatorAgentClient();
+  const agentBaseUrl = resolveServiceBaseUrl({
+    envVar: "OPERATOR_AGENT_BASE_URL",
+    serviceName: "operator-agent",
+  });
+  const liveEmployeeIds = await resolveEmployeeIdsByKey({
+    agentBaseUrl,
+    employees: [
+      {
+        key: "infraOpsManager",
+        roleId: "infra-ops-manager",
+        teamId: "team_infra",
+        runtimeStatus: "implemented",
+      },
+      {
+        key: "reliabilityEngineer",
+        roleId: "reliability-engineer",
+        teamId: "team_validation",
+        runtimeStatus: "implemented",
+      },
+    ],
+  });
+  const infraOpsManagerEmployeeId = liveEmployeeIds.infraOpsManager;
+  const reliabilityEngineerEmployeeId = liveEmployeeIds.reliabilityEngineer;
 
   try {
     await client.endpointExists("/agent/message-threads");
@@ -142,8 +166,8 @@ async function main(): Promise<void> {
   const delegationResult = await client.delegateTaskFromThread(primaryThreadId, {
     originatingTeamId: "team_infra",
     assignedTeamId: "team_validation",
-    ownerEmployeeId: employeeIds.EMPLOYEE_INFRA_OPS_MANAGER_ID,
-    assignedEmployeeId: employeeIds.EMPLOYEE_RELIABILITY_ENGINEER_ID,
+    ownerEmployeeId: infraOpsManagerEmployeeId,
+    assignedEmployeeId: reliabilityEngineerEmployeeId,
     createdByEmployeeId: "operator",
     taskType: "followup_validation",
     title: "Validate approved remediation outcome",

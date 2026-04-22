@@ -1,6 +1,8 @@
 /* eslint-disable no-console */
 
 import { createOperatorAgentClient } from "../../clients/operator-agent-client";
+import { resolveServiceBaseUrl } from "../../../lib/service-map";
+import { resolveEmployeeIdsByKey } from "../../lib/employee-resolution";
 import {
   detectAdapterCapabilities,
   warnIfNoAdapters,
@@ -10,7 +12,6 @@ import {
   hasOptionalPostRoute,
 } from "../../shared/operator-agent-surface";
 import { handleOperatorAgentSoftSkip } from "../../shared/soft-skip";
-import * as employeeIds from "../../shared/employee-ids";
 
 export {};
 
@@ -65,6 +66,29 @@ async function requireProjection(args: {
 async function main(): Promise<void> {
   const client = createOperatorAgentClient();
   const baseUrl = client.baseUrl.replace(/\/$/, "");
+  const agentBaseUrl = resolveServiceBaseUrl({
+    envVar: "OPERATOR_AGENT_BASE_URL",
+    serviceName: "operator-agent",
+  });
+  const liveEmployeeIds = await resolveEmployeeIdsByKey({
+    agentBaseUrl,
+    employees: [
+      {
+        key: "infraOpsManager",
+        roleId: "infra-ops-manager",
+        teamId: "team_infra",
+        runtimeStatus: "implemented",
+      },
+      {
+        key: "reliabilityEngineer",
+        roleId: "reliability-engineer",
+        teamId: "team_validation",
+        runtimeStatus: "implemented",
+      },
+    ],
+  });
+  const infraOpsManagerEmployeeId = liveEmployeeIds.infraOpsManager;
+  const reliabilityEngineerEmployeeId = liveEmployeeIds.reliabilityEngineer;
 
   try {
     await client.endpointExists("/agent/messages/inbound");
@@ -107,7 +131,7 @@ async function main(): Promise<void> {
     body: JSON.stringify({
       companyId: "company_internal_aep",
       topic: "PR10E invalid channel policy",
-      createdByEmployeeId: employeeIds.EMPLOYEE_INFRA_OPS_MANAGER_ID,
+      createdByEmployeeId: infraOpsManagerEmployeeId,
       visibility: "internal",
       externalInteractionPolicy: {
         allowedChannels: ["teams"],
@@ -120,7 +144,7 @@ async function main(): Promise<void> {
   const replyThread = await client.createMessageThread({
     companyId: "company_internal_aep",
     topic: "PR10E reply policy contract",
-    createdByEmployeeId: employeeIds.EMPLOYEE_INFRA_OPS_MANAGER_ID,
+    createdByEmployeeId: infraOpsManagerEmployeeId,
     relatedTaskId: "task_pr10e_reply_contract",
     visibility: "internal",
     externalInteractionPolicy: {
@@ -139,8 +163,8 @@ async function main(): Promise<void> {
   const replyAnchor = await client.createMessage({
     companyId: "company_internal_aep",
     threadId: replyThread.threadId,
-    senderEmployeeId: employeeIds.EMPLOYEE_INFRA_OPS_MANAGER_ID,
-    receiverEmployeeId: employeeIds.EMPLOYEE_RELIABILITY_ENGINEER_ID,
+    senderEmployeeId: infraOpsManagerEmployeeId,
+    receiverEmployeeId: reliabilityEngineerEmployeeId,
     type: "coordination",
     source: "internal",
     subject: "PR10E reply contract anchor",
@@ -226,7 +250,7 @@ async function main(): Promise<void> {
   assert(invalidInboundChannel.status === 400, `Expected invalid inbound channel to return 400, got ${invalidInboundChannel.status}`);
 
   const seededApproval = await client.seedApproval({
-    requestedByEmployeeId: employeeIds.EMPLOYEE_INFRA_OPS_MANAGER_ID,
+    requestedByEmployeeId: infraOpsManagerEmployeeId,
     requestedByRoleId: "infra-ops-manager",
     actionType: "deploy-change",
     reason: "PR10E action policy contract",
@@ -241,7 +265,7 @@ async function main(): Promise<void> {
   const actionThread = await client.createMessageThread({
     companyId: "company_internal_aep",
     topic: "PR10E action policy contract",
-    createdByEmployeeId: employeeIds.EMPLOYEE_INFRA_OPS_MANAGER_ID,
+    createdByEmployeeId: infraOpsManagerEmployeeId,
     relatedApprovalId: approvalId,
     visibility: "internal",
     externalInteractionPolicy: {
@@ -260,8 +284,8 @@ async function main(): Promise<void> {
   const actionAnchor = await client.createMessage({
     companyId: "company_internal_aep",
     threadId: actionThread.threadId,
-    senderEmployeeId: employeeIds.EMPLOYEE_INFRA_OPS_MANAGER_ID,
-    receiverEmployeeId: employeeIds.EMPLOYEE_RELIABILITY_ENGINEER_ID,
+    senderEmployeeId: infraOpsManagerEmployeeId,
+    receiverEmployeeId: reliabilityEngineerEmployeeId,
     type: "coordination",
     source: "internal",
     subject: "PR10E action contract anchor",

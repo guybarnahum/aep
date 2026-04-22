@@ -14,7 +14,7 @@ Endpoint documentation note for future LLM sessions:
 - use `LLM.md` for architecture, continuity, and task context; use `API.md` for concrete route surfaces and invariants
 - runtime-facing checks should resolve live employee instances from `/agent/employees` by role/team intent instead of assuming seeded employee ids
 - schema and surface checks should prefer role-oriented invariants over seeded-id assertions where practical
-- `scripts/ci/shared/employee-ids.ts` is legacy migration scaffolding only; do not add new importers, and remove it once the remaining CI checks are converted to live discovery
+- `scripts/ci/shared/employee-ids.ts` must not exist; CI checks should resolve live employee ids by role/team from `/agent/employees` or use local fixture ids only for pure unit-style checks that do not depend on seeded runtime employees
 
 ```bash
 titan@Titans-MacBook-Pro aep % tree . --gitignore
@@ -748,7 +748,7 @@ Examples:
 * `pm001`
 * `dv001`
 
-Seeded runtime/config/CI identities should now also use this same canonical format.
+These examples describe the derived ID shape only. Runtime-facing code, docs, and CI should not depend on specific canonical employee ids when live employee discovery by role/team intent is available.
 Legacy `emp_*` seeded IDs are historical only and should not be introduced in new runtime code, config defaults, or validation checks.
 
 Execution-facing role validation should also be catalog-driven:

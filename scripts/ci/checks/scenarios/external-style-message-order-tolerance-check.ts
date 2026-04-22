@@ -1,8 +1,9 @@
 /* eslint-disable no-console */
 
 import { createOperatorAgentClient } from "../../clients/operator-agent-client";
+import { resolveServiceBaseUrl } from "../../../lib/service-map";
+import { resolveEmployeeIdsByKey } from "../../lib/employee-resolution";
 import { handleOperatorAgentSoftSkip } from "../../shared/soft-skip";
-import * as employeeIds from "../../shared/employee-ids";
 
 export {};
 
@@ -75,6 +76,22 @@ function softSkip(reason: string): never {
 
 async function main(): Promise<void> {
   const client = createOperatorAgentClient();
+  const agentBaseUrl = resolveServiceBaseUrl({
+    envVar: "OPERATOR_AGENT_BASE_URL",
+    serviceName: "operator-agent",
+  });
+  const liveEmployeeIds = await resolveEmployeeIdsByKey({
+    agentBaseUrl,
+    employees: [
+      {
+        key: "infraOpsManager",
+        roleId: "infra-ops-manager",
+        teamId: "team_infra",
+        runtimeStatus: "implemented",
+      },
+    ],
+  });
+  const infraOpsManagerEmployeeId = liveEmployeeIds.infraOpsManager;
 
   try {
     await client.endpointExists("/agent/messages");
@@ -103,8 +120,8 @@ async function main(): Promise<void> {
   await client.createMessage({
     companyId: "company_internal_aep",
     threadId: target.threadId,
-    senderEmployeeId: employeeIds.EMPLOYEE_INFRA_OPS_MANAGER_ID,
-    receiverEmployeeId: employeeIds.EMPLOYEE_INFRA_OPS_MANAGER_ID,
+    senderEmployeeId: infraOpsManagerEmployeeId,
+    receiverEmployeeId: infraOpsManagerEmployeeId,
     type: "coordination",
     source: "human",
     body: "Second logical external-style message arrived first.",
@@ -118,8 +135,8 @@ async function main(): Promise<void> {
   await client.createMessage({
     companyId: "company_internal_aep",
     threadId: target.threadId,
-    senderEmployeeId: employeeIds.EMPLOYEE_INFRA_OPS_MANAGER_ID,
-    receiverEmployeeId: employeeIds.EMPLOYEE_INFRA_OPS_MANAGER_ID,
+    senderEmployeeId: infraOpsManagerEmployeeId,
+    receiverEmployeeId: infraOpsManagerEmployeeId,
     type: "coordination",
     source: "human",
     body: "First logical external-style message arrived second.",

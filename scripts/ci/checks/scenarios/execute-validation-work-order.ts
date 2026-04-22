@@ -1,5 +1,6 @@
-import * as employeeIds from "../../shared/employee-ids";
 #!/usr/bin/env node
+
+import { resolveEmployeeIdByRole } from "../../lib/employee-resolution";
 
 export {};
 
@@ -61,6 +62,12 @@ function parseArgs(argv: string[]) {
 
 async function main() {
   const { operatorBaseUrl, taskId } = parseArgs(process.argv.slice(2));
+  const reliabilityEngineerEmployeeId = await resolveEmployeeIdByRole({
+    agentBaseUrl: operatorBaseUrl,
+    roleId: "reliability-engineer",
+    teamId: "team_validation",
+    runtimeStatus: "implemented",
+  });
 
   console.log(`Executing validation task ${taskId}...`);
 
@@ -75,7 +82,7 @@ async function main() {
     body: JSON.stringify({
       companyId: "company_internal_aep",
       teamId: "team_validation",
-      employeeId: employeeIds.EMPLOYEE_RELIABILITY_ENGINEER_ID,
+      employeeId: reliabilityEngineerEmployeeId,
       roleId: "reliability-engineer",
       taskId,
       trigger: "manual",

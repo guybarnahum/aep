@@ -4,7 +4,6 @@ import type {
   OperatorAgentEnv,
   ResolvedEmployeeRunContext,
 } from "../../../../core/operator-agent/src/types";
-import * as employeeIds from "../../shared/employee-ids";
 import {
   derivePublicRationale,
   deriveThreadRationaleMessage,
@@ -43,6 +42,9 @@ const PRIVATE_SCAFFOLD_TOKENS = [
   "employee-seed-casey",
 ];
 
+const FIXTURE_RELIABILITY_ENGINEER_ID = "fixture_reliability_engineer";
+const FIXTURE_INFRA_OPS_MANAGER_ID = "fixture_infra_ops_manager";
+
 function assert(condition: unknown, message: string): void {
   if (!condition) {
     throw new Error(message);
@@ -61,7 +63,7 @@ function assertFieldsAbsent(payload: unknown, fields: string[], surface: string)
 function makeRunContext(): ResolvedEmployeeRunContext {
   return {
     request: {
-      employeeId: employeeIds.EMPLOYEE_RELIABILITY_ENGINEER_ID,
+      employeeId: FIXTURE_RELIABILITY_ENGINEER_ID,
       roleId: "reliability-engineer",
       trigger: "manual",
       policyVersion: "ci-cognition-effective-policy-context-check",
@@ -69,7 +71,7 @@ function makeRunContext(): ResolvedEmployeeRunContext {
     },
     employee: {
       identity: {
-        employeeId: employeeIds.EMPLOYEE_RELIABILITY_ENGINEER_ID,
+        employeeId: FIXTURE_RELIABILITY_ENGINEER_ID,
         employeeName: "Casey Validation",
         companyId: "company_internal_aep",
         teamId: "team_validation",
@@ -119,9 +121,9 @@ function makeRunContext(): ResolvedEmployeeRunContext {
         companyId: "company_internal_aep",
         originatingTeamId: "team_infra",
         assignedTeamId: "team_validation",
-        ownerEmployeeId: employeeIds.EMPLOYEE_INFRA_OPS_MANAGER_ID,
-        assignedEmployeeId: employeeIds.EMPLOYEE_RELIABILITY_ENGINEER_ID,
-        createdByEmployeeId: employeeIds.EMPLOYEE_INFRA_OPS_MANAGER_ID,
+        ownerEmployeeId: FIXTURE_INFRA_OPS_MANAGER_ID,
+        assignedEmployeeId: FIXTURE_RELIABILITY_ENGINEER_ID,
+        createdByEmployeeId: FIXTURE_INFRA_OPS_MANAGER_ID,
         taskType: "validate-deployment",
         title: "Validate deployment",
         status: "ready",
@@ -134,7 +136,7 @@ function makeRunContext(): ResolvedEmployeeRunContext {
       artifacts: [],
     },
     effectiveControl: {
-      employeeId: employeeIds.EMPLOYEE_RELIABILITY_ENGINEER_ID,
+      employeeId: FIXTURE_RELIABILITY_ENGINEER_ID,
       state: "restricted",
       blocked: false,
       control: null,

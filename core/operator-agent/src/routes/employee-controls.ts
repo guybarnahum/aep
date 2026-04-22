@@ -1,5 +1,5 @@
 import { createStores } from "@aep/operator-agent/lib/store-factory";
-import { operatorEmployees } from "@aep/operator-agent/org/employees";
+import { listEmployeeCatalog } from "@aep/operator-agent/persistence/d1/employee-catalog-store-d1";
 import type { EmployeeControlRecord, OperatorAgentEnv } from "@aep/operator-agent/types";
 
 export async function handleEmployeeControls(
@@ -10,10 +10,20 @@ export async function handleEmployeeControls(
     return new Response("Method Not Allowed", { status: 405 });
   }
 
+  if (!env) {
+    return Response.json(
+      {
+        ok: false,
+        error: "Missing operator-agent environment",
+      },
+      { status: 500 },
+    );
+  }
+
   const url = new URL(request.url);
   const employeeId = url.searchParams.get("employeeId");
 
-  const stores = createStores(env ?? {});
+  const stores = createStores(env);
   const store = stores.employeeControls;
 
   if (employeeId) {
@@ -38,9 +48,10 @@ export async function handleEmployeeControls(
       blocked: boolean;
     };
   }> = [];
+  const catalogEntries = await listEmployeeCatalog(env);
 
-  for (const employee of operatorEmployees) {
-    const id = employee.identity.employeeId;
+  for (const employee of catalogEntries) {
+    const id = employee.employeeId;
     const effective = await store.getEffective(id, new Date().toISOString());
     entries.push({
       employeeId: id,

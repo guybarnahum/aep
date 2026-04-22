@@ -1,8 +1,9 @@
 /* eslint-disable no-console */
 
 import { createOperatorAgentClient } from "../../clients/operator-agent-client";
+import { resolveServiceBaseUrl } from "../../../lib/service-map";
+import { resolveEmployeeIdsByKey } from "../../lib/employee-resolution";
 import { handleOperatorAgentSoftSkip } from "../../shared/soft-skip";
-import * as employeeIds from "../../shared/employee-ids";
 
 export {};
 
@@ -39,6 +40,22 @@ async function expectTaskCreateFailure(
 
 async function main(): Promise<void> {
   const client = createOperatorAgentClient();
+  const agentBaseUrl = resolveServiceBaseUrl({
+    envVar: "OPERATOR_AGENT_BASE_URL",
+    serviceName: "operator-agent",
+  });
+  const liveEmployeeIds = await resolveEmployeeIdsByKey({
+    agentBaseUrl,
+    employees: [
+      {
+        key: "infraOpsManager",
+        roleId: "infra-ops-manager",
+        teamId: "team_infra",
+        runtimeStatus: "implemented",
+      },
+    ],
+  });
+  const infraOpsManagerEmployeeId = liveEmployeeIds.infraOpsManager;
 
   try {
     await client.endpointExists("/agent/tasks");
@@ -53,7 +70,7 @@ async function main(): Promise<void> {
     companyId: "company_internal_aep",
     originatingTeamId: "team_infra",
     assignedTeamId: "team_validation",
-    createdByEmployeeId: employeeIds.EMPLOYEE_INFRA_OPS_MANAGER_ID,
+    createdByEmployeeId: infraOpsManagerEmployeeId,
     taskType: "stage1-dependency-base",
     title: "Stage 1 dependency base task",
     payload: {
@@ -69,7 +86,7 @@ async function main(): Promise<void> {
     companyId: "company_internal_aep",
     originatingTeamId: "team_infra",
     assignedTeamId: "team_validation",
-    createdByEmployeeId: employeeIds.EMPLOYEE_INFRA_OPS_MANAGER_ID,
+    createdByEmployeeId: infraOpsManagerEmployeeId,
     taskType: "stage1-dependent",
     title: "Stage 1 dependent task",
     dependsOnTaskIds: [baseTask.taskId],
@@ -116,7 +133,7 @@ async function main(): Promise<void> {
         companyId: "company_internal_aep",
         originatingTeamId: "team_infra",
         assignedTeamId: "team_validation",
-        createdByEmployeeId: employeeIds.EMPLOYEE_INFRA_OPS_MANAGER_ID,
+        createdByEmployeeId: infraOpsManagerEmployeeId,
         taskType: "stage1-duplicate-dependency",
         title: "Stage 1 duplicate dependency task",
         dependsOnTaskIds: [baseTask.taskId, baseTask.taskId],
@@ -133,7 +150,7 @@ async function main(): Promise<void> {
         companyId: "company_internal_aep",
         originatingTeamId: "team_infra",
         assignedTeamId: "team_validation",
-        createdByEmployeeId: employeeIds.EMPLOYEE_INFRA_OPS_MANAGER_ID,
+        createdByEmployeeId: infraOpsManagerEmployeeId,
         taskType: "stage1-missing-dependency",
         title: "Stage 1 missing dependency task",
         dependsOnTaskIds: ["task_missing_dependency_01"],

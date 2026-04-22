@@ -1,5 +1,6 @@
-import * as employeeIds from "./employee-ids";
 /* eslint-disable no-console */
+
+import { resolveEmployeeIdsByKey } from "../lib/employee-resolution";
 
 export type AdapterCapabilities = {
   slackConfigured: boolean;
@@ -10,17 +11,36 @@ export async function detectAdapterCapabilities(baseUrl: string): Promise<Adapte
   // Lightweight probe: try to create a message that would trigger mirroring,
   // but DO NOT fail if it doesn't work — just infer capability.
 
-  const testUrl = `${baseUrl.replace(/\/$/, "")}/agent/messages`;
+  const normalizedBaseUrl = baseUrl.replace(/\/$/, "");
+  const testUrl = `${normalizedBaseUrl}/agent/messages`;
 
   try {
+    const liveEmployeeIds = await resolveEmployeeIdsByKey({
+      agentBaseUrl: normalizedBaseUrl,
+      employees: [
+        {
+          key: "infraOpsManager",
+          roleId: "infra-ops-manager",
+          teamId: "team_infra",
+          runtimeStatus: "implemented",
+        },
+        {
+          key: "reliabilityEngineer",
+          roleId: "reliability-engineer",
+          teamId: "team_validation",
+          runtimeStatus: "implemented",
+        },
+      ],
+    });
+
     const res = await fetch(testUrl, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
         companyId: "company_internal_aep",
         threadId: "capability_probe_thread",
-        senderEmployeeId: employeeIds.EMPLOYEE_INFRA_OPS_MANAGER_ID,
-        receiverEmployeeId: employeeIds.EMPLOYEE_RELIABILITY_ENGINEER_ID,
+        senderEmployeeId: liveEmployeeIds.infraOpsManager,
+        receiverEmployeeId: liveEmployeeIds.reliabilityEngineer,
         type: "coordination",
         source: "internal",
         subject: "adapter capability probe",
