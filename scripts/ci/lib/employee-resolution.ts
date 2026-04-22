@@ -20,14 +20,32 @@ async function readJson(response: Response): Promise<unknown> {
   }
 }
 
+function getCatalogStatusFilter(
+  runtimeStatus?: EmployeeRuntimeStatus,
+): string | undefined {
+  if (runtimeStatus === "implemented") {
+    return "active";
+  }
+
+  if (runtimeStatus === "planned") {
+    return "planned";
+  }
+
+  return undefined;
+}
+
 export async function resolveEmployeeIdByRole(
   args: ResolveEmployeeIdByRoleArgs,
 ): Promise<string> {
   const baseUrl = args.agentBaseUrl.replace(/\/$/, "");
   const search = new URLSearchParams({
-    status: "active",
     employmentStatus: "active",
   });
+  const catalogStatus = getCatalogStatusFilter(args.runtimeStatus);
+
+  if (catalogStatus) {
+    search.set("status", catalogStatus);
+  }
 
   if (args.teamId) {
     search.set("teamId", args.teamId);
@@ -62,7 +80,7 @@ export async function resolveEmployeeIdByRole(
 
   if (!employee) {
     throw new Error(
-      `No active employee found for roleId=${args.roleId}${args.teamId ? ` teamId=${args.teamId}` : ""}${args.runtimeStatus ? ` runtimeStatus=${args.runtimeStatus}` : ""}`,
+      `No employee found for roleId=${args.roleId}${args.teamId ? ` teamId=${args.teamId}` : ""}${args.runtimeStatus ? ` runtimeStatus=${args.runtimeStatus}` : ""}`,
     );
   }
 
