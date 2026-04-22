@@ -4,6 +4,7 @@ import {
   listEmployeePublicLinks,
 } from "@aep/operator-agent/persistence/d1/employee-catalog-store-d1";
 import { createEmployee } from "@aep/operator-agent/persistence/d1/employee-lifecycle-store-d1";
+import { getRoleCatalogEntry } from "@aep/operator-agent/persistence/d1/role-catalog-store-d1";
 import { resolveAllowedScope } from "@aep/operator-agent/lib/org-scope-resolver";
 import {
   mergeAuthority,
@@ -74,24 +75,6 @@ function toTeamId(teamId: string): TeamId {
 }
 
 function toAgentRoleId(roleId: string): AgentRoleId {
-  const validRoles: AgentRoleId[] = [
-    "timeout-recovery-operator",
-    "infra-ops-manager",
-    "retry-supervisor",
-    "teardown-safety-operator",
-    "incident-triage-operator",
-    "product-manager",
-    "product-manager-web",
-    "frontend-engineer",
-    "validation-pm",
-    "validation-engineer",
-    "reliability-engineer",
-  ];
-
-  if (!validRoles.includes(roleId as AgentRoleId)) {
-    throw new Error(`Unsupported roleId in employee catalog: ${roleId}`);
-  }
-
   return roleId as AgentRoleId;
 }
 
@@ -177,6 +160,17 @@ export async function handleEmployees(
     }
 
     try {
+      const role = await getRoleCatalogEntry(env, body.roleId);
+      if (!role) {
+        return Response.json(
+          {
+            ok: false,
+            error: `Unknown roleId: ${body.roleId}`,
+          },
+          { status: 400 },
+        );
+      }
+
       const result = await createEmployee(env, {
         employeeId: body.employeeId,
         companyId: body.companyId,
@@ -261,11 +255,18 @@ export async function handleEmployees(
           catalogEntry.photoUrl,
       );
 
+      const role = await getRoleCatalogEntry(env, catalogEntry.roleId);
+      if (!role) {
+        throw new Error(
+          `Unknown roleId in employee catalog: ${catalogEntry.roleId}`,
+        );
+      }
+
       const identity = {
         employeeId: catalogEntry.employeeId,
         companyId: toCompanyId(catalogEntry.companyId),
         teamId: toTeamId(catalogEntry.teamId),
-        roleId: toAgentRoleId(catalogEntry.roleId),
+        roleId: role.roleId,
       };
 
       if (!runtimeEmployee) {

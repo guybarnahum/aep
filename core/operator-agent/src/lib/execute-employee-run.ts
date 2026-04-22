@@ -6,6 +6,7 @@ import { runRetrySupervisor } from "@aep/operator-agent/agents/retry-supervisor"
 import { runTimeoutRecoveryOperator } from "@aep/operator-agent/agents/timeout-recovery";
 import { createStores } from "@aep/operator-agent/lib/store-factory";
 import { mergeAuthority, mergeBudget } from "@aep/operator-agent/lib/policy-merge";
+import { validateRoleCatalogEntry } from "@aep/operator-agent/persistence/d1/role-catalog-store-d1";
 import { cloneAuthority } from "@aep/operator-agent/org/authority";
 import { cloneBudget } from "@aep/operator-agent/org/budgets";
 import { getEmployeeById } from "@aep/operator-agent/org/employees";
@@ -64,10 +65,11 @@ function validateRunRequest(
   return undefined;
 }
 
-function resolveRunContext(
+async function resolveRunContext(
   request: EmployeeRunRequest,
+  env?: OperatorAgentEnv,
   executionContext?: ExecutionContext,
-): ResolvedEmployeeRunContext | EmployeeRunErrorResponse {
+): Promise<ResolvedEmployeeRunContext | EmployeeRunErrorResponse> {
   const employee = getEmployeeById(request.employeeId);
 
   if (!employee) {
@@ -104,6 +106,25 @@ function resolveRunContext(
       status: "role_mismatch",
       error: `roleId mismatch for employee ${request.employeeId}`,
     };
+  }
+
+  if (env?.OPERATOR_AGENT_DB) {
+    try {
+      await validateRoleCatalogEntry(env, {
+        roleId: request.roleId,
+        teamId: employee.identity.teamId,
+        requireRuntimeEnabled: true,
+      });
+    } catch (error) {
+      return {
+        ok: false,
+        status: "role_mismatch",
+        error:
+          error instanceof Error
+            ? error.message
+            : `Invalid runtime role: ${request.roleId}`,
+      };
+    }
   }
 
   const authority = cloneAuthority(employee.authority);
@@ -198,7 +219,7 @@ export async function executeEmployeeRun(
     });
   }
 
-  const resolved = resolveRunContext(request, executionContext);
+  const resolved = await resolveRunContext(request, env, executionContext);
   if ("ok" in resolved) {
     throw Object.assign(new Error(resolved.error), {
       response: resolved,

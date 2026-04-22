@@ -744,6 +744,14 @@ Examples:
 * `pm001`
 * `dv001`
 
+Execution-facing role validation should also be catalog-driven:
+
+* role must exist in `roles_catalog`
+* role must belong to the employee's team
+* executable roles must have `runtime_enabled = true`
+
+Do not reintroduce route-local hardcoded role allowlists for employee creation or execution validation.
+
 ## Employee Lifecycle
 
 Employees have explicit lifecycle states:

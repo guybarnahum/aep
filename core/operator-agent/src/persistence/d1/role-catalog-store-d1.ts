@@ -196,3 +196,30 @@ export async function getRoleCatalogEntry(
   const reviewDimensionsMap = await getRoleReviewDimensionsMap(env, [roleId]);
   return rowToRoleProjection(row, reviewDimensionsMap[roleId]);
 }
+
+export async function validateRoleCatalogEntry(
+  env: OperatorAgentEnv,
+  args: {
+    roleId: string;
+    teamId?: string;
+    requireRuntimeEnabled?: boolean;
+  },
+): Promise<RoleJobDescriptionProjection> {
+  const role = await getRoleCatalogEntry(env, args.roleId);
+
+  if (!role) {
+    throw new Error(`Unknown roleId: ${args.roleId}`);
+  }
+
+  if (args.teamId && role.teamId !== args.teamId) {
+    throw new Error(
+      `Role ${args.roleId} belongs to ${role.teamId}, not ${args.teamId}`,
+    );
+  }
+
+  if (args.requireRuntimeEnabled && role.runtimeEnabled !== true) {
+    throw new Error(`Role ${args.roleId} is not runtime_enabled`);
+  }
+
+  return role;
+}

@@ -8,6 +8,7 @@ import type {
   OperatorAgentEnv,
   TaskReassignmentReason,
 } from "@aep/operator-agent/types";
+import { validateRoleCatalogEntry } from "@aep/operator-agent/persistence/d1/role-catalog-store-d1";
 
 import {
   listActiveTasksForEmployee,
@@ -177,24 +178,6 @@ async function getEmployeeRow(
   );
 }
 
-async function getRoleTeamId(
-  env: OperatorAgentEnv,
-  roleId: string,
-): Promise<string | null> {
-  const db = requireDb(env);
-  const row = await db
-    .prepare(
-      `SELECT team_id
-       FROM roles_catalog
-       WHERE role_id = ?
-       LIMIT 1`,
-    )
-    .bind(roleId)
-    .first<{ team_id: string }>();
-
-  return row?.team_id ?? null;
-}
-
 async function getRoleEmployeeIdCode(
   env: OperatorAgentEnv,
   roleId: AgentRoleId,
@@ -275,14 +258,10 @@ async function assertRoleMatchesTeam(
   roleId: string,
   teamId: string,
 ): Promise<void> {
-  const roleTeamId = await getRoleTeamId(env, roleId);
-  if (!roleTeamId) {
-    throw new Error(`Unknown roleId: ${roleId}`);
-  }
-
-  if (roleTeamId !== teamId) {
-    throw new Error(`Role ${roleId} belongs to ${roleTeamId}, not ${teamId}`);
-  }
+  await validateRoleCatalogEntry(env, {
+    roleId,
+    teamId,
+  });
 }
 
 async function getEmployeePersonaRow(
@@ -819,11 +798,11 @@ export async function applyEmployeeLifecycleAction(
       if (!input.toRoleId) {
         throw new Error("toRoleId is required for change_role");
       }
+      const targetRole = await validateRoleCatalogEntry(env, {
+        roleId: input.toRoleId,
+      });
       nextRoleId = input.toRoleId;
-      nextTeamId = (await getRoleTeamId(env, input.toRoleId)) ?? existing.team_id;
-      if (!nextTeamId) {
-        throw new Error(`Unknown target role: ${input.toRoleId}`);
-      }
+      nextTeamId = targetRole.teamId;
       eventType = "role_changed";
       break;
     case "start_leave":

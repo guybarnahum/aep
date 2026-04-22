@@ -40,6 +40,7 @@ Base service: `core/operator-agent`
 - Primary Paperclip/company entrypoint.
 - Executes the standard operator-agent routing flow.
 - Important invariant: if `/agent/run` receives a `taskId`, that task must already exist.
+- Important invariant: executable roles must exist in `roles_catalog`, belong to the employee's team, and have `runtime_enabled = true`.
 
 `POST /agent/run-once`
 
