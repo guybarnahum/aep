@@ -2,6 +2,7 @@
 
 import { createOperatorAgentClient } from "../../clients/operator-agent-client";
 import { handleOperatorAgentSoftSkip } from "../../shared/soft-skip";
+import * as employeeIds from "../../shared/employee-ids";
 
 export {};
 
@@ -141,8 +142,8 @@ async function main(): Promise<void> {
   const delegationResult = await client.delegateTaskFromThread(primaryThreadId, {
     originatingTeamId: "team_infra",
     assignedTeamId: "team_validation",
-    ownerEmployeeId: "emp_infra_ops_manager_01",
-    assignedEmployeeId: "emp_val_specialist_01",
+    ownerEmployeeId: employeeIds.EMPLOYEE_INFRA_OPS_MANAGER_ID,
+    assignedEmployeeId: employeeIds.EMPLOYEE_RELIABILITY_ENGINEER_ID,
     createdByEmployeeId: "operator",
     taskType: "followup_validation",
     title: "Validate approved remediation outcome",

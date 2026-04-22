@@ -1,3 +1,4 @@
+import * as employeeIds from "./employee-ids";
 /* eslint-disable no-console */
 
 export type AdapterCapabilities = {
@@ -18,8 +19,8 @@ export async function detectAdapterCapabilities(baseUrl: string): Promise<Adapte
       body: JSON.stringify({
         companyId: "company_internal_aep",
         threadId: "capability_probe_thread",
-        senderEmployeeId: "emp_infra_ops_manager_01",
-        receiverEmployeeId: "emp_val_specialist_01",
+        senderEmployeeId: employeeIds.EMPLOYEE_INFRA_OPS_MANAGER_ID,
+        receiverEmployeeId: employeeIds.EMPLOYEE_RELIABILITY_ENGINEER_ID,
         type: "coordination",
         source: "internal",
         subject: "adapter capability probe",

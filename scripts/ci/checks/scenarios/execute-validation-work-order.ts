@@ -1,3 +1,4 @@
+import * as employeeIds from "../../shared/employee-ids";
 #!/usr/bin/env node
 
 export {};
@@ -74,7 +75,7 @@ async function main() {
     body: JSON.stringify({
       companyId: "company_internal_aep",
       teamId: "team_validation",
-      employeeId: "emp_val_specialist_01",
+      employeeId: employeeIds.EMPLOYEE_RELIABILITY_ENGINEER_ID,
       roleId: "reliability-engineer",
       taskId,
       trigger: "manual",

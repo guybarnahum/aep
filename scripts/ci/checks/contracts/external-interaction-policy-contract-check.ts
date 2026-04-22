@@ -10,6 +10,7 @@ import {
   hasOptionalPostRoute,
 } from "../../shared/operator-agent-surface";
 import { handleOperatorAgentSoftSkip } from "../../shared/soft-skip";
+import * as employeeIds from "../../shared/employee-ids";
 
 export {};
 
@@ -106,7 +107,7 @@ async function main(): Promise<void> {
     body: JSON.stringify({
       companyId: "company_internal_aep",
       topic: "PR10E invalid channel policy",
-      createdByEmployeeId: "emp_infra_ops_manager_01",
+      createdByEmployeeId: employeeIds.EMPLOYEE_INFRA_OPS_MANAGER_ID,
       visibility: "internal",
       externalInteractionPolicy: {
         allowedChannels: ["teams"],
@@ -119,7 +120,7 @@ async function main(): Promise<void> {
   const replyThread = await client.createMessageThread({
     companyId: "company_internal_aep",
     topic: "PR10E reply policy contract",
-    createdByEmployeeId: "emp_infra_ops_manager_01",
+    createdByEmployeeId: employeeIds.EMPLOYEE_INFRA_OPS_MANAGER_ID,
     relatedTaskId: "task_pr10e_reply_contract",
     visibility: "internal",
     externalInteractionPolicy: {
@@ -138,8 +139,8 @@ async function main(): Promise<void> {
   const replyAnchor = await client.createMessage({
     companyId: "company_internal_aep",
     threadId: replyThread.threadId,
-    senderEmployeeId: "emp_infra_ops_manager_01",
-    receiverEmployeeId: "emp_val_specialist_01",
+    senderEmployeeId: employeeIds.EMPLOYEE_INFRA_OPS_MANAGER_ID,
+    receiverEmployeeId: employeeIds.EMPLOYEE_RELIABILITY_ENGINEER_ID,
     type: "coordination",
     source: "internal",
     subject: "PR10E reply contract anchor",
@@ -225,7 +226,7 @@ async function main(): Promise<void> {
   assert(invalidInboundChannel.status === 400, `Expected invalid inbound channel to return 400, got ${invalidInboundChannel.status}`);
 
   const seededApproval = await client.seedApproval({
-    requestedByEmployeeId: "emp_infra_ops_manager_01",
+    requestedByEmployeeId: employeeIds.EMPLOYEE_INFRA_OPS_MANAGER_ID,
     requestedByRoleId: "infra-ops-manager",
     actionType: "deploy-change",
     reason: "PR10E action policy contract",
@@ -240,7 +241,7 @@ async function main(): Promise<void> {
   const actionThread = await client.createMessageThread({
     companyId: "company_internal_aep",
     topic: "PR10E action policy contract",
-    createdByEmployeeId: "emp_infra_ops_manager_01",
+    createdByEmployeeId: employeeIds.EMPLOYEE_INFRA_OPS_MANAGER_ID,
     relatedApprovalId: approvalId,
     visibility: "internal",
     externalInteractionPolicy: {
@@ -259,8 +260,8 @@ async function main(): Promise<void> {
   const actionAnchor = await client.createMessage({
     companyId: "company_internal_aep",
     threadId: actionThread.threadId,
-    senderEmployeeId: "emp_infra_ops_manager_01",
-    receiverEmployeeId: "emp_val_specialist_01",
+    senderEmployeeId: employeeIds.EMPLOYEE_INFRA_OPS_MANAGER_ID,
+    receiverEmployeeId: employeeIds.EMPLOYEE_RELIABILITY_ENGINEER_ID,
     type: "coordination",
     source: "internal",
     subject: "PR10E action contract anchor",

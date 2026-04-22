@@ -2,6 +2,11 @@
 
 import { handleOperatorAgentSoftSkip } from "../../../lib/operator-agent-skip";
 import { resolveServiceBaseUrl } from "../../../lib/service-map";
+import {
+  EMPLOYEE_INFRA_OPS_MANAGER_ID,
+  EMPLOYEE_RETRY_SUPERVISOR_ID,
+  EMPLOYEE_TIMEOUT_RECOVERY_ID,
+} from "../../shared/employee-ids";
 
 export {};
 
@@ -167,7 +172,7 @@ async function runManager(
     },
     body: JSON.stringify({
       departmentId: "aep-infra-ops",
-      employeeId: "emp_infra_ops_manager_01",
+      employeeId: EMPLOYEE_INFRA_OPS_MANAGER_ID,
       roleId: "infra-ops-manager",
       trigger: "manual",
       policyVersion: POLICY_VERSION,
@@ -196,21 +201,21 @@ async function main(): Promise<void> {
     employees.employees.map((e) => e.identity.employeeId)
   );
 
-  if (!employeeIds.has("emp_timeout_recovery_01")) {
+  if (!employeeIds.has(EMPLOYEE_TIMEOUT_RECOVERY_ID)) {
     throw new Error(
-      "Expected /agent/employees to include emp_timeout_recovery_01"
+      `Expected /agent/employees to include ${EMPLOYEE_TIMEOUT_RECOVERY_ID}`
     );
   }
 
-  if (!employeeIds.has("emp_retry_supervisor_01")) {
+  if (!employeeIds.has(EMPLOYEE_RETRY_SUPERVISOR_ID)) {
     throw new Error(
-      "Expected /agent/employees to include emp_retry_supervisor_01"
+      `Expected /agent/employees to include ${EMPLOYEE_RETRY_SUPERVISOR_ID}`
     );
   }
 
-  if (!employeeIds.has("emp_infra_ops_manager_01")) {
+  if (!employeeIds.has(EMPLOYEE_INFRA_OPS_MANAGER_ID)) {
     throw new Error(
-      "Expected /agent/employees to include emp_infra_ops_manager_01"
+      `Expected /agent/employees to include ${EMPLOYEE_INFRA_OPS_MANAGER_ID}`
     );
   }
 
@@ -223,7 +228,7 @@ async function main(): Promise<void> {
   // 2. Run the retry-supervisor worker and assert it returns workerRole
   const retrySupervisorRun = await runEmployee(
     agentBaseUrl,
-    "emp_retry_supervisor_01",
+    EMPLOYEE_RETRY_SUPERVISOR_ID,
     "aep-infra-ops",
     "retry-supervisor"
   );
@@ -241,7 +246,7 @@ async function main(): Promise<void> {
   }
 
   // 3. Run the manager observing both workers and assert perEmployee summaries
-  const workerIds = ["emp_timeout_recovery_01", "emp_retry_supervisor_01"];
+  const workerIds = [EMPLOYEE_TIMEOUT_RECOVERY_ID, EMPLOYEE_RETRY_SUPERVISOR_ID];
   const managerRun = await runManager(agentBaseUrl, workerIds);
 
   if (managerRun.policyVersion !== POLICY_VERSION) {
@@ -250,7 +255,7 @@ async function main(): Promise<void> {
     );
   }
 
-  if (managerRun.employee.employeeId !== "emp_infra_ops_manager_01") {
+  if (managerRun.employee.employeeId !== EMPLOYEE_INFRA_OPS_MANAGER_ID) {
     throw new Error(
       `Unexpected manager employeeId: ${managerRun.employee.employeeId}`
     );

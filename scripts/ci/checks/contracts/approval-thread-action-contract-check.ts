@@ -2,6 +2,7 @@
 
 import { createOperatorAgentClient } from "../../clients/operator-agent-client";
 import { handleOperatorAgentSoftSkip } from "../../shared/soft-skip";
+import * as employeeIds from "../../shared/employee-ids";
 
 export {};
 
@@ -18,14 +19,14 @@ async function main(): Promise<void> {
   }
 
   const seeded = await client.seedApproval({
-    requestedByEmployeeId: "emp_infra_ops_manager_01",
+    requestedByEmployeeId: employeeIds.EMPLOYEE_INFRA_OPS_MANAGER_ID,
     requestedByRoleId: "infra-ops-manager",
     actionType: "deploy-change",
     reason: "PR7.6 deterministic thread action test",
     message: "Please approve this seeded request from the thread.",
     createThread: true,
     threadTopic: "PR7.6 approval thread action",
-    threadReceiverEmployeeId: "emp_val_specialist_01",
+    threadReceiverEmployeeId: employeeIds.EMPLOYEE_RELIABILITY_ENGINEER_ID,
   });
 
   if (!(seeded as any)?.ok || !(seeded as any).approval?.approvalId || !(seeded as any).threadId) {

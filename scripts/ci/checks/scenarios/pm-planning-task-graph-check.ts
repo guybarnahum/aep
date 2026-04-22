@@ -2,6 +2,7 @@
 
 import { createOperatorAgentClient } from "../../clients/operator-agent-client";
 import { handleOperatorAgentSoftSkip } from "../../shared/soft-skip";
+import { EMPLOYEE_PRODUCT_MANAGER_WEB_ID } from "../../shared/employee-ids";
 
 export {};
 
@@ -33,7 +34,7 @@ async function main(): Promise<void> {
   const result = await client.runEmployee({
     companyId: "company_internal_aep",
     teamId: "team_web_product",
-    employeeId: "emp_product_manager_web_01",
+    employeeId: EMPLOYEE_PRODUCT_MANAGER_WEB_ID,
     roleId: "product-manager",
     trigger: "manual",
     policyVersion: "ci-pr11b",

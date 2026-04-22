@@ -1,4 +1,5 @@
 import { createStores } from "@aep/operator-agent/lib/store-factory";
+import { EMPLOYEE_INFRA_OPS_MANAGER_ID } from "@aep/operator-agent/org/employee-ids";
 import type { OperatorAgentEnv } from "@aep/operator-agent/types";
 
 export async function handleManagerLog(
@@ -17,7 +18,7 @@ export async function handleManagerLog(
   );
 
   const managerEmployeeId =
-    url.searchParams.get("managerEmployeeId") ?? "emp_infra_ops_manager_01";
+    url.searchParams.get("managerEmployeeId") ?? EMPLOYEE_INFRA_OPS_MANAGER_ID;
 
   const stores = createStores(env ?? {});
   const entries = await stores.managerDecisions.list({

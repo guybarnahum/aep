@@ -1,6 +1,12 @@
 /* eslint-disable no-console */
 
 import { execFileSync } from "node:child_process";
+import {
+  EMPLOYEE_PRODUCT_MANAGER_WEB_ID,
+  EMPLOYEE_TIMEOUT_RECOVERY_ID,
+  EMPLOYEE_VALIDATION_ENGINEER_ID,
+  SEEDED_EMPLOYEE_IDS,
+} from "../../shared/employee-ids";
 
 export {};
 
@@ -196,15 +202,7 @@ function main(): void {
 
   assertIds(
     "SELECT id FROM employees_catalog ORDER BY id",
-    [
-      "emp_timeout_recovery_01",
-      "emp_retry_supervisor_01",
-      "emp_infra_ops_manager_01",
-      "emp_product_manager_web_01",
-      "emp_frontend_engineer_01",
-      "emp_validation_pm_01",
-      "emp_validation_engineer_01",
-    ],
+    [...SEEDED_EMPLOYEE_IDS].filter((employeeId) => employeeId !== "pm001" && employeeId !== "qa002"),
     "employee"
   );
 
@@ -218,9 +216,9 @@ function main(): void {
   }
 
   for (const employeeId of [
-    "emp_timeout_recovery_01",
-    "emp_product_manager_web_01",
-    "emp_validation_engineer_01",
+    EMPLOYEE_TIMEOUT_RECOVERY_ID,
+    EMPLOYEE_PRODUCT_MANAGER_WEB_ID,
+    EMPLOYEE_VALIDATION_ENGINEER_ID,
   ]) {
     const count = getCount(
       `SELECT COUNT(*) AS count FROM employee_scope_bindings WHERE employee_id = '${employeeId}'`

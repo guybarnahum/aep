@@ -155,11 +155,11 @@ An escalation record is created when a manager decision is:
   "timestamp": "2025-01-15T10:30:00Z",
   "companyId": "company-12345",
   "departmentId": "aep-infra-ops",
-  "managerEmployeeId": "emp_infra_ops_manager_01",
+   "managerEmployeeId": "mg001",
   "severity": "critical|warning",
   "state": "open|acknowledged|resolved",
   "reason": "cross_worker_budget_pressure | cross_worker_failure_pattern_detected | ...",
-  "affectedEmployeeIds": ["emp_timeout_recovery_01"],
+   "affectedEmployeeIds": ["op001"],
   "message": "Two workers exhausted budget in same time window",
   "recommendation": "rebalance_team_capacity | pause_one_worker_keep_one_active | recommend_budget_adjustment | escalate_to_human",
   "evidence": {

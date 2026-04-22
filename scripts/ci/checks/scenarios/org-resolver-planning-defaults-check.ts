@@ -2,10 +2,11 @@
 
 import { createOperatorAgentClient } from "../../clients/operator-agent-client";
 import { handleOperatorAgentSoftSkip } from "../../shared/soft-skip";
+import * as employeeIds from "../../shared/employee-ids";
 
 export {};
 
-const PM_EMPLOYEE_ID = "emp_product_manager_web_01";
+const PM_EMPLOYEE_ID = employeeIds.EMPLOYEE_PRODUCT_MANAGER_WEB_ID;
 const PM_TEAM_ID = "team_web_product";
 const PM_ROLE_ID = "product-manager";
 
@@ -122,7 +123,10 @@ async function main(): Promise<void> {
     design: { teamId: "team_web_product" },
     implementation: { teamId: "team_web_product" },
     deployment: { teamId: "team_infra" },
-    validation: { teamId: "team_validation", employeeId: "emp_val_specialist_01" },
+    validation: {
+      teamId: "team_validation",
+      employeeId: employeeIds.EMPLOYEE_RELIABILITY_ENGINEER_ID,
+    },
   };
 
   for (const step of steps) {
@@ -191,8 +195,10 @@ async function main(): Promise<void> {
     throw new Error(`Expected validate task assignedTeamId=team_validation: ${JSON.stringify(validateTask.task)}`);
   }
 
-  if (validateTask.task.assignedEmployeeId !== "emp_val_specialist_01") {
-    throw new Error(`Expected validate task assignedEmployeeId=emp_val_specialist_01: ${JSON.stringify(validateTask.task)}`);
+  if (validateTask.task.assignedEmployeeId !== employeeIds.EMPLOYEE_RELIABILITY_ENGINEER_ID) {
+    throw new Error(
+      `Expected validate task assignedEmployeeId=${employeeIds.EMPLOYEE_RELIABILITY_ENGINEER_ID}: ${JSON.stringify(validateTask.task)}`,
+    );
   }
 
   console.log("org-resolver-planning-defaults-check passed", {

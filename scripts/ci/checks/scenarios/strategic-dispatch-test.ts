@@ -1,9 +1,10 @@
 import { executeEmployeeRun } from "@aep/operator-agent/lib/execute-employee-run";
+import { EMPLOYEE_PRODUCT_MANAGER_ID } from "../../shared/employee-ids";
 
 async function main() {
   // Simulate a Marcus (PM) run
   const response = await executeEmployeeRun({
-    employeeId: "emp_pm_01",
+    employeeId: EMPLOYEE_PRODUCT_MANAGER_ID,
     roleId: "product-manager",
     companyId: "company_internal_aep",
     teamId: "team_infra",

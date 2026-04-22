@@ -1,3 +1,8 @@
+import {
+  EMPLOYEE_RETRY_SUPERVISOR_ID,
+  EMPLOYEE_TIMEOUT_RECOVERY_ID,
+} from "@aep/operator-agent/org/employee-ids";
+
 export interface OperatorAgentConfig {
   serviceName: string;
   policyVersion: string;
@@ -122,12 +127,12 @@ export function getConfig(env?: Record<string, unknown>): OperatorAgentConfig {
     managerObservedEmployeeId: readEnvString(
       env,
       "OPERATOR_AGENT_MANAGER_OBSERVED_EMPLOYEE_ID",
-      "emp_timeout_recovery_01"
+      EMPLOYEE_TIMEOUT_RECOVERY_ID
     ),
     managerObservedEmployeeIds: readEnvStringArray(
       env,
       "OPERATOR_AGENT_MANAGER_OBSERVED_EMPLOYEE_IDS",
-      ["emp_timeout_recovery_01", "emp_retry_supervisor_01"]
+      [EMPLOYEE_TIMEOUT_RECOVERY_ID, EMPLOYEE_RETRY_SUPERVISOR_ID]
     ),
     managerReviewWindowMs: readEnvNumber(
       env,

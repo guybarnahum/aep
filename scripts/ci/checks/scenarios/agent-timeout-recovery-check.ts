@@ -2,6 +2,7 @@
 
 import { handleOperatorAgentSoftSkip } from "../../../lib/operator-agent-skip";
 import { resolveServiceBaseUrl } from "../../../lib/service-map";
+import * as employeeIds from "../../shared/employee-ids";
 
 export {};
 
@@ -443,7 +444,7 @@ async function runAgent(
     body: JSON.stringify({
       companyId: COMPANY_ID,
       teamId: TEAM_ID,
-      employeeId: "emp_timeout_recovery_01",
+      employeeId: employeeIds.EMPLOYEE_TIMEOUT_RECOVERY_ID,
       roleId: "timeout-recovery-operator",
       trigger: "manual",
       policyVersion: STAGE6_POLICY_VERSION,
@@ -467,7 +468,7 @@ async function runAgentViaPaperclip(
     body: JSON.stringify({
       companyId: COMPANY_ID,
       teamId: TEAM_ID,
-      employeeId: "emp_timeout_recovery_01",
+      employeeId: employeeIds.EMPLOYEE_TIMEOUT_RECOVERY_ID,
       roleId: "timeout-recovery-operator",
       policyVersion: STAGE6_POLICY_VERSION,
       trigger: "paperclip",
@@ -500,11 +501,11 @@ async function runManager(agentBaseUrl: string): Promise<ManagerRunResponse> {
     body: JSON.stringify({
       companyId: COMPANY_ID,
       teamId: TEAM_ID,
-      employeeId: "emp_infra_ops_manager_01",
+      employeeId: employeeIds.EMPLOYEE_INFRA_OPS_MANAGER_ID,
       roleId: "infra-ops-manager",
       trigger: "manual",
       policyVersion: STAGE6_POLICY_VERSION,
-      targetEmployeeIdOverride: "emp_timeout_recovery_01",
+      targetEmployeeIdOverride: employeeIds.EMPLOYEE_TIMEOUT_RECOVERY_ID,
     }),
   });
 
@@ -518,7 +519,7 @@ async function getManagerLog(agentBaseUrl: string): Promise<{
   entries: ManagerDecision[];
 }> {
   const response = await fetch(
-    `${agentBaseUrl}/agent/manager-log?managerEmployeeId=emp_infra_ops_manager_01&limit=20`
+    `${agentBaseUrl}/agent/manager-log?managerEmployeeId=${employeeIds.EMPLOYEE_INFRA_OPS_MANAGER_ID}&limit=20`
   );
   return readJson(response);
 }
@@ -537,7 +538,7 @@ async function getEmployeeControls(agentBaseUrl: string): Promise<{
   };
 }> {
   const response = await fetch(
-    `${agentBaseUrl}/agent/employee-controls?employeeId=emp_timeout_recovery_01`
+    `${agentBaseUrl}/agent/employee-controls?employeeId=${employeeIds.EMPLOYEE_TIMEOUT_RECOVERY_ID}`
   );
   return readJson(response);
 }
@@ -555,7 +556,7 @@ async function runWorkerAfterManagerDisable(
     body: JSON.stringify({
       companyId: COMPANY_ID,
       teamId: TEAM_ID,
-      employeeId: "emp_timeout_recovery_01",
+      employeeId: employeeIds.EMPLOYEE_TIMEOUT_RECOVERY_ID,
       roleId: "timeout-recovery-operator",
       trigger: "manual",
       policyVersion: STAGE6_POLICY_VERSION,
@@ -614,13 +615,13 @@ async function main(): Promise<void> {
     companyId: COMPANY_ID,
     originatingTeamId: TEAM_ID,
     assignedTeamId: TEAM_ID,
-    createdByEmployeeId: "emp_infra_ops_manager_01",
-    assignedEmployeeId: "emp_timeout_recovery_01",
+    createdByEmployeeId: employeeIds.EMPLOYEE_INFRA_OPS_MANAGER_ID,
+    assignedEmployeeId: employeeIds.EMPLOYEE_TIMEOUT_RECOVERY_ID,
     taskType: "agent-timeout-recovery-check",
     title: "agent timeout recovery check",
     payload: {
       scenario: "agent-timeout-recovery-check",
-      employeeId: "emp_timeout_recovery_01",
+      employeeId: employeeIds.EMPLOYEE_TIMEOUT_RECOVERY_ID,
     },
   });
 
@@ -834,7 +835,7 @@ async function main(): Promise<void> {
 
   const managerRun = await runManager(agentBaseUrl);
 
-  if (managerRun.employee.employeeId !== "emp_infra_ops_manager_01") {
+  if (managerRun.employee.employeeId !== employeeIds.EMPLOYEE_INFRA_OPS_MANAGER_ID) {
     throw new Error(
       `Unexpected manager employeeId: ${managerRun.employee.employeeId}`
     );
@@ -842,10 +843,10 @@ async function main(): Promise<void> {
 
   if (
     !Array.isArray(managerRun.observedEmployeeIds) ||
-    !managerRun.observedEmployeeIds.includes("emp_timeout_recovery_01")
+    !managerRun.observedEmployeeIds.includes(employeeIds.EMPLOYEE_TIMEOUT_RECOVERY_ID)
   ) {
     throw new Error(
-      `Expected observedEmployeeIds to include emp_timeout_recovery_01, got ${JSON.stringify(managerRun.observedEmployeeIds)}`
+      `Expected observedEmployeeIds to include ${employeeIds.EMPLOYEE_TIMEOUT_RECOVERY_ID}, got ${JSON.stringify(managerRun.observedEmployeeIds)}`
     );
   }
 

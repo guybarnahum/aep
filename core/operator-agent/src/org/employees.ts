@@ -1,11 +1,17 @@
 import { COMPANY_INTERNAL_AEP } from "@aep/operator-agent/org/company";
+import {
+  EMPLOYEE_INFRA_OPS_MANAGER_ID,
+  EMPLOYEE_RELIABILITY_ENGINEER_ID,
+  EMPLOYEE_RETRY_SUPERVISOR_ID,
+  EMPLOYEE_TIMEOUT_RECOVERY_ID,
+} from "@aep/operator-agent/org/employee-ids";
 import { SERVICE_CONTROL_PLANE } from "@aep/operator-agent/org/services";
 import { TEAM_INFRA, TEAM_VALIDATION } from "@aep/operator-agent/org/teams";
 import type { AgentEmployeeDefinition, AgentRoleId } from "@aep/operator-agent/types";
 
 export const timeoutRecoveryEmployee: AgentEmployeeDefinition = {
   identity: {
-    employeeId: "emp_timeout_recovery_01",
+    employeeId: EMPLOYEE_TIMEOUT_RECOVERY_ID,
     employeeName: "Timeout Recovery Operator",
     companyId: COMPANY_INTERNAL_AEP,
     teamId: TEAM_INFRA,
@@ -35,7 +41,7 @@ export const timeoutRecoveryEmployee: AgentEmployeeDefinition = {
 
 export const retrySupervisorEmployee: AgentEmployeeDefinition = {
   identity: {
-    employeeId: "emp_retry_supervisor_01",
+    employeeId: EMPLOYEE_RETRY_SUPERVISOR_ID,
     employeeName: "Retry Supervisor",
     companyId: COMPANY_INTERNAL_AEP,
     teamId: TEAM_INFRA,
@@ -65,7 +71,7 @@ export const retrySupervisorEmployee: AgentEmployeeDefinition = {
 
 export const infraOpsManagerEmployee: AgentEmployeeDefinition = {
   identity: {
-    employeeId: "emp_infra_ops_manager_01",
+    employeeId: EMPLOYEE_INFRA_OPS_MANAGER_ID,
     employeeName: "Infra Ops Manager",
     companyId: COMPANY_INTERNAL_AEP,
     teamId: TEAM_INFRA,
@@ -95,7 +101,7 @@ export const infraOpsManagerEmployee: AgentEmployeeDefinition = {
 // Keep this employee explicit so live scope probes can detect stale deployments.
 export const reliabilityEngineerEmployee: AgentEmployeeDefinition = {
   identity: {
-    employeeId: "emp_val_specialist_01",
+    employeeId: EMPLOYEE_RELIABILITY_ENGINEER_ID,
     employeeName: "Validation Specialist",
     companyId: COMPANY_INTERNAL_AEP,
     teamId: TEAM_VALIDATION,

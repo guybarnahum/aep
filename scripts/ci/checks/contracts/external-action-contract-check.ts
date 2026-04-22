@@ -10,6 +10,7 @@ import {
   hasOptionalPostRoute,
 } from "../../shared/operator-agent-surface";
 import { handleOperatorAgentSoftSkip } from "../../shared/soft-skip";
+import * as employeeIds from "../../shared/employee-ids";
 
 export {};
 
@@ -60,14 +61,14 @@ async function main(): Promise<void> {
   warnIfNoAdapters(adapters);
 
   const seeded = await client.seedApproval({
-    requestedByEmployeeId: "emp_infra_ops_manager_01",
+    requestedByEmployeeId: employeeIds.EMPLOYEE_INFRA_OPS_MANAGER_ID,
     requestedByRoleId: "infra-ops-manager",
     actionType: "deploy-change",
     reason: "PR10D external action contract",
     message: "Seed approval thread for strict external action validation.",
     createThread: true,
     threadTopic: "PR10D external action contract",
-    threadReceiverEmployeeId: "emp_val_specialist_01",
+    threadReceiverEmployeeId: employeeIds.EMPLOYEE_RELIABILITY_ENGINEER_ID,
   });
 
   if (!(seeded as any)?.ok || !(seeded as any).threadId || !(seeded as any).approval?.approvalId) {
@@ -80,8 +81,8 @@ async function main(): Promise<void> {
   const outbound = await client.createMessage({
     companyId: "company_internal_aep",
     threadId,
-    senderEmployeeId: "emp_infra_ops_manager_01",
-    receiverEmployeeId: "emp_val_specialist_01",
+    senderEmployeeId: employeeIds.EMPLOYEE_INFRA_OPS_MANAGER_ID,
+    receiverEmployeeId: employeeIds.EMPLOYEE_RELIABILITY_ENGINEER_ID,
     type: "coordination",
     source: "internal",
     subject: "PR10D contract anchor",

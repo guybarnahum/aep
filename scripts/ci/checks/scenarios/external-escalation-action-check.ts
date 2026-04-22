@@ -7,6 +7,7 @@ import {
 } from "../../shared/adapter-capability";
 import { assertRequiredPostRoute } from "../../shared/operator-agent-surface";
 import { handleOperatorAgentSoftSkip } from "../../shared/soft-skip";
+import * as employeeIds from "../../shared/employee-ids";
 
 export {};
 
@@ -78,8 +79,8 @@ async function main(): Promise<void> {
   const outbound = await client.createMessage({
     companyId: "company_internal_aep",
     threadId,
-    senderEmployeeId: "emp_infra_ops_manager_01",
-    receiverEmployeeId: "emp_val_specialist_01",
+    senderEmployeeId: employeeIds.EMPLOYEE_INFRA_OPS_MANAGER_ID,
+    receiverEmployeeId: employeeIds.EMPLOYEE_RELIABILITY_ENGINEER_ID,
     type: "escalation",
     source: "internal",
     subject: "PR10D escalation anchor",

@@ -2,6 +2,7 @@
 
 import { createOperatorAgentClient } from "../../clients/operator-agent-client";
 import { handleOperatorAgentSoftSkip } from "../../shared/soft-skip";
+import * as employeeIds from "../../shared/employee-ids";
 
 export {};
 
@@ -102,8 +103,8 @@ async function main(): Promise<void> {
   await client.createMessage({
     companyId: "company_internal_aep",
     threadId: target.threadId,
-    senderEmployeeId: "emp_infra_ops_manager_01",
-    receiverEmployeeId: "emp_infra_ops_manager_01",
+    senderEmployeeId: employeeIds.EMPLOYEE_INFRA_OPS_MANAGER_ID,
+    receiverEmployeeId: employeeIds.EMPLOYEE_INFRA_OPS_MANAGER_ID,
     type: "coordination",
     source: "human",
     body: "Second logical external-style message arrived first.",
@@ -117,8 +118,8 @@ async function main(): Promise<void> {
   await client.createMessage({
     companyId: "company_internal_aep",
     threadId: target.threadId,
-    senderEmployeeId: "emp_infra_ops_manager_01",
-    receiverEmployeeId: "emp_infra_ops_manager_01",
+    senderEmployeeId: employeeIds.EMPLOYEE_INFRA_OPS_MANAGER_ID,
+    receiverEmployeeId: employeeIds.EMPLOYEE_INFRA_OPS_MANAGER_ID,
     type: "coordination",
     source: "human",
     body: "First logical external-style message arrived second.",

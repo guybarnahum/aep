@@ -1,6 +1,7 @@
 /* eslint-disable no-console */
 
 import { resolveServiceBaseUrl } from "../../../lib/service-map";
+import * as employeeIds from "../../shared/employee-ids";
 import {
   classifyOperatorAgentInfraError,
   handleOperatorAgentSoftSkip,
@@ -376,7 +377,7 @@ async function main(): Promise<void> {
   let seeded: SeedEnvelope;
   try {
     seeded = await seedWorkLog(agentBaseUrl, {
-      employeeId: "emp_timeout_recovery_01",
+      employeeId: employeeIds.EMPLOYEE_TIMEOUT_RECOVERY_ID,
       result: "operator_action_failed",
       count: 1,
     });
@@ -423,8 +424,8 @@ async function main(): Promise<void> {
     companyId,
     originatingTeamId: "team_infra",
     assignedTeamId: "team_infra",
-    createdByEmployeeId: "emp_infra_ops_manager_01",
-    assignedEmployeeId: "emp_infra_ops_manager_01",
+    createdByEmployeeId: employeeIds.EMPLOYEE_INFRA_OPS_MANAGER_ID,
+    assignedEmployeeId: employeeIds.EMPLOYEE_INFRA_OPS_MANAGER_ID,
     taskType: "paperclip-manager-check",
     title: "paperclip first execution manager check",
     payload: {
@@ -435,7 +436,7 @@ async function main(): Promise<void> {
 
   const validBody = {
     teamId: "team_infra",
-    employeeId: "emp_infra_ops_manager_01",
+    employeeId: employeeIds.EMPLOYEE_INFRA_OPS_MANAGER_ID,
     roleId: "infra-ops-manager",
     trigger: "paperclip",
     policyVersion: "commit10-stageD",
@@ -443,8 +444,8 @@ async function main(): Promise<void> {
     taskId: managerTaskId,
     heartbeatId: `hb-${Date.now()}`,
     targetEmployeeIdsOverride: [
-      "emp_timeout_recovery_01",
-      "emp_retry_supervisor_01",
+      employeeIds.EMPLOYEE_TIMEOUT_RECOVERY_ID,
+      employeeIds.EMPLOYEE_RETRY_SUPERVISOR_ID,
     ],
   };
 
@@ -474,7 +475,7 @@ async function main(): Promise<void> {
 
   const managerLog = await waitForJsonMatch<ManagerLogEnvelope>({
     label: "paperclip manager-log provenance",
-    url: `${agentBaseUrl}/agent/manager-log?managerEmployeeId=emp_infra_ops_manager_01&limit=100`,
+    url: `${agentBaseUrl}/agent/manager-log?managerEmployeeId=${employeeIds.EMPLOYEE_INFRA_OPS_MANAGER_ID}&limit=100`,
     matches: (json): json is ManagerLogEnvelope => {
       const envelope = json as ManagerLogEnvelope;
       return (envelope.entries ?? []).some(
@@ -536,14 +537,14 @@ async function main(): Promise<void> {
     companyId,
     originatingTeamId: "team_infra",
     assignedTeamId: "team_infra",
-    createdByEmployeeId: "emp_infra_ops_manager_01",
-    assignedEmployeeId: "emp_timeout_recovery_01",
+    createdByEmployeeId: employeeIds.EMPLOYEE_INFRA_OPS_MANAGER_ID,
+    assignedEmployeeId: employeeIds.EMPLOYEE_TIMEOUT_RECOVERY_ID,
     taskType: "paperclip-worker-check",
     title: "paperclip first execution worker check",
     payload: {
       scenario: "paperclip-first-execution-check",
       phase: "worker",
-      targetEmployeeId: "emp_timeout_recovery_01",
+      targetEmployeeId: employeeIds.EMPLOYEE_TIMEOUT_RECOVERY_ID,
     },
   });
 
@@ -555,7 +556,7 @@ async function main(): Promise<void> {
     agentBaseUrl,
     body: {
       teamId: "team_infra",
-      employeeId: "emp_timeout_recovery_01",
+      employeeId: employeeIds.EMPLOYEE_TIMEOUT_RECOVERY_ID,
       roleId: "timeout-recovery-operator",
       trigger: "paperclip",
       policyVersion: "commit10-stageD",
@@ -578,7 +579,7 @@ async function main(): Promise<void> {
 
   const workLog = await waitForJsonMatch<WorkLogEnvelope>({
     label: "paperclip worker work-log provenance",
-    url: `${agentBaseUrl}/agent/work-log?employeeId=emp_timeout_recovery_01&limit=100`,
+    url: `${agentBaseUrl}/agent/work-log?employeeId=${employeeIds.EMPLOYEE_TIMEOUT_RECOVERY_ID}&limit=100`,
     matches: (json): json is WorkLogEnvelope => {
       const envelope = json as WorkLogEnvelope;
       return (envelope.entries ?? []).some(
@@ -624,13 +625,13 @@ async function main(): Promise<void> {
     agentBaseUrl,
     {
       teamId: "team_infra",
-      employeeId: "emp_infra_ops_manager_01",
+      employeeId: employeeIds.EMPLOYEE_INFRA_OPS_MANAGER_ID,
       roleId: "infra-ops-manager",
       trigger: "manual",
       policyVersion: "commit10-stageD",
       targetEmployeeIdsOverride: [
-        "emp_timeout_recovery_01",
-        "emp_retry_supervisor_01",
+        employeeIds.EMPLOYEE_TIMEOUT_RECOVERY_ID,
+        employeeIds.EMPLOYEE_RETRY_SUPERVISOR_ID,
       ],
     },
     {}
@@ -646,13 +647,13 @@ async function main(): Promise<void> {
     agentBaseUrl,
     {
       teamId: "team_infra",
-      employeeId: "emp_infra_ops_manager_01",
+      employeeId: employeeIds.EMPLOYEE_INFRA_OPS_MANAGER_ID,
       roleId: "infra-ops-manager",
       trigger: "manual",
       policyVersion: "commit10-stageD",
       targetEmployeeIdsOverride: [
-        "emp_timeout_recovery_01",
-        "emp_retry_supervisor_01",
+        employeeIds.EMPLOYEE_TIMEOUT_RECOVERY_ID,
+        employeeIds.EMPLOYEE_RETRY_SUPERVISOR_ID,
       ],
     },
     {
@@ -700,7 +701,7 @@ async function main(): Promise<void> {
 
   const refreshedManagerLog = await waitForJsonMatch<ManagerLogEnvelope>({
     label: "cron fallback manager-log provenance",
-    url: `${agentBaseUrl}/agent/manager-log?managerEmployeeId=emp_infra_ops_manager_01&limit=100`,
+    url: `${agentBaseUrl}/agent/manager-log?managerEmployeeId=${employeeIds.EMPLOYEE_INFRA_OPS_MANAGER_ID}&limit=100`,
     matches: (json): json is ManagerLogEnvelope => {
       const envelope = json as ManagerLogEnvelope;
       return (envelope.entries ?? []).some(

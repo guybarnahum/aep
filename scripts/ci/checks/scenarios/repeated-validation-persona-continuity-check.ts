@@ -2,12 +2,13 @@
 
 import { createOperatorAgentClient } from "../../clients/operator-agent-client";
 import { handleOperatorAgentSoftSkip } from "../../shared/soft-skip";
+import * as employeeIds from "../../shared/employee-ids";
 
 export {};
 
 const CHECK_NAME = "repeated-validation-persona-continuity-check";
 const CHECK_LABEL = "repeated validation persona continuity check";
-const TARGET_EMPLOYEE_ID = "emp_val_specialist_01";
+const TARGET_EMPLOYEE_ID = employeeIds.EMPLOYEE_RELIABILITY_ENGINEER_ID;
 const EXPECTED_STYLE = "operational_evidence";
 const TARGET_TASK_TYPE = "validate-deployment";
 
@@ -129,7 +130,7 @@ async function createFreshValidationTask(
     originatingTeamId: "team_infra",
     assignedTeamId: "team_validation",
     assignedEmployeeId: TARGET_EMPLOYEE_ID,
-    createdByEmployeeId: "emp_infra_ops_manager_01",
+    createdByEmployeeId: employeeIds.EMPLOYEE_INFRA_OPS_MANAGER_ID,
     taskType: TARGET_TASK_TYPE,
     title: `Repeated validation persona continuity ${suffix}`,
     payload: {

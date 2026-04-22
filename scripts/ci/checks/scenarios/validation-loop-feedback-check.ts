@@ -2,6 +2,7 @@
 
 import { createOperatorAgentClient } from "../../clients/operator-agent-client";
 import { handleOperatorAgentSoftSkip } from "../../shared/soft-skip";
+import * as employeeIds from "../../shared/employee-ids";
 
 export {};
 
@@ -90,8 +91,8 @@ async function main(): Promise<void> {
     companyId: "company_internal_aep",
     originatingTeamId: "team_infra",
     assignedTeamId: "team_validation",
-    assignedEmployeeId: "emp_val_specialist_01",
-    createdByEmployeeId: "emp_infra_ops_manager_01",
+    assignedEmployeeId: employeeIds.EMPLOYEE_RELIABILITY_ENGINEER_ID,
+    createdByEmployeeId: employeeIds.EMPLOYEE_INFRA_OPS_MANAGER_ID,
     taskType: "validate-deployment",
     title: "Validation loop feedback scenario check",
     payload: {
@@ -108,7 +109,7 @@ async function main(): Promise<void> {
   const thread = await client.createMessageThread({
     companyId: "company_internal_aep",
     topic: "Validation loop feedback thread",
-    createdByEmployeeId: "emp_infra_ops_manager_01",
+    createdByEmployeeId: employeeIds.EMPLOYEE_INFRA_OPS_MANAGER_ID,
     relatedTaskId: task.taskId,
     visibility: "org",
   });
@@ -120,7 +121,7 @@ async function main(): Promise<void> {
   const runResult = await client.runEmployee<any>({
     companyId: "company_internal_aep",
     teamId: "team_validation",
-    employeeId: "emp_val_specialist_01",
+    employeeId: employeeIds.EMPLOYEE_RELIABILITY_ENGINEER_ID,
     roleId: "reliability-engineer",
     trigger: "manual",
     policyVersion: "ci-validation-loop-feedback-check",

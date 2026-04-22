@@ -744,6 +744,9 @@ Examples:
 * `pm001`
 * `dv001`
 
+Seeded runtime/config/CI identities should now also use this same canonical format.
+Legacy `emp_*` seeded IDs are historical only and should not be introduced in new runtime code, config defaults, or validation checks.
+
 Execution-facing role validation should also be catalog-driven:
 
 * role must exist in `roles_catalog`

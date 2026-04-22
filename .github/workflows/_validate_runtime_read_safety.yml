@@ -42,7 +42,7 @@ on:
       employee_id:
         required: false
         type: string
-        default: emp_timeout_recovery_01
+        default: op001
     outputs:
       outcome:
         description: "Outcome of the runtime read safety validation job"

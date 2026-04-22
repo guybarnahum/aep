@@ -1,3 +1,4 @@
+import { EMPLOYEE_RELIABILITY_ENGINEER_ID } from "@aep/operator-agent/org/employee-ids";
 import type { OperatorAgentEnv } from "@aep/operator-agent/types";
 
 export type OrgCapability =
@@ -43,7 +44,7 @@ function defaultEmployeeForTask(args: {
     args.teamId === "team_validation"
     && args.taskType === "validate-deployment"
   ) {
-    return "emp_val_specialist_01";
+    return EMPLOYEE_RELIABILITY_ENGINEER_ID;
   }
 
   return undefined;

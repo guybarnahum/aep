@@ -3,6 +3,10 @@
 import { createOperatorAgentClient } from "../../clients/operator-agent-client";
 import { handleOperatorAgentSoftSkip } from "../../shared/soft-skip";
 import type { ManagerRunResponse } from "../../contracts/manager";
+import {
+  EMPLOYEE_INFRA_OPS_MANAGER_ID,
+  EMPLOYEE_TIMEOUT_RECOVERY_ID,
+} from "../../shared/employee-ids";
 
 export {};
 
@@ -13,14 +17,14 @@ async function main(): Promise<void> {
 
   const observedEmployeeId =
     process.env.OPERATOR_AGENT_MANAGER_OBSERVED_EMPLOYEE_ID ??
-    "emp_timeout_recovery_01";
+    EMPLOYEE_TIMEOUT_RECOVERY_ID;
 
   // ---- run manager
 
   const managerRun = await client.runEmployee<ManagerRunResponse>(
     {
       departmentId: "aep-infra-ops",
-      employeeId: "emp_infra_ops_manager_01",
+      employeeId: EMPLOYEE_INFRA_OPS_MANAGER_ID,
       roleId: "infra-ops-manager",
       trigger: "manual",
       policyVersion: POLICY_VERSION,

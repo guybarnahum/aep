@@ -2,6 +2,7 @@
 
 import { createOperatorAgentClient } from "../../clients/operator-agent-client";
 import { handleOperatorAgentSoftSkip } from "../../shared/soft-skip";
+import * as employeeIds from "../../shared/employee-ids";
 
 export {};
 
@@ -21,7 +22,7 @@ async function main(): Promise<void> {
     companyId: "company_internal_aep",
     originatingTeamId: "team_infra",
     assignedTeamId: "team_validation",
-    createdByEmployeeId: "emp_infra_ops_manager_01",
+    createdByEmployeeId: employeeIds.EMPLOYEE_INFRA_OPS_MANAGER_ID,
     taskType: "stage2-artifact-base",
     title: "Stage 2 artifact base task",
     payload: {
@@ -35,7 +36,7 @@ async function main(): Promise<void> {
 
   const planArtifact = await client.createTaskArtifact(task.taskId, {
     companyId: "company_internal_aep",
-    createdByEmployeeId: "emp_infra_ops_manager_01",
+    createdByEmployeeId: employeeIds.EMPLOYEE_INFRA_OPS_MANAGER_ID,
     artifactType: "plan",
     summary: "Initial execution plan",
     content: {
@@ -49,7 +50,7 @@ async function main(): Promise<void> {
 
   const resultArtifact = await client.createTaskArtifact(task.taskId, {
     companyId: "company_internal_aep",
-    createdByEmployeeId: "emp_infra_ops_manager_01",
+    createdByEmployeeId: employeeIds.EMPLOYEE_INFRA_OPS_MANAGER_ID,
     artifactType: "result",
     summary: "Execution result",
     content: {

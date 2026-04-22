@@ -2,6 +2,7 @@
 
 import { createOperatorAgentClient } from "../../clients/operator-agent-client";
 import { handleOperatorAgentSoftSkip } from "../../shared/soft-skip";
+import * as employeeIds from "../../shared/employee-ids";
 
 export {};
 
@@ -80,7 +81,7 @@ async function main(): Promise<void> {
   const thread = await client.createMessageThread({
     companyId: "company_internal_aep",
     topic: "PR7.2 thread contract",
-    createdByEmployeeId: "emp_infra_ops_manager_01",
+    createdByEmployeeId: employeeIds.EMPLOYEE_INFRA_OPS_MANAGER_ID,
     relatedTaskId: "task_fake_pr72_thread",
     visibility: "internal",
   });
@@ -92,8 +93,8 @@ async function main(): Promise<void> {
   const firstMessage = await client.createMessage({
     companyId: "company_internal_aep",
     threadId: thread.threadId,
-    senderEmployeeId: "emp_infra_ops_manager_01",
-    receiverEmployeeId: "emp_val_specialist_01",
+    senderEmployeeId: employeeIds.EMPLOYEE_INFRA_OPS_MANAGER_ID,
+    receiverEmployeeId: employeeIds.EMPLOYEE_RELIABILITY_ENGINEER_ID,
     type: "coordination",
     source: "internal",
     subject: "Please review",
@@ -109,8 +110,8 @@ async function main(): Promise<void> {
   const reply = await client.createMessage({
     companyId: "company_internal_aep",
     threadId: thread.threadId,
-    senderEmployeeId: "emp_val_specialist_01",
-    receiverEmployeeId: "emp_infra_ops_manager_01",
+    senderEmployeeId: employeeIds.EMPLOYEE_RELIABILITY_ENGINEER_ID,
+    receiverEmployeeId: employeeIds.EMPLOYEE_INFRA_OPS_MANAGER_ID,
     type: "coordination",
     source: "internal",
     body: "Acknowledged. Reviewing now.",
@@ -124,8 +125,8 @@ async function main(): Promise<void> {
   const externalMessage = await client.createMessage({
     companyId: "company_internal_aep",
     threadId: thread.threadId,
-    senderEmployeeId: "emp_infra_ops_manager_01",
-    receiverEmployeeId: "emp_val_specialist_01",
+    senderEmployeeId: employeeIds.EMPLOYEE_INFRA_OPS_MANAGER_ID,
+    receiverEmployeeId: employeeIds.EMPLOYEE_RELIABILITY_ENGINEER_ID,
     type: "coordination",
     source: "email",
     subject: "Incoming email context",
@@ -144,8 +145,8 @@ async function main(): Promise<void> {
   const slackMessage = await client.createMessage({
     companyId: "company_internal_aep",
     threadId: thread.threadId,
-    senderEmployeeId: "emp_val_specialist_01",
-    receiverEmployeeId: "emp_infra_ops_manager_01",
+    senderEmployeeId: employeeIds.EMPLOYEE_RELIABILITY_ENGINEER_ID,
+    receiverEmployeeId: employeeIds.EMPLOYEE_INFRA_OPS_MANAGER_ID,
     type: "coordination",
     source: "slack",
     body: "Forwarded from Slack into canonical AEP thread form.",
@@ -199,7 +200,7 @@ async function main(): Promise<void> {
     throw new Error(`Expected persisted slack-style metadata: ${JSON.stringify(threadDetail.messages)}`);
   }
 
-  const inbox = await client.getInbox("emp_val_specialist_01");
+  const inbox = await client.getInbox(employeeIds.EMPLOYEE_RELIABILITY_ENGINEER_ID);
 
   if (!inbox?.ok || !Array.isArray(inbox.messages)) {
     throw new Error(`Failed to fetch inbox: ${JSON.stringify(inbox)}`);
@@ -210,7 +211,7 @@ async function main(): Promise<void> {
     throw new Error(`Expected inbox to include thread message: ${JSON.stringify(inbox)}`);
   }
 
-  const outbox = await client.getOutbox("emp_infra_ops_manager_01");
+  const outbox = await client.getOutbox(employeeIds.EMPLOYEE_INFRA_OPS_MANAGER_ID);
 
   if (!outbox?.ok || !Array.isArray(outbox.messages)) {
     throw new Error(`Failed to fetch outbox: ${JSON.stringify(outbox)}`);

@@ -2,6 +2,7 @@
 
 import { httpPost } from "../../../lib/http-json";
 import { retry } from "../../tasks/retry";
+import * as employeeIds from "../../shared/employee-ids";
 
 export {};
 
@@ -70,8 +71,8 @@ async function main() {
         companyId: "company_internal_aep",
         originatingTeamId: "team_web_product",
         assignedTeamId: "team_validation",
-        createdByEmployeeId: "emp_pm_01",
-        assignedEmployeeId: "emp_val_specialist_01",
+        createdByEmployeeId: employeeIds.EMPLOYEE_PRODUCT_MANAGER_ID,
+        assignedEmployeeId: employeeIds.EMPLOYEE_RELIABILITY_ENGINEER_ID,
         taskType: "validate-deployment",
         title: "Post-deploy validation health check",
         payload,

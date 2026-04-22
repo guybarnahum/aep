@@ -1,6 +1,7 @@
 /* eslint-disable no-console */
 
 import { execFileSync } from "node:child_process";
+import { SEEDED_EMPLOYEE_IDS } from "../../shared/employee-ids";
 
 export {};
 
@@ -159,17 +160,7 @@ function main(): void {
 
   assertIds(
     "SELECT id FROM employees_catalog ORDER BY id",
-    [
-      "emp_timeout_recovery_01",
-      "emp_retry_supervisor_01",
-      "emp_infra_ops_manager_01",
-      "emp_pm_01",
-      "emp_product_manager_web_01",
-      "emp_frontend_engineer_01",
-      "emp_validation_pm_01",
-      "emp_validation_engineer_01",
-      "emp_val_specialist_01",
-    ],
+    [...SEEDED_EMPLOYEE_IDS],
     "employee",
   );
 

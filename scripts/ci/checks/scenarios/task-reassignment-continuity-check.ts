@@ -4,6 +4,7 @@ import { execFileSync } from "node:child_process";
 
 import { createOperatorAgentClient } from "../../clients/operator-agent-client";
 import { handleOperatorAgentSoftSkip } from "../../shared/soft-skip";
+import * as employeeIds from "../../shared/employee-ids";
 
 export {};
 
@@ -11,7 +12,7 @@ const CHECK_NAME = "task-reassignment-continuity-check";
 const TEAM_ID = "team_validation";
 const ROLE_ID = "validation-engineer";
 const COMPANY_ID = "company_internal_aep";
-const CREATED_BY_EMPLOYEE_ID = "emp_infra_ops_manager_01";
+const CREATED_BY_EMPLOYEE_ID = employeeIds.EMPLOYEE_INFRA_OPS_MANAGER_ID;
 
 type SqlRow = Record<string, unknown>;
 
@@ -268,11 +269,15 @@ async function main(): Promise<void> {
   const replacementEmployeeId = `emp_reassign_target_${suffix}`;
   const leaveEmployeeId = `emp_reassign_leave_${suffix}`;
   const terminateEmployeeId = `emp_reassign_term_${suffix}`;
-  const employeeIds = [replacementEmployeeId, leaveEmployeeId, terminateEmployeeId];
+  const seededEmployeeIds = [
+    replacementEmployeeId,
+    leaveEmployeeId,
+    terminateEmployeeId,
+  ];
   const taskIds: string[] = [];
 
   try {
-    for (const employeeId of employeeIds) {
+    for (const employeeId of seededEmployeeIds) {
       const created = await client.createEmployee({
         employeeId,
         companyId: COMPANY_ID,
@@ -287,7 +292,7 @@ async function main(): Promise<void> {
       });
 
       if (!created?.ok || created.employeeId !== employeeId) {
-        throw new Error(`Failed to create employee ${employeeId}: ${JSON.stringify(created)}`);
+        employeeIds: seededEmployeeIds,
       }
     }
 

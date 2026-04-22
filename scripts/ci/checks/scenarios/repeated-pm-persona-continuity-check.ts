@@ -2,12 +2,13 @@
 
 import { createOperatorAgentClient } from "../../clients/operator-agent-client";
 import { handleOperatorAgentSoftSkip } from "../../shared/soft-skip";
+import * as employeeIds from "../../shared/employee-ids";
 
 export {};
 
 const CHECK_NAME = "repeated-pm-persona-continuity-check";
 const CHECK_LABEL = "repeated PM persona continuity check";
-const TARGET_EMPLOYEE_ID = "emp_pm_01";
+const TARGET_EMPLOYEE_ID = employeeIds.EMPLOYEE_PRODUCT_MANAGER_ID;
 const EXPECTED_STYLE = "structured_alignment";
 const FORBIDDEN_PRIVATE_FIELDS = [
   "decisionStyle",

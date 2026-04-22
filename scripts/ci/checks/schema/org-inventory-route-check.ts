@@ -2,6 +2,15 @@
 
 import assert from "node:assert/strict";
 import { fetchJson } from "../../../lib/http-json";
+import {
+  EMPLOYEE_FRONTEND_ENGINEER_ID,
+  EMPLOYEE_INFRA_OPS_MANAGER_ID,
+  EMPLOYEE_PRODUCT_MANAGER_WEB_ID,
+  EMPLOYEE_RETRY_SUPERVISOR_ID,
+  EMPLOYEE_TIMEOUT_RECOVERY_ID,
+  EMPLOYEE_VALIDATION_ENGINEER_ID,
+  EMPLOYEE_VALIDATION_PM_ID,
+} from "../../shared/employee-ids";
 
 type JsonValue = unknown;
 
@@ -101,25 +110,25 @@ async function main(): Promise<void> {
   expectIds(
     employees.employees,
     [
-      "emp_timeout_recovery_01",
-      "emp_retry_supervisor_01",
-      "emp_infra_ops_manager_01",
-      "emp_product_manager_web_01",
-      "emp_frontend_engineer_01",
-      "emp_validation_pm_01",
-      "emp_validation_engineer_01",
+      EMPLOYEE_TIMEOUT_RECOVERY_ID,
+      EMPLOYEE_RETRY_SUPERVISOR_ID,
+      EMPLOYEE_INFRA_OPS_MANAGER_ID,
+      EMPLOYEE_PRODUCT_MANAGER_WEB_ID,
+      EMPLOYEE_FRONTEND_ENGINEER_ID,
+      EMPLOYEE_VALIDATION_PM_ID,
+      EMPLOYEE_VALIDATION_ENGINEER_ID,
     ],
     "employee",
     ["id", "employee_id"],
   );
 
   const scope = (await getJson(
-    "/employees/emp_product_manager_web_01/scope",
+    `/employees/${EMPLOYEE_PRODUCT_MANAGER_WEB_ID}/scope`,
   )) as {
     employee_id: string;
     scope_bindings: Array<Record<string, unknown>>;
   };
-  assert.equal(scope.employee_id, "emp_product_manager_web_01");
+  assert.equal(scope.employee_id, EMPLOYEE_PRODUCT_MANAGER_WEB_ID);
   assert(scope.scope_bindings.length >= 1, "Expected employee scope bindings");
 
   const hasDashboardPreview = scope.scope_bindings.some(
@@ -129,7 +138,7 @@ async function main(): Promise<void> {
   );
   assert(
     hasDashboardPreview,
-    "Expected dashboard preview binding for emp_product_manager_web_01",
+    `Expected dashboard preview binding for ${EMPLOYEE_PRODUCT_MANAGER_WEB_ID}`,
   );
 
   console.log("org-inventory-route-check passed", {

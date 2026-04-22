@@ -5,6 +5,7 @@ import { execFileSync } from "node:child_process";
 import { handleOperatorAgentSoftSkip } from "../../../lib/operator-agent-skip";
 import { resolveServiceBaseUrl } from "../../../lib/service-map";
 import { retry } from "../../tasks/retry";
+import * as employeeIds from "../../shared/employee-ids";
 
 export {};
 
@@ -131,7 +132,7 @@ async function postRun(agentBaseUrl: string, policyVersion: string): Promise<Run
       body: JSON.stringify({
         companyId: "company_internal_aep",
         teamId: "team_validation",
-        employeeId: "emp_val_specialist_01",
+        employeeId: employeeIds.EMPLOYEE_RELIABILITY_ENGINEER_ID,
         roleId: "reliability-engineer",
         trigger: "manual",
         policyVersion,
@@ -198,7 +199,7 @@ async function main(): Promise<void> {
         ${sqlLiteral(taskId)},
         ${sqlLiteral("company_internal_aep")},
         ${sqlLiteral("team_validation")},
-        ${sqlLiteral("emp_val_specialist_01")},
+        ${sqlLiteral(employeeIds.EMPLOYEE_RELIABILITY_ENGINEER_ID)},
         ${sqlLiteral("validate-deployment")},
         'pending',
         ${sqlLiteral(JSON.stringify({ targetUrl }))}

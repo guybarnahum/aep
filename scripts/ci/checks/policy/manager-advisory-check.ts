@@ -2,6 +2,11 @@
 
 import { handleOperatorAgentSoftSkip } from "../../../lib/operator-agent-skip";
 import { resolveServiceBaseUrl } from "../../../lib/service-map";
+import {
+  EMPLOYEE_INFRA_OPS_MANAGER_ID,
+  EMPLOYEE_RETRY_SUPERVISOR_ID,
+  EMPLOYEE_TIMEOUT_RECOVERY_ID,
+} from "../../shared/employee-ids";
 
 export {};
 
@@ -126,7 +131,7 @@ async function runManager(
     },
     body: JSON.stringify({
       teamId: "team_infra",
-      employeeId: "emp_infra_ops_manager_01",
+      employeeId: EMPLOYEE_INFRA_OPS_MANAGER_ID,
       roleId: "infra-ops-manager",
       trigger: "manual",
       policyVersion: POLICY_VERSION,
@@ -144,7 +149,7 @@ async function getEscalations(agentBaseUrl: string): Promise<EscalationsResponse
 
 async function getManagerLog(agentBaseUrl: string): Promise<ManagerLogResponse> {
   const response = await fetch(
-    `${agentBaseUrl}/agent/manager-log?managerEmployeeId=emp_infra_ops_manager_01&limit=20`
+    `${agentBaseUrl}/agent/manager-log?managerEmployeeId=${EMPLOYEE_INFRA_OPS_MANAGER_ID}&limit=20`
   );
   return readJson<ManagerLogResponse>(response);
 }
@@ -166,7 +171,7 @@ async function main(): Promise<void> {
   });
   const observedEmployeeIds = (
     process.env.OPERATOR_AGENT_MANAGER_OBSERVED_EMPLOYEE_IDS ??
-    "emp_timeout_recovery_01,emp_retry_supervisor_01"
+    `${EMPLOYEE_TIMEOUT_RECOVERY_ID},${EMPLOYEE_RETRY_SUPERVISOR_ID}`
   ).split(",").map((s) => s.trim()).filter((s) => s.length > 0);
 
   const managerRun = await runManager(agentBaseUrl, observedEmployeeIds);
@@ -177,7 +182,7 @@ async function main(): Promise<void> {
     );
   }
 
-  if (managerRun.employee.employeeId !== "emp_infra_ops_manager_01") {
+  if (managerRun.employee.employeeId !== EMPLOYEE_INFRA_OPS_MANAGER_ID) {
     throw new Error(
       `Unexpected manager employeeId: ${managerRun.employee.employeeId}`
     );

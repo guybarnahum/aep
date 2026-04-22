@@ -24,7 +24,7 @@
  *   --service-id service_control_plane
  *   --company-id company_internal_aep
  *   --team-id team_infra
- *   --employee-id emp_timeout_recovery_01
+ *   --employee-id op001
  *   --run-id <real-run-id>
  *
  * Notes:

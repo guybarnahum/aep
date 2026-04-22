@@ -3,6 +3,7 @@
 import { createOperatorAgentClient } from "../../clients/operator-agent-client";
 import { getApprovalEntries } from "../../contracts/approvals";
 import { handleOperatorAgentSoftSkip } from "../../shared/soft-skip";
+import * as employeeIds from "../../shared/employee-ids";
 
 export {};
 
@@ -156,10 +157,10 @@ async function main(): Promise<void> {
   );
 
   for (const employeeId of [
-    "emp_product_manager_web_01",
-    "emp_frontend_engineer_01",
-    "emp_validation_pm_01",
-    "emp_validation_engineer_01",
+    employeeIds.EMPLOYEE_PRODUCT_MANAGER_WEB_ID,
+    employeeIds.EMPLOYEE_FRONTEND_ENGINEER_ID,
+    employeeIds.EMPLOYEE_VALIDATION_PM_ID,
+    employeeIds.EMPLOYEE_VALIDATION_ENGINEER_ID,
   ]) {
     if (!plannedEmployeeIds.has(employeeId)) {
       throw new Error(
@@ -169,9 +170,9 @@ async function main(): Promise<void> {
   }
 
   for (const employeeId of [
-    "emp_timeout_recovery_01",
-    "emp_retry_supervisor_01",
-    "emp_infra_ops_manager_01",
+    employeeIds.EMPLOYEE_TIMEOUT_RECOVERY_ID,
+    employeeIds.EMPLOYEE_RETRY_SUPERVISOR_ID,
+    employeeIds.EMPLOYEE_INFRA_OPS_MANAGER_ID,
   ]) {
     if (plannedEmployeeIds.has(employeeId)) {
       throw new Error(
@@ -193,8 +194,8 @@ async function main(): Promise<void> {
   );
 
   for (const employeeId of [
-    "emp_product_manager_web_01",
-    "emp_frontend_engineer_01",
+    employeeIds.EMPLOYEE_PRODUCT_MANAGER_WEB_ID,
+    employeeIds.EMPLOYEE_FRONTEND_ENGINEER_ID,
   ]) {
     if (!webTeamEmployeeIds.has(employeeId)) {
       throw new Error(`Expected web team filter to include ${employeeId}`);
@@ -202,11 +203,11 @@ async function main(): Promise<void> {
   }
 
   for (const employeeId of [
-    "emp_validation_pm_01",
-    "emp_validation_engineer_01",
-    "emp_timeout_recovery_01",
-    "emp_retry_supervisor_01",
-    "emp_infra_ops_manager_01",
+    employeeIds.EMPLOYEE_VALIDATION_PM_ID,
+    employeeIds.EMPLOYEE_VALIDATION_ENGINEER_ID,
+    employeeIds.EMPLOYEE_TIMEOUT_RECOVERY_ID,
+    employeeIds.EMPLOYEE_RETRY_SUPERVISOR_ID,
+    employeeIds.EMPLOYEE_INFRA_OPS_MANAGER_ID,
   ]) {
     if (webTeamEmployeeIds.has(employeeId)) {
       throw new Error(`Expected web team filter to exclude ${employeeId}`);
@@ -221,18 +222,18 @@ async function main(): Promise<void> {
     }
   }
 
-  const employeeIds = new Set(employees.map((e) => e.identity.employeeId));
+  const catalogEmployeeIds = new Set(employees.map((e) => e.identity.employeeId));
 
   for (const employeeId of [
-    "emp_timeout_recovery_01",
-    "emp_retry_supervisor_01",
-    "emp_infra_ops_manager_01",
-    "emp_product_manager_web_01",
-    "emp_frontend_engineer_01",
-    "emp_validation_pm_01",
-    "emp_validation_engineer_01",
+    employeeIds.EMPLOYEE_TIMEOUT_RECOVERY_ID,
+    employeeIds.EMPLOYEE_RETRY_SUPERVISOR_ID,
+    employeeIds.EMPLOYEE_INFRA_OPS_MANAGER_ID,
+    employeeIds.EMPLOYEE_PRODUCT_MANAGER_WEB_ID,
+    employeeIds.EMPLOYEE_FRONTEND_ENGINEER_ID,
+    employeeIds.EMPLOYEE_VALIDATION_PM_ID,
+    employeeIds.EMPLOYEE_VALIDATION_ENGINEER_ID,
   ]) {
-    if (!employeeIds.has(employeeId)) {
+    if (!catalogEmployeeIds.has(employeeId)) {
       throw new Error(`Expected /agent/employees to include ${employeeId}`);
     }
   }
@@ -242,7 +243,7 @@ async function main(): Promise<void> {
   }
 
   const timeoutRecoveryEmployee = employees.find(
-    (employee) => employee.identity.employeeId === "emp_timeout_recovery_01",
+    (employee) => employee.identity.employeeId === employeeIds.EMPLOYEE_TIMEOUT_RECOVERY_ID,
   );
 
   if (!timeoutRecoveryEmployee) {
@@ -270,7 +271,7 @@ async function main(): Promise<void> {
   }
 
   const productManagerWeb = employees.find(
-    (employee) => employee.identity.employeeId === "emp_product_manager_web_01",
+    (employee) => employee.identity.employeeId === employeeIds.EMPLOYEE_PRODUCT_MANAGER_WEB_ID,
   );
 
   if (!productManagerWeb) {
@@ -549,8 +550,8 @@ async function main(): Promise<void> {
     companyId: "company_internal_aep",
     originatingTeamId: "team_web_product",
     assignedTeamId: "team_web_product",
-    assignedEmployeeId: "emp_product_manager_web_01",
-    createdByEmployeeId: "emp_infra_ops_manager_01",
+    assignedEmployeeId: employeeIds.EMPLOYEE_PRODUCT_MANAGER_WEB_ID,
+    createdByEmployeeId: employeeIds.EMPLOYEE_INFRA_OPS_MANAGER_ID,
     taskType: "plan-feature",
     title: `Review evidence task ${Date.now()}`,
     payload: { source: "ci-review-check" },
@@ -561,7 +562,7 @@ async function main(): Promise<void> {
 
   const reviewArtifact = await client.createTaskArtifact(reviewTask.taskId, {
     companyId: "company_internal_aep",
-    createdByEmployeeId: "emp_product_manager_web_01",
+    createdByEmployeeId: employeeIds.EMPLOYEE_PRODUCT_MANAGER_WEB_ID,
     artifactType: "plan",
     summary: "Review evidence artifact",
     content: {
@@ -574,7 +575,7 @@ async function main(): Promise<void> {
   }
 
   const reviewCreateResult = await client.createEmployeeReview(
-    "emp_product_manager_web_01",
+    employeeIds.EMPLOYEE_PRODUCT_MANAGER_WEB_ID,
     {
       reviewCycleId: reviewCycleResult.reviewCycle.reviewCycleId,
       summary: "Strong planning quality with room to improve coordination clarity.",
@@ -611,7 +612,7 @@ async function main(): Promise<void> {
   }
 
   const employeeReviews = await client.listEmployeeReviews(
-    "emp_product_manager_web_01",
+    employeeIds.EMPLOYEE_PRODUCT_MANAGER_WEB_ID,
   );
   if (!employeeReviews.ok || employeeReviews.count < 1) {
     throw new Error("Expected employee reviews list to include created review");
@@ -653,7 +654,7 @@ async function main(): Promise<void> {
   await expectRequestFailure(
     "draft-review-cycle-review-create",
     () =>
-      client.createEmployeeReview("emp_product_manager_web_01", {
+      client.createEmployeeReview(employeeIds.EMPLOYEE_PRODUCT_MANAGER_WEB_ID, {
         reviewCycleId: draftReviewCycleResult.reviewCycle.reviewCycleId,
         summary: "Should fail on inactive review cycle.",
         strengths: ["Planning quality"],
@@ -679,7 +680,7 @@ async function main(): Promise<void> {
   await expectRequestFailure(
     "missing-review-evidence",
     () =>
-      client.createEmployeeReview("emp_product_manager_web_01", {
+      client.createEmployeeReview(employeeIds.EMPLOYEE_PRODUCT_MANAGER_WEB_ID, {
         reviewCycleId: reviewCycleResult.reviewCycle.reviewCycleId,
         summary: "Should fail on missing evidence.",
         strengths: ["Planning quality"],
@@ -710,7 +711,7 @@ async function main(): Promise<void> {
   await expectRequestFailure(
     "high-impact-review-without-approval",
     () =>
-      client.createEmployeeReview("emp_product_manager_web_01", {
+      client.createEmployeeReview(employeeIds.EMPLOYEE_PRODUCT_MANAGER_WEB_ID, {
         reviewCycleId: reviewCycleResult.reviewCycle.reviewCycleId,
         summary: "Should fail without approvedBy for promote recommendation.",
         strengths: ["Planning quality"],
@@ -733,7 +734,7 @@ async function main(): Promise<void> {
     "approvedBy is required for promote, reassign, or restrict recommendations",
   );
 
-  const timeoutScope = await client.getEmployeeScope("emp_timeout_recovery_01");
+  const timeoutScope = await client.getEmployeeScope(employeeIds.EMPLOYEE_TIMEOUT_RECOVERY_ID);
   if (!timeoutScope.ok) {
     throw new Error("/agent/employees/:id/scope did not return ok=true");
   }
@@ -747,7 +748,7 @@ async function main(): Promise<void> {
   }
 
   const timeoutEffectivePolicy = await client.getEmployeeEffectivePolicy(
-    "emp_timeout_recovery_01",
+    employeeIds.EMPLOYEE_TIMEOUT_RECOVERY_ID,
   );
 
   if (!timeoutEffectivePolicy.ok || timeoutEffectivePolicy.implemented !== true) {
@@ -755,7 +756,7 @@ async function main(): Promise<void> {
   }
 
   const productManagerPolicy = await client.getEmployeeEffectivePolicy(
-    "emp_product_manager_web_01",
+    employeeIds.EMPLOYEE_PRODUCT_MANAGER_WEB_ID,
   );
 
   if (!productManagerPolicy.ok || productManagerPolicy.implemented !== false) {
@@ -763,7 +764,7 @@ async function main(): Promise<void> {
   }
 
   const managerLog = await client.getManagerLog({
-    managerEmployeeId: "emp_infra_ops_manager_01",
+    managerEmployeeId: employeeIds.EMPLOYEE_INFRA_OPS_MANAGER_ID,
     limit: 10,
   });
 
@@ -777,7 +778,7 @@ async function main(): Promise<void> {
   }
 
   const workLog = await client.getWorkLog({
-    employeeId: "emp_timeout_recovery_01",
+    employeeId: employeeIds.EMPLOYEE_TIMEOUT_RECOVERY_ID,
     limit: 10,
   });
 

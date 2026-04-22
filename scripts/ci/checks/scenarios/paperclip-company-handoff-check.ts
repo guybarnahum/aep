@@ -2,6 +2,7 @@
 
 import { handleOperatorAgentSoftSkip } from "../../../lib/operator-agent-skip";
 import { resolveServiceBaseUrl } from "../../../lib/service-map";
+import * as employeeIds from "../../shared/employee-ids";
 
 export {};
 
@@ -131,8 +132,8 @@ async function main(): Promise<void> {
     companyId: EXECUTION_COMPANY_ID,
     originatingTeamId: TEAM_ID,
     assignedTeamId: TEAM_ID,
-    createdByEmployeeId: "emp_infra_ops_manager_01",
-    assignedEmployeeId: "emp_infra_ops_manager_01",
+    createdByEmployeeId: employeeIds.EMPLOYEE_INFRA_OPS_MANAGER_ID,
+    assignedEmployeeId: employeeIds.EMPLOYEE_INFRA_OPS_MANAGER_ID,
     taskType: "paperclip-company-handoff-check",
     title: "paperclip company handoff check",
     payload: {
@@ -148,13 +149,13 @@ async function main(): Promise<void> {
     },
     body: JSON.stringify({
       teamId: TEAM_ID,
-      employeeId: "emp_infra_ops_manager_01",
+      employeeId: employeeIds.EMPLOYEE_INFRA_OPS_MANAGER_ID,
       roleId: "infra-ops-manager",
       trigger: "paperclip",
       policyVersion: POLICY_VERSION,
       targetEmployeeIdsOverride: [
-        "emp_timeout_recovery_01",
-        "emp_retry_supervisor_01",
+        employeeIds.EMPLOYEE_TIMEOUT_RECOVERY_ID,
+        employeeIds.EMPLOYEE_RETRY_SUPERVISOR_ID,
       ],
       companyId: EXECUTION_COMPANY_ID,
       heartbeatId: "hb-" + Date.now(),
@@ -202,9 +203,9 @@ async function main(): Promise<void> {
     );
   }
 
-  if (result.request.employeeId !== "emp_infra_ops_manager_01") {
+  if (result.request.employeeId !== employeeIds.EMPLOYEE_INFRA_OPS_MANAGER_ID) {
     throw new Error(
-      `Expected employeeId=emp_infra_ops_manager_01, got ${result.request.employeeId}`
+      `Expected employeeId=${employeeIds.EMPLOYEE_INFRA_OPS_MANAGER_ID}, got ${result.request.employeeId}`
     );
   }
 

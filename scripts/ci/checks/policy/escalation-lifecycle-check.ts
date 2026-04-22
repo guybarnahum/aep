@@ -2,6 +2,7 @@
 
 import { handleOperatorAgentSoftSkip } from "../../../lib/operator-agent-skip";
 import { resolveServiceBaseUrl } from "../../../lib/service-map";
+import * as employeeIds from "../../shared/employee-ids";
 
 export {};
 
@@ -84,13 +85,13 @@ async function main(): Promise<void> {
       },
       body: JSON.stringify({
         departmentId: "aep-infra-ops",
-        employeeId: "emp_infra_ops_manager_01",
+        employeeId: employeeIds.EMPLOYEE_INFRA_OPS_MANAGER_ID,
         roleId: "infra-ops-manager",
         trigger: "manual",
         policyVersion: POLICY_VERSION,
         targetEmployeeIdsOverride: [
-          "emp_timeout_recovery_01",
-          "emp_retry_supervisor_01",
+          employeeIds.EMPLOYEE_TIMEOUT_RECOVERY_ID,
+          employeeIds.EMPLOYEE_RETRY_SUPERVISOR_ID,
         ],
       }),
     });

@@ -6,6 +6,10 @@ import type {
   RoleJobDescriptionProjection,
 } from "@aep/operator-agent/types";
 import {
+  EMPLOYEE_INFRA_OPS_MANAGER_ID,
+  EMPLOYEE_RELIABILITY_ENGINEER_ID,
+} from "../org/employee-ids";
+import {
   loadEmployeeCognitionInputForRun,
   thinkWithinEmployeeBoundary,
 } from "./employee-cognition";
@@ -15,7 +19,7 @@ type FakeD1ResultRow = Record<string, unknown>;
 function makeRunContext(): ResolvedEmployeeRunContext {
   return {
     request: {
-      employeeId: "emp_val_specialist_01",
+      employeeId: EMPLOYEE_RELIABILITY_ENGINEER_ID,
       roleId: "reliability-engineer",
       trigger: "manual",
       policyVersion: "test-policy-v1",
@@ -23,7 +27,7 @@ function makeRunContext(): ResolvedEmployeeRunContext {
     },
     employee: {
       identity: {
-        employeeId: "emp_val_specialist_01",
+        employeeId: EMPLOYEE_RELIABILITY_ENGINEER_ID,
         employeeName: "Casey Validation",
         companyId: "company_internal_aep",
         teamId: "team_validation",
@@ -72,9 +76,9 @@ function makeRunContext(): ResolvedEmployeeRunContext {
         companyId: "company_internal_aep",
         originatingTeamId: "team_infra",
         assignedTeamId: "team_validation",
-        ownerEmployeeId: "emp_infra_ops_manager_01",
-        assignedEmployeeId: "emp_val_specialist_01",
-        createdByEmployeeId: "emp_infra_ops_manager_01",
+        ownerEmployeeId: EMPLOYEE_INFRA_OPS_MANAGER_ID,
+        assignedEmployeeId: EMPLOYEE_RELIABILITY_ENGINEER_ID,
+        createdByEmployeeId: EMPLOYEE_INFRA_OPS_MANAGER_ID,
         taskType: "validate-deployment",
         title: "Validate deployment",
         status: "ready",
@@ -87,7 +91,7 @@ function makeRunContext(): ResolvedEmployeeRunContext {
       artifacts: [],
     },
     effectiveControl: {
-      employeeId: "emp_val_specialist_01",
+      employeeId: EMPLOYEE_RELIABILITY_ENGINEER_ID,
       state: "restricted",
       blocked: false,
       control: null,
@@ -186,7 +190,7 @@ test("loadEmployeeCognitionInputForRun hydrates prompt profiles, role contract, 
 
   const input = await loadEmployeeCognitionInputForRun(context, env);
 
-  assert.equal(input.employee.employeeId, "emp_val_specialist_01");
+  assert.equal(input.employee.employeeId, EMPLOYEE_RELIABILITY_ENGINEER_ID);
   assert.equal(input.promptProfile?.promptVersion, "employee-v1");
   assert.equal(input.rolePromptProfile?.promptVersion, "role-v1");
   assert.equal(input.roleContract?.roleId, "reliability-engineer");
@@ -202,7 +206,7 @@ test("loadEmployeeCognitionInputForRun hydrates prompt profiles, role contract, 
 test("thinkWithinEmployeeBoundary falls back to role prompt profile styles when employee prompt style is absent", async () => {
   const result = await thinkWithinEmployeeBoundary({
     employee: {
-      employeeId: "emp_val_specialist_01",
+      employeeId: EMPLOYEE_RELIABILITY_ENGINEER_ID,
       employeeName: "Casey Validation",
       companyId: "company_internal_aep",
       teamId: "team_validation",

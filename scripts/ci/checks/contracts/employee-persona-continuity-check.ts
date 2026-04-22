@@ -1,4 +1,5 @@
 import { createOperatorAgentClient } from "../../clients/operator-agent-client";
+import * as employeeIds from "../../shared/employee-ids";
 
 const FORBIDDEN_PERSONA_FIELDS = [
   "decisionStyle",
@@ -163,14 +164,14 @@ async function findPersonaSamples(
     if (!artifact) continue;
 
     const employeeId = extractEmployeeId(taskDetail as Record<string, unknown>);
-    if (employeeId === "emp_pm_01" && !pmSample) {
+    if (employeeId === employeeIds.EMPLOYEE_PRODUCT_MANAGER_ID && !pmSample) {
       pmSample = {
         taskId: task.id,
         taskDetail: taskDetail as Record<string, unknown>,
         artifact,
       };
     }
-    if (employeeId === "emp_val_specialist_01" && !validationSample) {
+    if (employeeId === employeeIds.EMPLOYEE_RELIABILITY_ENGINEER_ID && !validationSample) {
       validationSample = {
         taskId: task.id,
         taskDetail: taskDetail as Record<string, unknown>,

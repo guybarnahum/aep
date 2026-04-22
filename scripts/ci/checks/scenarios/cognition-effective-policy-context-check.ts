@@ -4,6 +4,7 @@ import type {
   OperatorAgentEnv,
   ResolvedEmployeeRunContext,
 } from "../../../../core/operator-agent/src/types";
+import * as employeeIds from "../../shared/employee-ids";
 import {
   derivePublicRationale,
   deriveThreadRationaleMessage,
@@ -60,7 +61,7 @@ function assertFieldsAbsent(payload: unknown, fields: string[], surface: string)
 function makeRunContext(): ResolvedEmployeeRunContext {
   return {
     request: {
-      employeeId: "emp_val_specialist_01",
+      employeeId: employeeIds.EMPLOYEE_RELIABILITY_ENGINEER_ID,
       roleId: "reliability-engineer",
       trigger: "manual",
       policyVersion: "ci-cognition-effective-policy-context-check",
@@ -68,7 +69,7 @@ function makeRunContext(): ResolvedEmployeeRunContext {
     },
     employee: {
       identity: {
-        employeeId: "emp_val_specialist_01",
+        employeeId: employeeIds.EMPLOYEE_RELIABILITY_ENGINEER_ID,
         employeeName: "Casey Validation",
         companyId: "company_internal_aep",
         teamId: "team_validation",
@@ -118,9 +119,9 @@ function makeRunContext(): ResolvedEmployeeRunContext {
         companyId: "company_internal_aep",
         originatingTeamId: "team_infra",
         assignedTeamId: "team_validation",
-        ownerEmployeeId: "emp_infra_ops_manager_01",
-        assignedEmployeeId: "emp_val_specialist_01",
-        createdByEmployeeId: "emp_infra_ops_manager_01",
+        ownerEmployeeId: employeeIds.EMPLOYEE_INFRA_OPS_MANAGER_ID,
+        assignedEmployeeId: employeeIds.EMPLOYEE_RELIABILITY_ENGINEER_ID,
+        createdByEmployeeId: employeeIds.EMPLOYEE_INFRA_OPS_MANAGER_ID,
         taskType: "validate-deployment",
         title: "Validate deployment",
         status: "ready",
@@ -133,7 +134,7 @@ function makeRunContext(): ResolvedEmployeeRunContext {
       artifacts: [],
     },
     effectiveControl: {
-      employeeId: "emp_val_specialist_01",
+      employeeId: employeeIds.EMPLOYEE_RELIABILITY_ENGINEER_ID,
       state: "restricted",
       blocked: false,
       control: null,

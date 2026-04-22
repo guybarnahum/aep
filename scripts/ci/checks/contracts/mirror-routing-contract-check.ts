@@ -3,6 +3,7 @@
 import { dispatchMessageMirrors } from "../../../../core/operator-agent/src/adapters/mirror-dispatcher";
 import { resolveMirrorTargets } from "../../../../core/operator-agent/src/adapters/mirror-routing-policy";
 import type {
+import * as employeeIds from "../../shared/employee-ids";
   ExternalMessageProjection,
   ExternalThreadProjection,
   MirrorDeliveryRecord,
@@ -36,7 +37,7 @@ async function main(): Promise<void> {
     threadId: "thr_approval",
     threadType: "approval",
     messageType: "coordination",
-    senderEmployeeId: "emp_pm_01",
+    senderEmployeeId: employeeIds.EMPLOYEE_PRODUCT_MANAGER_ID,
     humanVisibilityRequired: true,
   });
 
@@ -49,7 +50,7 @@ async function main(): Promise<void> {
     threadId: "thr_escalation",
     threadType: "escalation",
     messageType: "escalation",
-    senderEmployeeId: "emp_infra_ops_manager_01",
+    senderEmployeeId: employeeIds.EMPLOYEE_INFRA_OPS_MANAGER_ID,
     humanVisibilityRequired: true,
   });
 
@@ -62,7 +63,7 @@ async function main(): Promise<void> {
   const defaultTargets = resolveMirrorTargets(configuredEnv as any, {
     threadId: "thr_default",
     messageType: "coordination",
-    senderEmployeeId: "emp_val_specialist_01",
+    senderEmployeeId: employeeIds.EMPLOYEE_RELIABILITY_ENGINEER_ID,
     humanVisibilityRequired: true,
   });
 
@@ -94,12 +95,12 @@ async function main(): Promise<void> {
       messageId: "msg_missing_config",
       threadId: "thr_missing_config",
       body: "Canonical agent-originated message",
-      senderEmployeeId: "emp_val_specialist_01",
+      senderEmployeeId: employeeIds.EMPLOYEE_RELIABILITY_ENGINEER_ID,
       createdAt: new Date().toISOString(),
       routing: {
         threadId: "thr_missing_config",
         messageType: "coordination",
-        senderEmployeeId: "emp_val_specialist_01",
+        senderEmployeeId: employeeIds.EMPLOYEE_RELIABILITY_ENGINEER_ID,
         humanVisibilityRequired: true,
       },
     },

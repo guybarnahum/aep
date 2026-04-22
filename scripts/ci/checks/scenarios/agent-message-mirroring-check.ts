@@ -2,6 +2,7 @@
 
 import { createOperatorAgentClient } from "../../clients/operator-agent-client";
 import { handleOperatorAgentSoftSkip } from "../../shared/soft-skip";
+import * as employeeIds from "../../shared/employee-ids";
 
 export {};
 
@@ -29,7 +30,7 @@ async function main(): Promise<void> {
   const thread = await client.createMessageThread({
     companyId: "company_internal_aep",
     topic: "PR10A agent message mirroring check",
-    createdByEmployeeId: "emp_infra_ops_manager_01",
+    createdByEmployeeId: employeeIds.EMPLOYEE_INFRA_OPS_MANAGER_ID,
     relatedTaskId: "task_pr10a_agent_mirroring",
     visibility: "internal",
   });
@@ -41,8 +42,8 @@ async function main(): Promise<void> {
   const created = await client.createMessage({
     companyId: "company_internal_aep",
     threadId: thread.threadId,
-    senderEmployeeId: "emp_infra_ops_manager_01",
-    receiverEmployeeId: "emp_val_specialist_01",
+    senderEmployeeId: employeeIds.EMPLOYEE_INFRA_OPS_MANAGER_ID,
+    receiverEmployeeId: employeeIds.EMPLOYEE_RELIABILITY_ENGINEER_ID,
     type: "coordination",
     source: "internal",
     subject: "Mirror this canonical agent message",

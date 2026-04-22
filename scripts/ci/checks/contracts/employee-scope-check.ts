@@ -2,6 +2,12 @@
 
 import { assert } from "../../shared/assert";
 import { createOperatorAgentClient } from "../../clients/operator-agent-client";
+import {
+  EMPLOYEE_PRODUCT_MANAGER_WEB_ID,
+  EMPLOYEE_RELIABILITY_ENGINEER_ID,
+  EMPLOYEE_TIMEOUT_RECOVERY_ID,
+  EMPLOYEE_VALIDATION_ENGINEER_ID,
+} from "../../shared/employee-ids";
 
 async function main(): Promise<void> {
   const client = createOperatorAgentClient();
@@ -9,7 +15,7 @@ async function main(): Promise<void> {
   // ---- timeout recovery employee scope
 
   const timeoutScope = await client.getEmployeeScope(
-    "emp_timeout_recovery_01",
+    EMPLOYEE_TIMEOUT_RECOVERY_ID,
   );
 
   assert.equal(timeoutScope.companyId, "company_internal_aep");
@@ -21,7 +27,7 @@ async function main(): Promise<void> {
   // ---- web product manager scope
 
   const webScope = await client.getEmployeeScope(
-    "emp_product_manager_web_01",
+    EMPLOYEE_PRODUCT_MANAGER_WEB_ID,
   );
 
   assert.equal(webScope.teamId, "team_web_product");
@@ -32,7 +38,7 @@ async function main(): Promise<void> {
   // ---- validation engineer scope
 
   const validationScope = await client.getEmployeeScope(
-    "emp_validation_engineer_01",
+    EMPLOYEE_VALIDATION_ENGINEER_ID,
   );
 
   assert.equal(validationScope.teamId, "team_validation");
@@ -43,7 +49,7 @@ async function main(): Promise<void> {
   // ---- validation specialist scope (cross-tenant coverage)
 
   const validationSpecialistScope = await client.getEmployeeScope(
-    "emp_val_specialist_01",
+    EMPLOYEE_RELIABILITY_ENGINEER_ID,
   );
 
   assert.equal(validationSpecialistScope.companyId, "company_internal_aep");
@@ -63,7 +69,7 @@ async function main(): Promise<void> {
   // ---- effective policy (implemented employee)
 
   const effectivePolicy = await client.getEmployeeEffectivePolicy(
-    "emp_timeout_recovery_01",
+    EMPLOYEE_TIMEOUT_RECOVERY_ID,
   );
 
   assert.equal(effectivePolicy.implemented, true);
@@ -79,7 +85,7 @@ async function main(): Promise<void> {
   // ---- effective policy (planned employee)
 
   const plannedPolicy = await client.getEmployeeEffectivePolicy(
-    "emp_product_manager_web_01",
+    EMPLOYEE_PRODUCT_MANAGER_WEB_ID,
   );
 
   assert.equal(plannedPolicy.implemented, false);
