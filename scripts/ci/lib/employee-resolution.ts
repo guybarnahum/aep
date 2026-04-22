@@ -34,17 +34,30 @@ function getCatalogStatusFilter(
   return undefined;
 }
 
+function getEmploymentStatusFilter(
+  runtimeStatus?: EmployeeRuntimeStatus,
+): string | undefined {
+  if (runtimeStatus === "implemented") {
+    return "active";
+  }
+
+  return undefined;
+}
+
 export async function resolveEmployeeIdByRole(
   args: ResolveEmployeeIdByRoleArgs,
 ): Promise<string> {
   const baseUrl = args.agentBaseUrl.replace(/\/$/, "");
-  const search = new URLSearchParams({
-    employmentStatus: "active",
-  });
+  const search = new URLSearchParams();
   const catalogStatus = getCatalogStatusFilter(args.runtimeStatus);
+  const employmentStatus = getEmploymentStatusFilter(args.runtimeStatus);
 
   if (catalogStatus) {
     search.set("status", catalogStatus);
+  }
+
+  if (employmentStatus) {
+    search.set("employmentStatus", employmentStatus);
   }
 
   if (args.teamId) {
