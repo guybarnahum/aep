@@ -195,6 +195,69 @@ async function getRoleTeamId(
   return row?.team_id ?? null;
 }
 
+async function getRoleEmployeeIdCode(
+  env: OperatorAgentEnv,
+  roleId: AgentRoleId,
+): Promise<string | null> {
+  const db = requireDb(env);
+  const row = await db
+    .prepare(
+      `SELECT employee_id_code
+       FROM roles_catalog
+       WHERE role_id = ?
+       LIMIT 1`,
+    )
+    .bind(roleId)
+    .first<{ employee_id_code?: string | null }>();
+
+  const code = row?.employee_id_code?.trim().toLowerCase() ?? "";
+  return code.length > 0 ? code : null;
+}
+
+async function allocateEmployeeIdForRole(
+  env: OperatorAgentEnv,
+  roleId: AgentRoleId,
+): Promise<string> {
+  const db = requireDb(env);
+  const employeeIdCode = await getRoleEmployeeIdCode(env, roleId);
+
+  if (!employeeIdCode) {
+    throw new Error(`Role ${roleId} is missing employee_id_code`);
+  }
+
+  if (!/^[a-z]{2}$/.test(employeeIdCode)) {
+    throw new Error(
+      `Role ${roleId} has invalid employee_id_code=${employeeIdCode}`,
+    );
+  }
+
+  const rows = await db
+    .prepare(
+      `SELECT id
+       FROM employees_catalog
+       WHERE id GLOB ?
+       ORDER BY id DESC`,
+    )
+    .bind(`${employeeIdCode}[0-9][0-9][0-9]`)
+    .all<{ id: string }>();
+
+  let maxSequence = 0;
+  for (const row of rows.results ?? []) {
+    const match = /^([a-z]{2})(\d{3})$/.exec(row.id);
+    if (!match || match[1] !== employeeIdCode) {
+      continue;
+    }
+
+    const sequence = Number.parseInt(match[2], 10);
+    if (Number.isFinite(sequence) && sequence > maxSequence) {
+      maxSequence = sequence;
+    }
+  }
+
+  const nextSequence = maxSequence + 1;
+  return `${employeeIdCode}${String(nextSequence).padStart(3, "0")}`;
+}
+
 async function assertTeamExists(env: OperatorAgentEnv, teamId: string): Promise<void> {
   const db = requireDb(env);
   const row = await db
@@ -526,7 +589,8 @@ export async function createEmployee(
   input: CreateEmployeeInput,
 ): Promise<{ employeeId: string; employmentStatus: EmployeeEmploymentStatus }> {
   const db = requireDb(env);
-  const employeeId = input.employeeId ?? `emp_${crypto.randomUUID().split("-")[0]}`;
+  const employeeId =
+    input.employeeId ?? (await allocateEmployeeIdForRole(env, input.roleId));
   const companyId = input.companyId ?? "company_internal_aep";
   const runtimeStatus = input.runtimeStatus ?? "planned";
   const employmentStatus = input.employmentStatus ?? "draft";

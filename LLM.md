@@ -733,6 +733,17 @@ Role contracts may now also carry data-driven runtime metadata in `roles_catalog
 These fields help the runtime stay data-driven without making public JDs into prompts.
 Private role-level cognitive scaffolding belongs in private prompt-profile tables, not in public role reads.
 
+Employee creation should derive new employee IDs from `roles_catalog.employee_id_code`, not from hardcoded TS maps.
+The intended canonical format is:
+
+* `<two-letter-role-code><3-digit-sequence>`
+
+Examples:
+
+* `qa001`
+* `pm001`
+* `dv001`
+
 ## Employee Lifecycle
 
 Employees have explicit lifecycle states:
