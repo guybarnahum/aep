@@ -75,7 +75,7 @@ export async function resolveEmployeeIdByRole(
     );
   }
 
-  const employee = json.employees.find((entry) => {
+  const matchingEmployees = json.employees.filter((entry) => {
     if (entry.identity.roleId !== args.roleId) {
       return false;
     }
@@ -90,6 +90,10 @@ export async function resolveEmployeeIdByRole(
 
     return true;
   });
+
+  const employee =
+    matchingEmployees.find((entry) => entry.employment.isSynthetic !== true)
+    ?? matchingEmployees[0];
 
   if (!employee) {
     throw new Error(

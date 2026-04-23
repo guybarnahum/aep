@@ -17,11 +17,13 @@ async function main(): Promise<void> {
     agentBaseUrl,
     roleId: "product-manager-web",
     teamId: "team_web_product",
+    runtimeStatus: "planned",
   });
   const validationEngineerEmployeeId = await resolveEmployeeIdByRole({
     agentBaseUrl,
     roleId: "validation-engineer",
     teamId: "team_validation",
+    runtimeStatus: "planned",
   });
   const reliabilityEngineerEmployeeId = await resolveEmployeeIdByRole({
     agentBaseUrl,
