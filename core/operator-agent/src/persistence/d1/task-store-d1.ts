@@ -23,7 +23,7 @@ import {
   type TaskStatus,
   type TaskStore,
 } from "@aep/operator-agent/lib/store-types";
-import { newId } from "@aep/shared/index";
+import { newId } from "@aep/shared";
 import type { OperatorAgentEnv } from "@aep/operator-agent/types";
 
 type TaskRow = {

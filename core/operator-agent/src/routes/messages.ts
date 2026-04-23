@@ -11,7 +11,7 @@ import type {
 import { resolveCanonicalThreadForInbound } from "../adapters/inbound-correlation";
 import type { InboundExternalMessage } from "../adapters/inbound-types";
 import { getTaskStore } from "@aep/operator-agent/lib/store-factory";
-import { newId } from "@aep/shared/index";
+import { newId } from "@aep/shared";
 import type {
   EmployeeMessage,
   ThreadExternalInteractionPolicy,

@@ -8,7 +8,7 @@ import type {
   OperatorAgentEnv,
   TaskReassignmentReason,
 } from "@aep/operator-agent/types";
-import { newId } from "@aep/shared/index";
+import { newId } from "@aep/shared";
 import { validateRoleCatalogEntry } from "@aep/operator-agent/persistence/d1/role-catalog-store-d1";
 
 import {

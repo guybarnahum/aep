@@ -10,7 +10,7 @@ import {
   isProvider,
   sha256Hex,
   timingSafeEqual,
-} from "@aep/shared/index";
+} from "@aep/shared";
 import {
   corsPreflight,
   runtimeRouteError,

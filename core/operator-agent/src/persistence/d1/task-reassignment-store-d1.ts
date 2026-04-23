@@ -2,7 +2,7 @@ import type {
   OperatorAgentEnv,
   TaskReassignmentReason,
 } from "@aep/operator-agent/types";
-import { newId } from "@aep/shared/index";
+import { newId } from "@aep/shared";
 
 function requireDb(env: OperatorAgentEnv): D1Database {
   if (!env.OPERATOR_AGENT_DB) {

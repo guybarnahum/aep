@@ -1,6 +1,6 @@
 import type { TaskStore } from "@aep/operator-agent/lib/store-types";
 import type { OperatorAgentEnv } from "@aep/operator-agent/types";
-import { newToken } from "@aep/shared/index";
+import { newToken } from "@aep/shared";
 
 import { sendEmailMirror } from "./email-adapter";
 import { resolveMirrorTargets } from "./mirror-routing-policy";

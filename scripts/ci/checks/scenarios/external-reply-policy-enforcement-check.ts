@@ -4,7 +4,7 @@ import { createOperatorAgentClient } from "../../clients/operator-agent-client";
 import { resolveEmployeeIdsByKey } from "../../lib/employee-resolution";
 import { handleOperatorAgentSoftSkip } from "../../shared/soft-skip";
 import { resolveServiceBaseUrl } from "../../../lib/service-map";
-import { newToken } from "@aep/shared/index";
+import { newToken } from "@aep/shared";
 
 export {};
 

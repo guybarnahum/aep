@@ -27,7 +27,7 @@ import type {
   ResolvedTaskExecutionContext,
   ValidationAgentResponse,
 } from "@aep/operator-agent/types";
-import { newId } from "@aep/shared/index";
+import { newId } from "@aep/shared";
 
 function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" ? (value as Record<string, unknown>) : {};

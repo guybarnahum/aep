@@ -1,5 +1,5 @@
 import { getTaskStore } from "@aep/operator-agent/lib/store-factory";
-import { newId } from "@aep/shared/index";
+import { newId } from "@aep/shared";
 import type { OperatorAgentEnv } from "@aep/operator-agent/types";
 
 export async function ensureApprovalThread(args: {

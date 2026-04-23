@@ -1,5 +1,5 @@
 import type { MirrorTransportFailure, MirrorTransportSuccess } from "./types";
-import { newToken } from "@aep/shared/index";
+import { newToken } from "@aep/shared";
 
 export async function sendSlackMirror(args: {
   webhookUrl: string;

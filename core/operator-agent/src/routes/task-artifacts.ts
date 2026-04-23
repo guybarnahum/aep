@@ -1,6 +1,6 @@
 import { getTaskStore } from "@aep/operator-agent/lib/store-factory";
 import type { TaskArtifactType } from "@aep/operator-agent/lib/store-types";
-import { newId } from "@aep/shared/index";
+import { newId } from "@aep/shared";
 import type { OperatorAgentEnv } from "@aep/operator-agent/types";
 
 type CreateTaskArtifactRequest = {

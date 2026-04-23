@@ -6,14 +6,14 @@ import type {
   DeployMode,
   TeardownMode,
 } from "@aep/event-schema/index";
-import type { Provider } from "@aep/shared/index";
+import type { Provider } from "@aep/shared";
 import {
   DEFAULT_PROVIDER,
   newId,
   newToken,
   nowIso,
   sha256Hex,
-} from "@aep/shared/index";
+} from "@aep/shared";
 import {
   auditCleanup,
   runHealthCheck,

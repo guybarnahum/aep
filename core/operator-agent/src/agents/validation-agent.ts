@@ -10,7 +10,7 @@ import { logInfo } from "@aep/operator-agent/lib/logger";
 import { publishTaskRationaleToThread } from "@aep/operator-agent/lib/rationale-thread-publisher";
 import { getTaskStore } from "@aep/operator-agent/lib/store-factory";
 import type { Task } from "@aep/operator-agent/lib/store-types";
-import { newId } from "@aep/shared/index";
+import { newId } from "@aep/shared";
 import type {
   EmployeePublicRationalePresentationStyle,
   OperatorAgentEnv,

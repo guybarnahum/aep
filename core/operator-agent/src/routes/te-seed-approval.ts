@@ -1,7 +1,7 @@
 import { TEAM_INFRA } from "@aep/operator-agent/org/teams";
 import { createStores } from "@aep/operator-agent/lib/store-factory";
 import { getTaskStore } from "@aep/operator-agent/lib/store-factory";
-import { newId } from "@aep/shared/index";
+import { newId } from "@aep/shared";
 import type {
   AgentRoleId,
   ApprovalRecord,

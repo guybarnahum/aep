@@ -9,7 +9,7 @@ import {
 } from "../../shared/adapter-capability";
 import { assertRequiredPostRoute } from "../../shared/operator-agent-surface";
 import { handleOperatorAgentSoftSkip } from "../../shared/soft-skip";
-import { newToken } from "@aep/shared/index";
+import { newToken } from "@aep/shared";
 
 export {};
 

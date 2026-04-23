@@ -1,5 +1,5 @@
 import type { StepName, WorkflowEvent } from "@aep/event-schema/index";
-import { newId, nowIso } from "@aep/shared/index";
+import { newId, nowIso } from "@aep/shared";
 
 export async function emitEvent(
   db: D1Database,

@@ -25,7 +25,7 @@ import {
   listRequiredValidationTypesForVerdict,
   listValidationEmployees,
 } from "@aep/control-plane/org/ownership";
-import { newId } from "@aep/shared/index";
+import { newId } from "@aep/shared";
 import {
   getCompany,
   getEmployeeCatalogEntry,

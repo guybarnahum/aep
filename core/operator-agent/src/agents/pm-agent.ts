@@ -10,7 +10,7 @@ import type { OrgCapability } from "../lib/org-resolver";
 import { publishTaskRationaleToThread } from "../lib/rationale-thread-publisher";
 import { getTaskStore } from "../lib/store-factory";
 import type { MessageThread, Task } from "../lib/store-types";
-import { newId } from "@aep/shared/index";
+import { newId } from "@aep/shared";
 import type {
   EmployeePublicRationalePresentationStyle,
   ManagerDecision,

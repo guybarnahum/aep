@@ -7,7 +7,7 @@ import type {
 } from "@aep/operator-agent/lib/employee-cognition";
 import { getTaskStore } from "@aep/operator-agent/lib/store-factory";
 import type { TaskStore } from "@aep/operator-agent/lib/store-types";
-import { newId } from "@aep/shared/index";
+import { newId } from "@aep/shared";
 import type { OperatorAgentEnv } from "@aep/operator-agent/types";
 
 export interface PublishTaskRationaleToThreadArgs {
