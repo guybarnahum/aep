@@ -57,7 +57,7 @@ function renderHeaderEndpointLink(label: string, url: string): string {
   const escapedLabel = escapeHtml(label);
   const escapedUrl = escapeHtml(url);
 
-  return `${escapedLabel}: <a href="${escapedUrl}" target="_blank" rel="noreferrer">${escapedLabel} &#8599;</a>`;
+  return `<a href="${escapedUrl}" target="_blank" rel="noreferrer">${escapedLabel} &#8599;</a>`;
 }
 import {
   acknowledgeEscalation,
