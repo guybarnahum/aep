@@ -10,7 +10,7 @@ async function main() {
   const productManagerEmployeeId = await resolveEmployeeIdByRole({
     agentBaseUrl,
     roleId: "product-manager",
-    teamId: "team_web_product",
+    teamId: "team_infra",
     runtimeStatus: "implemented",
   });
 

@@ -234,9 +234,9 @@ async function main(): Promise<void> {
   });
   TARGET_EMPLOYEE_ID = await resolveEmployeeIdByRole({
     agentBaseUrl,
-    roleId: "product-manager",
+    roleId: "product-manager-web",
     teamId: "team_web_product",
-    runtimeStatus: "implemented",
+    runtimeStatus: "planned",
   });
 
   try {

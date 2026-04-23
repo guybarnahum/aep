@@ -31,8 +31,9 @@ async function main(): Promise<void> {
 
   const productManagerEmployeeId = await resolveEmployeeIdByRole({
     agentBaseUrl,
-    roleId: "product-manager",
+    roleId: "product-manager-web",
     teamId: "team_web_product",
+    runtimeStatus: "planned",
   });
 
   const before = await client.listTasks({
@@ -46,7 +47,7 @@ async function main(): Promise<void> {
     companyId: "company_internal_aep",
     teamId: "team_web_product",
     employeeId: productManagerEmployeeId,
-    roleId: "product-manager",
+    roleId: "product-manager-web",
     trigger: "manual",
     policyVersion: "ci-pr11b",
   });

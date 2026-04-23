@@ -8,7 +8,7 @@ import { resolveServiceBaseUrl } from "../../../lib/service-map";
 export {};
 
 const PM_TEAM_ID = "team_web_product";
-const PM_ROLE_ID = "product-manager";
+const PM_ROLE_ID = "product-manager-web";
 const VALIDATION_TEAM_ID = "team_validation";
 const VALIDATION_ROLE_ID = "reliability-engineer";
 
@@ -44,6 +44,7 @@ async function main(): Promise<void> {
     agentBaseUrl,
     roleId: PM_ROLE_ID,
     teamId: PM_TEAM_ID,
+    runtimeStatus: "planned",
   });
   const reliabilityEngineerEmployeeId = await resolveEmployeeIdByRole({
     agentBaseUrl,
