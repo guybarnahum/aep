@@ -155,8 +155,13 @@ jobs:
         id: task_reassignment_continuity
         if: steps.operator_agent_config.outputs.enabled == 'true' && steps.wait_operator_agent.outcome == 'success'
         env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           CONTROL_PLANE_BASE_URL: ${{ env.CONTROL_PLANE_BASE_URL }}
           OPERATOR_AGENT_BASE_URL: ${{ env.OPERATOR_AGENT_BASE_URL }}
+          WRANGLER_CONFIG_PATH: core/operator-agent/wrangler.jsonc
+          WRANGLER_D1_EXECUTION_LOCATION: remote
+          D1_DATABASE_REF: OPERATOR_AGENT_DB
         run: |
           npm run ci:task-reassignment-continuity-check 2>&1 | tee task-reassignment-continuity.log
 
