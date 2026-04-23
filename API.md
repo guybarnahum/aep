@@ -166,7 +166,23 @@ Role cognition note:
 
 `GET /agent/manager-log`
 
-- Lists supervisory decisions.
+- Returns recent manager decisions for a specific manager employee.
+- `managerEmployeeId` is required.
+- Important invariant: this route must not default to an internal org/team/role when caller scope is omitted.
+
+Dashboard note:
+
+- dashboard callers should resolve live employee IDs from `/agent/employees` by role/team intent before calling this route
+
+`GET /agent/work-log`
+
+- Returns recent work log entries for a specific employee.
+- `employeeId` is required.
+- Important invariant: this route must not default to an internal org/team/role when caller scope is omitted.
+
+Dashboard note:
+
+- dashboard callers should resolve live employee IDs from `/agent/employees` by role/team intent before calling this route
 
 `GET /agent/control-history`
 

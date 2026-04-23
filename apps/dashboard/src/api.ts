@@ -77,6 +77,17 @@ function normalizeRole(role: RoleJobDescriptionProjection): RoleJobDescriptionPr
 const DEFAULT_CONTROL_PLANE_BASE_URL = "http://127.0.0.1:8788";
 const DEFAULT_OPERATOR_AGENT_BASE_URL = "http://127.0.0.1:8797";
 
+type RuntimeStatus = "implemented" | "planned" | "disabled" | "active";
+
+type LiveEmployeeResolutionRequest = {
+  key: string;
+  roleId: string;
+  teamId?: string;
+  runtimeStatus?: RuntimeStatus;
+};
+
+type LiveEmployeeResolutionMap = Record<string, string>;
+
 export function getApiBaseUrl(): string {
   const configured = import.meta.env.VITE_CONTROL_PLANE_BASE_URL;
   return (configured && configured.trim()) || DEFAULT_CONTROL_PLANE_BASE_URL;
@@ -143,6 +154,60 @@ async function patchJson<T>(
   }
 
   return (await response.json()) as T;
+}
+
+function matchesResolvedEmployee(
+  employee: OperatorEmployeeRecord,
+  request: LiveEmployeeResolutionRequest,
+): boolean {
+  if (employee.identity.roleId !== request.roleId) {
+    return false;
+  }
+
+  if (request.teamId && employee.identity.teamId !== request.teamId) {
+    return false;
+  }
+
+  if (
+    request.runtimeStatus &&
+    employee.runtime.runtimeStatus !== request.runtimeStatus
+  ) {
+    return false;
+  }
+
+  if (employee.employment?.employmentStatus !== "active") {
+    return false;
+  }
+
+  return true;
+}
+
+async function resolveLiveEmployeeIdsByRole(
+  requests: LiveEmployeeResolutionRequest[],
+): Promise<LiveEmployeeResolutionMap> {
+  const payload = await getJson<{ employees: OperatorEmployeeRecord[] }>(
+    getOperatorAgentBaseUrl(),
+    "/agent/employees",
+  );
+
+  const employees = (payload.employees ?? []).map(normalizeEmployeeRecord);
+  const resolved: LiveEmployeeResolutionMap = {};
+
+  for (const request of requests) {
+    const match = employees.find((employee) =>
+      matchesResolvedEmployee(employee, request),
+    );
+
+    if (!match) {
+      throw new Error(
+        `Unable to resolve live employee for roleId=${request.roleId}${request.teamId ? ` teamId=${request.teamId}` : ""}`,
+      );
+    }
+
+    resolved[request.key] = match.identity.employeeId;
+  }
+
+  return resolved;
 }
 
 export type CreateEmployeeRequest = {
@@ -313,6 +378,22 @@ export async function getServiceOverview(
 
 export async function getDepartmentOverview(): Promise<DepartmentOverview> {
   const agentBaseUrl = getOperatorAgentBaseUrl();
+  const resolvedEmployees = await resolveLiveEmployeeIdsByRole([
+    {
+      key: "infraOpsManager",
+      roleId: "infra-ops-manager",
+      teamId: "team_infra",
+      runtimeStatus: "implemented",
+    },
+    {
+      key: "timeoutRecovery",
+      roleId: "timeout-recovery-operator",
+      teamId: "team_infra",
+      runtimeStatus: "implemented",
+    },
+  ]);
+
+  const managerEmployeeId = resolvedEmployees.infraOpsManager;
 
   const [
     employeesPayload,
@@ -337,7 +418,7 @@ export async function getDepartmentOverview(): Promise<DepartmentOverview> {
     ),
     getJson<{ entries: ManagerDecisionRecord[] }>(
       agentBaseUrl,
-      "/agent/manager-log?limit=50",
+      `/agent/manager-log?managerEmployeeId=${encodeURIComponent(managerEmployeeId)}&limit=50`,
     ),
     getJson<{ entries: ApprovalRecord[] }>(
       agentBaseUrl,
@@ -471,6 +552,31 @@ export async function getEmployeeContinuityOverview(
     activeThreads,
     recentManagerDecisions,
     recentControlHistory,
+  };
+}
+
+export async function getDefaultRuntimeEmployeeIds(): Promise<{
+  infraOpsManagerEmployeeId: string;
+  timeoutRecoveryEmployeeId: string;
+}> {
+  const resolvedEmployees = await resolveLiveEmployeeIdsByRole([
+    {
+      key: "infraOpsManager",
+      roleId: "infra-ops-manager",
+      teamId: "team_infra",
+      runtimeStatus: "implemented",
+    },
+    {
+      key: "timeoutRecovery",
+      roleId: "timeout-recovery-operator",
+      teamId: "team_infra",
+      runtimeStatus: "implemented",
+    },
+  ]);
+
+  return {
+    infraOpsManagerEmployeeId: resolvedEmployees.infraOpsManager,
+    timeoutRecoveryEmployeeId: resolvedEmployees.timeoutRecovery,
   };
 }
 

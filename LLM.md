@@ -13,6 +13,7 @@ Endpoint documentation note for future LLM sessions:
 - if the repo later renames `API.md` or `APII.md`, use that renamed file as the same canonical API reference
 - use `LLM.md` for architecture, continuity, and task context; use `API.md` for concrete route surfaces and invariants
 - runtime-facing checks should resolve live employee instances from `/agent/employees` by role/team intent instead of assuming seeded employee ids
+- UI and CI should resolve employee IDs for explicit-scope runtime routes such as `/agent/run-once`, `/agent/work-log`, and `/agent/manager-log` from `/agent/employees` by role/team intent before calling them; those routes must not invent internal scope defaults
 - CI live employee resolution should prefer semantic requirements over seeded-identity assumptions: use role/team/runtime as the initial candidate set, then filter by required scope properties, expected role metadata, or explicit behavior-based matchers as needed
 - schema and surface checks should prefer role-oriented invariants over seeded-id assertions where practical
 - `scripts/ci/shared/employee-ids.ts` must not exist; CI checks should resolve live employee ids by role/team from `/agent/employees` or use local fixture ids only for pure unit-style checks that do not depend on seeded runtime employees

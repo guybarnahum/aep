@@ -28,6 +28,7 @@ import {
   getMessageThreads,
   getNarrativeTimeline,
   getDepartmentOverview,
+  getDefaultRuntimeEmployeeIds,
   getOrgPresenceOverview,
   getReviewCycles,
   getRoles,
@@ -727,6 +728,13 @@ function attachDepartmentActionHandlers(): void {
       void updateDepartmentPaginationView();
     });
   });
+}
+
+async function resolveDashboardRuntimeEmployees(): Promise<{
+  infraOpsManagerEmployeeId: string;
+  timeoutRecoveryEmployeeId: string;
+}> {
+  return getDefaultRuntimeEmployeeIds();
 }
 
 function attachValidationHandlers(): void {
