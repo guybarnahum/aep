@@ -92,7 +92,15 @@ export async function resolveEmployeeIdByRole(
   });
 
   const employee =
-    matchingEmployees.find((entry) => entry.employment.isSynthetic !== true)
+    matchingEmployees.find(
+      (entry) =>
+        entry.employment.employmentStatus === "active"
+        && entry.employment.isSynthetic !== true,
+    )
+    ?? matchingEmployees.find(
+      (entry) => entry.employment.employmentStatus === "active",
+    )
+    ?? matchingEmployees.find((entry) => entry.employment.isSynthetic !== true)
     ?? matchingEmployees[0];
 
   if (!employee) {

@@ -58,15 +58,19 @@ async function main(): Promise<void> {
     throw new Error(`Failed to list employees: ${JSON.stringify(employees)}`);
   }
 
-  const hasRuntimePm = employees.employees.some(
+  const productManagerProjection = employees.employees.find(
     (employee: any) =>
       employee?.identity?.employeeId === productManagerEmployeeId
       && employee?.identity?.teamId === PM_TEAM_ID
       && employee?.identity?.roleId === PM_ROLE_ID,
   );
 
-  if (!hasRuntimePm) {
+  if (!productManagerProjection) {
     softSkip("runtime PM employee is not present in this deployment");
+  }
+
+  if (productManagerProjection.runtime?.runtimeStatus !== "implemented") {
+    softSkip("web PM is planned-only in this deployment and cannot be executed through /agent/run");
   }
 
   const before = await client.listTasks({

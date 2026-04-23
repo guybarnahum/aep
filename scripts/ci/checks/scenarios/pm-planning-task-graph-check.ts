@@ -36,6 +36,36 @@ async function main(): Promise<void> {
     runtimeStatus: "planned",
   });
 
+  const employees = await client.listEmployees({
+    teamId: "team_web_product",
+  });
+
+  if (!employees?.ok || !Array.isArray(employees.employees)) {
+    throw new Error(`Failed to list employees: ${JSON.stringify(employees)}`);
+  }
+
+  const productManagerProjection = employees.employees.find(
+    (employee: any) =>
+      employee?.identity?.employeeId === productManagerEmployeeId
+      && employee?.identity?.roleId === "product-manager-web",
+  );
+
+  if (!productManagerProjection) {
+    console.warn("pm-planning-task-graph-check skipped: web PM employee is not present in this deployment");
+    console.log("pm-planning-task-graph-check skipped", {
+      reason: "web PM employee is not present in this deployment",
+    });
+    process.exit(0);
+  }
+
+  if (productManagerProjection.runtime?.runtimeStatus !== "implemented") {
+    console.warn("pm-planning-task-graph-check skipped: web PM is planned-only in this deployment and cannot be executed through /agent/run");
+    console.log("pm-planning-task-graph-check skipped", {
+      reason: "web PM is planned-only in this deployment and cannot be executed through /agent/run",
+    });
+    process.exit(0);
+  }
+
   const before = await client.listTasks({
     companyId: "company_internal_aep",
     limit: 100,
