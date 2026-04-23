@@ -246,3 +246,53 @@ test("thinkWithinEmployeeBoundary falls back to role prompt profile styles when 
     /Reviewed the task using an evidence-first operational assessment\./,
   );
 });
+
+test("thinkWithinEmployeeBoundary classifies generated descriptive validation styles as operational evidence", async () => {
+  const result = await thinkWithinEmployeeBoundary({
+    employee: {
+      employeeId: EMPLOYEE_RELIABILITY_ENGINEER_ID,
+      employeeName: "Casey Validation",
+      companyId: "company_internal_aep",
+      teamId: "team_validation",
+      roleId: "reliability-engineer",
+    },
+    promptProfile: {
+      employeeId: EMPLOYEE_RELIABILITY_ENGINEER_ID,
+      basePrompt: "Employee private scaffold",
+      decisionStyle: "Evidence-first, scoped, and execution-oriented.",
+      collaborationStyle: "Works clearly through canonical threads, explicit handoffs, and bounded rationale.",
+      identitySeed: "casey|validation",
+      portraitPrompt: undefined,
+      promptVersion: "employee-v2",
+      status: "draft",
+      createdAt: "2026-04-22T00:00:00.000Z",
+      updatedAt: "2026-04-22T00:00:00.000Z",
+    },
+    rolePromptProfile: {
+      roleId: "reliability-engineer",
+      basePromptTemplate: "Role private scaffold",
+      decisionStyle: "analytical_and_evidence_first",
+      collaborationStyle: "precise_and_operational",
+      identitySeedTemplate: "role|validation",
+      promptVersion: "role-v1",
+      status: "approved",
+      createdAt: "2026-04-22T00:00:00.000Z",
+      updatedAt: "2026-04-22T00:00:00.000Z",
+    },
+    roleContract: {
+      roleId: "reliability-engineer",
+      title: "Reliability Engineer",
+      teamId: "team_validation",
+      jobDescriptionText: "Execute bounded validation work using explicit evidence.",
+      responsibilities: ["Validate deployments"],
+      successMetrics: ["High-signal validation results"],
+      constraints: ["Stay in scope"],
+      seniorityLevel: "individual_contributor",
+    } satisfies RoleJobDescriptionProjection,
+    taskContext: makeRunContext().taskContext,
+    observations: ["Health check failed with status 503"],
+  });
+
+  assert.equal(result.mode, "fallback");
+  assert.equal(result.presentationStyle, "operational_evidence");
+});

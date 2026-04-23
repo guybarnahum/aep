@@ -117,26 +117,76 @@ function normalizeWhitespace(value: string): string {
   return value.replace(/\s+/g, " ").trim();
 }
 
+function normalizeStyleToken(value?: string): string {
+  return value?.trim().toLowerCase() ?? "";
+}
+
+function isOperationalDecisionStyle(value?: string): boolean {
+  const normalized = normalizeStyleToken(value);
+
+  return normalized === "analytical_and_evidence_first"
+    || normalized.includes("evidence-first")
+    || normalized.includes("evidence first")
+    || (normalized.includes("analytical") && normalized.includes("evidence"))
+    || (normalized.includes("execution") && normalized.includes("oriented"));
+}
+
+function isOperationalCollaborationStyle(value?: string): boolean {
+  const normalized = normalizeStyleToken(value);
+
+  return normalized === "direct_and_operational"
+    || normalized === "precise_and_operational"
+    || normalized === "clear_and_operational"
+    || normalized.includes("direct") && normalized.includes("operational")
+    || normalized.includes("precise") && normalized.includes("operational")
+    || normalized.includes("clear") && normalized.includes("operational")
+    || normalized.includes("task-focused")
+    || normalized.includes("task focused");
+}
+
+function isStructuredDecisionStyle(value?: string): boolean {
+  const normalized = normalizeStyleToken(value);
+
+  return normalized === "strategic_and_structuring"
+    || normalized === "strategic_and_delivery_oriented"
+    || normalized === "analytical_and_structuring"
+    || normalized.includes("strategic") && normalized.includes("structur")
+    || normalized.includes("strategic") && normalized.includes("delivery")
+    || normalized.includes("comparative") && normalized.includes("governance")
+    || normalized.includes("alignment");
+}
+
+function isStructuredCollaborationStyle(value?: string): boolean {
+  const normalized = normalizeStyleToken(value);
+
+  return normalized === "clear_and_alignment_driven"
+    || normalized.includes("alignment")
+    || normalized.includes("handoff")
+    || normalized.includes("bounded rationale");
+}
+
 function mapDecisionStyleToDirective(value?: string): string | undefined {
-  switch (value) {
-    case "analytical_and_evidence_first":
-      return "Reason from concrete evidence first. Prefer explicit operational signals over speculation. Be disciplined about uncertainty.";
-    case "strategic_and_structuring":
-      return "Frame work in terms of goals, scope, sequencing, dependencies, and structured execution. Emphasize strategic clarity.";
-    default:
-      return value ? `Maintain this decision style: ${value}.` : undefined;
+  if (isOperationalDecisionStyle(value)) {
+    return "Reason from concrete evidence first. Prefer explicit operational signals over speculation. Be disciplined about uncertainty.";
   }
+
+  if (isStructuredDecisionStyle(value)) {
+    return "Frame work in terms of goals, scope, sequencing, dependencies, and structured execution. Emphasize strategic clarity.";
+  }
+
+  return value ? `Maintain this decision style: ${value}.` : undefined;
 }
 
 function mapCollaborationStyleToDirective(value?: string): string | undefined {
-  switch (value) {
-    case "direct_and_operational":
-      return "Communicate directly, concretely, and operationally. Prefer crisp, actionable language.";
-    case "clear_and_alignment_driven":
-      return "Communicate with clarity and alignment. Emphasize priorities, sequencing, and shared execution understanding.";
-    default:
-      return value ? `Maintain this collaboration style: ${value}.` : undefined;
+  if (isOperationalCollaborationStyle(value)) {
+    return "Communicate directly, concretely, and operationally. Prefer crisp, actionable language.";
   }
+
+  if (isStructuredCollaborationStyle(value)) {
+    return "Communicate with clarity and alignment. Emphasize priorities, sequencing, and shared execution understanding.";
+  }
+
+  return value ? `Maintain this collaboration style: ${value}.` : undefined;
 }
 
 function summarizeRoleContract(
@@ -227,8 +277,8 @@ function buildPersonaStyledFallback(
   const identitySeed = promptProfile?.identitySeed;
 
   if (
-    decisionStyle === "analytical_and_evidence_first" ||
-    collaborationStyle === "direct_and_operational"
+    isOperationalDecisionStyle(decisionStyle) ||
+    isOperationalCollaborationStyle(collaborationStyle)
   ) {
     return {
       privatePrefix: normalizeWhitespace(
@@ -246,8 +296,8 @@ function buildPersonaStyledFallback(
   }
 
   if (
-    decisionStyle === "strategic_and_structuring" ||
-    collaborationStyle === "clear_and_alignment_driven"
+    isStructuredDecisionStyle(decisionStyle) ||
+    isStructuredCollaborationStyle(collaborationStyle)
   ) {
     return {
       privatePrefix: normalizeWhitespace(
@@ -288,15 +338,15 @@ function derivePublicRationalePresentationStyle(
     input.promptProfile?.collaborationStyle ?? input.rolePromptProfile?.collaborationStyle;
 
   if (
-    decisionStyle === "analytical_and_evidence_first" ||
-    collaborationStyle === "direct_and_operational"
+    isOperationalDecisionStyle(decisionStyle) ||
+    isOperationalCollaborationStyle(collaborationStyle)
   ) {
     return "operational_evidence";
   }
 
   if (
-    decisionStyle === "strategic_and_structuring" ||
-    collaborationStyle === "clear_and_alignment_driven"
+    isStructuredDecisionStyle(decisionStyle) ||
+    isStructuredCollaborationStyle(collaborationStyle)
   ) {
     return "structured_alignment";
   }
