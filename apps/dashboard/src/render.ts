@@ -508,20 +508,55 @@ function formatTimestamp(value: string | null | undefined): string {
     relative = "";
   }
 
+  const browserTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
   const absolute = d.toLocaleString(undefined, {
     month: "short",
     day: "numeric",
     hour: "2-digit",
     minute: "2-digit",
     second: "2-digit",
+    timeZoneName: "short",
   });
 
-  const title = d.toISOString();
+  const title = browserTimeZone
+    ? `${d.toLocaleString(undefined, {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        timeZoneName: "long",
+      })} (${browserTimeZone})`
+    : absolute;
 
   if (relative) {
     return `<span title="${escapeHtml(title)}" class="timestamp">${escapeHtml(relative)} <span class="muted small">${escapeHtml(absolute)}</span></span>`;
   }
   return `<span title="${escapeHtml(title)}" class="timestamp">${escapeHtml(absolute)}</span>`;
+}
+
+function formatLocalDateTimeLabel(value: string | null | undefined): string {
+  if (!value) {
+    return "—";
+  }
+
+  const d = new Date(value);
+  if (isNaN(d.getTime())) {
+    return escapeHtml(value);
+  }
+
+  return escapeHtml(
+    d.toLocaleString(undefined, {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      timeZoneName: "short",
+    }),
+  );
 }
 
 function formatJsonBlock(value: unknown): string {
@@ -1172,7 +1207,7 @@ export function renderValidationOverview(overview: ValidationOverview): string {
         ${renderSummaryCard("Scheduler", scheduler.paused ? "Paused" : "Active", scheduler.pause_reason ?? "Recurring validation cron ready")}
         ${renderSummaryCard("Runs", overview.summary.total_runs, `${overview.summary.completed_runs} completed · ${overview.summary.failed_runs} failed`)}
         ${renderSummaryCard("Origins", overview.summary.recurring_runs, `${overview.summary.manual_runs} manual · ${overview.summary.post_deploy_runs} post-deploy`)}
-        ${renderSummaryCard("Latest result", overview.summary.latest_result_status ?? "—", overview.summary.latest_completed_at ? `Completed ${new Date(overview.summary.latest_completed_at).toLocaleString()}` : "No completed runs yet")}
+        ${renderSummaryCard("Latest result", overview.summary.latest_result_status ?? "—", overview.summary.latest_completed_at ? `Completed ${formatLocalDateTimeLabel(overview.summary.latest_completed_at)}` : "No completed runs yet")}
       </div>
 
       <div class="validation-scheduler-strip">
