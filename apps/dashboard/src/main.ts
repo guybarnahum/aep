@@ -7,6 +7,58 @@ function getDashboardBuildDate(): string {
   const configured = import.meta.env.VITE_BUILD_DATE;
   return (configured && configured.trim()) || "local build";
 }
+
+function escapeHtml(value: unknown): string {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
+function normalizeDashboardBuildDate(value: string): Date | null {
+  const trimmed = value.trim();
+  if (!trimmed || trimmed === "local build") {
+    return null;
+  }
+
+  const utcMatch = trimmed.match(
+    /^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2}:\d{2})\s+UTC$/,
+  );
+  const normalized = utcMatch
+    ? `${utcMatch[1]}T${utcMatch[2]}Z`
+    : trimmed;
+  const parsed = new Date(normalized);
+
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function formatDashboardBuildDate(value: string): string {
+  const parsed = normalizeDashboardBuildDate(value);
+  if (!parsed) {
+    return escapeHtml(value);
+  }
+
+  return escapeHtml(
+    parsed.toLocaleString(undefined, {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      timeZoneName: "short",
+    }),
+  );
+}
+
+function renderHeaderEndpointLink(label: string, url: string): string {
+  const escapedLabel = escapeHtml(label);
+  const escapedUrl = escapeHtml(url);
+
+  return `${escapedLabel}: <a href="${escapedUrl}" target="_blank" rel="noreferrer">${escapedLabel} &#8599;</a>`;
+}
 import {
   acknowledgeEscalation,
   acknowledgeEscalationFromThread,
@@ -496,11 +548,11 @@ function renderShell(content: string, error?: string): void {
           <p class="muted">Agentic company view: work, employees, teams, and governance.</p>
         </div>
         <div class="endpoint-stack muted">
-          <div>Control plane: ${getApiBaseUrl()}</div>
-          <div>Operator agent: ${getOperatorAgentBaseUrl()}</div>
+          <div>${renderHeaderEndpointLink("Control Plane", getApiBaseUrl())}</div>
+          <div>${renderHeaderEndpointLink("Operator Agent", getOperatorAgentBaseUrl())}</div>
           <div class="build-meta">
-            <div>Dashboard build: ${getDashboardBuildCommit()}</div>
-            <div>${getDashboardBuildDate()}</div>
+            <div>Dashboard build: ${escapeHtml(getDashboardBuildCommit())}</div>
+            <div>${formatDashboardBuildDate(getDashboardBuildDate())}</div>
           </div>
         </div>
       </header>
