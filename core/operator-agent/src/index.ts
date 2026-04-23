@@ -20,6 +20,10 @@ import { handleEmployees } from "./routes/employees";
 import { handleEmployeeScope } from "./routes/employee-scope";
 import { handleUpdateEmployee } from "./routes/employee-update";
 import { handleRoles } from "./routes/roles";
+import {
+  handleRuntimeRolePolicies,
+  handleRuntimeRolePolicyDetail,
+} from "./routes/runtime-role-policies";
 import { handleReviewCycles } from "./routes/review-cycles";
 import { handleManagerLog } from "./routes/manager-log";
 import { handleRun } from "./routes/run";
@@ -63,7 +67,7 @@ import type { OperatorAgentEnv } from "./types";
 
 const CORS_HEADERS: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  "Access-Control-Allow-Methods": "GET, POST, PATCH, PUT, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type",
 };
 
@@ -117,6 +121,21 @@ async function dispatch(request: Request, env: OperatorAgentEnv): Promise<Respon
 
   if (url.pathname === "/agent/roles") {
     return handleRoles(request, env);
+  }
+
+  if (url.pathname === "/agent/runtime-role-policies") {
+    return handleRuntimeRolePolicies(request, env);
+  }
+
+  const runtimeRolePolicyMatch = url.pathname.match(
+    /^\/agent\/runtime-role-policies\/([^/]+)$/,
+  );
+  if (runtimeRolePolicyMatch) {
+    return handleRuntimeRolePolicyDetail(
+      request,
+      env,
+      decodeURIComponent(runtimeRolePolicyMatch[1]),
+    );
   }
 
   if (url.pathname === "/agent/review-cycles") {

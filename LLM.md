@@ -15,11 +15,15 @@ Endpoint documentation note for future LLM sessions:
 - runtime-facing checks should resolve live employee instances from `/agent/employees` by role/team intent instead of assuming seeded employee ids
 - UI and CI should resolve employee IDs for explicit-scope runtime routes such as `/agent/run-once`, `/agent/work-log`, and `/agent/manager-log` from `/agent/employees` by role/team intent before calling them; those routes must not invent internal scope defaults
 - role metadata such as `runtime_enabled`, `implementation_binding`, and `manager_role_id` belongs in `roles_catalog`, while runtime authority, budget, and escalation policy belong in D1-backed `runtime_role_policies`; executable code selection still remains code-owned and allowlisted through implementation binding registry resolution
+- dashboard editing of runtime role policy is allowed only through validated runtime-policy APIs
+- runtime policy editing must not expose implementation binding editing or dynamic executable dispatch
+- invalid policy shapes must fail closed before persistence
 - CI live employee resolution should prefer semantic requirements over seeded-identity assumptions: use role/team/runtime as the initial candidate set, then filter by required scope properties, expected role metadata, or explicit behavior-based matchers as needed
 - schema and surface checks should prefer role-oriented invariants over seeded-id assertions where practical
 - `scripts/ci/shared/employee-ids.ts` must not exist; CI checks should resolve live employee ids by role/team from `/agent/employees` or use local fixture ids only for pure unit-style checks that do not depend on seeded runtime employees
 - staging and production contracts validation must not create synthetic employees
 - synthetic employee lifecycle/persona mutation checks belong only in the async-validation lane
+- runtime role policy mutation-and-revert contract checks belong only in the async-validation lane
 - async-validation may enable `ENABLE_TEST_ENDPOINTS=true` and purge synthetic employees after mutation checks complete
 - recurring validation should not depend on an environment-specific base URL when the control-plane can execute the validation batch directly
 - internal recurring validation should record an internal execution target marker rather than a deployed HTTP URL

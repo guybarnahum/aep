@@ -32,6 +32,7 @@ import {
   getOrgPresenceOverview,
   getReviewCycles,
   getRoles,
+  getRuntimeRolePolicies,
   getTaskDetail,
   getValidationOverview,
   getWorkTasks,
@@ -48,6 +49,7 @@ import {
   runValidationNow,
   runEmployeeLifecycleAction,
   updateEmployeeProfile,
+  updateRuntimeRolePolicy,
 } from "./api";
 import type {
   DepartmentFilters,
@@ -69,6 +71,7 @@ import {
   renderPrimaryNav,
   renderRoleDetail,
   renderRolesCatalog,
+  renderRuntimeRolePoliciesPage,
   renderServiceOverview,
   renderTaskDetail,
   renderTeamDetail,
@@ -113,6 +116,7 @@ type Route =
   | { kind: "employee"; employeeId: string }
   | { kind: "roles" }
   | { kind: "role"; roleId: string }
+  | { kind: "runtimeRolePolicies"; roleId?: string }
   | { kind: "teams" }
   | { kind: "team"; teamId: string }
   | { kind: "company" }
@@ -394,6 +398,10 @@ function getRoute(defaultTenantId: string): Route {
     return { kind: "roles" };
   }
 
+  if (hash === "runtime-role-policies") {
+    return { kind: "runtimeRolePolicies" };
+  }
+
   if (hash === "teams") {
     return { kind: "teams" };
   }
@@ -412,6 +420,14 @@ function getRoute(defaultTenantId: string): Route {
 
   if (hash === "validation") {
     return { kind: "validation" };
+  }
+
+  const runtimeRolePolicyMatch = hash.match(/^runtime-role-policies\/(.+)$/);
+  if (runtimeRolePolicyMatch?.[1]) {
+    return {
+      kind: "runtimeRolePolicies",
+      roleId: decodeURIComponent(runtimeRolePolicyMatch[1]),
+    };
   }
 
   const taskMatch = hash.match(/^task\/(.+)$/);
@@ -1005,6 +1021,56 @@ function attachPeopleHandlers(): void {
   });
 }
 
+function parseJsonField<T>(formData: FormData, fieldName: string): T {
+  const raw = String(formData.get(fieldName) ?? "").trim();
+  if (!raw) {
+    throw new Error(`${fieldName} JSON is required`);
+  }
+
+  const parsed = JSON.parse(raw);
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new Error(`${fieldName} JSON must be an object`);
+  }
+
+  return parsed as T;
+}
+
+function attachRuntimeRolePolicyHandlers(): void {
+  const form = document.querySelector<HTMLFormElement>("#runtime-role-policy-form");
+  form?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const roleId = form.dataset.roleId;
+    if (!roleId) {
+      return;
+    }
+
+    const formData = new FormData(form);
+
+    try {
+      setMutationStatus(`Saving runtime policy for ${roleId}...`);
+      void renderRoute();
+
+      await updateRuntimeRolePolicy(roleId, {
+        authority: parseJsonField(formData, "authority"),
+        budget: parseJsonField(formData, "budget"),
+        escalation: parseJsonField(formData, "escalation"),
+        updatedBy:
+          String(formData.get("updatedBy") ?? "").trim() ||
+          "human_dashboard_operator",
+        reason: String(formData.get("reason") ?? "").trim() || undefined,
+      });
+
+      setMutationStatus(`Saved runtime policy for ${roleId}.`);
+    } catch (error) {
+      setMutationStatus(
+        error instanceof Error ? error.message : "Failed to save runtime role policy",
+      );
+    }
+
+    void renderRoute();
+  });
+}
+
 function attachEmployeeManagementHandlers(): void {
   const profileForm = document.querySelector<HTMLFormElement>("#employee-profile-form");
   const lifecycleForm = document.querySelector<HTMLFormElement>("#employee-lifecycle-form");
@@ -1351,6 +1417,7 @@ async function renderRoute(): Promise<void> {
       "work",
       "employees",
       "roles",
+      "runtime-role-policies",
       "teams",
       "company",
       "mirrors",
@@ -1412,6 +1479,8 @@ async function renderRoute(): Promise<void> {
                 route.kind === "roles" ||
                 route.kind === "role"
               ? "people"
+                : route.kind === "runtimeRolePolicies"
+                  ? "runtime-role-policies"
               : route.kind === "teams" ||
                 route.kind === "team" ||
                 route.kind === "company"
@@ -1432,6 +1501,7 @@ async function renderRoute(): Promise<void> {
           route.kind === "employee" ||
           route.kind === "roles" ||
           route.kind === "role" ||
+          route.kind === "runtimeRolePolicies" ||
           route.kind === "teams" ||
           route.kind === "team" ||
           route.kind === "company" ||
@@ -1460,6 +1530,7 @@ async function renderRoute(): Promise<void> {
       route.kind === "employee" ||
       route.kind === "roles" ||
       route.kind === "role" ||
+      route.kind === "runtimeRolePolicies" ||
       route.kind === "teams" ||
       route.kind === "team" ||
       route.kind === "company"
@@ -1499,6 +1570,13 @@ async function renderRoute(): Promise<void> {
         );
       } else if (route.kind === "roles") {
         content += renderRolesCatalog(roles, orgOverview);
+      } else if (route.kind === "runtimeRolePolicies") {
+        const policies = await getRuntimeRolePolicies();
+        content += renderRuntimeRolePoliciesPage({
+          roles,
+          policies,
+          selectedRoleId: route.roleId ?? null,
+        });
       } else if (route.kind === "role") {
         content += renderRoleDetail(route.roleId, roles, orgOverview, reviewCycles);
       } else if (route.kind === "teams") {
@@ -1552,6 +1630,10 @@ async function renderRoute(): Promise<void> {
 
     if (route.kind === "employees") {
       attachPeopleHandlers();
+    }
+
+    if (route.kind === "runtimeRolePolicies") {
+      attachRuntimeRolePolicyHandlers();
     }
 
     if (route.kind === "employee") {

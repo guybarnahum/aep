@@ -20,6 +20,8 @@ import type {
   NarrativeTimelineItem,
   OrgPresenceOverview,
   RoleJobDescriptionProjection,
+  RuntimeRolePolicyInput,
+  RuntimeRolePolicyRecord,
   TaskDetail,
   TaskRecord,
   ApprovalRecord,
@@ -590,6 +592,46 @@ export async function getRoles(teamId?: string): Promise<RoleJobDescriptionProje
     roles: RoleJobDescriptionProjection[];
   }>(getOperatorAgentBaseUrl(), path);
   return (payload.roles ?? []).map(normalizeRole);
+}
+
+export async function getRuntimeRolePolicies(): Promise<RuntimeRolePolicyRecord[]> {
+  const payload = await getJson<{
+    ok: boolean;
+    count: number;
+    policies: RuntimeRolePolicyRecord[];
+  }>(getOperatorAgentBaseUrl(), "/agent/runtime-role-policies");
+
+  return payload.policies ?? [];
+}
+
+export async function getRuntimeRolePolicy(
+  roleId: string,
+): Promise<RuntimeRolePolicyRecord> {
+  const payload = await getJson<{
+    ok: boolean;
+    policy: RuntimeRolePolicyRecord;
+  }>(
+    getOperatorAgentBaseUrl(),
+    `/agent/runtime-role-policies/${encodeURIComponent(roleId)}`,
+  );
+
+  return payload.policy;
+}
+
+export async function updateRuntimeRolePolicy(
+  roleId: string,
+  input: RuntimeRolePolicyInput,
+): Promise<RuntimeRolePolicyRecord> {
+  const payload = await patchJson<{
+    ok: boolean;
+    policy: RuntimeRolePolicyRecord;
+  }>(
+    getOperatorAgentBaseUrl(),
+    `/agent/runtime-role-policies/${encodeURIComponent(roleId)}`,
+    input as unknown as Record<string, unknown>,
+  );
+
+  return payload.policy;
 }
 
 export async function getReviewCycles(): Promise<EmployeeReviewCycleRecord[]> {

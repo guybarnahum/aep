@@ -1,5 +1,6 @@
 /* eslint-disable no-console */
 
+import assert from "node:assert/strict";
 import { createOperatorAgentClient } from "../../clients/operator-agent-client";
 import { getApprovalEntries } from "../../contracts/approvals";
 import { resolveEmployeeIdsByKey } from "../../lib/employee-resolution";
@@ -28,8 +29,174 @@ async function expectRequestFailure(
 
 const SYNTHETIC_EMPLOYEE_NAME_PREFIXES = ["Lifecycle Test ", "Persona Test "];
 
+type RuntimeRolePolicyRecord = {
+  roleId: string;
+  authority: {
+    allowedOperatorActions: string[];
+    allowedTenants?: string[];
+    allowedServices?: string[];
+    allowedEnvironmentNames?: string[];
+    requireTraceVerification: boolean;
+  };
+  budget: {
+    maxActionsPerScan: number;
+    maxActionsPerHour: number;
+    maxActionsPerTenantPerHour: number;
+    tokenBudgetDaily: number;
+    runtimeBudgetMsPerScan: number;
+    verificationReadsPerAction: number;
+  };
+  escalation: {
+    onBudgetExhausted: string;
+    onRepeatedVerificationFailure: string;
+    onProdTenantAction: string;
+  };
+};
+
 function enableSyntheticMutationChecks(): boolean {
   return process.env.OPERATOR_AGENT_ENABLE_SYNTHETIC_MUTATION_CHECKS === "true";
+}
+
+function enableRuntimeRolePolicyMutationChecks(): boolean {
+  return process.env.OPERATOR_AGENT_ENABLE_RUNTIME_ROLE_POLICY_MUTATION_CHECKS === "true";
+}
+
+async function readRuntimeRolePolicy(
+  agentBaseUrl: string,
+  roleId: string,
+): Promise<RuntimeRolePolicyRecord> {
+  const response = await fetch(
+    `${agentBaseUrl}/agent/runtime-role-policies/${encodeURIComponent(roleId)}`,
+  );
+
+  const payload = (await response.json()) as {
+    ok?: boolean;
+    error?: string;
+    policy?: RuntimeRolePolicyRecord;
+  };
+
+  if (!response.ok || payload.ok !== true || !payload.policy) {
+    throw new Error(
+      `Failed to read runtime role policy ${roleId}: ${payload.error ?? response.statusText}`,
+    );
+  }
+
+  return payload.policy;
+}
+
+async function patchRuntimeRolePolicy(args: {
+  agentBaseUrl: string;
+  roleId: string;
+  policy: RuntimeRolePolicyRecord;
+  reason: string;
+}): Promise<RuntimeRolePolicyRecord> {
+  const response = await fetch(
+    `${args.agentBaseUrl}/agent/runtime-role-policies/${encodeURIComponent(args.roleId)}`,
+    {
+      method: "PATCH",
+      headers: {
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        authority: args.policy.authority,
+        budget: args.policy.budget,
+        escalation: args.policy.escalation,
+        updatedBy: "ci-operator-agent-contract-check",
+        reason: args.reason,
+      }),
+    },
+  );
+
+  const payload = (await response.json()) as {
+    ok?: boolean;
+    error?: string;
+    policy?: RuntimeRolePolicyRecord;
+  };
+
+  if (!response.ok || payload.ok !== true || !payload.policy) {
+    throw new Error(
+      `Failed to patch runtime role policy ${args.roleId}: ${payload.error ?? response.statusText}`,
+    );
+  }
+
+  return payload.policy;
+}
+
+async function runRuntimeRolePolicyMutationCheck(args: {
+  agentBaseUrl: string;
+  roles: Array<{ roleId: string; runtimeEnabled?: boolean }>;
+  listedPolicies: RuntimeRolePolicyRecord[];
+}): Promise<{ roleId: string; originalRuntimeBudgetMsPerScan: number; mutatedRuntimeBudgetMsPerScan: number; } | null> {
+  if (!enableRuntimeRolePolicyMutationChecks()) {
+    return null;
+  }
+
+  const roleId = "infra-ops-manager";
+  const role = args.roles.find((entry) => entry.roleId === roleId);
+  if (!role || role.runtimeEnabled !== true) {
+    throw new Error(`Expected runtime-enabled role for mutation check: ${roleId}`);
+  }
+
+  if (!args.listedPolicies.some((policy) => policy.roleId === roleId)) {
+    throw new Error(`Expected listed runtime role policy for mutation check: ${roleId}`);
+  }
+
+  const original = await readRuntimeRolePolicy(args.agentBaseUrl, roleId);
+  const mutated: RuntimeRolePolicyRecord = {
+    ...original,
+    budget: {
+      ...original.budget,
+      runtimeBudgetMsPerScan: original.budget.runtimeBudgetMsPerScan + 1,
+    },
+  };
+
+  try {
+    const patched = await patchRuntimeRolePolicy({
+      agentBaseUrl: args.agentBaseUrl,
+      roleId,
+      policy: mutated,
+      reason: "CI runtime role policy mutation contract check",
+    });
+
+    assert.equal(
+      patched.budget.runtimeBudgetMsPerScan,
+      mutated.budget.runtimeBudgetMsPerScan,
+      "Expected PATCH runtime role policy response to reflect updated runtimeBudgetMsPerScan",
+    );
+
+    const reloaded = await readRuntimeRolePolicy(args.agentBaseUrl, roleId);
+    assert.equal(
+      reloaded.budget.runtimeBudgetMsPerScan,
+      mutated.budget.runtimeBudgetMsPerScan,
+      "Expected reloaded runtime role policy to reflect updated runtimeBudgetMsPerScan",
+    );
+  } finally {
+    const reverted = await patchRuntimeRolePolicy({
+      agentBaseUrl: args.agentBaseUrl,
+      roleId,
+      policy: original,
+      reason: "CI runtime role policy revert",
+    });
+
+    assert.deepEqual(
+      reverted,
+      original,
+      "Expected reverted runtime role policy response to match original policy",
+    );
+
+    const rereadOriginal = await readRuntimeRolePolicy(args.agentBaseUrl, roleId);
+    assert.deepEqual(
+      rereadOriginal,
+      original,
+      "Expected runtime role policy to be restored after revert",
+    );
+  }
+
+  return {
+    roleId,
+    originalRuntimeBudgetMsPerScan: original.budget.runtimeBudgetMsPerScan,
+    mutatedRuntimeBudgetMsPerScan: mutated.budget.runtimeBudgetMsPerScan,
+  };
 }
 
 function isSyntheticContractTestEmployee(employee: {
@@ -247,6 +414,31 @@ async function main(): Promise<void> {
     if (!rolesResponse.ok) {
       throw new Error("/agent/roles did not return ok=true");
     }
+
+    const runtimePoliciesResponse = await fetch(
+      `${agentBaseUrl}/agent/runtime-role-policies`,
+    );
+    if (!runtimePoliciesResponse.ok) {
+      throw new Error("Expected /agent/runtime-role-policies to be available");
+    }
+
+    const runtimePoliciesPayload = (await runtimePoliciesResponse.json()) as {
+      ok?: boolean;
+      policies?: RuntimeRolePolicyRecord[];
+    };
+    if (
+      runtimePoliciesPayload.ok !== true ||
+      !Array.isArray(runtimePoliciesPayload.policies)
+    ) {
+      throw new Error("Expected runtime role policies response shape");
+    }
+
+    const runtimeRolePolicyMutationResult =
+      await runRuntimeRolePolicyMutationCheck({
+        agentBaseUrl,
+        roles: rolesResponse.roles,
+        listedPolicies: runtimePoliciesPayload.policies,
+      });
 
     const reviewCycleResult = await client.createReviewCycle({
       name: `Cycle ${Date.now()}`,
@@ -957,6 +1149,9 @@ async function main(): Promise<void> {
       employeeCount: employeesResponse.count,
       roleCount: rolesResponse.count,
       syntheticMutationChecksEnabled: enableSyntheticMutationChecks(),
+      runtimeRolePolicyMutationChecksEnabled:
+        enableRuntimeRolePolicyMutationChecks(),
+      runtimeRolePolicyMutationResult,
       reviewCycleId: reviewCycleResult.reviewCycle.reviewCycleId,
       draftReviewCycleId: draftReviewCycleResult.reviewCycle.reviewCycleId,
       reviewId: reviewCreateResult.review.reviewId,

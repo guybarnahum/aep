@@ -61,6 +61,24 @@ Base service: `core/operator-agent`
 - Important invariant: role-level prompt scaffolding remains private and is not exposed through this route.
 - Live-selection note: CI capability-based employee resolution may use this route as role metadata input when a caller needs to select an employee by expected role behavior instead of by seeded identity.
 
+### Runtime Role Policies
+
+`GET /agent/runtime-role-policies`
+
+- Lists runtime authority, budget, and escalation policy by role.
+- Intended for operator visibility and dashboard editing.
+
+`GET /agent/runtime-role-policies/:roleId`
+
+- Returns the runtime policy for one role.
+
+`PATCH /agent/runtime-role-policies/:roleId`
+
+- Updates authority, budget, and/or escalation policy for a runtime-enabled role.
+- Rejects unknown roles and roles that are not `runtime_enabled`.
+- Validates JSON shape, supported operator actions, supported escalation actions, and non-negative budget values.
+- Does not allow editing implementation bindings; implementation dispatch remains code-owned and allowlisted.
+
 `GET /agent/employees`
 
 - Lists employees.

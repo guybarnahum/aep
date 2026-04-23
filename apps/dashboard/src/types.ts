@@ -161,6 +161,44 @@ export type EmployeeVisualIdentityPublic = {
   appearanceSummary?: string;
   avatarUrl?: string;
 };
+
+export type RuntimeRoleAuthority = {
+  allowedOperatorActions: string[];
+  allowedTenants?: string[];
+  allowedServices?: string[];
+  allowedEnvironmentNames?: string[];
+  requireTraceVerification: boolean;
+};
+
+export type RuntimeRoleBudget = {
+  maxActionsPerScan: number;
+  maxActionsPerHour: number;
+  maxActionsPerTenantPerHour: number;
+  tokenBudgetDaily: number;
+  runtimeBudgetMsPerScan: number;
+  verificationReadsPerAction: number;
+};
+
+export type RuntimeRoleEscalationPolicy = {
+  onBudgetExhausted: string;
+  onRepeatedVerificationFailure: string;
+  onProdTenantAction: string;
+};
+
+export type RuntimeRolePolicyRecord = {
+  roleId: string;
+  authority: RuntimeRoleAuthority;
+  budget: RuntimeRoleBudget;
+  escalation: RuntimeRoleEscalationPolicy;
+};
+
+export type RuntimeRolePolicyInput = {
+  authority: RuntimeRoleAuthority;
+  budget: RuntimeRoleBudget;
+  escalation: RuntimeRoleEscalationPolicy;
+  updatedBy?: string;
+  reason?: string;
+};
 export type TeamRoadmap = {
   id: string;
   team_id: string;
@@ -649,6 +687,10 @@ export type RoleJobDescriptionProjection = {
   roleId: string;
   title: string;
   teamId: string;
+  employeeIdCode?: string;
+  runtimeEnabled?: boolean;
+  implementationBinding?: string;
+  managerRoleId?: string;
   jobDescriptionText: string;
   responsibilities: string[];
   successMetrics: string[];

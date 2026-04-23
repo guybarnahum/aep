@@ -26,6 +26,10 @@ on:
         required: false
         type: boolean
         default: false
+      enable_runtime_role_policy_mutation_checks:
+        required: false
+        type: boolean
+        default: false
     outputs:
       outcome:
         description: "Outcome of the contracts layer validation job"
@@ -53,6 +57,7 @@ jobs:
       CF_ENV: ${{ inputs.cf_env }}
       GIT_SHA: ${{ inputs.git_sha }}
       OPERATOR_AGENT_ENABLE_SYNTHETIC_MUTATION_CHECKS: ${{ inputs.enable_synthetic_employee_mutation_checks && 'true' || 'false' }}
+      OPERATOR_AGENT_ENABLE_RUNTIME_ROLE_POLICY_MUTATION_CHECKS: ${{ inputs.enable_runtime_role_policy_mutation_checks && 'true' || 'false' }}
 
     steps:
       - uses: actions/checkout@v5
@@ -193,6 +198,7 @@ jobs:
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "- Environment: $CF_ENV" >> "$GITHUB_STEP_SUMMARY"
           echo "- Synthetic employee mutation checks: $OPERATOR_AGENT_ENABLE_SYNTHETIC_MUTATION_CHECKS" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Runtime role policy mutation checks: $OPERATOR_AGENT_ENABLE_RUNTIME_ROLE_POLICY_MUTATION_CHECKS" >> "$GITHUB_STEP_SUMMARY"
           echo "- Control-plane URL source: ${CONTROL_PLANE_BASE_URL_SOURCE:-unknown}" >> "$GITHUB_STEP_SUMMARY"
           echo "- Operator-agent URL source: ${OPERATOR_AGENT_BASE_URL_SOURCE:-unknown}" >> "$GITHUB_STEP_SUMMARY"
           echo "- SHA: $GIT_SHA" >> "$GITHUB_STEP_SUMMARY"

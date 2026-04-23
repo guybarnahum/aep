@@ -141,6 +141,7 @@ jobs:
       git_sha: ${{ needs.deploy-async-environment.outputs.git_sha }}
       node_version: "20"
       enable_synthetic_employee_mutation_checks: true
+      enable_runtime_role_policy_mutation_checks: true
     secrets: inherit
 
   validate-async-orchestration:

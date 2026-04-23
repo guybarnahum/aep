@@ -154,6 +154,7 @@ import type {
   OperatorEmployeeRecord,
   OrgPresenceOverview,
   RoleJobDescriptionProjection,
+  RuntimeRolePolicyRecord,
   TaskArtifactRecord,
   TaskDependency,
   TaskDetail,
@@ -1096,7 +1097,7 @@ export function renderToolbar(args: {
 }
 
 export function renderPrimaryNav(args: {
-  activeView: "tenant" | "department" | "work" | "people" | "company" | "mirrors" | "activity" | "validation";
+  activeView: "tenant" | "department" | "work" | "people" | "company" | "mirrors" | "activity" | "validation" | "runtime-role-policies";
   tenantHref: string;
 }): string {
   return `
@@ -1113,6 +1114,9 @@ export function renderPrimaryNav(args: {
         </a>
         <a class="view-nav-link ${args.activeView === "people" ? "view-nav-link-active" : ""}" href="#employees">
           People
+        </a>
+        <a class="view-nav-link ${args.activeView === "runtime-role-policies" ? "view-nav-link-active" : ""}" href="#runtime-role-policies">
+          Runtime Policies
         </a>
         <a class="view-nav-link ${args.activeView === "company" ? "view-nav-link-active" : ""}" href="#company">
           Company
@@ -2860,6 +2864,154 @@ export function renderRolesCatalog(
       <div class="panel-header"><h3>Catalog</h3></div>
       <div class="service-grid">
         ${sortedRoles.map((role) => renderRoleCard(role, overview.employees.filter((employee) => employee.identity.roleId === role.roleId).length)).join("")}
+      </div>
+    </section>
+  `;
+}
+
+function renderRuntimePolicyJsonBlock(value: unknown): string {
+  return `<pre class="json-block scroll-block">${formatJsonBlock(value)}</pre>`;
+}
+
+function renderRuntimeRolePolicyEditor(
+  role: RoleJobDescriptionProjection,
+  policy: RuntimeRolePolicyRecord | null,
+): string {
+  const defaultPolicy = {
+    authority: {
+      allowedOperatorActions: [],
+      allowedTenants: [],
+      allowedServices: [],
+      allowedEnvironmentNames: [],
+      requireTraceVerification: true,
+    },
+    budget: {
+      maxActionsPerScan: 0,
+      maxActionsPerHour: 0,
+      maxActionsPerTenantPerHour: 0,
+      tokenBudgetDaily: 0,
+      runtimeBudgetMsPerScan: 5000,
+      verificationReadsPerAction: 0,
+    },
+    escalation: {
+      onBudgetExhausted: "notify-human",
+      onRepeatedVerificationFailure: "notify-human",
+      onProdTenantAction: "require-manager-approval",
+    },
+  };
+
+  const current = policy ?? {
+    roleId: role.roleId,
+    ...defaultPolicy,
+  };
+
+  return `
+    <div class="panel-header">
+      <div>
+        <h3>${escapeHtml(role.title)}</h3>
+        <p class="muted small">
+          ${escapeHtml(role.roleId)} · ${escapeHtml(role.teamId)} · implementation=${escapeHtml(role.implementationBinding ?? "none")}
+        </p>
+      </div>
+      <span class="${policy ? "status status-completed" : "status status-failed"}">
+        ${policy ? "policy present" : "new policy"}
+      </span>
+    </div>
+
+    <form id="runtime-role-policy-form" data-role-id="${escapeHtml(role.roleId)}" class="form-grid">
+      <label>
+        <span>Authority JSON</span>
+        <textarea name="authority" rows="12" spellcheck="false">${escapeHtml(JSON.stringify(current.authority, null, 2))}</textarea>
+      </label>
+
+      <label>
+        <span>Budget JSON</span>
+        <textarea name="budget" rows="10" spellcheck="false">${escapeHtml(JSON.stringify(current.budget, null, 2))}</textarea>
+      </label>
+
+      <label>
+        <span>Escalation JSON</span>
+        <textarea name="escalation" rows="8" spellcheck="false">${escapeHtml(JSON.stringify(current.escalation, null, 2))}</textarea>
+      </label>
+
+      <label>
+        <span>Reason</span>
+        <input name="reason" value="Dashboard runtime role policy update" />
+      </label>
+
+      <label>
+        <span>Updated by</span>
+        <input name="updatedBy" value="human_dashboard_operator" />
+      </label>
+
+      <div class="warning-callout">
+        Runtime policy changes affect future employee execution. Unsupported operator actions,
+        invalid escalation actions, malformed JSON, and negative budgets are rejected by the API.
+      </div>
+
+      <div class="form-actions">
+        <button type="submit" class="button">Save runtime policy</button>
+        <a class="button button-secondary" href="#roles">Back to roles</a>
+      </div>
+    </form>
+
+    <details class="expandable-block">
+      <summary>Current effective policy JSON</summary>
+      ${renderRuntimePolicyJsonBlock(current)}
+    </details>
+  `;
+}
+
+export function renderRuntimeRolePoliciesPage(args: {
+  roles: RoleJobDescriptionProjection[];
+  policies: RuntimeRolePolicyRecord[];
+  selectedRoleId?: string | null;
+}): string {
+  const policyByRole = new Map(args.policies.map((policy) => [policy.roleId, policy]));
+  const runtimeRoles = args.roles.filter((role) => role.runtimeEnabled === true);
+  const selectedRoleId = args.selectedRoleId ?? runtimeRoles[0]?.roleId ?? null;
+  const selectedRole = runtimeRoles.find((role) => role.roleId === selectedRoleId) ?? null;
+  const selectedPolicy = selectedRoleId ? policyByRole.get(selectedRoleId) ?? null : null;
+
+  return `
+    <section class="panel">
+      <div class="panel-header">
+        <div>
+          <h2>Runtime Role Policies</h2>
+          <p class="muted">
+            Edit runtime authority, budget, and escalation policy for runtime-enabled roles.
+            Implementation bindings remain code-owned and are not editable here.
+          </p>
+        </div>
+      </div>
+
+      <div class="split-layout">
+        <aside class="side-list">
+          ${runtimeRoles
+            .map((role) => {
+              const hasPolicy = policyByRole.has(role.roleId);
+              const selected = role.roleId === selectedRoleId;
+              return `
+                <a
+                  class="side-list-item ${selected ? "side-list-item-selected" : ""}"
+                  href="#runtime-role-policies/${encodeURIComponent(role.roleId)}"
+                >
+                  <strong>${escapeHtml(role.title)}</strong>
+                  <span class="muted small">${escapeHtml(role.roleId)} · ${escapeHtml(role.teamId)}</span>
+                  <span class="${hasPolicy ? "status status-completed" : "status status-failed"}">
+                    ${hasPolicy ? "policy present" : "missing policy"}
+                  </span>
+                </a>
+              `;
+            })
+            .join("")}
+        </aside>
+
+        <section class="detail-panel">
+          ${selectedRole
+            ? renderRuntimeRolePolicyEditor(selectedRole, selectedPolicy)
+            : `<div class="empty-state">No runtime-enabled roles found.</div>`}
+        </section>
       </div>
     </section>
   `;
