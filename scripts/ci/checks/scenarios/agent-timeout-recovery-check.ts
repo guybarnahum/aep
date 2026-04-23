@@ -699,47 +699,22 @@ async function main(): Promise<void> {
   console.log("Verified paperclip adapter request/response path");
 
   if (!workerDisabledAtStart) {
-    const runs = await listRuns(controlPlaneBaseUrl);
+    console.log(
+      "Starting seeded allowed-tenant workflow for deterministic timeout recovery validation"
+    );
 
+    const seeded = await startSeededAllowedWorkflow(controlPlaneBaseUrl);
+    const eligibleRun: RunSummary = {
+      id: seeded.workflow_run_id,
+      tenant: "tenant_internal_aep",
+      service: ALLOWED_SERVICE,
+    };
+    const eligibleJob = await waitForTimeoutEligibleJob(
+      controlPlaneBaseUrl,
+      seeded.workflow_run_id
+    );
 
-    let eligibleRun: RunSummary | undefined;
-    let eligibleJob: JobSummary | undefined;
-
-    for (const run of runs) {
-      if (!isAllowedRun(run)) {
-        continue;
-      }
-
-      const jobs = await getRunJobs(controlPlaneBaseUrl, run.id);
-      const found = jobs.find((job) => job.operator_actions?.can_advance_timeout);
-
-      if (found) {
-        eligibleRun = run;
-        eligibleJob = found;
-        break;
-      }
-    }
-
-    if (!eligibleRun || !eligibleJob) {
-      console.log(
-        "No currently actionable allowed-tenant timeout-eligible job found; starting seeded workflow"
-      );
-
-      const seeded = await startSeededAllowedWorkflow(controlPlaneBaseUrl);
-      const seededJob = await waitForTimeoutEligibleJob(
-        controlPlaneBaseUrl,
-        seeded.workflow_run_id
-      );
-
-      eligibleRun = {
-        id: seeded.workflow_run_id,
-        tenant: "tenant_internal_aep",
-        service: ALLOWED_SERVICE,
-      };
-      eligibleJob = seededJob;
-    }
-
-    console.log("Found eligible job", {
+    console.log("Found seeded eligible job", {
       runId: eligibleRun.id,
       jobId: eligibleJob.id,
     });
@@ -761,20 +736,28 @@ async function main(): Promise<void> {
       "verified_applied",
     ]);
 
-    const firstDecision = firstRun.decisions.find((decision) =>
-      actionLikeResults.has(decision.result)
+    const seededDecision = firstRun.decisions.find(
+      (decision) =>
+        decision.runId === eligibleRun.id && decision.jobId === eligibleJob.id
     );
 
-    if (!firstDecision) {
+    if (!seededDecision) {
       throw new Error(
-        `Expected at least one action-taking decision (action_requested or verified_applied), got decisions: ${firstRun.decisions
+        `Expected first agent run to include seeded decision for ${eligibleRun.id}/${eligibleJob.id}, got decisions: ${firstRun.decisions
           .map((d) => `${d.runId}/${d.jobId}:${d.result}${d.reason ? `:${d.reason}` : ""}`)
           .join(", ")}`
       );
     }
 
-    const actedRunId = firstDecision.runId;
-    const actedJobId = firstDecision.jobId;
+    if (!actionLikeResults.has(seededDecision.result)) {
+      throw new Error(
+        `Expected seeded timeout-recovery candidate ${eligibleRun.id}/${eligibleJob.id} to take action (action_requested or verified_applied), got ${seededDecision.result}${seededDecision.reason ? `:${seededDecision.reason}` : ""}`
+      );
+    }
+
+    const firstDecision = seededDecision;
+    const actedRunId = eligibleRun.id;
+    const actedJobId = eligibleJob.id;
 
     console.log("Selected acted decision for verification", {
       runId: actedRunId,
