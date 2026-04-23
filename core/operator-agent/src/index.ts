@@ -81,6 +81,26 @@ async function dispatch(request: Request, env: OperatorAgentEnv): Promise<Respon
   console.log("[DEBUG] ENABLE_TEST_ENDPOINTS:", env.ENABLE_TEST_ENDPOINTS);
   const url = new URL(request.url);
 
+  if (request.method === "GET" && url.pathname === "/") {
+    return Response.json({
+      ok: true,
+      service: "operator-agent",
+      description: "AEP operator agent runtime",
+      links: {
+        healthz: "/healthz",
+        buildInfo: "/build-info",
+        roles: "/agent/roles",
+        employees: "/agent/employees",
+        runtimeRolePolicies: "/agent/runtime-role-policies",
+        reviewCycles: "/agent/review-cycles",
+        tasks: "/agent/tasks",
+        messageThreads: "/agent/message-threads",
+        run: "/agent/run",
+        runOnce: "/agent/run-once",
+      },
+    });
+  }
+
   if (
     env.ENABLE_TEST_ENDPOINTS === "true" &&
     request.method === "POST" &&

@@ -14,6 +14,7 @@ import {
   corsPreflight,
   runtimeRouteError,
 } from "@aep/control-plane/lib/http";
+import { handleBuildInfo } from "@aep/control-plane/routes/build-info";
 import { handleHealthz } from "@aep/control-plane/routes/healthz";
 import { handleOperatorRoute } from "@aep/control-plane/routes/operator";
 import {
@@ -609,6 +610,28 @@ export default {
     const pathname = url.pathname;
 
     try {
+
+    if (request.method === "GET" && pathname === "/") {
+      return Response.json({
+        ok: true,
+        service: "control-plane",
+        description: "AEP control plane runtime",
+        links: {
+          healthz: "/healthz",
+          buildInfo: "/build-info",
+          runs: "/runs",
+          tenants: "/tenants",
+          services: "/services",
+          employees: "/employees",
+          validationOverview: "/validation/overview",
+          validationScheduler: "/validation/scheduler",
+        },
+      });
+    }
+
+    if (request.method === "GET" && pathname === "/build-info") {
+      return handleBuildInfo(request, env);
+    }
 
     if (request.method === "GET" && pathname === "/runs") {
       return handleRunsRoute(request, env, url);
