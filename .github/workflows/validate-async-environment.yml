@@ -56,6 +56,8 @@ jobs:
   reset-async-validation-state:
     needs: preflight
     runs-on: ubuntu-latest
+    environment:
+      name: async-validation
     defaults:
       run:
         shell: bash -eo pipefail {0}
