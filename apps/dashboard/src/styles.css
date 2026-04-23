@@ -408,6 +408,53 @@ button:disabled {
   margin-bottom: 6px;
 }
 
+.validation-panel-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: start;
+}
+
+.validation-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.validation-summary-grid {
+  margin-top: 16px;
+}
+
+.validation-scheduler-strip {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 16px;
+  padding: 14px;
+  border-radius: 14px;
+  background: rgba(2, 8, 23, 0.48);
+  border: 1px solid rgba(148, 163, 184, 0.1);
+}
+
+.validation-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 18px;
+}
+
+.validation-card {
+  border-radius: 16px;
+  padding: 16px;
+  background: rgba(10, 17, 30, 0.68);
+  border: 1px solid rgba(148, 163, 184, 0.12);
+}
+
+.validation-table {
+  margin-top: 12px;
+}
+
 .governance-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -656,12 +703,22 @@ button:disabled {
   }
 
   .summary-grid,
-  .governance-grid {
+  .governance-grid,
+  .validation-scheduler-strip,
+  .validation-grid {
     grid-template-columns: 1fr;
   }
 
   .management-grid {
     grid-template-columns: 1fr;
+  }
+
+  .validation-panel-header {
+    flex-direction: column;
+  }
+
+  .validation-actions {
+    justify-content: flex-start;
   }
 
   .endpoint-stack {

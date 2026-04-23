@@ -392,6 +392,10 @@ Base service: `core/control-plane`
 
 `GET /validation`
 
+`GET /validation/overview`
+
+`GET /validation/scheduler`
+
 `GET /validation/employees`
 
 `GET /validation/employees/:employeeId`
@@ -399,6 +403,12 @@ Base service: `core/control-plane`
 `GET /validation/dispatch`
 
 `POST /validation/dispatch`
+
+`POST /validation/run-now`
+
+`POST /validation/scheduler/pause`
+
+`POST /validation/scheduler/resume`
 
 `POST /validation/dispatch/schedule-post-deploy`
 
@@ -421,6 +431,8 @@ Base service: `core/control-plane`
 Recurring validation note:
 
 - cron-driven recurring validation runs directly inside the control-plane and records an internal recurring-validation execution target instead of depending on an environment-specific HTTP base URL
+- recurring scheduler pause/resume state is persisted in `validation_scheduler_state`
+- paused recurring validation skips cron-driven execution, while `POST /validation/run-now` still allows explicit manual execution and records an internal manual execution target
 
 `GET /validation/runs`
 

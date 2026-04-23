@@ -49,12 +49,24 @@ type EnvLike = {
 
 const INTERNAL_RECURRING_VALIDATION_TARGET =
   "internal://control-plane/recurring-validation";
+const INTERNAL_MANUAL_VALIDATION_TARGET =
+  "internal://control-plane/manual-validation-run-now";
+const VALIDATION_SCHEDULER_NAME = "employee_validation_scheduler";
+
+type ValidationType =
+  | "runtime_read_safety"
+  | "contract_surface"
+  | "ownership_surface";
+
+type ValidationRunMode = "full" | "runtime_only";
+
+type ValidationRunOrigin = "recurring" | "manual" | "post_deploy" | "dispatch";
 
 type ValidationResultRow = {
   id: string;
   dispatch_batch_id: string | null;
   team_id: string;
-  validation_type: "runtime_read_safety" | "contract_surface" | "ownership_surface";
+  validation_type: ValidationType;
   status: "passed" | "failed" | "warn";
   executed_by: string;
   summary: string;
@@ -70,7 +82,7 @@ type ValidationResultRow = {
 type ValidationRunRow = {
   id: string;
   dispatch_batch_id: string | null;
-  validation_type: "runtime_read_safety" | "contract_surface" | "ownership_surface";
+  validation_type: ValidationType;
   requested_by: string;
   assigned_to: string;
   status: "queued" | "running" | "completed" | "failed";
@@ -82,7 +94,7 @@ type ValidationRunRow = {
 };
 
 type CreateValidationRunBody = {
-  validation_type?: "runtime_read_safety" | "contract_surface" | "ownership_surface";
+  validation_type?: ValidationType;
   requested_by?: string;
   target_base_url?: string;
 };
@@ -90,19 +102,18 @@ type CreateValidationRunBody = {
 type DispatchValidationRunsBody = {
   target_base_url?: string;
   requested_by?: string;
-  mode?: "full" | "runtime_only";
+  mode?: ValidationRunMode;
 };
 
 type SchedulePostDeployValidationBody = {
   target_base_url?: string;
   requested_by?: string;
-  mode?: "full" | "runtime_only";
+  mode?: ValidationRunMode;
 };
 
 type ScheduleRecurringValidationBody = {
   requested_by?: string;
-  target_base_url?: string;
-  mode?: "full" | "runtime_only";
+  mode?: ValidationRunMode;
   reason?: "scheduled_health" | "drift_detection" | "governance_review";
 };
 
@@ -110,13 +121,24 @@ type ExecuteValidationDispatchBody = {
   dispatch_batch_id?: string;
   requested_by?: string;
   target_base_url?: string;
-  mode?: "full" | "runtime_only";
+  mode?: ValidationRunMode;
+};
+
+type ValidationRunNowBody = {
+  requested_by?: string;
+  mode?: ValidationRunMode;
+  reason?: "scheduled_health" | "drift_detection" | "governance_review";
+};
+
+type UpdateValidationSchedulerBody = {
+  requested_by?: string;
+  reason?: string;
 };
 
 type ExecuteValidationRunResult = {
   status: "passed" | "failed";
   summary: string;
-  validation_type: "runtime_read_safety" | "contract_surface" | "ownership_surface";
+  validation_type: ValidationType;
   executed_by: string;
 };
 
@@ -124,7 +146,7 @@ type ValidationPolicyDecision = "allow" | "warn" | "block" | "escalate";
 
 type ValidationPolicyCheck = {
   validation_id?: string;
-  validation_type: "runtime_read_safety" | "contract_surface" | "ownership_surface";
+  validation_type: ValidationType;
   status: string;
   owner_team: string | null;
   severity: "info" | "warn" | "failed" | "critical";
@@ -135,6 +157,88 @@ type ValidationPolicyCheck = {
   dispatch_batch_id: string | null;
   freshness: "fresh" | "stale" | "missing";
   message: string;
+};
+
+type ValidationSchedulerStateRow = {
+  scheduler_name: string;
+  is_paused: number;
+  pause_reason: string | null;
+  paused_by: string | null;
+  paused_at: string | null;
+  resumed_by: string | null;
+  resumed_at: string | null;
+  last_run_requested_by: string | null;
+  last_run_requested_at: string | null;
+  last_dispatch_batch_id: string | null;
+  updated_at: string;
+};
+
+type ValidationSchedulerState = {
+  scheduler_name: string;
+  paused: boolean;
+  pause_reason: string | null;
+  paused_by: string | null;
+  paused_at: string | null;
+  resumed_by: string | null;
+  resumed_at: string | null;
+  last_run_requested_by: string | null;
+  last_run_requested_at: string | null;
+  last_dispatch_batch_id: string | null;
+  updated_at: string;
+};
+
+type ValidationOverviewRun = {
+  validation_run_id: string;
+  dispatch_batch_id: string | null;
+  validation_type: ValidationType;
+  requested_by: string;
+  assigned_to: string;
+  status: "queued" | "running" | "completed" | "failed";
+  target_base_url: string;
+  origin: ValidationRunOrigin;
+  mode: ValidationRunMode;
+  result_id: string | null;
+  result_status: "passed" | "failed" | "warn" | null;
+  result_summary: string | null;
+  severity: "info" | "warn" | "failed" | "critical" | null;
+  audit_status: "pending" | "reviewed" | null;
+  audited_by: string | null;
+  audited_at: string | null;
+  created_at: string;
+  started_at: string | null;
+  completed_at: string | null;
+};
+
+type ValidationOverviewResult = {
+  validation_result_id: string;
+  dispatch_batch_id: string | null;
+  validation_type: ValidationType;
+  status: "passed" | "failed" | "warn";
+  severity: "info" | "warn" | "failed" | "critical" | null;
+  executed_by: string;
+  summary: string;
+  owner_team: string | null;
+  audit_status: "pending" | "reviewed" | null;
+  audited_by: string | null;
+  audited_at: string | null;
+  created_at: string;
+  origin: ValidationRunOrigin | null;
+  mode: ValidationRunMode | null;
+};
+
+type ValidationOverviewSummary = {
+  total_runs: number;
+  queued_runs: number;
+  running_runs: number;
+  completed_runs: number;
+  failed_runs: number;
+  recurring_runs: number;
+  manual_runs: number;
+  post_deploy_runs: number;
+  latest_run_at: string | null;
+  latest_completed_at: string | null;
+  latest_result_status: "passed" | "failed" | "warn" | null;
+  latest_dispatch_batch_id: string | null;
 };
 
 export async function handleCompaniesRoute(
@@ -414,6 +518,9 @@ export async function handleValidationRoute(
       "validation_result_persistence",
       "validation_result_review",
       "recurring_validation_scheduling",
+      "validation_overview",
+      "validation_scheduler_pause_resume",
+      "manual_validation_run_now",
       "batch_scoped_validation_policy",
     ],
     _owner: getOwnerForRoute("/validation"),
@@ -438,6 +545,343 @@ export async function handleValidationDispatchRoute(
     dispatchable_validation_types: listDispatchableValidationTypes(),
     _owner: getOwnerForRoute("/validation/dispatch"),
   });
+}
+
+function mapValidationSchedulerState(
+  row: ValidationSchedulerStateRow,
+): ValidationSchedulerState {
+  return {
+    scheduler_name: row.scheduler_name,
+    paused: row.is_paused === 1,
+    pause_reason: row.pause_reason,
+    paused_by: row.paused_by,
+    paused_at: row.paused_at,
+    resumed_by: row.resumed_by,
+    resumed_at: row.resumed_at,
+    last_run_requested_by: row.last_run_requested_by,
+    last_run_requested_at: row.last_run_requested_at,
+    last_dispatch_batch_id: row.last_dispatch_batch_id,
+    updated_at: row.updated_at,
+  };
+}
+
+async function ensureValidationSchedulerState(db: D1Database): Promise<void> {
+  await db
+    .prepare(
+      `INSERT OR IGNORE INTO validation_scheduler_state (
+         scheduler_name,
+         is_paused,
+         pause_reason,
+         paused_by,
+         paused_at,
+         resumed_by,
+         resumed_at,
+         last_run_requested_by,
+         last_run_requested_at,
+         last_dispatch_batch_id,
+         updated_at
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    )
+    .bind(
+      VALIDATION_SCHEDULER_NAME,
+      0,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      new Date().toISOString(),
+    )
+    .run();
+}
+
+export async function getValidationSchedulerState(
+  db: D1Database,
+): Promise<ValidationSchedulerState> {
+  await ensureValidationSchedulerState(db);
+
+  const row = await db
+    .prepare(
+      `SELECT
+         scheduler_name,
+         is_paused,
+         pause_reason,
+         paused_by,
+         paused_at,
+         resumed_by,
+         resumed_at,
+         last_run_requested_by,
+         last_run_requested_at,
+         last_dispatch_batch_id,
+         updated_at
+       FROM validation_scheduler_state
+       WHERE scheduler_name = ?
+       LIMIT 1`,
+    )
+    .bind(VALIDATION_SCHEDULER_NAME)
+    .first<ValidationSchedulerStateRow>();
+
+  if (!row) {
+    return {
+      scheduler_name: VALIDATION_SCHEDULER_NAME,
+      paused: false,
+      pause_reason: null,
+      paused_by: null,
+      paused_at: null,
+      resumed_by: null,
+      resumed_at: null,
+      last_run_requested_by: null,
+      last_run_requested_at: null,
+      last_dispatch_batch_id: null,
+      updated_at: new Date().toISOString(),
+    };
+  }
+
+  return mapValidationSchedulerState(row);
+}
+
+async function recordValidationSchedulerDispatch(args: {
+  db: D1Database;
+  requestedBy: string;
+  dispatchBatchId: string;
+}): Promise<ValidationSchedulerState> {
+  await ensureValidationSchedulerState(args.db);
+
+  const updatedAt = new Date().toISOString();
+  await args.db
+    .prepare(
+      `UPDATE validation_scheduler_state
+       SET last_run_requested_by = ?,
+           last_run_requested_at = ?,
+           last_dispatch_batch_id = ?,
+           updated_at = ?
+       WHERE scheduler_name = ?`,
+    )
+    .bind(
+      args.requestedBy,
+      updatedAt,
+      args.dispatchBatchId,
+      updatedAt,
+      VALIDATION_SCHEDULER_NAME,
+    )
+    .run();
+
+  return getValidationSchedulerState(args.db);
+}
+
+async function pauseValidationScheduler(args: {
+  db: D1Database;
+  requestedBy: string;
+  reason: string;
+}): Promise<ValidationSchedulerState> {
+  await ensureValidationSchedulerState(args.db);
+
+  const updatedAt = new Date().toISOString();
+  await args.db
+    .prepare(
+      `UPDATE validation_scheduler_state
+       SET is_paused = 1,
+           pause_reason = ?,
+           paused_by = ?,
+           paused_at = ?,
+           updated_at = ?
+       WHERE scheduler_name = ?`,
+    )
+    .bind(
+      args.reason,
+      args.requestedBy,
+      updatedAt,
+      updatedAt,
+      VALIDATION_SCHEDULER_NAME,
+    )
+    .run();
+
+  return getValidationSchedulerState(args.db);
+}
+
+async function resumeValidationScheduler(args: {
+  db: D1Database;
+  requestedBy: string;
+}): Promise<ValidationSchedulerState> {
+  await ensureValidationSchedulerState(args.db);
+
+  const updatedAt = new Date().toISOString();
+  await args.db
+    .prepare(
+      `UPDATE validation_scheduler_state
+       SET is_paused = 0,
+           pause_reason = NULL,
+           resumed_by = ?,
+           resumed_at = ?,
+           updated_at = ?
+       WHERE scheduler_name = ?`,
+    )
+    .bind(args.requestedBy, updatedAt, updatedAt, VALIDATION_SCHEDULER_NAME)
+    .run();
+
+  return getValidationSchedulerState(args.db);
+}
+
+function inferValidationRunOrigin(run: ValidationRunRow): ValidationRunOrigin {
+  if (run.target_base_url === INTERNAL_RECURRING_VALIDATION_TARGET) {
+    return "recurring";
+  }
+
+  if (run.target_base_url === INTERNAL_MANUAL_VALIDATION_TARGET) {
+    return "manual";
+  }
+
+  if (run.requested_by.includes("post_deploy")) {
+    return "post_deploy";
+  }
+
+  if (run.requested_by.includes("recurring")) {
+    return "recurring";
+  }
+
+  if (run.requested_by.includes("dashboard") || run.requested_by.includes("manual")) {
+    return "manual";
+  }
+
+  return "dispatch";
+}
+
+function buildValidationRunModeIndex(
+  runs: ValidationRunRow[],
+): Map<string, ValidationRunMode> {
+  const grouped = new Map<string, ValidationType[]>();
+
+  for (const run of runs) {
+    const key = run.dispatch_batch_id ?? run.id;
+    const existing = grouped.get(key) ?? [];
+    existing.push(run.validation_type);
+    grouped.set(key, existing);
+  }
+
+  const modes = new Map<string, ValidationRunMode>();
+  for (const [key, validationTypes] of grouped.entries()) {
+    const runtimeOnly =
+      validationTypes.length > 0 &&
+      validationTypes.every((validationType) => validationType === "runtime_read_safety");
+    modes.set(key, runtimeOnly ? "runtime_only" : "full");
+  }
+
+  return modes;
+}
+
+function getValidationRunMode(
+  run: ValidationRunRow,
+  modeIndex: Map<string, ValidationRunMode>,
+): ValidationRunMode {
+  return modeIndex.get(run.dispatch_batch_id ?? run.id) ??
+    (run.validation_type === "runtime_read_safety" ? "runtime_only" : "full");
+}
+
+async function buildValidationOverview(db: D1Database): Promise<{
+  scheduler: ValidationSchedulerState;
+  summary: ValidationOverviewSummary;
+  recentRuns: ValidationOverviewRun[];
+  recentResults: ValidationOverviewResult[];
+}> {
+  const [runs, results, scheduler] = await Promise.all([
+    listPersistedValidationRuns(db),
+    listPersistedValidationResults(db),
+    getValidationSchedulerState(db),
+  ]);
+
+  const modeIndex = buildValidationRunModeIndex(runs);
+  const resultById = new Map(results.map((result) => [result.id, result]));
+  const runByResultId = new Map(
+    runs
+      .filter((run) => typeof run.result_id === "string" && run.result_id.trim() !== "")
+      .map((run) => [run.result_id as string, run]),
+  );
+
+  const runByDispatchBatchId = new Map<string, ValidationRunRow>();
+  for (const run of runs) {
+    if (run.dispatch_batch_id && !runByDispatchBatchId.has(run.dispatch_batch_id)) {
+      runByDispatchBatchId.set(run.dispatch_batch_id, run);
+    }
+  }
+
+  const recentRuns = runs.slice(0, 25).map((run) => {
+    const result = run.result_id ? resultById.get(run.result_id) ?? null : null;
+    return {
+      validation_run_id: run.id,
+      dispatch_batch_id: run.dispatch_batch_id,
+      validation_type: run.validation_type,
+      requested_by: run.requested_by,
+      assigned_to: run.assigned_to,
+      status: run.status,
+      target_base_url: run.target_base_url,
+      origin: inferValidationRunOrigin(run),
+      mode: getValidationRunMode(run, modeIndex),
+      result_id: run.result_id,
+      result_status: result?.status ?? null,
+      result_summary: result?.summary ?? null,
+      severity: result?.severity ?? null,
+      audit_status: result?.audit_status ?? null,
+      audited_by: result?.audited_by ?? null,
+      audited_at: result?.audited_at ?? null,
+      created_at: run.created_at,
+      started_at: run.started_at,
+      completed_at: run.completed_at,
+    };
+  });
+
+  const recentResults = results.slice(0, 25).map((result) => {
+    const relatedRun =
+      runByResultId.get(result.id) ??
+      (result.dispatch_batch_id
+        ? runByDispatchBatchId.get(result.dispatch_batch_id) ?? null
+        : null);
+    return {
+      validation_result_id: result.id,
+      dispatch_batch_id: result.dispatch_batch_id,
+      validation_type: result.validation_type,
+      status: result.status,
+      severity: result.severity,
+      executed_by: result.executed_by,
+      summary: result.summary,
+      owner_team: result.owner_team,
+      audit_status: result.audit_status,
+      audited_by: result.audited_by,
+      audited_at: result.audited_at,
+      created_at: result.created_at,
+      origin: relatedRun ? inferValidationRunOrigin(relatedRun) : null,
+      mode: relatedRun ? getValidationRunMode(relatedRun, modeIndex) : null,
+    };
+  });
+
+  const completedRuns = runs.filter((run) => run.status === "completed").length;
+  const failedRuns = runs.filter((run) => run.status === "failed").length;
+
+  return {
+    scheduler,
+    summary: {
+      total_runs: runs.length,
+      queued_runs: runs.filter((run) => run.status === "queued").length,
+      running_runs: runs.filter((run) => run.status === "running").length,
+      completed_runs: completedRuns,
+      failed_runs: failedRuns,
+      recurring_runs: runs.filter((run) => inferValidationRunOrigin(run) === "recurring").length,
+      manual_runs: runs.filter((run) => inferValidationRunOrigin(run) === "manual").length,
+      post_deploy_runs: runs.filter((run) => inferValidationRunOrigin(run) === "post_deploy").length,
+      latest_run_at: runs[0]?.created_at ?? null,
+      latest_completed_at:
+        runs.find((run) => typeof run.completed_at === "string" && run.completed_at !== null)
+          ?.completed_at ?? null,
+      latest_result_status: results[0]?.status ?? null,
+      latest_dispatch_batch_id:
+        runs.find((run) => typeof run.dispatch_batch_id === "string" && run.dispatch_batch_id !== null)
+          ?.dispatch_batch_id ?? null,
+    },
+    recentRuns,
+    recentResults,
+  };
 }
 
 export async function handleValidationEmployeeDetailRoute(
@@ -647,7 +1091,7 @@ function createDispatchBatchId(): string {
 async function createValidationRunRecord(args: {
   db: D1Database;
   dispatchBatchId: string;
-  validationType: "runtime_read_safety" | "contract_surface" | "ownership_surface";
+  validationType: ValidationType;
   requestedBy: string;
   targetBaseUrl: string;
 }): Promise<ValidationRunRow> {
@@ -710,7 +1154,7 @@ async function dispatchValidationRuns(args: {
   dispatchBatchId?: string;
   requestedBy: string;
   targetBaseUrl: string;
-  mode: "full" | "runtime_only";
+  mode: ValidationRunMode;
 }): Promise<{
   dispatchBatchId: string;
   runs: ValidationRunRow[];
@@ -739,11 +1183,12 @@ async function dispatchValidationRuns(args: {
   };
 }
 
-export async function runRecurringValidationBatch(args: {
+async function executeValidationDispatchBatch(args: {
   db: D1Database;
   requestedBy: string;
-  mode: "full" | "runtime_only";
-  reason: "scheduled_health" | "drift_detection" | "governance_review";
+  targetBaseUrl: string;
+  mode: ValidationRunMode;
+  updateSchedulerState?: boolean;
 }): Promise<{
   dispatchBatchId: string;
   dispatchedRuns: ValidationRunRow[];
@@ -755,11 +1200,12 @@ export async function runRecurringValidationBatch(args: {
     auditedBy: string | null;
     auditStatus: "pending" | "reviewed";
   }>;
+  schedulerState: ValidationSchedulerState | null;
 }> {
   const dispatched = await dispatchValidationRuns({
     db: args.db,
     requestedBy: args.requestedBy,
-    targetBaseUrl: INTERNAL_RECURRING_VALIDATION_TARGET,
+    targetBaseUrl: args.targetBaseUrl,
     mode: args.mode,
   });
 
@@ -783,16 +1229,57 @@ export async function runRecurringValidationBatch(args: {
     executedRuns.push(result);
   }
 
+  const schedulerState = args.updateSchedulerState
+    ? await recordValidationSchedulerDispatch({
+        db: args.db,
+        requestedBy: args.requestedBy,
+        dispatchBatchId: dispatched.dispatchBatchId,
+      })
+    : null;
+
   return {
     dispatchBatchId: dispatched.dispatchBatchId,
     dispatchedRuns: dispatched.runs,
     executedRuns,
+    schedulerState,
+  };
+}
+
+export async function runRecurringValidationBatch(args: {
+  db: D1Database;
+  requestedBy: string;
+  mode: ValidationRunMode;
+  reason: "scheduled_health" | "drift_detection" | "governance_review";
+}): Promise<{
+  dispatchBatchId: string;
+  dispatchedRuns: ValidationRunRow[];
+  executedRuns: Array<{
+    validationRunId: string;
+    status: "completed" | "failed";
+    resultId: string;
+    executedBy: string;
+    auditedBy: string | null;
+    auditStatus: "pending" | "reviewed";
+  }>;
+}> {
+  const dispatched = await executeValidationDispatchBatch({
+    db: args.db,
+    requestedBy: args.requestedBy,
+    targetBaseUrl: INTERNAL_RECURRING_VALIDATION_TARGET,
+    mode: args.mode,
+    updateSchedulerState: true,
+  });
+
+  return {
+    dispatchBatchId: dispatched.dispatchBatchId,
+    dispatchedRuns: dispatched.dispatchedRuns,
+    executedRuns: dispatched.executedRuns,
   };
 }
 
 export function getRecurringValidationCronConfig(_env: EnvLike): {
   requestedBy: string;
-  mode: "full" | "runtime_only";
+  mode: ValidationRunMode;
   reason: "scheduled_health";
 } {
   const requestedBy = "recurring_validation_cron";
@@ -1653,6 +2140,208 @@ export async function handleValidationPolicyRoute(
   });
 }
 
+export async function handleValidationOverviewRoute(
+  request: Request,
+  env: EnvLike,
+): Promise<Response> {
+  return withRuntimeJsonBoundary({
+    route: "/validation/overview",
+    request,
+    handler: async () => {
+      const overview = await buildValidationOverview(env.DB);
+
+      return json({
+        team_id: "team_validation",
+        scheduler: overview.scheduler,
+        summary: overview.summary,
+        recent_runs: overview.recentRuns,
+        recent_results: overview.recentResults,
+        _owner: getOwnerForRoute("/validation/overview"),
+      });
+    },
+  });
+}
+
+export async function handleValidationSchedulerRoute(
+  request: Request,
+  env: EnvLike,
+): Promise<Response> {
+  return withRuntimeJsonBoundary({
+    route: "/validation/scheduler",
+    request,
+    handler: async () => {
+      const scheduler = await getValidationSchedulerState(env.DB);
+
+      return json({
+        scheduler,
+        _owner: getOwnerForRoute("/validation/scheduler"),
+      });
+    },
+  });
+}
+
+export async function handleRunValidationNowRoute(
+  request: Request,
+  env: EnvLike,
+): Promise<Response> {
+  return withRuntimeJsonBoundary({
+    route: "/validation/run-now",
+    request,
+    handler: async () => {
+      const body = (await request.json()) as ValidationRunNowBody;
+      const requestedBy =
+        typeof body.requested_by === "string" && body.requested_by.trim() !== ""
+          ? body.requested_by.trim()
+          : "dashboard_validation_operator";
+
+      const mode = body.mode ?? "full";
+      if (mode !== "full" && mode !== "runtime_only") {
+        return json(
+          {
+            error: "invalid_mode",
+            message: "mode must be full or runtime_only",
+          },
+          { status: 400 },
+        );
+      }
+
+      const reason = body.reason ?? "governance_review";
+      if (
+        reason !== "scheduled_health" &&
+        reason !== "drift_detection" &&
+        reason !== "governance_review"
+      ) {
+        return json(
+          {
+            error: "invalid_reason",
+            message:
+              "reason must be scheduled_health, drift_detection, or governance_review",
+          },
+          { status: 400 },
+        );
+      }
+
+      const executed = await executeValidationDispatchBatch({
+        db: env.DB,
+        requestedBy,
+        targetBaseUrl: INTERNAL_MANUAL_VALIDATION_TARGET,
+        mode,
+        updateSchedulerState: true,
+      });
+
+      return json(
+        {
+          team_id: "team_validation",
+          trigger: "manual",
+          reason,
+          dispatch_batch_id: executed.dispatchBatchId,
+          mode,
+          dispatched: executed.dispatchedRuns.length,
+          executed: executed.executedRuns.length,
+          scheduler: executed.schedulerState,
+          runs: executed.executedRuns.map((run) => ({
+            validation_run_id: run.validationRunId,
+            status: run.status,
+            result_id: run.resultId,
+            executed_by: run.executedBy,
+            audit_status: run.auditStatus,
+            audited_by: run.auditedBy,
+          })),
+          _owner: getOwnerForRoute("/validation/run-now"),
+        },
+        { status: 202 },
+      );
+    },
+  });
+}
+
+export async function handlePauseValidationSchedulerRoute(
+  request: Request,
+  env: EnvLike,
+): Promise<Response> {
+  return withRuntimeJsonBoundary({
+    route: "/validation/scheduler/pause",
+    request,
+    handler: async () => {
+      const body = (await request.json()) as UpdateValidationSchedulerBody;
+      if (
+        typeof body.requested_by !== "string" ||
+        body.requested_by.trim() === ""
+      ) {
+        return json(
+          {
+            error: "invalid_requested_by",
+            message: "requested_by must be a non-empty string",
+          },
+          { status: 400 },
+        );
+      }
+
+      if (typeof body.reason !== "string" || body.reason.trim() === "") {
+        return json(
+          {
+            error: "invalid_reason",
+            message: "reason must be a non-empty string",
+          },
+          { status: 400 },
+        );
+      }
+
+      const scheduler = await pauseValidationScheduler({
+        db: env.DB,
+        requestedBy: body.requested_by.trim(),
+        reason: body.reason.trim(),
+      });
+
+      return json(
+        {
+          scheduler,
+          _owner: getOwnerForRoute("/validation/scheduler/pause"),
+        },
+        { status: 202 },
+      );
+    },
+  });
+}
+
+export async function handleResumeValidationSchedulerRoute(
+  request: Request,
+  env: EnvLike,
+): Promise<Response> {
+  return withRuntimeJsonBoundary({
+    route: "/validation/scheduler/resume",
+    request,
+    handler: async () => {
+      const body = (await request.json()) as UpdateValidationSchedulerBody;
+      if (
+        typeof body.requested_by !== "string" ||
+        body.requested_by.trim() === ""
+      ) {
+        return json(
+          {
+            error: "invalid_requested_by",
+            message: "requested_by must be a non-empty string",
+          },
+          { status: 400 },
+        );
+      }
+
+      const scheduler = await resumeValidationScheduler({
+        db: env.DB,
+        requestedBy: body.requested_by.trim(),
+      });
+
+      return json(
+        {
+          scheduler,
+          _owner: getOwnerForRoute("/validation/scheduler/resume"),
+        },
+        { status: 202 },
+      );
+    },
+  });
+}
+
 export async function handleValidationRunsRoute(
   request: Request,
   env: EnvLike,
@@ -1974,19 +2663,6 @@ export async function handleScheduleRecurringValidationRoute(
         );
       }
 
-      if (
-        typeof body.target_base_url !== "string" ||
-        body.target_base_url.trim() === ""
-      ) {
-        return json(
-          {
-            error: "invalid_target_base_url",
-            message: "target_base_url must be a non-empty string",
-          },
-          { status: 400 },
-        );
-      }
-
       const mode = body.mode ?? "full";
       if (mode !== "full" && mode !== "runtime_only") {
         return json(
@@ -2014,6 +2690,21 @@ export async function handleScheduleRecurringValidationRoute(
         );
       }
 
+      const scheduler = await getValidationSchedulerState(env.DB);
+      if (scheduler.paused) {
+        return json(
+          {
+            team_id: "team_validation",
+            scheduler,
+            trigger: "recurring",
+            skipped: true,
+            reason: scheduler.pause_reason ?? "validation scheduler paused",
+            _owner: getOwnerForRoute("/internal/validation/schedule-recurring"),
+          },
+          { status: 202 },
+        );
+      }
+
       const recurring = await runRecurringValidationBatch({
         db: env.DB,
         requestedBy: body.requested_by.trim(),
@@ -2024,11 +2715,12 @@ export async function handleScheduleRecurringValidationRoute(
       return json(
         {
           team_id: "team_validation",
-          scheduler: "employee_validation_scheduler",
+          scheduler_name: "employee_validation_scheduler",
           runner: "employee_validation_runner",
           auditor: "employee_validation_auditor",
           trigger: "recurring",
           reason,
+          scheduler: await getValidationSchedulerState(env.DB),
           dispatch_batch_id: recurring.dispatchBatchId,
           mode,
           dispatched: recurring.dispatchedRuns.length,

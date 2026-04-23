@@ -32,15 +32,19 @@ import {
   getReviewCycles,
   getRoles,
   getTaskDetail,
+  getValidationOverview,
   getWorkTasks,
   getOperatorAgentBaseUrl,
   getServiceOverview,
   getTenantOverview,
   getTenants,
+  pauseValidationScheduler,
   rejectApproval,
   rejectFromThread,
+  resumeValidationScheduler,
   resolveEscalation,
   resolveEscalationFromThread,
+  runValidationNow,
   runEmployeeLifecycleAction,
   updateEmployeeProfile,
 } from "./api";
@@ -51,6 +55,7 @@ import type {
   OrgPresenceOverview,
   PageSize,
   TenantSummary,
+  ValidationRunMode,
   WorkOverview,
 } from "./types";
 import {
@@ -70,6 +75,7 @@ import {
   renderThreadDetail,
   renderTenantOverview,
   renderToolbar,
+  renderValidationOverview,
   renderWorkOverview,
 } from "./render";
 import "./styles.css";
@@ -84,6 +90,7 @@ const app: HTMLDivElement = (() => {
 
 const AUTO_REFRESH_MS = 15_000;
 const HOME_TENANT_STORAGE_KEY = "dashboard.home-tenant-id";
+const VALIDATION_REQUESTED_BY = "dashboard_validation_operator";
 const INTERNAL_TENANT_ID_CANDIDATES = [
   "internal",
   "company_internal_aep",
@@ -110,6 +117,7 @@ type Route =
   | { kind: "company" }
   | { kind: "mirrors" }
   | { kind: "activity" }
+  | { kind: "validation" }
   | { kind: "department" };
 
 const DEFAULT_DEPARTMENT_FILTERS: DepartmentFilters = {
@@ -260,6 +268,7 @@ function isLiveOperationalRoute(route: Route): boolean {
     route.kind === "task" ||
     route.kind === "thread" ||
     route.kind === "employee" ||
+    route.kind === "validation" ||
     route.kind === "activity" ||
     route.kind === "department"
   );
@@ -275,6 +284,8 @@ function getLiveSurfaceLabel(route: Route): string | null {
       return "Thread detail";
     case "employee":
       return "Employee detail";
+    case "validation":
+      return "Validation control loop";
     case "activity":
       return "Company activity";
     case "department":
@@ -396,6 +407,10 @@ function getRoute(defaultTenantId: string): Route {
 
   if (hash === "activity") {
     return { kind: "activity" };
+  }
+
+  if (hash === "validation") {
+    return { kind: "validation" };
   }
 
   const taskMatch = hash.match(/^task\/(.+)$/);
@@ -710,6 +725,79 @@ function attachDepartmentActionHandlers(): void {
         pageSize: nextSize,
       });
       void updateDepartmentPaginationView();
+    });
+  });
+}
+
+function attachValidationHandlers(): void {
+  document.querySelectorAll<HTMLButtonElement>("[data-action='run-validation-now']").forEach((button) => {
+    button.addEventListener("click", async () => {
+      const mode = (button.dataset.mode as ValidationRunMode | undefined) ?? "full";
+
+      try {
+        setMutationStatus(`Starting ${mode} validation run…`);
+        void renderRoute();
+        const result = await runValidationNow({
+          requestedBy: VALIDATION_REQUESTED_BY,
+          mode,
+          reason: "governance_review",
+        });
+        setMutationStatus(
+          `Validation batch ${result.dispatch_batch_id} started: ${result.executed} executed.`,
+        );
+      } catch (error) {
+        setMutationStatus(
+          error instanceof Error ? error.message : "Failed to start validation run",
+        );
+      }
+
+      void renderRoute();
+    });
+  });
+
+  document.querySelectorAll<HTMLButtonElement>("[data-action='pause-validation-scheduler']").forEach((button) => {
+    button.addEventListener("click", async () => {
+      const reason = window.prompt(
+        "Pause reason:",
+        "Paused from dashboard while investigating validation failures.",
+      );
+
+      if (reason === null) {
+        return;
+      }
+
+      try {
+        setMutationStatus("Pausing recurring validation…");
+        void renderRoute();
+        await pauseValidationScheduler({
+          requestedBy: VALIDATION_REQUESTED_BY,
+          reason,
+        });
+        setMutationStatus("Recurring validation paused.");
+      } catch (error) {
+        setMutationStatus(
+          error instanceof Error ? error.message : "Failed to pause recurring validation",
+        );
+      }
+
+      void renderRoute();
+    });
+  });
+
+  document.querySelectorAll<HTMLButtonElement>("[data-action='resume-validation-scheduler']").forEach((button) => {
+    button.addEventListener("click", async () => {
+      try {
+        setMutationStatus("Resuming recurring validation…");
+        void renderRoute();
+        await resumeValidationScheduler(VALIDATION_REQUESTED_BY);
+        setMutationStatus("Recurring validation resumed.");
+      } catch (error) {
+        setMutationStatus(
+          error instanceof Error ? error.message : "Failed to resume recurring validation",
+        );
+      }
+
+      void renderRoute();
     });
   });
 }
@@ -1259,6 +1347,7 @@ async function renderRoute(): Promise<void> {
       "company",
       "mirrors",
       "activity",
+      "validation",
     ];
 
     if (
@@ -1323,6 +1412,8 @@ async function renderRoute(): Promise<void> {
                 ? "mirrors"
                 : route.kind === "activity"
                   ? "activity"
+                  : route.kind === "validation"
+                    ? "validation"
               : "tenant",
       tenantHref: `#tenant/${encodeURIComponent(
         route.kind === "department" ||
@@ -1337,7 +1428,8 @@ async function renderRoute(): Promise<void> {
           route.kind === "team" ||
           route.kind === "company" ||
             route.kind === "mirrors" ||
-            route.kind === "activity"
+            route.kind === "activity" ||
+            route.kind === "validation"
           ? (homeTenantId ?? "")
           : route.tenantId,
       )}`,
@@ -1414,6 +1506,9 @@ async function renderRoute(): Promise<void> {
     } else if (route.kind === "activity") {
       const timeline = await getNarrativeTimeline();
       content += renderNarrativeTimeline(timeline);
+    } else if (route.kind === "validation") {
+      const overview = await getValidationOverview();
+      content += renderValidationOverview(overview);
     } else if (route.kind === "department") {
       const overview = await getDepartmentOverview();
       const filters = getDepartmentFilters();
@@ -1437,6 +1532,10 @@ async function renderRoute(): Promise<void> {
     if (route.kind === "department") {
       attachDepartmentFilterHandlers();
       attachDepartmentActionHandlers();
+    }
+
+    if (route.kind === "validation") {
+      attachValidationHandlers();
     }
 
     if (route.kind === "thread") {

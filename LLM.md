@@ -21,6 +21,7 @@ Endpoint documentation note for future LLM sessions:
 - async-validation may enable `ENABLE_TEST_ENDPOINTS=true` and purge synthetic employees after mutation checks complete
 - recurring validation should not depend on an environment-specific base URL when the control-plane can execute the validation batch directly
 - internal recurring validation should record an internal execution target marker rather than a deployed HTTP URL
+- recurring validation scheduler state now lives in D1 and may be paused/resumed from canonical control-plane routes and the dashboard validation surface
 
 ```bash
 titan@Titans-MacBook-Pro aep % tree . --gitignore
@@ -1434,6 +1435,7 @@ The dashboard now includes:
 - `#employee/:id`
 - `#teams`
 - `#team/:id`
+- `#validation`
 
 These surfaces are **read-only projections** over canonical state.
 
@@ -1973,6 +1975,37 @@ Important invariant:
 * the dashboard remains a surface over canonical operator-agent routes
 * it does not create a parallel people-management state model
 * lifecycle and review changes remain explicit, auditable HTTP mutations
+
+## PR13H — Validation Control Surface (COMPLETED)
+
+The dashboard now exposes a first-class validation operations surface.
+
+Added canonical control-plane routes:
+
+* `GET /validation/overview`
+* `GET /validation/scheduler`
+* `POST /validation/run-now`
+* `POST /validation/scheduler/pause`
+* `POST /validation/scheduler/resume`
+
+The dashboard now includes:
+
+* `#validation`
+
+This surface shows:
+
+* recent validation runs
+* recent validation results
+* cron/manual origin metadata
+* scheduler pause state
+* last requested dispatch metadata
+
+Important invariants:
+
+* recurring validation cron executes internally in the control-plane and records `internal://control-plane/recurring-validation`
+* manual dashboard-triggered validation records `internal://control-plane/manual-validation-run-now`
+* pausing recurring validation suppresses cron-driven execution but does not block explicit manual `run-now`
+* scheduler state is persisted in D1 via `validation_scheduler_state`
 
 ## PR13G — Hardening + policy + realism pass (COMPLETED)
 

@@ -167,6 +167,7 @@ import type {
   TenantOverview,
   TenantSummary,
   TeamRoadmap,
+  ValidationOverview,
 } from "./types";
 
 function escapeHtml(value: unknown): string {
@@ -1095,7 +1096,7 @@ export function renderToolbar(args: {
 }
 
 export function renderPrimaryNav(args: {
-  activeView: "tenant" | "department" | "work" | "people" | "company" | "mirrors" | "activity";
+  activeView: "tenant" | "department" | "work" | "people" | "company" | "mirrors" | "activity" | "validation";
   tenantHref: string;
 }): string {
   return `
@@ -1119,9 +1120,182 @@ export function renderPrimaryNav(args: {
         <a class="view-nav-link ${args.activeView === "mirrors" ? "view-nav-link-active" : ""}" href="#mirrors">
           Mirrors
         </a>
+        <a class="view-nav-link ${args.activeView === "validation" ? "view-nav-link-active" : ""}" href="#validation">
+          Validation
+        </a>
         <a class="view-nav-link ${args.activeView === "department" ? "view-nav-link-active" : ""}" href="#department">
           Governance
         </a>
+      </div>
+    </section>
+  `;
+}
+
+export function renderValidationOverview(overview: ValidationOverview): string {
+  const scheduler = overview.scheduler;
+
+  return `
+    <section class="panel validation-panel">
+      <div class="panel-header validation-panel-header">
+        <div>
+          <h2>Validation Control Loop</h2>
+          <p class="muted">
+            Cron and manual validation runs over the canonical control-plane surfaces.
+          </p>
+        </div>
+        <div class="validation-actions">
+          <button type="button" class="button" data-action="run-validation-now" data-mode="full">
+            Run now
+          </button>
+          <button type="button" class="button button-secondary" data-action="run-validation-now" data-mode="runtime_only">
+            Runtime only
+          </button>
+          ${scheduler.paused
+            ? `
+              <button type="button" class="button" data-action="resume-validation-scheduler">
+                Resume recurring validation
+              </button>
+            `
+            : `
+              <button type="button" class="button button-secondary" data-action="pause-validation-scheduler">
+                Pause recurring validation
+              </button>
+            `}
+        </div>
+      </div>
+
+      <div class="summary-grid validation-summary-grid">
+        ${renderSummaryCard("Scheduler", scheduler.paused ? "Paused" : "Active", scheduler.pause_reason ?? "Recurring validation cron ready")}
+        ${renderSummaryCard("Runs", overview.summary.total_runs, `${overview.summary.completed_runs} completed · ${overview.summary.failed_runs} failed`)}
+        ${renderSummaryCard("Origins", overview.summary.recurring_runs, `${overview.summary.manual_runs} manual · ${overview.summary.post_deploy_runs} post-deploy`)}
+        ${renderSummaryCard("Latest result", overview.summary.latest_result_status ?? "—", overview.summary.latest_completed_at ? `Completed ${new Date(overview.summary.latest_completed_at).toLocaleString()}` : "No completed runs yet")}
+      </div>
+
+      <div class="validation-scheduler-strip">
+        <div>
+          <div class="muted small">Scheduler</div>
+          <div><span class="${statusClass(scheduler.paused ? "warning" : "active")}">${escapeHtml(scheduler.paused ? "paused" : "active")}</span></div>
+        </div>
+        <div>
+          <div class="muted small">Last requested by</div>
+          <div>${escapeHtml(scheduler.last_run_requested_by ?? "—")}</div>
+        </div>
+        <div>
+          <div class="muted small">Last requested at</div>
+          <div>${formatTimestamp(scheduler.last_run_requested_at)}</div>
+        </div>
+        <div>
+          <div class="muted small">Last dispatch batch</div>
+          <div>${escapeHtml(scheduler.last_dispatch_batch_id ?? "—")}</div>
+        </div>
+      </div>
+
+      <div class="validation-grid">
+        <article class="validation-card">
+          <div class="panel-header">
+            <h3>Recent Runs</h3>
+            <p class="muted small">Latest cron, manual, and post-deploy batches.</p>
+          </div>
+          ${overview.recent_runs.length === 0
+            ? `<div class="empty-state small-empty">No validation runs recorded yet.</div>`
+            : `
+              <table class="data-table validation-table">
+                <thead>
+                  <tr>
+                    <th>Created</th>
+                    <th>Type</th>
+                    <th>Origin</th>
+                    <th>Mode</th>
+                    <th>Status</th>
+                    <th>Requested / assigned</th>
+                    <th>Result</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${overview.recent_runs
+                    .map(
+                      (run) => `
+                        <tr>
+                          <td>${formatTimestamp(run.created_at)}</td>
+                          <td>
+                            <div>${escapeHtml(run.validation_type)}</div>
+                            <div class="muted small">${escapeHtml(run.validation_run_id)}</div>
+                          </td>
+                          <td><span class="${statusClass(run.origin)}">${escapeHtml(run.origin)}</span></td>
+                          <td><span class="${statusClass(run.mode === "runtime_only" ? "waiting" : "running")}">${escapeHtml(run.mode)}</span></td>
+                          <td><span class="${statusClass(run.status)}">${escapeHtml(run.status)}</span></td>
+                          <td>
+                            <div>${escapeHtml(run.requested_by)}</div>
+                            <div class="muted small">runner=${escapeHtml(run.assigned_to)}</div>
+                          </td>
+                          <td>
+                            <div>${run.result_status ? `<span class="${statusClass(run.result_status === "warn" ? "warning" : run.result_status)}">${escapeHtml(run.result_status)}</span>` : `<span class="muted small">pending</span>`}</div>
+                            ${run.result_summary ? `<div class="muted small">${escapeHtml(run.result_summary)}</div>` : ""}
+                            ${run.audit_status ? `<div class="muted small">audit=${escapeHtml(run.audit_status)}</div>` : ""}
+                          </td>
+                        </tr>
+                      `,
+                    )
+                    .join("")}
+                </tbody>
+              </table>
+            `}
+        </article>
+
+        <article class="validation-card">
+          <div class="panel-header">
+            <h3>Recent Results</h3>
+            <p class="muted small">Persisted results and audit state for the latest validations.</p>
+          </div>
+          ${overview.recent_results.length === 0
+            ? `<div class="empty-state small-empty">No validation results recorded yet.</div>`
+            : `
+              <table class="data-table validation-table">
+                <thead>
+                  <tr>
+                    <th>Created</th>
+                    <th>Type</th>
+                    <th>Status</th>
+                    <th>Origin / mode</th>
+                    <th>Execution</th>
+                    <th>Summary</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${overview.recent_results
+                    .map(
+                      (result) => `
+                        <tr>
+                          <td>${formatTimestamp(result.created_at)}</td>
+                          <td>
+                            <div>${escapeHtml(result.validation_type)}</div>
+                            <div class="muted small">${escapeHtml(result.validation_result_id)}</div>
+                          </td>
+                          <td>
+                            <span class="${statusClass(result.status === "warn" ? "warning" : result.status)}">${escapeHtml(result.status)}</span>
+                            ${result.severity ? `<div class="muted small">severity=${escapeHtml(result.severity)}</div>` : ""}
+                          </td>
+                          <td>
+                            <div>${escapeHtml(result.origin ?? "—")}</div>
+                            <div class="muted small">${escapeHtml(result.mode ?? "—")}</div>
+                          </td>
+                          <td>
+                            <div>${escapeHtml(result.executed_by)}</div>
+                            <div class="muted small">audit=${escapeHtml(result.audit_status ?? "—")}</div>
+                            ${result.audited_by ? `<div class="muted small">by ${escapeHtml(result.audited_by)}</div>` : ""}
+                          </td>
+                          <td>
+                            <div>${escapeHtml(result.summary)}</div>
+                            ${result.owner_team ? `<div class="muted small">owner=${escapeHtml(result.owner_team)}</div>` : ""}
+                          </td>
+                        </tr>
+                      `,
+                    )
+                    .join("")}
+                </tbody>
+              </table>
+            `}
+        </article>
       </div>
     </section>
   `;

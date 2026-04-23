@@ -505,6 +505,89 @@ export type SchedulerStatus = {
   cronFallbackEnabled: boolean;
 };
 
+export type ValidationRunType =
+  | "runtime_read_safety"
+  | "contract_surface"
+  | "ownership_surface";
+
+export type ValidationRunMode = "full" | "runtime_only";
+
+export type ValidationRunOrigin = "recurring" | "manual" | "post_deploy" | "dispatch";
+
+export type ValidationRunRecord = {
+  validation_run_id: string;
+  dispatch_batch_id: string | null;
+  validation_type: ValidationRunType;
+  requested_by: string;
+  assigned_to: string;
+  status: "queued" | "running" | "completed" | "failed";
+  target_base_url: string;
+  origin: ValidationRunOrigin;
+  mode: ValidationRunMode;
+  result_id: string | null;
+  result_status: "passed" | "failed" | "warn" | null;
+  result_summary: string | null;
+  severity: "info" | "warn" | "failed" | "critical" | null;
+  audit_status: "pending" | "reviewed" | null;
+  audited_by: string | null;
+  audited_at: string | null;
+  created_at: string;
+  started_at: string | null;
+  completed_at: string | null;
+};
+
+export type ValidationResultRecord = {
+  validation_result_id: string;
+  dispatch_batch_id: string | null;
+  validation_type: ValidationRunType;
+  status: "passed" | "failed" | "warn";
+  severity: "info" | "warn" | "failed" | "critical" | null;
+  executed_by: string;
+  summary: string;
+  owner_team: string | null;
+  audit_status: "pending" | "reviewed" | null;
+  audited_by: string | null;
+  audited_at: string | null;
+  created_at: string;
+  origin: ValidationRunOrigin | null;
+  mode: ValidationRunMode | null;
+};
+
+export type ValidationSchedulerState = {
+  scheduler_name: string;
+  paused: boolean;
+  pause_reason: string | null;
+  paused_by: string | null;
+  paused_at: string | null;
+  resumed_by: string | null;
+  resumed_at: string | null;
+  last_run_requested_by: string | null;
+  last_run_requested_at: string | null;
+  last_dispatch_batch_id: string | null;
+  updated_at: string;
+};
+
+export type ValidationOverview = {
+  team_id: string;
+  scheduler: ValidationSchedulerState;
+  summary: {
+    total_runs: number;
+    queued_runs: number;
+    running_runs: number;
+    completed_runs: number;
+    failed_runs: number;
+    recurring_runs: number;
+    manual_runs: number;
+    post_deploy_runs: number;
+    latest_run_at: string | null;
+    latest_completed_at: string | null;
+    latest_result_status: "passed" | "failed" | "warn" | null;
+    latest_dispatch_batch_id: string | null;
+  };
+  recent_runs: ValidationRunRecord[];
+  recent_results: ValidationResultRecord[];
+};
+
 export type DepartmentOverview = {
   employees: OperatorEmployeeRecord[];
   escalations: EscalationRecord[];

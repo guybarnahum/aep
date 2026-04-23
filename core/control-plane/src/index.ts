@@ -36,10 +36,15 @@ import {
   handleValidationResultDetailRoute,
   handleValidationVerdictRoute,
   handleValidationPolicyRoute,
+  handleValidationOverviewRoute,
+  handleValidationSchedulerRoute,
   handleValidationRunsRoute,
   handleValidationRunDetailRoute,
   handleCreateValidationRunRoute,
   handleExecuteValidationRunRoute,
+  handleRunValidationNowRoute,
+  handlePauseValidationSchedulerRoute,
+  handleResumeValidationSchedulerRoute,
   handleOrgTenantsRoute,
   handleOrgTenantDetailRoute,
   handleTenantEnvironmentsRoute,
@@ -49,6 +54,7 @@ import {
   handleEmployeeCatalogDetailRoute,
   handleEmployeeScopeRoute,
   getRecurringValidationCronConfig,
+  getValidationSchedulerState,
   runRecurringValidationBatch,
 } from "@aep/control-plane/routes/org";
 import {
@@ -89,6 +95,8 @@ function isRuntimeReadRoute(pathname: string): boolean {
     pathname === "/tenants" ||
     pathname.startsWith("/tenants/") ||
     pathname === "/validation" ||
+    pathname === "/validation/overview" ||
+    pathname === "/validation/scheduler" ||
     pathname === "/validation/dispatch" ||
     pathname === "/validation/employees" ||
     pathname.startsWith("/validation/employees/") ||
@@ -182,6 +190,17 @@ function parseTeardownMode(value: unknown): "sync" | "async" {
 async function runCronDrivenRecurringValidation(
   env: ValidationCronEnv,
 ): Promise<void> {
+  const scheduler = await getValidationSchedulerState(env.DB);
+  if (scheduler.paused) {
+    console.log("recurring validation batch skipped", {
+      scheduler_name: scheduler.scheduler_name,
+      pause_reason: scheduler.pause_reason,
+      paused_by: scheduler.paused_by,
+      paused_at: scheduler.paused_at,
+    });
+    return;
+  }
+
   const cronConfig = getRecurringValidationCronConfig(env);
 
   const recurring = await runRecurringValidationBatch({
@@ -632,6 +651,14 @@ export default {
       return handleValidationRoute(request);
     }
 
+    if (request.method === "GET" && pathname === "/validation/overview") {
+      return handleValidationOverviewRoute(request, env);
+    }
+
+    if (request.method === "GET" && pathname === "/validation/scheduler") {
+      return handleValidationSchedulerRoute(request, env);
+    }
+
     if (request.method === "GET" && pathname === "/validation/employees") {
       return handleValidationEmployeesRoute(request);
     }
@@ -670,6 +697,18 @@ export default {
 
     if (request.method === "POST" && pathname === "/validation/dispatch") {
       return handleCreateValidationDispatchRoute(request, env);
+    }
+
+    if (request.method === "POST" && pathname === "/validation/run-now") {
+      return handleRunValidationNowRoute(request, env);
+    }
+
+    if (request.method === "POST" && pathname === "/validation/scheduler/pause") {
+      return handlePauseValidationSchedulerRoute(request, env);
+    }
+
+    if (request.method === "POST" && pathname === "/validation/scheduler/resume") {
+      return handleResumeValidationSchedulerRoute(request, env);
     }
 
     if (

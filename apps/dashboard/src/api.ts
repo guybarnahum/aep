@@ -35,6 +35,9 @@ import type {
   TeamRoadmap,
   TenantOverview,
   TenantSummary,
+  ValidationOverview,
+  ValidationSchedulerState,
+  ValidationRunMode,
 } from "./types";
 
 // Normalizer for employee records to ensure shape stability
@@ -232,6 +235,70 @@ export async function getTenantOverview(
     getApiBaseUrl(),
     `/tenants/${encodeURIComponent(tenantId)}`,
   );
+}
+
+export async function getValidationOverview(): Promise<ValidationOverview> {
+  return getJson<ValidationOverview>(getApiBaseUrl(), "/validation/overview");
+}
+
+export async function getValidationScheduler(): Promise<ValidationSchedulerState> {
+  const payload = await getJson<{ scheduler: ValidationSchedulerState }>(
+    getApiBaseUrl(),
+    "/validation/scheduler",
+  );
+  return payload.scheduler;
+}
+
+export async function runValidationNow(args: {
+  requestedBy: string;
+  mode: ValidationRunMode;
+  reason?: "scheduled_health" | "drift_detection" | "governance_review";
+}): Promise<{
+  dispatch_batch_id: string;
+  dispatched: number;
+  executed: number;
+  scheduler: ValidationSchedulerState | null;
+}> {
+  return postJson<{
+    dispatch_batch_id: string;
+    dispatched: number;
+    executed: number;
+    scheduler: ValidationSchedulerState | null;
+  }>(getApiBaseUrl(), "/validation/run-now", {
+    requested_by: args.requestedBy,
+    mode: args.mode,
+    reason: args.reason ?? "governance_review",
+  });
+}
+
+export async function pauseValidationScheduler(args: {
+  requestedBy: string;
+  reason: string;
+}): Promise<ValidationSchedulerState> {
+  const payload = await postJson<{ scheduler: ValidationSchedulerState }>(
+    getApiBaseUrl(),
+    "/validation/scheduler/pause",
+    {
+      requested_by: args.requestedBy,
+      reason: args.reason,
+    },
+  );
+
+  return payload.scheduler;
+}
+
+export async function resumeValidationScheduler(
+  requestedBy: string,
+): Promise<ValidationSchedulerState> {
+  const payload = await postJson<{ scheduler: ValidationSchedulerState }>(
+    getApiBaseUrl(),
+    "/validation/scheduler/resume",
+    {
+      requested_by: requestedBy,
+    },
+  );
+
+  return payload.scheduler;
 }
 
 export async function getServiceOverview(

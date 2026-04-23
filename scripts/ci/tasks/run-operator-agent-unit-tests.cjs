@@ -8,7 +8,9 @@ const { join, resolve } = require("node:path");
 
 const REPO_ROOT = resolve(__dirname, "..", "..", "..");
 const TSX_CLI_PATH = join(REPO_ROOT, "node_modules", "tsx", "dist", "cli.mjs");
+const TSX_TSCONFIG_PATH = join(REPO_ROOT, "core", "control-plane", "tsconfig.json");
 const TEST_FILES = [
+  "core/control-plane/src/routes/validation-smoke.test.ts",
   "core/operator-agent/src/lib/employee-persona-generator.test.ts",
   "core/operator-agent/src/lib/implementation-binding-registry.test.ts",
   "core/operator-agent/src/lib/employee-cognition.test.ts",
@@ -115,7 +117,10 @@ function main() {
   const nodePath = resolvePreferredNode();
   const result = spawnSync(nodePath, [TSX_CLI_PATH, "--test", ...TEST_FILES], {
     cwd: REPO_ROOT,
-    env: process.env,
+    env: {
+      ...process.env,
+      TSX_TSCONFIG_PATH,
+    },
     stdio: "inherit",
   });
 
