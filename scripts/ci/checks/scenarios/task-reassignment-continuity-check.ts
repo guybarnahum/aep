@@ -303,7 +303,9 @@ async function main(): Promise<void> {
       });
 
       if (!created?.ok || created.employeeId !== employeeId) {
-        employeeIds: seededEmployeeIds,
+        throw new Error(
+          `Failed to seed employee ${employeeId}: ${JSON.stringify(created)}`,
+        );
       }
     }
 
@@ -406,7 +408,7 @@ async function main(): Promise<void> {
     });
   } finally {
     try {
-      cleanup({ employeeIds, taskIds });
+      cleanup({ employeeIds: seededEmployeeIds, taskIds });
     } catch (error) {
       console.warn(`- WARN: ${CHECK_NAME} cleanup failed: ${error instanceof Error ? error.message : String(error)}`);
     }
