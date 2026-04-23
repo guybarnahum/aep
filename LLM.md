@@ -13,6 +13,7 @@ Endpoint documentation note for future LLM sessions:
 - if the repo later renames `API.md` or `APII.md`, use that renamed file as the same canonical API reference
 - use `LLM.md` for architecture, continuity, and task context; use `API.md` for concrete route surfaces and invariants
 - runtime-facing checks should resolve live employee instances from `/agent/employees` by role/team intent instead of assuming seeded employee ids
+- CI live employee resolution should prefer semantic requirements over seeded-identity assumptions: use role/team/runtime as the initial candidate set, then filter by required scope properties, expected role metadata, or explicit behavior-based matchers as needed
 - schema and surface checks should prefer role-oriented invariants over seeded-id assertions where practical
 - `scripts/ci/shared/employee-ids.ts` must not exist; CI checks should resolve live employee ids by role/team from `/agent/employees` or use local fixture ids only for pure unit-style checks that do not depend on seeded runtime employees
 
@@ -738,6 +739,13 @@ Private role-level cognitive scaffolding belongs in private prompt-profile table
 
 Employee creation should derive new employee IDs from `roles_catalog.employee_id_code`, not from hardcoded TS maps.
 Runtime policy should stay code-owned at the role layer. Live runtime paths should not hardcode employee instance IDs; they should resolve active employees from D1 by company, team, and role intent, and CI should discover current runtime employees from `/agent/employees` when it needs live identities.
+When role/team/runtime is not specific enough because multiple live employees share the same role, CI should refine selection semantically instead of falling back to seeded-id conventions:
+
+* use scope requirements such as `allowedServices`, `allowedTenants`, or `allowedEnvironmentNames` via `/agent/employees/:employeeId/scope`
+* use expected role metadata such as `runtimeEnabled`, `implementationBinding`, `managerRoleId`, or `employeeIdCode` via `/agent/roles`
+* use a bounded behavior-based matcher only when structural metadata is insufficient; for example, select a PM candidate by observed public-rationale style through public task and thread surfaces rather than by private prompt-profile storage
+
+This is now the intended CI contract embodied by `scripts/ci/lib/employee-resolution.ts`.
 The intended canonical format is:
 
 * `<two-letter-role-code><3-digit-sequence>`

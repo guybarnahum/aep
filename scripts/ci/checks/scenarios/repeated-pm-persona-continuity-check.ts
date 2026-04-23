@@ -121,6 +121,56 @@ async function loadCandidateTasks(
   return results;
 }
 
+async function loadSelectorCandidateTasks(
+  fetchJson: <T>(path: string) => Promise<T>,
+): Promise<Record<string, unknown>[]> {
+  const results: Record<string, unknown>[] = [];
+
+  for (const status of ["completed", "failed"] as const) {
+    const response = await fetchJson<{ ok?: boolean; tasks?: Record<string, unknown>[] }>(
+      `/agent/tasks?status=${status}&limit=50`,
+    );
+
+    if (!response?.ok || !Array.isArray(response.tasks)) {
+      continue;
+    }
+
+    results.push(...response.tasks);
+  }
+
+  return results;
+}
+
+async function candidateHasExpectedPmRationaleStyle(args: {
+  employeeId: string;
+  fetchJson: <T>(path: string) => Promise<T>;
+}): Promise<boolean> {
+  const tasks = await loadSelectorCandidateTasks(args.fetchJson);
+
+  for (const task of tasks) {
+    if (typeof task.id !== "string") {
+      continue;
+    }
+
+    const taskDetail = await args.fetchJson<Record<string, unknown>>(
+      `/agent/tasks/${encodeURIComponent(task.id)}`,
+    );
+
+    if (taskDetail?.ok !== true) {
+      continue;
+    }
+
+    const artifact = findPublicRationaleArtifact(taskDetail);
+    if (!artifact || artifact.createdByEmployeeId !== args.employeeId) {
+      continue;
+    }
+
+    return extractPresentationStyleFromArtifact(artifact) === EXPECTED_STYLE;
+  }
+
+  return false;
+}
+
 async function findRepeatedSamples(
   client: ReturnType<typeof createOperatorAgentClient>,
 ): Promise<TaskSample[]> {
@@ -232,24 +282,40 @@ async function main(): Promise<void> {
     envVar: "OPERATOR_AGENT_BASE_URL",
     serviceName: "operator-agent",
   });
-  TARGET_EMPLOYEE_ID = await resolveEmployeeIdByRole({
-    agentBaseUrl,
-    roleId: "product-manager-web",
-    teamId: "team_web_product",
-    runtimeStatus: "planned",
-    required: {
-      scope: {
-        allowedServices: ["service_dashboard"],
-        allowedEnvironmentNames: ["preview"],
-      },
-    },
-  });
 
   try {
     await client.endpointExists("/agent/tasks");
   } catch (error) {
     if (handleOperatorAgentSoftSkip(CHECK_NAME, error)) {
       process.exit(0);
+    }
+    throw error;
+  }
+
+  try {
+    TARGET_EMPLOYEE_ID = await resolveEmployeeIdByRole({
+      agentBaseUrl,
+      roleId: "product-manager-web",
+      teamId: "team_web_product",
+      runtimeStatus: "planned",
+      required: {
+        scope: {
+          allowedServices: ["service_dashboard"],
+          allowedEnvironmentNames: ["preview"],
+        },
+        matchCandidate: async (candidate, inspector) =>
+          candidateHasExpectedPmRationaleStyle({
+            employeeId: candidate.identity.employeeId,
+            fetchJson: inspector.fetchJson,
+          }),
+      },
+    });
+  } catch (error) {
+    if (
+      error instanceof Error
+      && error.message.includes("No employee found for roleId=product-manager-web")
+    ) {
+      softSkip("no preview-scoped web PM with structured-alignment rationale samples is available");
     }
     throw error;
   }

@@ -58,6 +58,7 @@ Base service: `core/operator-agent`
 - Lists public role contracts from `roles_catalog`.
 - Includes canonical job-description fields, runtime metadata (`employeeIdCode`, `runtimeEnabled`, `implementationBinding`, `managerRoleId`), and optional `reviewDimensions` used by dashboard role detail and employee-review forms.
 - Important invariant: role-level prompt scaffolding remains private and is not exposed through this route.
+- Live-selection note: CI capability-based employee resolution may use this route as role metadata input when a caller needs to select an employee by expected role behavior instead of by seeded identity.
 
 `GET /agent/employees`
 
@@ -65,6 +66,7 @@ Base service: `core/operator-agent`
 - Supports filters such as `status`, `teamId`, and `employmentStatus`.
 - This route is the canonical discovery surface for live employee instance resolution in CI and runtime-adjacent validation.
 - Checks that exercise live operator-agent behavior should resolve current employees by role/team intent from this route rather than assuming a fixed seeded employee id.
+- Capability-based CI selection note: the shared CI resolver now supports semantic matching over this route by combining role/team/runtime discovery with explicit required properties. Callers should prefer required capability filters such as expected scope bindings or role metadata over seeded-id assumptions.
 - Important dashboard contract: employee projections include separate `employment` and `runtime` blocks plus public-profile fields, public links, and optional visual identity.
 
 `POST /agent/employees`
@@ -83,10 +85,12 @@ Base service: `core/operator-agent`
 `GET /agent/employees/:employeeId/scope`
 
 - Returns resolved scope bindings for an employee.
+- CI capability-selection note: this is the canonical surface for selectors such as `required.scope.allowedServices`, `required.scope.allowedTenants`, and `required.scope.allowedEnvironmentNames` when checks need the employee with a specific live scope shape, such as dashboard preview or async-validation coverage.
 
 `GET /agent/employees/:employeeId/effective-policy`
 
 - Returns effective authority, budget, control state, and implementation status.
+- CI capability-selection note: this route is available to higher-order selectors when a caller needs to choose an employee by effective runtime behavior instead of identity.
 
 `GET /agent/employees/:employeeId/employment-events`
 
@@ -124,6 +128,7 @@ Role cognition note:
 
 - runtime cognition assembly may combine public role-contract context with private role-level and employee-level prompt scaffolds plus bounded policy/task context
 - these private scaffolds remain internal and are not exposed by any public route
+- CI behavior-selection note: callers that need to select an employee by observed rationale or cognition behavior should use existing public task, artifact, thread, scope, policy, and role surfaces through the shared resolver's `required.matchCandidate` hook rather than reading prompt-profile tables directly.
 
 `POST /agent/employees/:employeeId/approve-persona`
 
