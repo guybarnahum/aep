@@ -47,6 +47,9 @@ type EnvLike = {
   RUNTIME_READ_FAILURE_INJECTION_ENABLED?: string;
 };
 
+const INTERNAL_RECURRING_VALIDATION_TARGET =
+  "internal://control-plane/recurring-validation";
+
 type ValidationResultRow = {
   id: string;
   dispatch_batch_id: string | null;
@@ -739,7 +742,6 @@ async function dispatchValidationRuns(args: {
 export async function runRecurringValidationBatch(args: {
   db: D1Database;
   requestedBy: string;
-  targetBaseUrl: string;
   mode: "full" | "runtime_only";
   reason: "scheduled_health" | "drift_detection" | "governance_review";
 }): Promise<{
@@ -757,7 +759,7 @@ export async function runRecurringValidationBatch(args: {
   const dispatched = await dispatchValidationRuns({
     db: args.db,
     requestedBy: args.requestedBy,
-    targetBaseUrl: args.targetBaseUrl,
+    targetBaseUrl: INTERNAL_RECURRING_VALIDATION_TARGET,
     mode: args.mode,
   });
 
@@ -788,9 +790,8 @@ export async function runRecurringValidationBatch(args: {
   };
 }
 
-export function getRecurringValidationCronConfig(env: EnvLike): {
+export function getRecurringValidationCronConfig(_env: EnvLike): {
   requestedBy: string;
-  targetBaseUrl: string | null;
   mode: "full" | "runtime_only";
   reason: "scheduled_health";
 } {
@@ -798,14 +799,8 @@ export function getRecurringValidationCronConfig(env: EnvLike): {
   const mode = "full";
   const reason = "scheduled_health" as const;
 
-  const targetBaseUrl =
-    typeof env.APP_ENV === "string" && env.APP_ENV.trim() !== ""
-      ? null
-      : null;
-
   return {
     requestedBy,
-    targetBaseUrl,
     mode,
     reason,
   };
@@ -2022,7 +2017,6 @@ export async function handleScheduleRecurringValidationRoute(
       const recurring = await runRecurringValidationBatch({
         db: env.DB,
         requestedBy: body.requested_by.trim(),
-        targetBaseUrl: body.target_base_url.trim(),
         mode,
         reason,
       });

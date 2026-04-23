@@ -66,9 +66,7 @@ import {
 } from "@aep/control-plane/routes/tenants";
 import { advanceTimeoutForJob } from "@aep/control-plane/operator/advance-timeout";
 
-type ValidationCronEnv = Env & {
-  RECURRING_VALIDATION_BASE_URL?: string;
-};
+type ValidationCronEnv = Env;
 
 async function json(request: Request): Promise<unknown> {
   return request.json();
@@ -184,19 +182,11 @@ function parseTeardownMode(value: unknown): "sync" | "async" {
 async function runCronDrivenRecurringValidation(
   env: ValidationCronEnv,
 ): Promise<void> {
-  const baseUrl = env.RECURRING_VALIDATION_BASE_URL;
-  if (!baseUrl || baseUrl.trim() === "") {
-    console.warn("recurring validation skipped: missing RECURRING_VALIDATION_BASE_URL");
-    return;
-  }
-
   const cronConfig = getRecurringValidationCronConfig(env);
-  const normalizedBaseUrl = baseUrl.replace(/\/+$/, "");
 
   const recurring = await runRecurringValidationBatch({
     db: env.DB,
     requestedBy: cronConfig.requestedBy,
-    targetBaseUrl: normalizedBaseUrl,
     mode: cronConfig.mode,
     reason: cronConfig.reason,
   });
@@ -205,6 +195,7 @@ async function runCronDrivenRecurringValidation(
     dispatch_batch_id: recurring.dispatchBatchId,
     dispatched: recurring.dispatchedRuns.length,
     executed: recurring.executedRuns.length,
+    execution_target: "internal://control-plane/recurring-validation",
   });
 }
 

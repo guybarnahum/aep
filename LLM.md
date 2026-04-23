@@ -19,6 +19,8 @@ Endpoint documentation note for future LLM sessions:
 - staging and production contracts validation must not create synthetic employees
 - synthetic employee lifecycle/persona mutation checks belong only in the async-validation lane
 - async-validation may enable `ENABLE_TEST_ENDPOINTS=true` and purge synthetic employees after mutation checks complete
+- recurring validation should not depend on an environment-specific base URL when the control-plane can execute the validation batch directly
+- internal recurring validation should record an internal execution target marker rather than a deployed HTTP URL
 
 ```bash
 titan@Titans-MacBook-Pro aep % tree . --gitignore
@@ -1982,7 +1984,7 @@ Implemented:
 * company-view copy tightening so people-management terminology is consistent
 * LLM.md tree/state refresh to match the repo more closely
 * synthetic purge now exists as a narrowly scoped cleanup/admin surface for `is_synthetic = true` and `employment_status = archived`
-* authorization may come from `ENABLE_TEST_ENDPOINTS=true` or an explicit cleanup token
+* authorization requires `ENABLE_TEST_ENDPOINTS=true`
 
 Important invariant:
 
@@ -1992,7 +1994,7 @@ Important invariant:
 * high-impact review recommendations remain explicit and approval-linked
 * only `is_synthetic = true` employees may be permanently purged
 * purge additionally requires `employment_status = archived`
-* purge authorization is allowed either through `ENABLE_TEST_ENDPOINTS=true` or an explicit cleanup token
+* purge authorization is allowed only through `ENABLE_TEST_ENDPOINTS=true`
 * future tightening should route purge through a narrower internal admin policy gate
 
 ---

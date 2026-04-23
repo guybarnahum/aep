@@ -418,6 +418,10 @@ Base service: `core/control-plane`
 
 `GET /validation/policy`
 
+Recurring validation note:
+
+- cron-driven recurring validation runs directly inside the control-plane and records an internal recurring-validation execution target instead of depending on an environment-specific HTTP base URL
+
 `GET /validation/runs`
 
 `POST /validation/runs`
