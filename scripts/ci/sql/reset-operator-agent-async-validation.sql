@@ -15,6 +15,5 @@ DELETE FROM task_artifacts;
 DELETE FROM task_dependencies;
 DELETE FROM tasks;
 DELETE FROM team_roadmaps;
-DELETE FROM _cf_KV;
 
 PRAGMA optimize;
