@@ -78,6 +78,5 @@ jobs:
         if: always()
         env:
           OPERATOR_AGENT_BASE_URL: ${{ vars.OPERATOR_AGENT_BASE_URL }}
-          OPERATOR_AGENT_CLEANUP_TOKEN: ${{ secrets.OPERATOR_AGENT_CLEANUP_TOKEN }}
         run: |
           npm run ci:purge-synthetic-employees -- post

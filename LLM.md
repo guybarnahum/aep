@@ -16,6 +16,9 @@ Endpoint documentation note for future LLM sessions:
 - CI live employee resolution should prefer semantic requirements over seeded-identity assumptions: use role/team/runtime as the initial candidate set, then filter by required scope properties, expected role metadata, or explicit behavior-based matchers as needed
 - schema and surface checks should prefer role-oriented invariants over seeded-id assertions where practical
 - `scripts/ci/shared/employee-ids.ts` must not exist; CI checks should resolve live employee ids by role/team from `/agent/employees` or use local fixture ids only for pure unit-style checks that do not depend on seeded runtime employees
+- staging and production contracts validation must not create synthetic employees
+- synthetic employee lifecycle/persona mutation checks belong only in the async-validation lane
+- async-validation may enable `ENABLE_TEST_ENDPOINTS=true` and purge synthetic employees after mutation checks complete
 
 ```bash
 titan@Titans-MacBook-Pro aep % tree . --gitignore

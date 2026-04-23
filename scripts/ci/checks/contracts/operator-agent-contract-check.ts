@@ -28,6 +28,10 @@ async function expectRequestFailure(
 
 const SYNTHETIC_EMPLOYEE_NAME_PREFIXES = ["Lifecycle Test ", "Persona Test "];
 
+function enableSyntheticMutationChecks(): boolean {
+  return process.env.OPERATOR_AGENT_ENABLE_SYNTHETIC_MUTATION_CHECKS === "true";
+}
+
 function isSyntheticContractTestEmployee(employee: {
   identity: { employeeId: string };
   employment: { employmentStatus: string };
@@ -41,8 +45,13 @@ function isSyntheticContractTestEmployee(employee: {
 
 async function cleanupSyntheticContractTestEmployees(args: {
   client: ReturnType<typeof createOperatorAgentClient>;
+  agentBaseUrl: string;
   phase: "before" | "after";
 }): Promise<void> {
+  if (!enableSyntheticMutationChecks()) {
+    return;
+  }
+
   const employeesResponse = await args.client.listEmployees();
   if (!employeesResponse.ok) {
     throw new Error("Failed to list employees during synthetic employee cleanup");
@@ -104,6 +113,25 @@ async function cleanupSyntheticContractTestEmployees(args: {
         `Failed to archive synthetic employee ${employeeId} during ${args.phase} cleanup`,
       );
     }
+
+    const purgeResponse = await fetch(`${args.agentBaseUrl}/agent/te/purge-employee`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ employeeId }),
+    });
+
+    const purgePayload = (await purgeResponse.json()) as {
+      ok?: boolean;
+      error?: string;
+    };
+
+    if (!purgeResponse.ok || purgePayload.ok !== true) {
+      throw new Error(
+        `Failed to purge synthetic employee ${employeeId} during ${args.phase} cleanup: ${JSON.stringify(purgePayload)}`,
+      );
+    }
   }
 }
 
@@ -116,6 +144,7 @@ async function main(): Promise<void> {
 
   await cleanupSyntheticContractTestEmployees({
     client,
+    agentBaseUrl,
     phase: "before",
   });
 
@@ -373,234 +402,237 @@ async function main(): Promise<void> {
     throw new Error("Expected product manager web employmentStatus=active");
   }
 
-  const lifecycleTestEmployee = await client.createEmployee({
-    teamId: "team_web_product",
-    roleId: "product-manager-web",
-    employeeName: `Lifecycle Test ${Date.now()}`,
-    employmentStatus: "draft",
-    runtimeStatus: "planned",
-    schedulerMode: "manual_only",
-    isSynthetic: true,
-    bio: "Lifecycle test employee",
-    tone: "Professional",
-    skills: ["Planning"],
-    appearanceSummary: "Test employee for lifecycle contract checks.",
-    birthYear: 1993,
-    reason: "CI lifecycle contract check",
-    approvedBy: "ci-operator-agent-client",
-  });
+  let lifecycleEventsCount = 0;
+  let personaEmployeeId: string | null = null;
 
-  if (!lifecycleTestEmployee.ok || !lifecycleTestEmployee.employeeId) {
-    throw new Error("Expected employee creation to succeed for lifecycle test");
-  }
-
-  const lifecycleEmployeeId = String(lifecycleTestEmployee.employeeId);
-
-  const draftEmployees = await client.listEmployees({ employmentStatus: "draft" });
-  if (!draftEmployees.ok) {
-    throw new Error("/agent/employees?employmentStatus=draft did not return ok=true");
-  }
-
-  if (
-    !draftEmployees.employees.some(
-      (employee) => employee.identity.employeeId === lifecycleEmployeeId,
-    )
-  ) {
-    throw new Error("Expected lifecycle test employee in draft employment filter");
-  }
-
-  const activateResult = await client.runEmployeeLifecycleAction(
-    lifecycleEmployeeId,
-    "activate",
-    {
-      reason: "CI activate check",
-    },
-  );
-  if (!activateResult.ok || activateResult.employmentStatus !== "active") {
-    throw new Error("Expected activate lifecycle action to succeed");
-  }
-
-  await expectRequestFailure(
-    "archive-active-employee",
-    () =>
-      client.runEmployeeLifecycleAction(lifecycleEmployeeId, "archive", {
-        reason: "CI invalid archive-from-active check",
-        approvedBy: "ci-operator-agent-client",
-      }),
-    "archive is only allowed for retired or terminated employees",
-  );
-
-  const changeRoleResult = await client.runEmployeeLifecycleAction(
-    lifecycleEmployeeId,
-    "change-role",
-    {
-      toRoleId: "frontend-engineer",
-      reason: "CI change-role check",
-    },
-  );
-  if (!changeRoleResult.ok || changeRoleResult.roleId !== "frontend-engineer") {
-    throw new Error("Expected change-role lifecycle action to succeed");
-  }
-
-  const leaveResult = await client.runEmployeeLifecycleAction(
-    lifecycleEmployeeId,
-    "start-leave",
-    {
-      reason: "CI leave check",
-    },
-  );
-  if (!leaveResult.ok || leaveResult.employmentStatus !== "on_leave") {
-    throw new Error("Expected start-leave lifecycle action to succeed");
-  }
-
-  const returnResult = await client.runEmployeeLifecycleAction(
-    lifecycleEmployeeId,
-    "end-leave",
-    {
-      reason: "CI return check",
-    },
-  );
-  if (!returnResult.ok || returnResult.employmentStatus !== "active") {
-    throw new Error("Expected end-leave lifecycle action to succeed");
-  }
-
-  const retireResult = await client.runEmployeeLifecycleAction(
-    lifecycleEmployeeId,
-    "retire",
-    {
-      reason: "CI retire check",
+  if (enableSyntheticMutationChecks()) {
+    const lifecycleTestEmployee = await client.createEmployee({
+      teamId: "team_web_product",
+      roleId: "product-manager-web",
+      employeeName: `Lifecycle Test ${Date.now()}`,
+      employmentStatus: "draft",
+      runtimeStatus: "planned",
+      schedulerMode: "manual_only",
+      isSynthetic: true,
+      bio: "Lifecycle test employee",
+      tone: "Professional",
+      skills: ["Planning"],
+      appearanceSummary: "Test employee for lifecycle contract checks.",
+      birthYear: 1993,
+      reason: "CI lifecycle contract check",
       approvedBy: "ci-operator-agent-client",
-    },
-  );
-  if (!retireResult.ok || retireResult.employmentStatus !== "retired") {
-    throw new Error("Expected retire lifecycle action to succeed");
-  }
+    });
 
-  const rehireResult = await client.runEmployeeLifecycleAction(
-    lifecycleEmployeeId,
-    "rehire",
-    {
-      reason: "CI rehire check",
-    },
-  );
-  if (!rehireResult.ok || rehireResult.employmentStatus !== "active") {
-    throw new Error("Expected rehire lifecycle action to succeed");
-  }
-
-  const terminateResult = await client.runEmployeeLifecycleAction(
-    lifecycleEmployeeId,
-    "terminate",
-    {
-      reason: "CI terminate check",
-      approvedBy: "ci-operator-agent-client",
-    },
-  );
-  if (!terminateResult.ok || terminateResult.employmentStatus !== "terminated") {
-    throw new Error("Expected terminate lifecycle action to succeed");
-  }
-
-  // Work continuity: lifecycle-driven reassignment should not crash when active
-  // tasks are present, even though this contract check does not read D1 directly.
-
-  const archiveResult = await client.runEmployeeLifecycleAction(
-    lifecycleEmployeeId,
-    "archive",
-    {
-      reason: "CI archive check",
-      approvedBy: "ci-operator-agent-client",
-    },
-  );
-  if (!archiveResult.ok || archiveResult.employmentStatus !== "archived") {
-    throw new Error("Expected archive lifecycle action to succeed");
-  }
-
-  const lifecycleEvents = await client.getEmployeeEmploymentEvents(
-    lifecycleEmployeeId,
-  );
-  if (!lifecycleEvents.ok || lifecycleEvents.count < 7) {
-    throw new Error("Expected lifecycle test employee employment events to exist");
-  }
-
-  const lifecycleEventTypes = new Set(
-    lifecycleEvents.events.map((event) => event.eventType),
-  );
-
-  for (const eventType of [
-    "hired",
-    "activated",
-    "role_changed",
-    "went_on_leave",
-    "returned_from_leave",
-    "retired",
-    "rehired",
-    "terminated",
-    "archived",
-  ]) {
-    if (!lifecycleEventTypes.has(eventType as any)) {
-      throw new Error(`Expected lifecycle event ${eventType} to be recorded`);
+    if (!lifecycleTestEmployee.ok || !lifecycleTestEmployee.employeeId) {
+      throw new Error("Expected employee creation to succeed for lifecycle test");
     }
-  }
 
-  const personaTestEmployee = await client.createEmployee({
-    teamId: "team_validation",
-    roleId: "validation-engineer",
-    employeeName: `Persona Test ${Date.now()}`,
-    employmentStatus: "draft",
-    runtimeStatus: "planned",
-    schedulerMode: "manual_only",
-    isSynthetic: true,
-    reason: "CI persona contract check",
-    approvedBy: "ci-operator-agent-client",
-  });
+    const lifecycleEmployeeId = String(lifecycleTestEmployee.employeeId);
 
-  if (!personaTestEmployee.ok || !personaTestEmployee.employeeId) {
-    throw new Error("Expected employee creation to succeed for persona test");
-  }
+    const draftEmployees = await client.listEmployees({ employmentStatus: "draft" });
+    if (!draftEmployees.ok) {
+      throw new Error("/agent/employees?employmentStatus=draft did not return ok=true");
+    }
 
-  const personaEmployeeId = String(personaTestEmployee.employeeId);
+    if (
+      !draftEmployees.employees.some(
+        (employee) => employee.identity.employeeId === lifecycleEmployeeId,
+      )
+    ) {
+      throw new Error("Expected lifecycle test employee in draft employment filter");
+    }
 
-  const generatedPersona = await client.generateEmployeePersona(
-    personaEmployeeId,
-    {
-      description:
-        "Analytical validation engineer who is methodical, evidence-driven, and calm under pressure.",
-      strengths: ["Validation planning", "Evidence quality", "Structured debugging"],
-      workingStyle: "Structured, calm, and highly explicit in handoffs.",
-      appearancePrompt:
-        "Mid-30s validation engineer with a precise, calm, technical presence.",
-      birthYear: 1992,
-    },
-  );
+    const activateResult = await client.runEmployeeLifecycleAction(
+      lifecycleEmployeeId,
+      "activate",
+      {
+        reason: "CI activate check",
+      },
+    );
+    if (!activateResult.ok || activateResult.employmentStatus !== "active") {
+      throw new Error("Expected activate lifecycle action to succeed");
+    }
 
-  if (!generatedPersona.ok) {
-    throw new Error("Expected persona generation to succeed");
-  }
+    await expectRequestFailure(
+      "archive-active-employee",
+      () =>
+        client.runEmployeeLifecycleAction(lifecycleEmployeeId, "archive", {
+          reason: "CI invalid archive-from-active check",
+          approvedBy: "ci-operator-agent-client",
+        }),
+      "archive is only allowed for retired or terminated employees",
+    );
 
-  if (generatedPersona.generated.promptProfileStatus !== "draft") {
-    throw new Error("Expected generated persona prompt profile status=draft");
-  }
+    const changeRoleResult = await client.runEmployeeLifecycleAction(
+      lifecycleEmployeeId,
+      "change-role",
+      {
+        toRoleId: "frontend-engineer",
+        reason: "CI change-role check",
+      },
+    );
+    if (!changeRoleResult.ok || changeRoleResult.roleId !== "frontend-engineer") {
+      throw new Error("Expected change-role lifecycle action to succeed");
+    }
 
-  if (!generatedPersona.generated.publicProfile.bio) {
-    throw new Error("Expected generated persona to include public bio");
-  }
+    const leaveResult = await client.runEmployeeLifecycleAction(
+      lifecycleEmployeeId,
+      "start-leave",
+      {
+        reason: "CI leave check",
+      },
+    );
+    if (!leaveResult.ok || leaveResult.employmentStatus !== "on_leave") {
+      throw new Error("Expected start-leave lifecycle action to succeed");
+    }
 
-  if (
-    generatedPersona.generated.synthesisMode !== "ai" &&
-    generatedPersona.generated.synthesisMode !== "fallback"
-  ) {
-    throw new Error("Expected generated persona synthesisMode to be ai or fallback");
-  }
+    const returnResult = await client.runEmployeeLifecycleAction(
+      lifecycleEmployeeId,
+      "end-leave",
+      {
+        reason: "CI return check",
+      },
+    );
+    if (!returnResult.ok || returnResult.employmentStatus !== "active") {
+      throw new Error("Expected end-leave lifecycle action to succeed");
+    }
 
-  if (
-    generatedPersona.generated.synthesisMode === "ai" &&
-    typeof generatedPersona.generated.model !== "string"
-  ) {
-    throw new Error("Expected AI persona generation to report model");
-  }
+    const retireResult = await client.runEmployeeLifecycleAction(
+      lifecycleEmployeeId,
+      "retire",
+      {
+        reason: "CI retire check",
+        approvedBy: "ci-operator-agent-client",
+      },
+    );
+    if (!retireResult.ok || retireResult.employmentStatus !== "retired") {
+      throw new Error("Expected retire lifecycle action to succeed");
+    }
 
-  const approvedPersona = await client.approveEmployeePersona(personaEmployeeId);
-  if (!approvedPersona.ok || approvedPersona.promptProfileStatus !== "approved") {
-    throw new Error("Expected persona approval to succeed");
+    const rehireResult = await client.runEmployeeLifecycleAction(
+      lifecycleEmployeeId,
+      "rehire",
+      {
+        reason: "CI rehire check",
+      },
+    );
+    if (!rehireResult.ok || rehireResult.employmentStatus !== "active") {
+      throw new Error("Expected rehire lifecycle action to succeed");
+    }
+
+    const terminateResult = await client.runEmployeeLifecycleAction(
+      lifecycleEmployeeId,
+      "terminate",
+      {
+        reason: "CI terminate check",
+        approvedBy: "ci-operator-agent-client",
+      },
+    );
+    if (!terminateResult.ok || terminateResult.employmentStatus !== "terminated") {
+      throw new Error("Expected terminate lifecycle action to succeed");
+    }
+
+    const archiveResult = await client.runEmployeeLifecycleAction(
+      lifecycleEmployeeId,
+      "archive",
+      {
+        reason: "CI archive check",
+        approvedBy: "ci-operator-agent-client",
+      },
+    );
+    if (!archiveResult.ok || archiveResult.employmentStatus !== "archived") {
+      throw new Error("Expected archive lifecycle action to succeed");
+    }
+
+    const lifecycleEvents = await client.getEmployeeEmploymentEvents(
+      lifecycleEmployeeId,
+    );
+    if (!lifecycleEvents.ok || lifecycleEvents.count < 7) {
+      throw new Error("Expected lifecycle test employee employment events to exist");
+    }
+    lifecycleEventsCount = lifecycleEvents.count;
+
+    const lifecycleEventTypes = new Set(
+      lifecycleEvents.events.map((event) => event.eventType),
+    );
+
+    for (const eventType of [
+      "hired",
+      "activated",
+      "role_changed",
+      "went_on_leave",
+      "returned_from_leave",
+      "retired",
+      "rehired",
+      "terminated",
+      "archived",
+    ]) {
+      if (!lifecycleEventTypes.has(eventType as any)) {
+        throw new Error(`Expected lifecycle event ${eventType} to be recorded`);
+      }
+    }
+
+    const personaTestEmployee = await client.createEmployee({
+      teamId: "team_validation",
+      roleId: "validation-engineer",
+      employeeName: `Persona Test ${Date.now()}`,
+      employmentStatus: "draft",
+      runtimeStatus: "planned",
+      schedulerMode: "manual_only",
+      isSynthetic: true,
+      reason: "CI persona contract check",
+      approvedBy: "ci-operator-agent-client",
+    });
+
+    if (!personaTestEmployee.ok || !personaTestEmployee.employeeId) {
+      throw new Error("Expected employee creation to succeed for persona test");
+    }
+
+    personaEmployeeId = String(personaTestEmployee.employeeId);
+
+    const generatedPersona = await client.generateEmployeePersona(
+      personaEmployeeId,
+      {
+        description:
+          "Analytical validation engineer who is methodical, evidence-driven, and calm under pressure.",
+        strengths: ["Validation planning", "Evidence quality", "Structured debugging"],
+        workingStyle: "Structured, calm, and highly explicit in handoffs.",
+        appearancePrompt:
+          "Mid-30s validation engineer with a precise, calm, technical presence.",
+        birthYear: 1992,
+      },
+    );
+
+    if (!generatedPersona.ok) {
+      throw new Error("Expected persona generation to succeed");
+    }
+
+    if (generatedPersona.generated.promptProfileStatus !== "draft") {
+      throw new Error("Expected generated persona prompt profile status=draft");
+    }
+
+    if (!generatedPersona.generated.publicProfile.bio) {
+      throw new Error("Expected generated persona to include public bio");
+    }
+
+    if (
+      generatedPersona.generated.synthesisMode !== "ai" &&
+      generatedPersona.generated.synthesisMode !== "fallback"
+    ) {
+      throw new Error("Expected generated persona synthesisMode to be ai or fallback");
+    }
+
+    if (
+      generatedPersona.generated.synthesisMode === "ai" &&
+      typeof generatedPersona.generated.model !== "string"
+    ) {
+      throw new Error("Expected AI persona generation to report model");
+    }
+
+    const approvedPersona = await client.approveEmployeePersona(personaEmployeeId);
+    if (!approvedPersona.ok || approvedPersona.promptProfileStatus !== "approved") {
+      throw new Error("Expected persona approval to succeed");
+    }
   }
 
   const productManagerWebRole = rolesResponse.roles.find(
@@ -924,10 +956,11 @@ async function main(): Promise<void> {
     console.log("operator-agent-contract-check passed", {
       employeeCount: employeesResponse.count,
       roleCount: rolesResponse.count,
+      syntheticMutationChecksEnabled: enableSyntheticMutationChecks(),
       reviewCycleId: reviewCycleResult.reviewCycle.reviewCycleId,
       draftReviewCycleId: draftReviewCycleResult.reviewCycle.reviewCycleId,
       reviewId: reviewCreateResult.review.reviewId,
-      lifecycleEventCount: lifecycleEvents.count,
+      lifecycleEventCount: lifecycleEventsCount,
       personaEmployeeId,
       managerLogCount: managerLog.count,
       controlsListed: employeeControls.count,
@@ -941,6 +974,7 @@ async function main(): Promise<void> {
   } finally {
     await cleanupSyntheticContractTestEmployees({
       client,
+      agentBaseUrl,
       phase: "after",
     });
   }

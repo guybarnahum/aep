@@ -314,7 +314,7 @@ The following must not be assumed by reusable validation workflows unless explic
 - Purges a synthetic employee fixture by `employeeId`.
 - Important invariant: only employees with `is_synthetic = 1` may be purged.
 - Important invariant: purge is only allowed when `employment_status = archived`.
-- Authorization rule: purge is allowed when `ENABLE_TEST_ENDPOINTS === "true"` or when a valid cleanup token is provided.
+- Authorization rule: purge is allowed only when `ENABLE_TEST_ENDPOINTS === "true"`.
 - This is not a normal product lifecycle route and must not be used for real employees.
 
 `POST /agent/work-log/seed`
@@ -324,7 +324,7 @@ Guidance:
 - reusable validation lanes must avoid assuming test-only `/agent/te/...` endpoints exist
 - prefer live state where possible
 - soft-skip cleanly when environment-specific setup is absent
-- `POST /agent/te/purge-employee` is a special cleanup/admin exception and may be authorized by cleanup token even when other test-only routes are disabled
+- synthetic employee creation and purge belong only in async-validation or other explicitly test-enabled environments
 
 ## Control Plane
 

@@ -1,5 +1,4 @@
 import type { OperatorAgentEnv } from "@aep/operator-agent/types";
-import { getConfig } from "@aep/operator-agent/config";
 
 type PurgeEmployeeBody = {
   employeeId?: string;
@@ -20,30 +19,6 @@ function requireDb(env: OperatorAgentEnv): D1Database {
   return env.OPERATOR_AGENT_DB;
 }
 
-function hasAuthorizedCleanupAccess(
-  request: Request,
-  env: OperatorAgentEnv,
-): boolean {
-  if (env.ENABLE_TEST_ENDPOINTS === "true") {
-    return true;
-  }
-
-  const config = getConfig(env);
-  if (!config.syntheticEmployeeCleanupToken) {
-    return false;
-  }
-
-  const providedToken =
-    request.headers.get("x-aep-cleanup-token")?.trim() ??
-    request.headers.get("authorization")?.replace(/^Bearer\s+/i, "").trim() ??
-    "";
-
-  return (
-    providedToken.length > 0 &&
-    providedToken === config.syntheticEmployeeCleanupToken
-  );
-}
-
 export async function handlePurgeEmployee(
   request: Request,
   env: OperatorAgentEnv,
@@ -52,12 +27,11 @@ export async function handlePurgeEmployee(
     return new Response("Method Not Allowed", { status: 405 });
   }
 
-  if (!hasAuthorizedCleanupAccess(request, env)) {
+  if (env.ENABLE_TEST_ENDPOINTS !== "true") {
     return Response.json(
       {
         ok: false,
-        error:
-          "Synthetic employee purge requires ENABLE_TEST_ENDPOINTS=true or a valid cleanup token",
+        error: "Synthetic employee purge requires ENABLE_TEST_ENDPOINTS=true",
       },
       { status: 403 },
     );
@@ -115,7 +89,7 @@ export async function handlePurgeEmployee(
 
   // Future tightening:
   // - require an internal admin policy decision in canonical state
-  // - optionally scope cleanup token usage to specific environments or callers
+  // - optionally scope purge access to a narrower test-only operator policy
 
   await db
     .prepare(

@@ -112,9 +112,11 @@ jobs:
     with:
       environment_name: production
       control_plane_base_url: ${{ needs.deploy-production-env.outputs.control_plane_base_url }}
+      operator_agent_base_url: ${{ needs.deploy-production-env.outputs.operator_agent_url }}
       cf_env: ${{ needs.deploy-production-env.outputs.cf_env }}
       git_sha: ${{ needs.deploy-production-env.outputs.git_sha }}
       node_version: "20"
+      enable_synthetic_employee_mutation_checks: false
     secrets: inherit
 
   validate-production-policy:

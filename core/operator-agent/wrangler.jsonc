@@ -62,7 +62,6 @@
         "MIRROR_ESCALATIONS_EMAIL_GROUP": "aep-escalations@example.com",
         "OPERATOR_AGENT_STORE_BACKEND": "d1",
         "ENABLE_TEST_ENDPOINTS": "true",
-        "SYNTHETIC_EMPLOYEE_CLEANUP_TOKEN": "en76wMqwD264aZ4htTZSBo85eAJD0cwS",
         "PAPERCLIP_SHARED_SECRET": "",
         "PAPERCLIP_AUTH_REQUIRED": "false"
       },
@@ -104,7 +103,6 @@
         "MIRROR_ESCALATIONS_EMAIL_GROUP": "aep-escalations@example.com",
         "OPERATOR_AGENT_STORE_BACKEND": "d1",
         "ENABLE_TEST_ENDPOINTS": "false",
-        "SYNTHETIC_EMPLOYEE_CLEANUP_TOKEN": "xHKkrHqcZPjxWPQlWS6oY8JNdNn1b5e3",
         "PAPERCLIP_SHARED_SECRET": "",
         "PAPERCLIP_AUTH_REQUIRED": "false"
       },
@@ -142,7 +140,6 @@
         "MIRROR_ESCALATIONS_SLACK_CHANNEL": "aep-agent-escalations",
         "MIRROR_ESCALATIONS_EMAIL_GROUP": "aep-escalations@example.com",
         "OPERATOR_AGENT_STORE_BACKEND": "d1",
-        "SYNTHETIC_EMPLOYEE_CLEANUP_TOKEN": "",
         "PAPERCLIP_SHARED_SECRET": "",
         "PAPERCLIP_AUTH_REQUIRED": "false",
         "ENABLE_TEST_ENDPOINTS": "false"
@@ -165,7 +162,6 @@
     "MIRROR_ESCALATIONS_SLACK_CHANNEL": "aep-agent-escalations",
     "MIRROR_ESCALATIONS_EMAIL_GROUP": "aep-escalations@example.com",
     "OPERATOR_AGENT_STORE_BACKEND": "d1",
-    "SYNTHETIC_EMPLOYEE_CLEANUP_TOKEN": "asYHtKqFe5zzex5hG5Ud2g6IV2VjKvTQ",
     "PAPERCLIP_SHARED_SECRET": "",
     "PAPERCLIP_AUTH_REQUIRED": "false",
     "ENABLE_TEST_ENDPOINTS": "true"

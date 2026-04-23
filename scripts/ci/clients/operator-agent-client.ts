@@ -264,17 +264,9 @@ export function createOperatorAgentClient(
     async purgeSyntheticEmployee(
       employeeId: string,
     ): Promise<PurgeSyntheticEmployeeResponse> {
-      const cleanupToken = process.env.OPERATOR_AGENT_CLEANUP_TOKEN?.trim();
       return postJson<PurgeSyntheticEmployeeResponse>(
         buildUrl("/agent/te/purge-employee"),
         { employeeId },
-        cleanupToken
-          ? {
-              headers: {
-                "x-aep-cleanup-token": cleanupToken,
-              },
-            }
-          : undefined,
       );
     },
 
