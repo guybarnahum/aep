@@ -76,8 +76,31 @@ function normalizeRole(role: RoleJobDescriptionProjection): RoleJobDescriptionPr
   };
 }
 
-const DEFAULT_CONTROL_PLANE_BASE_URL = "http://127.0.0.1:8788";
-const DEFAULT_OPERATOR_AGENT_BASE_URL = "http://127.0.0.1:8797";
+const LOCAL_CONTROL_PLANE_BASE_URL = "http://127.0.0.1:8788";
+const LOCAL_OPERATOR_AGENT_BASE_URL = "http://127.0.0.1:8797";
+
+function isLocalDevBuild(): boolean {
+  return import.meta.env.DEV === true;
+}
+
+function requireConfiguredBaseUrl(args: {
+  value: string | undefined;
+  envVarName: string;
+  localFallback: string;
+}): string {
+  const configured = args.value?.trim();
+  if (configured) {
+    return configured.replace(/\/+$/, "");
+  }
+
+  if (isLocalDevBuild()) {
+    return args.localFallback;
+  }
+
+  throw new Error(
+    `Missing required dashboard config ${args.envVarName}; refusing to fall back to localhost outside local dev`,
+  );
+}
 
 type RuntimeStatus = "implemented" | "planned" | "disabled" | "active";
 
@@ -91,13 +114,19 @@ type LiveEmployeeResolutionRequest = {
 type LiveEmployeeResolutionMap = Record<string, string>;
 
 export function getApiBaseUrl(): string {
-  const configured = import.meta.env.VITE_CONTROL_PLANE_BASE_URL;
-  return (configured && configured.trim()) || DEFAULT_CONTROL_PLANE_BASE_URL;
+  return requireConfiguredBaseUrl({
+    value: import.meta.env.VITE_CONTROL_PLANE_BASE_URL,
+    envVarName: "VITE_CONTROL_PLANE_BASE_URL",
+    localFallback: LOCAL_CONTROL_PLANE_BASE_URL,
+  });
 }
 
 export function getOperatorAgentBaseUrl(): string {
-  const configured = import.meta.env.VITE_OPERATOR_AGENT_BASE_URL;
-  return (configured && configured.trim()) || DEFAULT_OPERATOR_AGENT_BASE_URL;
+  return requireConfiguredBaseUrl({
+    value: import.meta.env.VITE_OPERATOR_AGENT_BASE_URL,
+    envVarName: "VITE_OPERATOR_AGENT_BASE_URL",
+    localFallback: LOCAL_OPERATOR_AGENT_BASE_URL,
+  });
 }
 
 async function getJson<T>(baseUrl: string, path: string): Promise<T> {

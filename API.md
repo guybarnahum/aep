@@ -14,6 +14,13 @@ Notes:
 - route implementation remains the source of truth
 - architecture and product rationale stay in package README files and in `LLM.md`
 
+## Dashboard / Frontend Configuration
+
+- Dashboard requires `VITE_CONTROL_PLANE_BASE_URL` and `VITE_OPERATOR_AGENT_BASE_URL` outside local Vite dev.
+- Ops console requires `VITE_CONTROL_PLANE_BASE_URL` outside local Vite dev.
+- Localhost fallbacks are allowed only for local development builds.
+- Deployed builds must fail loudly if required base URL configuration is missing.
+
 ## Operator Agent
 
 Base service: `core/operator-agent`

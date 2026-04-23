@@ -28,6 +28,9 @@ Endpoint documentation note for future LLM sessions:
 - recurring validation should not depend on an environment-specific base URL when the control-plane can execute the validation batch directly
 - internal recurring validation should record an internal execution target marker rather than a deployed HTTP URL
 - recurring validation scheduler state now lives in D1 and may be paused/resumed from canonical control-plane routes and the dashboard validation surface
+- dashboard and ops-console may use localhost defaults only in Vite local-dev builds
+- deployed frontend builds must require explicit public base URL configuration
+- missing deployed frontend URL config should fail loudly rather than silently pointing at localhost
 
 ```bash
 titan@Titans-MacBook-Pro aep % tree . --gitignore

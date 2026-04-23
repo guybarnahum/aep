@@ -4,14 +4,43 @@ import type {
   RunSummary,
 } from "./types";
 
-const DEFAULT_BASE_URL = "http://127.0.0.1:8787";
+const LOCAL_CONTROL_PLANE_BASE_URL = "http://127.0.0.1:8787";
+
+function isLocalDevBuild(): boolean {
+  const meta = import.meta as ImportMeta & {
+    env?: Record<string, string | boolean | undefined>;
+  };
+  return meta.env?.DEV === true;
+}
+
+function requireConfiguredBaseUrl(args: {
+  value: string | undefined;
+  envVarName: string;
+  localFallback: string;
+}): string {
+  const configured = args.value?.trim();
+  if (configured) {
+    return configured.replace(/\/+$/, "");
+  }
+
+  if (isLocalDevBuild()) {
+    return args.localFallback;
+  }
+
+  throw new Error(
+    `Missing required ops-console config ${args.envVarName}; refusing to fall back to localhost outside local dev`,
+  );
+}
 
 export function getApiBaseUrl(): string {
   const meta = import.meta as ImportMeta & {
     env?: Record<string, string | undefined>;
   };
-  const configured = meta.env?.VITE_CONTROL_PLANE_BASE_URL;
-  return (configured && configured.trim()) || DEFAULT_BASE_URL;
+  return requireConfiguredBaseUrl({
+    value: meta.env?.VITE_CONTROL_PLANE_BASE_URL,
+    envVarName: "VITE_CONTROL_PLANE_BASE_URL",
+    localFallback: LOCAL_CONTROL_PLANE_BASE_URL,
+  });
 }
 
 async function getJson<T>(path: string): Promise<T> {
