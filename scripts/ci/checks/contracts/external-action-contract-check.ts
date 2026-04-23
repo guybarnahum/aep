@@ -12,6 +12,7 @@ import {
   hasOptionalPostRoute,
 } from "../../shared/operator-agent-surface";
 import { handleOperatorAgentSoftSkip } from "../../shared/soft-skip";
+import { newToken } from "@aep/shared/index";
 
 export {};
 
@@ -144,7 +145,7 @@ async function main(): Promise<void> {
 
   const success = await client.sendExternalAction({
     source: projection.channel,
-    externalActionId: `pr10d-contract-${crypto.randomUUID().split("-")[0]}`,
+    externalActionId: `pr10d-contract-${newToken()}`,
     externalThreadId: projection.externalThreadId,
     externalAuthorId: "U_PR10D_CONTRACT",
     receivedAt: new Date().toISOString(),
@@ -162,7 +163,7 @@ async function main(): Promise<void> {
     },
     body: JSON.stringify({
       source: projection.channel,
-      externalActionId: `pr10d-bad-${crypto.randomUUID().split("-")[0]}`,
+      externalActionId: `pr10d-bad-${newToken()}`,
       externalThreadId: projection.externalThreadId,
       externalAuthorId: "U_PR10D_CONTRACT",
       receivedAt: new Date().toISOString(),
@@ -181,8 +182,8 @@ async function main(): Promise<void> {
     },
     body: JSON.stringify({
       source: projection.channel,
-      externalActionId: `pr10d-missing-${crypto.randomUUID().split("-")[0]}`,
-      externalThreadId: `missing-${crypto.randomUUID().split("-")[0]}`,
+      externalActionId: `pr10d-missing-${newToken()}`,
+      externalThreadId: `missing-${newToken()}`,
       externalAuthorId: "U_PR10D_CONTRACT",
       receivedAt: new Date().toISOString(),
       actionType: "approval_approve",

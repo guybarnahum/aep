@@ -4,6 +4,7 @@ import { createOperatorAgentClient } from "../../clients/operator-agent-client";
 import { resolveServiceBaseUrl } from "../../../lib/service-map";
 import { resolveEmployeeIdsByKey } from "../../lib/employee-resolution";
 import { handleOperatorAgentSoftSkip } from "../../shared/soft-skip";
+import { newToken } from "@aep/shared/index";
 
 export {};
 
@@ -112,7 +113,7 @@ async function main(): Promise<void> {
   const inboundPayload = {
     channel: projection.channel,
     externalThreadId: projection.externalThreadId,
-    externalMessageId: `pr10c-inbound-contract-${crypto.randomUUID().split("-")[0]}`,
+    externalMessageId: `pr10c-inbound-contract-${newToken()}`,
     externalAuthorId: "U_PR10C_CONTRACT",
     externalReceivedAt: new Date().toISOString(),
     subject: "Inbound reply",
@@ -134,8 +135,8 @@ async function main(): Promise<void> {
     },
     body: JSON.stringify({
       ...inboundPayload,
-      externalThreadId: `missing-${crypto.randomUUID().split("-")[0]}`,
-      externalMessageId: `missing-msg-${crypto.randomUUID().split("-")[0]}`,
+      externalThreadId: `missing-${newToken()}`,
+      externalMessageId: `missing-msg-${newToken()}`,
     }),
   });
 

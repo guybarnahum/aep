@@ -4,6 +4,7 @@ import { createOperatorAgentClient } from "../../clients/operator-agent-client";
 import { resolveEmployeeIdsByKey } from "../../lib/employee-resolution";
 import { handleOperatorAgentSoftSkip } from "../../shared/soft-skip";
 import { resolveServiceBaseUrl } from "../../../lib/service-map";
+import { newToken } from "@aep/shared/index";
 
 export {};
 
@@ -125,7 +126,7 @@ async function main(): Promise<void> {
     body: JSON.stringify({
       channel: projection.channel,
       externalThreadId: projection.externalThreadId,
-      externalMessageId: `pr10e-reply-denied-${crypto.randomUUID().split("-")[0]}`,
+      externalMessageId: `pr10e-reply-denied-${newToken()}`,
       externalAuthorId: "U_BLOCKED",
       externalReceivedAt: new Date().toISOString(),
       subject: "Denied reply",
@@ -144,7 +145,7 @@ async function main(): Promise<void> {
   const allowed = await client.ingestExternalMessage({
     channel: projection.channel,
     externalThreadId: projection.externalThreadId,
-    externalMessageId: `pr10e-reply-allowed-${crypto.randomUUID().split("-")[0]}`,
+    externalMessageId: `pr10e-reply-allowed-${newToken()}`,
     externalAuthorId: "U_ALLOWED",
     externalReceivedAt: new Date().toISOString(),
     subject: "Allowed reply",

@@ -1,5 +1,6 @@
 import type { TaskStore } from "@aep/operator-agent/lib/store-types";
 import type { OperatorAgentEnv } from "@aep/operator-agent/types";
+import { newToken } from "@aep/shared/index";
 
 import { sendEmailMirror } from "./email-adapter";
 import { resolveMirrorTargets } from "./mirror-routing-policy";
@@ -50,7 +51,7 @@ function renderEmailMirrorBody(input: MirrorDispatchInput): string {
 }
 
 function deliveryId(messageId: string, channel: MirrorChannel, target: string): string {
-  const suffix = crypto.randomUUID().split("-")[0];
+  const suffix = newToken();
   return `mdl_${messageId}_${channel}_${target.replace(/[^a-zA-Z0-9_-]/g, "_")}_${suffix}`;
 }
 

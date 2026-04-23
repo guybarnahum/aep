@@ -12,6 +12,7 @@ import {
   hasOptionalPostRoute,
 } from "../../shared/operator-agent-surface";
 import { handleOperatorAgentSoftSkip } from "../../shared/soft-skip";
+import { newToken } from "@aep/shared/index";
 
 export {};
 
@@ -140,7 +141,7 @@ async function main(): Promise<void> {
 
   assert(projections.length >= 1, "Expected an external thread projection for idempotency");
   const projection = projections[0];
-  const externalActionId = `pr10d-idempotent-${crypto.randomUUID().split("-")[0]}`;
+  const externalActionId = `pr10d-idempotent-${newToken()}`;
 
   const first = await client.sendExternalAction({
     source: projection.channel,

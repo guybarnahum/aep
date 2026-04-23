@@ -10,6 +10,7 @@ import { logInfo } from "@aep/operator-agent/lib/logger";
 import { publishTaskRationaleToThread } from "@aep/operator-agent/lib/rationale-thread-publisher";
 import { getTaskStore } from "@aep/operator-agent/lib/store-factory";
 import type { Task } from "@aep/operator-agent/lib/store-types";
+import { newId } from "@aep/shared/index";
 import type {
   EmployeePublicRationalePresentationStyle,
   OperatorAgentEnv,
@@ -25,15 +26,15 @@ const VALIDATION_TASK_TYPE = "validate-deployment";
 const HEALTH_CHECK_TIMEOUT_MS = 5_000;
 
 function decisionId(taskId: string): string {
-  return `dec_${taskId}_${crypto.randomUUID().split("-")[0]}`;
+  return newId(`dec_${taskId}`);
 }
 
 function publicRationaleArtifactId(taskId: string): string {
-  return `art_pubrat_${taskId}_${crypto.randomUUID().split("-")[0]}`;
+  return newId(`art_pubrat_${taskId}`);
 }
 
 function validationResultArtifactId(taskId: string): string {
-  return `art_valres_${taskId}_${crypto.randomUUID().split("-")[0]}`;
+  return newId(`art_valres_${taskId}`);
 }
 
 function getRequestedTaskId(

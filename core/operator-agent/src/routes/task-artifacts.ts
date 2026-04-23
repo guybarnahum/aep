@@ -1,5 +1,6 @@
 import { getTaskStore } from "@aep/operator-agent/lib/store-factory";
 import type { TaskArtifactType } from "@aep/operator-agent/lib/store-types";
+import { newId } from "@aep/shared/index";
 import type { OperatorAgentEnv } from "@aep/operator-agent/types";
 
 type CreateTaskArtifactRequest = {
@@ -57,7 +58,7 @@ export async function handleCreateTaskArtifact(
   }
 
   const store = getTaskStore(env);
-  const artifactId = `art_${crypto.randomUUID().split("-")[0]}`;
+  const artifactId = newId("art");
 
   try {
     await store.createArtifact({

@@ -12,6 +12,7 @@ import {
   hasOptionalPostRoute,
 } from "../../shared/operator-agent-surface";
 import { handleOperatorAgentSoftSkip } from "../../shared/soft-skip";
+import { newToken } from "@aep/shared/index";
 
 export {};
 
@@ -192,7 +193,7 @@ async function main(): Promise<void> {
     body: JSON.stringify({
       channel: replyProjection.channel,
       externalThreadId: replyProjection.externalThreadId,
-      externalMessageId: `pr10e-denied-reply-${crypto.randomUUID().split("-")[0]}`,
+      externalMessageId: `pr10e-denied-reply-${newToken()}`,
       externalAuthorId: "U_BLOCKED",
       externalReceivedAt: new Date().toISOString(),
       subject: "Denied reply",
@@ -208,7 +209,7 @@ async function main(): Promise<void> {
   const allowedReply = await client.ingestExternalMessage({
     channel: replyProjection.channel,
     externalThreadId: replyProjection.externalThreadId,
-    externalMessageId: `pr10e-allowed-reply-${crypto.randomUUID().split("-")[0]}`,
+    externalMessageId: `pr10e-allowed-reply-${newToken()}`,
     externalAuthorId: "U_ALLOWED",
     externalReceivedAt: new Date().toISOString(),
     subject: "Allowed reply",
@@ -241,7 +242,7 @@ async function main(): Promise<void> {
     body: JSON.stringify({
       channel: "teams",
       externalThreadId: replyProjection.externalThreadId,
-      externalMessageId: `pr10e-invalid-channel-${crypto.randomUUID().split("-")[0]}`,
+      externalMessageId: `pr10e-invalid-channel-${newToken()}`,
       externalReceivedAt: new Date().toISOString(),
       body: "invalid",
     }),
@@ -304,7 +305,7 @@ async function main(): Promise<void> {
   });
 
   const actionProjection = actionProjectionState.projection;
-  const sharedExternalActionId = `pr10e-shared-action-${crypto.randomUUID().split("-")[0]}`;
+  const sharedExternalActionId = `pr10e-shared-action-${newToken()}`;
 
   const deniedActionResponse = await fetch(`${client.baseUrl.replace(/\/$/, "")}/agent/messages/external-action`, {
     method: "POST",
@@ -360,7 +361,7 @@ async function main(): Promise<void> {
     },
     body: JSON.stringify({
       source: "teams",
-      externalActionId: `pr10e-invalid-action-${crypto.randomUUID().split("-")[0]}`,
+      externalActionId: `pr10e-invalid-action-${newToken()}`,
       externalThreadId: actionProjection.externalThreadId,
       externalAuthorId: "U_ALLOWED",
       receivedAt: new Date().toISOString(),

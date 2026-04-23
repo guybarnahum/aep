@@ -1,6 +1,7 @@
 import { applyAcknowledged, applyResolved } from "@aep/operator-agent/lib/escalation-state";
 import { appendSystemMessage } from "@aep/operator-agent/lib/human-interaction-threads";
 import { createStores, getTaskStore } from "@aep/operator-agent/lib/store-factory";
+import { newId } from "@aep/shared/index";
 import type { OperatorAgentEnv } from "@aep/operator-agent/types";
 
 function asRecord(value: unknown): Record<string, unknown> {
@@ -48,7 +49,7 @@ async function acknowledgeFromThreadAction(args: {
   await escalationStore.put(updated);
 
   await taskStore.createMessage({
-    id: `msg_${crypto.randomUUID().split("-")[0]}`,
+    id: newId("msg"),
     threadId: args.threadId,
     companyId: thread.companyId,
     senderEmployeeId: args.actor,
@@ -114,7 +115,7 @@ async function resolveFromThreadAction(args: {
   await escalationStore.put(updated);
 
   await taskStore.createMessage({
-    id: `msg_${crypto.randomUUID().split("-")[0]}`,
+    id: newId("msg"),
     threadId: args.threadId,
     companyId: thread.companyId,
     senderEmployeeId: args.actor,

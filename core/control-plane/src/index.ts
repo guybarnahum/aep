@@ -5,6 +5,7 @@ import type { StartWorkflowRequest } from "@aep/event-schema/index";
 import {
   DEFAULT_PROVIDER,
   newId,
+  newToken,
   nowIso,
   isProvider,
   sha256Hex,
@@ -538,7 +539,7 @@ async function createNextAttemptForJob(args: {
 }> {
   const attemptId = newId("attempt");
   const attemptNo = args.currentAttemptNo + 1;
-  const callbackToken = crypto.randomUUID();
+  const callbackToken = newToken(24);
   const callbackTokenHash = await sha256Hex(callbackToken);
   const createdAt = nowIso();
 
@@ -2068,7 +2069,7 @@ export default {
       const supersededAt = nowIso();
       const newAttemptId = newId("attempt");
       const newAttemptNo = currentAttempt.attempt_no + 1;
-      const callbackToken = crypto.randomUUID();
+      const callbackToken = newToken(24);
       const callbackTokenHash = await sha256Hex(callbackToken);
       const createdAt = supersededAt;
 

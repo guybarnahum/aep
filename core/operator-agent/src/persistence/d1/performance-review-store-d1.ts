@@ -5,6 +5,7 @@ import type {
   EmployeeReviewCycleRecord,
   OperatorAgentEnv,
 } from "@aep/operator-agent/types";
+import { newId } from "@aep/shared/index";
 
 function requireDb(env: OperatorAgentEnv): D1Database {
   if (!env.OPERATOR_AGENT_DB) {
@@ -145,7 +146,7 @@ export async function createReviewCycle(
   },
 ): Promise<EmployeeReviewCycleRecord> {
   const db = requireDb(env);
-  const reviewCycleId = `review_cycle_${crypto.randomUUID().split("-")[0]}`;
+  const reviewCycleId = newId("review_cycle");
 
   await db
     .prepare(
@@ -249,7 +250,7 @@ export async function createPerformanceReview(
   },
 ): Promise<EmployeePerformanceReviewRecord> {
   const db = requireDb(env);
-  const reviewId = `review_${crypto.randomUUID().split("-")[0]}`;
+  const reviewId = newId("review");
 
   await db
     .prepare(

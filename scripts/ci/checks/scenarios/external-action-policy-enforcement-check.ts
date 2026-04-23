@@ -12,6 +12,7 @@ import {
   hasOptionalPostRoute,
 } from "../../shared/operator-agent-surface";
 import { handleOperatorAgentSoftSkip } from "../../shared/soft-skip";
+import { newToken } from "@aep/shared/index";
 
 export {};
 
@@ -162,7 +163,7 @@ async function main(): Promise<void> {
     },
     body: JSON.stringify({
       source: projection.channel,
-      externalActionId: `pr10e-action-denied-${crypto.randomUUID().split("-")[0]}`,
+      externalActionId: `pr10e-action-denied-${newToken()}`,
       externalThreadId: projection.externalThreadId,
       externalAuthorId: "U_BLOCKED",
       receivedAt: new Date().toISOString(),
@@ -191,7 +192,7 @@ async function main(): Promise<void> {
 
   const allowed = await client.sendExternalAction({
     source: projection.channel,
-    externalActionId: `pr10e-action-allowed-${crypto.randomUUID().split("-")[0]}`,
+    externalActionId: `pr10e-action-allowed-${newToken()}`,
     externalThreadId: projection.externalThreadId,
     externalAuthorId: "U_ALLOWED",
     receivedAt: new Date().toISOString(),

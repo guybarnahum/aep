@@ -4,6 +4,7 @@ import { createOperatorAgentClient } from "../../clients/operator-agent-client";
 import { resolveServiceBaseUrl } from "../../../lib/service-map";
 import { resolveEmployeeIdsByKey } from "../../lib/employee-resolution";
 import { handleOperatorAgentSoftSkip } from "../../shared/soft-skip";
+import { newToken } from "@aep/shared/index";
 
 export {};
 
@@ -112,7 +113,7 @@ async function main(): Promise<void> {
   const inboundPayload = {
     channel: projection.channel,
     externalThreadId: projection.externalThreadId,
-    externalMessageId: `pr10c-inbound-duplicate-${crypto.randomUUID().split("-")[0]}`,
+    externalMessageId: `pr10c-inbound-duplicate-${newToken()}`,
     externalAuthorId: "U_PR10C_DUPLICATE",
     externalReceivedAt: new Date().toISOString(),
     subject: "Inbound duplicate reply",

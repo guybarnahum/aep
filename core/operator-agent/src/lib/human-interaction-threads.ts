@@ -1,4 +1,5 @@
 import { getTaskStore } from "@aep/operator-agent/lib/store-factory";
+import { newId } from "@aep/shared/index";
 import type { OperatorAgentEnv } from "@aep/operator-agent/types";
 
 export async function ensureApprovalThread(args: {
@@ -13,7 +14,7 @@ export async function ensureApprovalThread(args: {
   const existing = await store.findMessageThreadByApprovalId(args.approvalId);
   if (existing) return existing.id;
 
-  const threadId = `thr_${crypto.randomUUID().split("-")[0]}`;
+  const threadId = newId("thr");
   await store.createMessageThread({
     id: threadId,
     companyId: args.companyId ?? "company_internal_aep",
@@ -38,7 +39,7 @@ export async function ensureEscalationThread(args: {
   const existing = await store.findMessageThreadByEscalationId(args.escalationId);
   if (existing) return existing.id;
 
-  const threadId = `thr_${crypto.randomUUID().split("-")[0]}`;
+  const threadId = newId("thr");
   await store.createMessageThread({
     id: threadId,
     companyId: args.companyId ?? "company_internal_aep",
@@ -66,7 +67,7 @@ export async function appendSystemMessage(args: {
   relatedEscalationId?: string;
 }): Promise<string> {
   const store = getTaskStore(args.env);
-  const messageId = `msg_${crypto.randomUUID().split("-")[0]}`;
+  const messageId = newId("msg");
 
   await store.createMessage({
     id: messageId,
@@ -106,7 +107,7 @@ export async function appendDashboardActionMessage(args: {
   relatedEscalationId?: string;
 }): Promise<string> {
   const store = getTaskStore(args.env);
-  const messageId = `msg_${crypto.randomUUID().split("-")[0]}`;
+  const messageId = newId("msg");
 
   await store.createMessage({
     id: messageId,

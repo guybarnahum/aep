@@ -8,6 +8,7 @@ import type {
   OperatorAgentEnv,
   TaskReassignmentReason,
 } from "@aep/operator-agent/types";
+import { newId } from "@aep/shared/index";
 import { validateRoleCatalogEntry } from "@aep/operator-agent/persistence/d1/role-catalog-store-d1";
 
 import {
@@ -326,7 +327,7 @@ async function replacePublicLinks(
          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .bind(
-        `emplink_${crypto.randomUUID().split("-")[0]}`,
+        newId("emplink"),
         employeeId,
         normalizePublicLinkType(link.type),
         link.url,
@@ -442,7 +443,7 @@ async function insertEmploymentEvent(args: {
   eventId?: string;
 }): Promise<string> {
   const db = requireDb(args.env);
-  const eventId = args.eventId ?? `evt_${crypto.randomUUID().split("-")[0]}`;
+  const eventId = args.eventId ?? newId("evt");
   await db
     .prepare(
       `INSERT INTO employee_employment_events (

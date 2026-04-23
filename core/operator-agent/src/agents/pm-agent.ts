@@ -10,6 +10,7 @@ import type { OrgCapability } from "../lib/org-resolver";
 import { publishTaskRationaleToThread } from "../lib/rationale-thread-publisher";
 import { getTaskStore } from "../lib/store-factory";
 import type { MessageThread, Task } from "../lib/store-types";
+import { newId } from "@aep/shared/index";
 import type {
   EmployeePublicRationalePresentationStyle,
   ManagerDecision,
@@ -37,19 +38,19 @@ type WebsitePlan = {
 };
 
 function publicRationaleArtifactId(taskId: string): string {
-  return `art_pubrat_${taskId}_${crypto.randomUUID().split("-")[0]}`;
+  return newId(`art_pubrat_${taskId}`);
 }
 
 function executionPlanArtifactId(taskId: string): string {
-  return `art_plan_${taskId}_${crypto.randomUUID().split("-")[0]}`;
+  return newId(`art_plan_${taskId}`);
 }
 
 function planningThreadId(taskId: string): string {
-  return `thr_plan_${taskId}_${crypto.randomUUID().split("-")[0]}`;
+  return newId(`thr_plan_${taskId}`);
 }
 
 function planningMessageId(threadId: string): string {
-  return `msg_plan_${threadId}_${crypto.randomUUID().split("-")[0]}`;
+  return newId(`msg_plan_${threadId}`);
 }
 
 function taskDecisionId(taskId: string, employeeId: string): string {
@@ -212,7 +213,7 @@ async function ensurePlanningRootTask(args: {
     return { task: existing, createdNew: false };
   }
 
-  const planningTaskId = `task_pm_plan_${crypto.randomUUID().split("-")[0]}`;
+  const planningTaskId = newId("task_pm_plan");
 
   await taskStore.createTask({
     id: planningTaskId,
@@ -323,7 +324,7 @@ async function createChildTaskGraph(args: {
   const stepTaskIds: Record<string, string> = {};
 
   for (const step of args.plan.steps) {
-    stepTaskIds[step.id] = `task_${step.id}_${crypto.randomUUID().split("-")[0]}`;
+    stepTaskIds[step.id] = newId(`task_${step.id}`);
   }
 
   for (const step of args.plan.steps) {

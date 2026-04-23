@@ -1,4 +1,5 @@
 import type { MirrorTransportFailure, MirrorTransportSuccess } from "./types";
+import { newToken } from "@aep/shared/index";
 
 export async function sendSlackMirror(args: {
   webhookUrl: string;
@@ -38,8 +39,8 @@ export async function sendSlackMirror(args: {
     return {
       ok: true,
       externalThreadId:
-        args.externalThreadId ?? `slack-thread:${args.channelId}:${crypto.randomUUID().split("-")[0]}`,
-      externalMessageId: `slack-message:${args.channelId}:${crypto.randomUUID()}`,
+        args.externalThreadId ?? `slack-thread:${args.channelId}:${newToken()}`,
+      externalMessageId: `slack-message:${args.channelId}:${newToken(24)}`,
     };
   } catch (error) {
     return {

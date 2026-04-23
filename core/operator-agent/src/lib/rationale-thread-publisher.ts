@@ -7,6 +7,7 @@ import type {
 } from "@aep/operator-agent/lib/employee-cognition";
 import { getTaskStore } from "@aep/operator-agent/lib/store-factory";
 import type { TaskStore } from "@aep/operator-agent/lib/store-types";
+import { newId } from "@aep/shared/index";
 import type { OperatorAgentEnv } from "@aep/operator-agent/types";
 
 export interface PublishTaskRationaleToThreadArgs {
@@ -26,7 +27,7 @@ export interface PublishTaskRationaleToThreadResult {
 }
 
 function rationaleMessageId(threadId: string): string {
-  return `msg_rat_${threadId}_${crypto.randomUUID().split("-")[0]}`;
+  return newId(`msg_rat_${threadId}`);
 }
 
 async function findRelatedThread(

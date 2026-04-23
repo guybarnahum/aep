@@ -5,6 +5,7 @@ import {
   type Decision,
   type TaskStatus,
 } from "@aep/operator-agent/lib/store-types";
+import { newId } from "@aep/shared/index";
 import type { OperatorAgentEnv } from "@aep/operator-agent/types";
 
 type CreateTaskRequest = {
@@ -65,7 +66,7 @@ export async function handleCreateTask(
   }
 
   const store = getTaskStore(env);
-  const taskId = `task_${crypto.randomUUID().split("-")[0]}`;
+  const taskId = newId("task");
 
   try {
     await store.createTaskWithDependencies({

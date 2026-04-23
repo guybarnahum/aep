@@ -23,6 +23,7 @@ import {
   type TaskStatus,
   type TaskStore,
 } from "@aep/operator-agent/lib/store-types";
+import { newId } from "@aep/shared/index";
 import type { OperatorAgentEnv } from "@aep/operator-agent/types";
 
 type TaskRow = {
@@ -1301,7 +1302,7 @@ export class D1TaskStore implements TaskStore {
         ON CONFLICT(external_action_id, external_channel) DO NOTHING`,
       )
       .bind(
-        `ear_${input.source}_${crypto.randomUUID().split("-")[0]}`,
+        newId(`ear_${input.source}`),
         input.externalActionId,
         input.source,
         input.threadId,
@@ -1539,7 +1540,7 @@ export class D1TaskStore implements TaskStore {
       } catch (error) {
         console.error("message mirror dispatch failed", error);
         await this.createMessageMirrorDelivery({
-          id: `mdl_${created.id}_dispatch_error_${crypto.randomUUID().split("-")[0]}`,
+          id: newId(`mdl_${created.id}_dispatch_error`),
           messageId: created.id,
           threadId: created.threadId,
           channel: "slack",

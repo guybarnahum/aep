@@ -1,6 +1,7 @@
 import { TEAM_INFRA } from "@aep/operator-agent/org/teams";
 import { createStores } from "@aep/operator-agent/lib/store-factory";
 import { getTaskStore } from "@aep/operator-agent/lib/store-factory";
+import { newId } from "@aep/shared/index";
 import type {
   AgentRoleId,
   ApprovalRecord,
@@ -96,7 +97,7 @@ export async function handleSeedApproval(
       : "manager";
 
   const approval: ApprovalRecord = {
-    approvalId: `approval-${crypto.randomUUID()}`,
+    approvalId: newId("approval", { separator: "-", length: 12 }),
     timestamp: new Date().toISOString(),
     companyId: body.companyId,
     taskId: body.taskId,
@@ -121,7 +122,7 @@ export async function handleSeedApproval(
 
   if (body.createThread === true) {
     const taskStore = getTaskStore(env);
-    threadId = `thr_${crypto.randomUUID().split("-")[0]}`;
+    threadId = newId("thr");
 
     await taskStore.createMessageThread({
       id: threadId,
@@ -134,7 +135,7 @@ export async function handleSeedApproval(
     });
 
     await taskStore.createMessage({
-      id: `msg_${crypto.randomUUID().split("-")[0]}`,
+      id: newId("msg"),
       threadId,
       companyId: body.companyId ?? "company_internal_aep",
       senderEmployeeId: body.requestedByEmployeeId,

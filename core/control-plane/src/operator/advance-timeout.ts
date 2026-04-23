@@ -1,6 +1,6 @@
 import { emitEvent } from "@aep/observability/index";
 import type { Env } from "@aep/types/index";
-import { newId, nowIso, sha256Hex } from "@aep/shared/index";
+import { newId, newToken, nowIso, sha256Hex } from "@aep/shared/index";
 
 type DeployJobType = "deploy_preview" | "teardown_preview";
 
@@ -222,7 +222,7 @@ async function createNextAttemptForJob(args: {
 }> {
   const attemptId = newId("attempt");
   const attemptNo = args.currentAttemptNo + 1;
-  const callbackToken = crypto.randomUUID();
+  const callbackToken = newToken(24);
   const callbackTokenHash = await sha256Hex(callbackToken);
   const createdAt = nowIso();
 

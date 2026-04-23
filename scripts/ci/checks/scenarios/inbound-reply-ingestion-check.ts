@@ -4,6 +4,7 @@ import { createOperatorAgentClient } from "../../clients/operator-agent-client";
 import { resolveServiceBaseUrl } from "../../../lib/service-map";
 import { resolveEmployeeIdsByKey } from "../../lib/employee-resolution";
 import { handleOperatorAgentSoftSkip } from "../../shared/soft-skip";
+import { newToken } from "@aep/shared/index";
 
 export {};
 
@@ -112,7 +113,7 @@ async function main(): Promise<void> {
   const inbound = await client.ingestExternalMessage({
     channel: projection.channel,
     externalThreadId: projection.externalThreadId,
-    externalMessageId: `pr10c-inbound-reply-${crypto.randomUUID().split("-")[0]}`,
+    externalMessageId: `pr10c-inbound-reply-${newToken()}`,
     externalAuthorId: "U_PR10C_REPLY",
     externalReceivedAt: new Date().toISOString(),
     subject: "Inbound Slack reply",

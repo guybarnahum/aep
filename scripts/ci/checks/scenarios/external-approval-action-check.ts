@@ -12,6 +12,7 @@ import {
   hasOptionalPostRoute,
 } from "../../shared/operator-agent-surface";
 import { handleOperatorAgentSoftSkip } from "../../shared/soft-skip";
+import { newToken } from "@aep/shared/index";
 
 export {};
 
@@ -144,7 +145,7 @@ async function main(): Promise<void> {
 
   const action = await client.sendExternalAction({
     source: projection.channel,
-    externalActionId: `pr10d-approval-${crypto.randomUUID().split("-")[0]}`,
+    externalActionId: `pr10d-approval-${newToken()}`,
     externalThreadId: projection.externalThreadId,
     externalAuthorId: "U_PR10D_APPROVER",
     receivedAt: new Date().toISOString(),

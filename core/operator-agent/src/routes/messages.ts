@@ -11,6 +11,7 @@ import type {
 import { resolveCanonicalThreadForInbound } from "../adapters/inbound-correlation";
 import type { InboundExternalMessage } from "../adapters/inbound-types";
 import { getTaskStore } from "@aep/operator-agent/lib/store-factory";
+import { newId } from "@aep/shared/index";
 import type {
   EmployeeMessage,
   ThreadExternalInteractionPolicy,
@@ -227,7 +228,7 @@ export async function handleCreateMessage(
 
   let threadId = body.threadId;
   if (!threadId) {
-    threadId = `thr_${crypto.randomUUID().split("-")[0]}`;
+    threadId = newId("thr");
     await store.createMessageThread({
       id: threadId,
       companyId: body.companyId ?? "company_internal_aep",
@@ -239,7 +240,7 @@ export async function handleCreateMessage(
     });
   }
 
-  const messageId = `msg_${crypto.randomUUID().split("-")[0]}`;
+  const messageId = newId("msg");
 
   const createdMessage = await store.createMessage({
     id: messageId,
@@ -331,7 +332,7 @@ export async function handleCreateMessageThread(
   }
 
   const store = getTaskStore(env);
-  const threadId = `thr_${crypto.randomUUID().split("-")[0]}`;
+  const threadId = newId("thr");
 
   await store.createMessageThread({
     id: threadId,
@@ -437,7 +438,7 @@ export async function handleIngestExternalMessage(
   });
 
   await store.createExternalInteractionAudit({
-    id: `eia_${crypto.randomUUID().split("-")[0]}`,
+    id: newId("eia"),
     threadId: resolved.threadId,
     channel: body.channel,
     interactionKind: "reply",
@@ -474,7 +475,7 @@ export async function handleIngestExternalMessage(
   }
 
   const created = await store.createMessage({
-    id: `msg_${crypto.randomUUID().split("-")[0]}`,
+    id: newId("msg"),
     threadId: resolved.threadId,
     companyId: thread.companyId,
     senderEmployeeId: syntheticExternalSenderEmployeeId(body.channel, body.externalAuthorId),
@@ -566,7 +567,7 @@ export async function handleExternalAction(
   });
 
   await store.createExternalInteractionAudit({
-    id: `eia_${crypto.randomUUID().split("-")[0]}`,
+    id: newId("eia"),
     threadId: resolved.thread.id,
     channel: body.source,
     interactionKind: "action",

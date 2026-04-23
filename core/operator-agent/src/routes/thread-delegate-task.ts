@@ -7,6 +7,7 @@ import {
   TaskDependencyValidationError,
   type EmployeeMessage,
 } from "@aep/operator-agent/lib/store-types";
+import { newId } from "@aep/shared/index";
 import type { OperatorAgentEnv } from "@aep/operator-agent/types";
 
 type DelegateTaskFromThreadRequest = {
@@ -188,7 +189,7 @@ export async function handleDelegateTaskFromThread(
   }
 
   const companyId = body.companyId ?? thread.companyId ?? "company_internal_aep";
-  const taskId = `task_${crypto.randomUUID().split("-")[0]}`;
+  const taskId = newId("task");
 
   try {
     await taskStore.createTaskWithDependencies({

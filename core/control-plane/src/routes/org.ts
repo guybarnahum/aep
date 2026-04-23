@@ -25,6 +25,7 @@ import {
   listRequiredValidationTypesForVerdict,
   listValidationEmployees,
 } from "@aep/control-plane/org/ownership";
+import { newId } from "@aep/shared/index";
 import {
   getCompany,
   getEmployeeCatalogEntry,
@@ -1081,11 +1082,7 @@ async function listQueuedValidationRunsForDispatch(args: {
 }
 
 function createDispatchBatchId(): string {
-  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
-    return `dispatch_batch_${crypto.randomUUID()}`;
-  }
-
-  return `dispatch_batch_${Date.now()}`;
+  return newId("dispatch_batch", { length: 12 });
 }
 
 async function createValidationRunRecord(args: {
@@ -1095,10 +1092,7 @@ async function createValidationRunRecord(args: {
   requestedBy: string;
   targetBaseUrl: string;
 }): Promise<ValidationRunRow> {
-  const validationRunId =
-    typeof crypto !== "undefined" && "randomUUID" in crypto
-      ? `validation_run_${crypto.randomUUID()}`
-      : `validation_run_${Date.now()}`;
+  const validationRunId = newId("validation_run", { length: 12 });
 
   const assignedTo = assignValidationEmployeeForType(args.validationType);
   const createdAt = new Date().toISOString();
@@ -1360,9 +1354,7 @@ async function persistValidationResultFromRun(args: {
   execution: ExecuteValidationRunResult;
   createdAt: string;
 }): Promise<string> {
-  const resultId = `validation_result_${typeof crypto !== "undefined" && "randomUUID" in crypto
-    ? crypto.randomUUID()
-    : Date.now()}`;
+  const resultId = newId("validation_result", { length: 12 });
 
   const ownerTeam = deriveOwnerTeamForValidationType(args.execution.validation_type);
   const severity = classifyValidationSeverity({

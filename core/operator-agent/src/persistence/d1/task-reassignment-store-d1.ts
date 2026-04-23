@@ -2,6 +2,7 @@ import type {
   OperatorAgentEnv,
   TaskReassignmentReason,
 } from "@aep/operator-agent/types";
+import { newId } from "@aep/shared/index";
 
 function requireDb(env: OperatorAgentEnv): D1Database {
   if (!env.OPERATOR_AGENT_DB) {
@@ -67,7 +68,7 @@ export async function reassignTask(
        ) VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
     )
     .bind(
-      `reassign_${crypto.randomUUID().split("-")[0]}`,
+      newId("reassign"),
       args.taskId,
       args.fromEmployeeId,
       args.toEmployeeId,

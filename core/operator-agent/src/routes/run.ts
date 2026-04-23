@@ -27,6 +27,7 @@ import type {
   ResolvedTaskExecutionContext,
   ValidationAgentResponse,
 } from "@aep/operator-agent/types";
+import { newId } from "@aep/shared/index";
 
 function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" ? (value as Record<string, unknown>) : {};
@@ -164,7 +165,7 @@ async function createPlanArtifactIfPresent(args: {
   const taskStore = getTaskStore(args.env);
 
   await taskStore.createArtifact({
-    id: `art_${crypto.randomUUID().split("-")[0]}`,
+    id: newId("art"),
     taskId: args.taskContext.task.id,
     companyId: args.taskContext.task.companyId,
     artifactType: "plan",
@@ -200,7 +201,7 @@ async function createResultArtifactIfPresent(args: {
   const taskStore = getTaskStore(args.env);
 
   await taskStore.createArtifact({
-    id: `art_${crypto.randomUUID().split("-")[0]}`,
+    id: newId("art"),
     taskId: args.taskContext.task.id,
     companyId: args.taskContext.task.companyId,
     artifactType: "result",

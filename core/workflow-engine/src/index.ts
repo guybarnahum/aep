@@ -10,6 +10,7 @@ import type { Provider } from "@aep/shared/index";
 import {
   DEFAULT_PROVIDER,
   newId,
+  newToken,
   nowIso,
   sha256Hex,
 } from "@aep/shared/index";
@@ -721,7 +722,7 @@ export class WorkflowCoordinatorDO {
     const jobId = newId("job");
     const attemptId = newId("attempt");
     const attemptNo = 1;
-    const callbackToken = crypto.randomUUID();
+    const callbackToken = newToken(24);
     const callbackTokenHash = await sha256Hex(callbackToken);
     const createdAt = nowIso();
 
