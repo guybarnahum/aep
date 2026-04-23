@@ -42,6 +42,7 @@ Base service: `core/operator-agent`
 - Important invariant: if `/agent/run` receives a `taskId`, that task must already exist.
 - Important invariant: executable roles must exist in `roles_catalog`, belong to the employee's team, and have `runtime_enabled = true`.
 - Important invariant: execution dispatch is selected from the role's catalog `implementationBinding`, but only through a code-owned allowlisted registry. Unknown or unsupported bindings fail closed.
+- Important invariant: runtime authority, budget, and escalation policy are catalog/state-backed and must exist for runtime-enabled roles.
 
 `POST /agent/run-once`
 
@@ -74,7 +75,7 @@ Base service: `core/operator-agent`
 - Creates a draft or active employee record with public profile fields and lifecycle metadata.
 - Supports synthetic employee creation for CI/test fixtures through `isSynthetic`.
 - Important invariant: when `employeeId` is omitted, the operator-agent derives the new employee ID from `roles_catalog.employee_id_code` using the canonical `<two-letter-code><3-digit-sequence>` format (for example `qa001`, `pm001`, `dv001`).
-- Important invariant: runtime authority and budget are owned by role profiles in code, but live runtime employee instances are resolved from D1 by company, team, and role intent. CI checks that exercise live runtime behavior should discover employee IDs from `/agent/employees` instead of assuming a seeded instance ID.
+- Important invariant: runtime authority, budget, and escalation policy are D1-backed role policy state, while live runtime employee instances are resolved from D1 by company, team, and role intent. CI checks that exercise live runtime behavior should discover employee IDs from `/agent/employees` instead of assuming a seeded instance ID.
 - This is the dashboard hiring / staffing creation surface.
 
 `PATCH /agent/employees/:employeeId`

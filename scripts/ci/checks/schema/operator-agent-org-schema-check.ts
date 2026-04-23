@@ -128,6 +128,7 @@ function main(): void {
     "employee_scope_bindings",
     "org_policy_overlays",
     "roles_catalog",
+    "runtime_role_policies",
     "employee_public_links",
     "employee_visual_identity",
     "employee_employment_events",
@@ -167,6 +168,18 @@ function main(): void {
        )
      ORDER BY role_id`,
     "Found runtime-enabled roles without a valid implementation_binding",
+  );
+
+  assertNoRows(
+    `SELECT r.role_id
+     FROM roles_catalog r
+     WHERE r.runtime_enabled = 1
+       AND r.role_id NOT IN (
+         SELECT p.role_id
+         FROM runtime_role_policies p
+       )
+     ORDER BY r.role_id`,
+    "Found runtime-enabled roles without runtime role policy",
   );
 
   assertNoRows(

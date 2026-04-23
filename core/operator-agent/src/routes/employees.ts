@@ -5,6 +5,7 @@ import {
 } from "@aep/operator-agent/persistence/d1/employee-catalog-store-d1";
 import { createEmployee } from "@aep/operator-agent/persistence/d1/employee-lifecycle-store-d1";
 import { getRoleCatalogEntry } from "@aep/operator-agent/persistence/d1/role-catalog-store-d1";
+import { getRuntimeRolePolicy } from "@aep/operator-agent/persistence/d1/runtime-role-policy-store-d1";
 import { resolveAllowedScope } from "@aep/operator-agent/lib/org-scope-resolver";
 import {
   mergeAuthority,
@@ -22,7 +23,6 @@ import {
 } from "@aep/operator-agent/org/teams";
 import {
   buildRuntimeEmployeeDefinition,
-  getRuntimeRoleProfile,
 } from "@aep/operator-agent/org/employees";
 import type {
   AgentRoleId,
@@ -266,19 +266,25 @@ export async function handleEmployees(
         roleId: role.roleId,
       };
 
-      const runtimeEmployee =
+      const runtimeRolePolicy =
         catalogEntry.status === "active" &&
-        catalogEntry.employmentStatus === "active" &&
-        getRuntimeRoleProfile(role.roleId)
-          ? buildRuntimeEmployeeDefinition({
-              employeeId: catalogEntry.employeeId,
-              employeeName: catalogEntry.employeeName,
-              companyId: identity.companyId,
-              teamId: identity.teamId,
-              roleId: role.roleId,
-              managerRoleId: role.managerRoleId,
-            })
-          : undefined;
+        catalogEntry.employmentStatus === "active"
+          ? await getRuntimeRolePolicy(env, role.roleId)
+          : null;
+
+      const runtimeEmployee = runtimeRolePolicy
+        ? buildRuntimeEmployeeDefinition({
+            employeeId: catalogEntry.employeeId,
+            employeeName: catalogEntry.employeeName,
+            companyId: identity.companyId,
+            teamId: identity.teamId,
+            roleId: role.roleId,
+            managerRoleId: role.managerRoleId,
+            authority: runtimeRolePolicy.authority,
+            budget: runtimeRolePolicy.budget,
+            escalation: runtimeRolePolicy.escalation,
+          })
+        : undefined;
       const runtimeStatus = getRuntimeStatus({
         catalogStatus: catalogEntry.status,
         hasRuntimeEmployee: Boolean(runtimeEmployee),

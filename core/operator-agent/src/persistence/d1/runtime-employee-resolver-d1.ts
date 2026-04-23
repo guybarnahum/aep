@@ -1,7 +1,7 @@
 import {
   buildRuntimeEmployeeDefinition,
-  getRuntimeRoleProfile,
 } from "@aep/operator-agent/org/employees";
+import { getRuntimeRolePolicy } from "@aep/operator-agent/persistence/d1/runtime-role-policy-store-d1";
 import type { CompanyId } from "@aep/operator-agent/org/company";
 import type { TeamId } from "@aep/operator-agent/org/teams";
 import type {
@@ -29,12 +29,14 @@ function requireDb(env: OperatorAgentEnv): D1Database {
   return env.OPERATOR_AGENT_DB;
 }
 
-function rowToRuntimeEmployee(
+async function rowToRuntimeEmployee(
+  env: OperatorAgentEnv,
   row: RuntimeEmployeeRow,
-): AgentEmployeeDefinition | undefined {
+): Promise<AgentEmployeeDefinition | undefined> {
   const roleId = row.role_id as AgentRoleId;
 
-  if (!getRuntimeRoleProfile(roleId)) {
+  const runtimePolicy = await getRuntimeRolePolicy(env, roleId);
+  if (!runtimePolicy) {
     return undefined;
   }
 
@@ -45,6 +47,9 @@ function rowToRuntimeEmployee(
     teamId: row.team_id as TeamId,
     roleId,
     managerRoleId: row.manager_role_id as AgentRoleId | undefined,
+    authority: runtimePolicy.authority,
+    budget: runtimePolicy.budget,
+    escalation: runtimePolicy.escalation,
   });
 }
 
@@ -84,7 +89,7 @@ export async function resolveRuntimeEmployeeById(
     .bind(employeeId)
     .first<RuntimeEmployeeRow>();
 
-  return row ? rowToRuntimeEmployee(row) : undefined;
+  return row ? rowToRuntimeEmployee(env, row) : undefined;
 }
 
 export async function resolveRuntimeEmployeeByRole(args: {
@@ -93,7 +98,8 @@ export async function resolveRuntimeEmployeeByRole(args: {
   teamId?: TeamId;
   roleId: AgentRoleId;
 }): Promise<AgentEmployeeDefinition | undefined> {
-  if (!getRuntimeRoleProfile(args.roleId)) {
+  const runtimePolicy = await getRuntimeRolePolicy(args.env, args.roleId);
+  if (!runtimePolicy) {
     return undefined;
   }
 
@@ -116,7 +122,7 @@ export async function resolveRuntimeEmployeeByRole(args: {
     .bind(...bindings)
     .first<RuntimeEmployeeRow>();
 
-  return row ? rowToRuntimeEmployee(row) : undefined;
+  return row ? rowToRuntimeEmployee(args.env, row) : undefined;
 }
 
 export async function resolveRuntimeEmployeeIdsByRoles(args: {
@@ -125,9 +131,12 @@ export async function resolveRuntimeEmployeeIdsByRoles(args: {
   teamId?: TeamId;
   roleIds: AgentRoleId[];
 }): Promise<string[]> {
-  const uniqueRoleIds = [...new Set(args.roleIds)].filter((roleId) =>
-    Boolean(getRuntimeRoleProfile(roleId)),
-  );
+  const uniqueRoleIds: AgentRoleId[] = [];
+  for (const roleId of [...new Set(args.roleIds)]) {
+    if (await getRuntimeRolePolicy(args.env, roleId)) {
+      uniqueRoleIds.push(roleId);
+    }
+  }
 
   if (uniqueRoleIds.length === 0) {
     return [];
