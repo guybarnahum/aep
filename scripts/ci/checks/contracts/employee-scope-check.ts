@@ -18,12 +18,24 @@ async function main(): Promise<void> {
     roleId: "product-manager-web",
     teamId: "team_web_product",
     runtimeStatus: "planned",
+    required: {
+      scope: {
+        allowedServices: ["service_dashboard"],
+        allowedEnvironmentNames: ["preview"],
+      },
+    },
   });
   const validationEngineerEmployeeId = await resolveEmployeeIdByRole({
     agentBaseUrl,
     roleId: "validation-engineer",
     teamId: "team_validation",
     runtimeStatus: "planned",
+    required: {
+      scope: {
+        allowedTenants: ["tenant_async_validation"],
+        allowedEnvironmentNames: ["async_validation"],
+      },
+    },
   });
   const reliabilityEngineerEmployeeId = await resolveEmployeeIdByRole({
     agentBaseUrl,

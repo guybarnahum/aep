@@ -244,6 +244,12 @@ async function main(): Promise<void> {
         roleId: "product-manager-web",
         teamId: "team_web_product",
         runtimeStatus: "planned",
+        required: {
+          scope: {
+            allowedServices: ["service_dashboard"],
+            allowedEnvironmentNames: ["preview"],
+          },
+        },
       },
       {
         key: "reliabilityEngineer",

@@ -45,6 +45,12 @@ async function main(): Promise<void> {
     roleId: PM_ROLE_ID,
     teamId: PM_TEAM_ID,
     runtimeStatus: "planned",
+    required: {
+      scope: {
+        allowedServices: ["service_dashboard"],
+        allowedEnvironmentNames: ["preview"],
+      },
+    },
   });
   const reliabilityEngineerEmployeeId = await resolveEmployeeIdByRole({
     agentBaseUrl,

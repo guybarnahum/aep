@@ -161,24 +161,48 @@ async function main(): Promise<void> {
           roleId: "product-manager-web",
           teamId: "team_web_product",
           runtimeStatus: "planned",
+          required: {
+            scope: {
+              allowedServices: ["service_dashboard"],
+              allowedEnvironmentNames: ["preview"],
+            },
+          },
         },
         {
           key: "frontendEngineer",
           roleId: "frontend-engineer",
           teamId: "team_web_product",
           runtimeStatus: "planned",
+          required: {
+            scope: {
+              allowedServices: ["service_dashboard"],
+              allowedEnvironmentNames: ["preview"],
+            },
+          },
         },
         {
           key: "validationPm",
           roleId: "validation-pm",
           teamId: "team_validation",
           runtimeStatus: "planned",
+          required: {
+            scope: {
+              allowedTenants: ["tenant_async_validation"],
+              allowedEnvironmentNames: ["async_validation"],
+            },
+          },
         },
         {
           key: "validationEngineer",
           roleId: "validation-engineer",
           teamId: "team_validation",
           runtimeStatus: "planned",
+          required: {
+            scope: {
+              allowedTenants: ["tenant_async_validation"],
+              allowedEnvironmentNames: ["async_validation"],
+            },
+          },
         },
       ],
     });

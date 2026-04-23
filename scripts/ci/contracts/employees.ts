@@ -102,6 +102,10 @@ export type RoleJobDescriptionProjection = {
   roleId: string;
   title: string;
   teamId: string;
+  employeeIdCode?: string;
+  runtimeEnabled?: boolean;
+  implementationBinding?: string;
+  managerRoleId?: string;
   jobDescriptionText: string;
   responsibilities: string[];
   successMetrics: string[];
