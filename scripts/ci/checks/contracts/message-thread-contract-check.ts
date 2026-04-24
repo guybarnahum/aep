@@ -157,7 +157,7 @@ async function main(): Promise<void> {
     body: "Customer replied from email; keep this as a canonical thread message only.",
     externalChannel: "email",
     externalMessageId: "pr79d-message-thread-contract-email-001",
-    externalAuthorId: "customer@example.com",
+    externalAuthorId: "customer_external_author",
     externalReceivedAt: new Date().toISOString(),
     relatedTaskId: "task_fake_pr72_thread",
   });

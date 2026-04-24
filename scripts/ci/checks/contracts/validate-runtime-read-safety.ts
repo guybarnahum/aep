@@ -24,7 +24,7 @@
  *   --service-id service_control_plane
  *   --company-id company_internal_aep
  *   --team-id team_infra
- *   --employee-id op001
+ *   --employee-id <employee-id>
  *   --run-id <real-run-id>
  *
  * Notes:
@@ -301,6 +301,39 @@ async function resolveRunId(options: CliOptions): Promise<string | null> {
   return first["run_id"].trim();
 }
 
+async function resolveEmployeeId(options: CliOptions): Promise<string> {
+  if (options.employeeId) {
+    return requiredValue(options.employeeId, "--employee-id");
+  }
+
+  const companyId = requiredValue(options.companyId, "--company-id");
+  const teamId = requiredValue(options.teamId, "--team-id");
+  const { response, body } = await fetchJson({
+    baseUrl: options.baseUrl,
+    path: `/employees?companyId=${encodeURIComponent(companyId)}&teamId=${encodeURIComponent(teamId)}&status=active`,
+    timeoutMs: options.timeoutMs,
+  });
+
+  if (response.status !== 200) {
+    fail(`Could not auto-resolve employee id from /employees (status ${response.status})`);
+  }
+
+  const objectBody = ensureObject(body, "resolve employee id");
+  const employees = objectBody["employees"];
+  if (!Array.isArray(employees) || employees.length === 0) {
+    fail(
+      `Could not auto-resolve employee id: /employees returned no active employees for company=${companyId} team=${teamId}`,
+    );
+  }
+
+  const first = employees[0];
+  if (!isObject(first) || !isString(first["id"]) || first["id"].trim() === "") {
+    fail("Could not auto-resolve employee id: first employee missing id");
+  }
+
+  return first["id"].trim();
+}
+
 function requiredValue(value: string | undefined, name: string): string {
   if (!value || value.trim() === "") {
     throw new Error(`Missing required identifier for validation: ${name}`);
@@ -315,7 +348,7 @@ async function validateHappyPath(options: CliOptions): Promise<void> {
   const serviceId = requiredValue(options.serviceId, "--service-id");
   const companyId = requiredValue(options.companyId, "--company-id");
   const teamId = requiredValue(options.teamId, "--team-id");
-  const employeeId = requiredValue(options.employeeId, "--employee-id");
+  const employeeId = await resolveEmployeeId(options);
 
   const runId = await resolveRunId(options);
   if (!runId) {

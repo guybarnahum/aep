@@ -51,6 +51,24 @@ Example routing rule:
 
 Missing Slack/email config must skip delivery explicitly. Do not fall back to `example.com`.
 
+## Hardcoded runtime identifier guardrail
+
+Active runtime, deployed config, and live CI checks must not depend on:
+
+- static employee instance IDs
+- committed cleanup tokens
+- placeholder live recipients such as `example.com`
+- personal `workers.dev` URLs
+- implicit internal-org fallback behavior
+
+Historical migrations, documentation, examples, and local-dev-only scripts may contain literals when clearly scoped.
+
+The CI guardrail is:
+
+```bash
+npm run ci:no-hardcoded-runtime-identifiers
+```
+
 ## Operator Agent
 
 Base service: `core/operator-agent`
@@ -84,6 +102,8 @@ Base service: `core/operator-agent`
 `POST /agent/run-once`
 
 - Direct single-run execution surface.
+- Requires query parameter `employeeId`.
+- Important invariant: this route must not default to an internal org/team/role when caller scope is omitted.
 
 `GET /agent/scheduler-status`
 

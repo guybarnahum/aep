@@ -128,7 +128,7 @@ async function main(): Promise<void> {
     body: "Duplicate-tolerant external-style message ingestion probe.",
     externalChannel: "email",
     externalMessageId: EXTERNAL_MESSAGE_ID,
-    externalAuthorId: "person@example.com",
+    externalAuthorId: "external_author_person",
     externalReceivedAt: new Date().toISOString(),
     relatedTaskId: target.taskId,
   });
@@ -143,7 +143,7 @@ async function main(): Promise<void> {
     body: "Duplicate-tolerant external-style message ingestion probe.",
     externalChannel: "email",
     externalMessageId: EXTERNAL_MESSAGE_ID,
-    externalAuthorId: "person@example.com",
+    externalAuthorId: "external_author_person",
     externalReceivedAt: new Date().toISOString(),
     relatedTaskId: target.taskId,
   });

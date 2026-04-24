@@ -157,6 +157,22 @@ Configuration is split into three layers:
 Committed config must not contain fake recipients such as `example.com`.
 Missing delivery config disables that delivery path explicitly.
 
+### Runtime literal guardrail
+
+The repo includes a CI guardrail that prevents active runtime/config/CI code from
+reintroducing hardcoded dynamic values such as static employee IDs, placeholder
+live recipients, personal Workers URLs, committed cleanup tokens, or implicit
+internal-org defaults.
+
+Run locally:
+
+```bash
+npm run ci:no-hardcoded-runtime-identifiers
+```
+
+Historical migrations, docs, examples, and local-dev-only scripts are treated as
+allowed exception categories.
+
 ---
 
 ## How the system works

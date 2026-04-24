@@ -41,6 +41,7 @@
     "ci:manager-advisory-check": "tsx scripts/ci/checks/policy/manager-advisory-check.ts",
     "ci:operator-surface-check": "tsx scripts/ci/checks/contracts/operator-surface-check.ts",
     "ci:operator-agent-contract-check": "tsx scripts/ci/checks/contracts/operator-agent-contract-check.ts",
+    "ci:no-hardcoded-runtime-identifiers": "tsx scripts/ci/checks/contracts/no-hardcoded-runtime-identifiers-check.ts",
     "ci:task-dependency-integrity-check": "tsx scripts/ci/checks/contracts/task-dependency-integrity-check.ts",
     "ci:task-artifact-contract-check": "tsx scripts/ci/checks/contracts/task-artifact-contract-check.ts",
     "ci:task-run-cognitive-contract-check": "tsx scripts/ci/checks/contracts/task-run-cognitive-contract-check.ts",

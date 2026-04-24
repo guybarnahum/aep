@@ -99,6 +99,10 @@ jobs:
         id: operator_agent_contract
         run: npx tsx scripts/ci/checks/contracts/operator-agent-contract-check.ts | tee operator-agent-contract-check.log
 
+      - name: Run hardcoded runtime identifier guardrail
+        id: no_hardcoded_runtime_identifiers
+        run: npm run ci:no-hardcoded-runtime-identifiers | tee no-hardcoded-runtime-identifiers-check.log
+
       - name: Run runtime projection check
         id: runtime_projection
         run: npx tsx scripts/ci/checks/contracts/runtime-projection-check.ts | tee runtime-projection-check.log
@@ -160,6 +164,7 @@ jobs:
         run: |
           if [[ \
             "${{ steps.operator_agent_contract.outcome }}" == "success" && \
+            "${{ steps.no_hardcoded_runtime_identifiers.outcome }}" == "success" && \
             "${{ steps.runtime_projection.outcome }}" == "success" && \
             "${{ steps.employee_scope.outcome }}" == "success" && \
             "${{ steps.service_provider.outcome }}" == "success" && \
@@ -205,6 +210,7 @@ jobs:
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "### Checks" >> "$GITHUB_STEP_SUMMARY"
           echo "- $(status_emoji "${{ steps.operator_agent_contract.outcome }}") operator-agent-contract-check: ${{ steps.operator_agent_contract.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- $(status_emoji "${{ steps.no_hardcoded_runtime_identifiers.outcome }}") no-hardcoded-runtime-identifiers-check: ${{ steps.no_hardcoded_runtime_identifiers.outcome }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- $(status_emoji "${{ steps.runtime_projection.outcome }}") runtime-projection-check: ${{ steps.runtime_projection.outcome }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- $(status_emoji "${{ steps.employee_scope.outcome }}") employee-scope-check: ${{ steps.employee_scope.outcome }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- $(status_emoji "${{ steps.service_provider.outcome }}") service-provider-check: ${{ steps.service_provider.outcome }}" >> "$GITHUB_STEP_SUMMARY"

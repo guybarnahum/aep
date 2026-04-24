@@ -35,6 +35,7 @@ Endpoint documentation note for future LLM sessions:
 - mirroring uses three layers: secrets such as `SLACK_MIRROR_WEBHOOK_URL`, per-environment delivery targets such as `MIRROR_DEFAULT_SLACK_CHANNEL` and `MIRROR_ESCALATIONS_EMAIL_GROUP`, and D1-backed routing policy that maps canonical context to logical target keys
 - do not commit placeholder live recipients such as `example.com`
 - missing delivery config should disable that delivery path and record a skipped-delivery reason
+- CI must enforce the hardcoded runtime identifier guardrail. Active runtime/config/CI code must not reintroduce static employee IDs, committed cleanup tokens, placeholder live recipients, personal workers.dev URLs, or implicit internal-org default routing. Historical migrations, docs, examples, and local-dev-only scripts may contain literal examples when clearly scoped.
 
 ```bash
 titan@Titans-MacBook-Pro aep % tree . --gitignore

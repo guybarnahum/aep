@@ -485,10 +485,16 @@ async function runAgentViaPaperclip(
   return readJson<PaperclipAgentRunResponse>(response);
 }
 
-async function runAgentCompatibility(agentBaseUrl: string): Promise<AgentRunResponse> {
-  const response = await fetch(`${agentBaseUrl}/agent/run-once`, {
-    method: "POST",
-  });
+async function runAgentCompatibility(
+  agentBaseUrl: string,
+  employeeId: string,
+): Promise<AgentRunResponse> {
+  const response = await fetch(
+    `${agentBaseUrl}/agent/run-once?employeeId=${encodeURIComponent(employeeId)}`,
+    {
+      method: "POST",
+    },
+  );
   return readJson<AgentRunResponse>(response);
 }
 
@@ -834,7 +840,7 @@ async function main(): Promise<void> {
       secondRunResult: secondDecision.result,
     });
 
-    const compatibilityRun = await runAgentCompatibility(agentBaseUrl);
+    const compatibilityRun = await runAgentCompatibility(agentBaseUrl, timeoutRecoveryEmployeeId);
 
     if (!compatibilityRun.ok) {
       throw new Error("Compatibility /agent/run-once did not succeed");
@@ -842,7 +848,7 @@ async function main(): Promise<void> {
 
     console.log("Verified /agent/run-once compatibility path");
   } else {
-    const compatibilityRun = await runAgentCompatibility(agentBaseUrl);
+    const compatibilityRun = await runAgentCompatibility(agentBaseUrl, timeoutRecoveryEmployeeId);
     if (!compatibilityRun.ok) {
       throw new Error("Compatibility /agent/run-once did not succeed");
     }

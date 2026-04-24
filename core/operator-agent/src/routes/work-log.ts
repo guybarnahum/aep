@@ -1,7 +1,4 @@
 import { listAgentWorkLogEntries } from "@aep/operator-agent/lib/work-log-reader";
-import { COMPANY_INTERNAL_AEP } from "@aep/operator-agent/org/company";
-import { TEAM_INFRA } from "@aep/operator-agent/org/teams";
-import { resolveRuntimeEmployeeByRole } from "@aep/operator-agent/persistence/d1/runtime-employee-resolver-d1";
 import type { OperatorAgentEnv } from "@aep/operator-agent/types";
 
 export async function handleWorkLog(
@@ -20,48 +17,25 @@ export async function handleWorkLog(
   );
 
   const requestedEmployeeId = url.searchParams.get("employeeId");
-  let employeeId = requestedEmployeeId;
-
-  if (!employeeId) {
-    if (!env?.OPERATOR_AGENT_DB) {
-      return Response.json(
-        {
-          ok: false,
-          error: "employeeId is required when OPERATOR_AGENT_DB is unavailable",
-        },
-        { status: 503 },
-      );
-    }
-
-    const employee = await resolveRuntimeEmployeeByRole({
-      env,
-      companyId: COMPANY_INTERNAL_AEP,
-      teamId: TEAM_INFRA,
-      roleId: "timeout-recovery-operator",
-    });
-
-    if (!employee) {
-      return Response.json(
-        {
-          ok: false,
-          error: "Unable to resolve default timeout-recovery-operator",
-        },
-        { status: 404 },
-      );
-    }
-
-    employeeId = employee.identity.employeeId;
+  if (!requestedEmployeeId) {
+    return Response.json(
+      {
+        ok: false,
+        error: "employeeId query parameter is required",
+      },
+      { status: 400 },
+    );
   }
 
   const entries = await listAgentWorkLogEntries({
     env,
-    employeeId,
+    employeeId: requestedEmployeeId,
     limit,
   });
 
   return Response.json({
     ok: true,
-    employeeId,
+    employeeId: requestedEmployeeId,
     count: entries.length,
     entries,
   });
