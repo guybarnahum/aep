@@ -165,9 +165,11 @@ import type {
   WorkOverview,
   RunSummary,
   ServiceOverview,
+  TeamLoopResult,
   TenantOverview,
   TenantSummary,
   TeamRoadmap,
+  SchedulerStatus,
   ValidationOverview,
 } from "./types";
 
@@ -182,6 +184,14 @@ function escapeHtml(value: unknown): string {
 
 function statusClass(status: string | null | undefined): string {
   switch (status) {
+    case "executed_task":
+      return "status status-completed";
+    case "execution_failed":
+      return "status status-failed";
+    case "no_pending_tasks":
+      return "status status-waiting";
+    case "waiting_for_staffing":
+      return "status status-restricted";
     case "active":
     case "implemented":
       return "status status-completed";
@@ -2326,6 +2336,107 @@ function renderSimpleThreadList(threads: MessageThreadRecord[]): string {
   `;
 }
 
+function renderTeamLoopStatus(result: TeamLoopResult): string {
+  return `
+    <article class="work-card">
+      <div class="work-card-top">
+        <div>
+          <h4><a href="#team/${encodeURIComponent(result.teamId)}">${escapeHtml(result.teamId)}</a></h4>
+          <div class="muted small">${escapeHtml(result.message)}</div>
+        </div>
+        <span class="${statusClass(result.status)}">${escapeHtml(result.status)}</span>
+      </div>
+      <div class="meta-grid">
+        ${result.taskId
+          ? renderCompactHtmlPill(
+              "Task",
+              `<a href="#task/${encodeURIComponent(result.taskId)}">${escapeHtml(result.taskId)}</a>`,
+            )
+          : renderCompactPill("Task", "—")}
+        ${renderCompactPill("Employee", result.employeeId ?? "—")}
+        ${renderCompactPill("Role", result.roleId ?? "—")}
+        ${result.heartbeat?.threadId
+          ? renderCompactHtmlPill(
+              "Heartbeat",
+              `<a href="#thread/${encodeURIComponent(result.heartbeat.threadId)}">${escapeHtml(result.heartbeat.status)}</a>`,
+            )
+          : renderCompactPill("Heartbeat", result.heartbeat?.status ?? "—")}
+        ${result.scanned
+          ? renderCompactPill(
+              "Scanned",
+              `${result.scanned.pendingTasks} pending / ${result.scanned.eligibleTasks} eligible`,
+            )
+          : renderCompactPill("Scanned", "—")}
+      </div>
+    </article>
+  `;
+}
+
+function renderTeamLoopPanel(args: {
+  teamId?: string;
+  results: TeamLoopResult[];
+  schedulerStatus?: SchedulerStatus;
+}): string {
+  const resultMarkup = args.results.length > 0
+    ? `<div class="service-grid">${args.results.map(renderTeamLoopStatus).join("")}</div>`
+    : `<div class="empty-state small-empty">Run a team loop from the dashboard to inspect the latest returned status without creating dashboard-owned state.</div>`;
+  const buttonMarkup = args.teamId
+    ? `<button class="button" type="button" data-action="run-team-once" data-team-id="${escapeHtml(args.teamId)}">Run ${escapeHtml(args.teamId)} once</button>`
+    : `<button class="button" type="button" data-action="run-all-teams">Run all team loops</button>`;
+  const cadenceMarkup = args.schedulerStatus
+    ? `
+      <div class="summary-grid">
+        ${renderSummaryCard(
+          "Team cadence",
+          `${args.schedulerStatus.cadence.teamTickIntervalMinutes}m`,
+          args.schedulerStatus.cadence.source === "d1" ? "persisted in operator-agent D1" : "using deployed env default",
+        )}
+        ${renderSummaryCard(
+          "Manager cadence",
+          `${args.schedulerStatus.cadence.managerTickIntervalMinutes}m`,
+          args.schedulerStatus.cadence.updatedAt ? `Updated ${formatTimestamp(args.schedulerStatus.cadence.updatedAt)}` : "no persisted override metadata yet",
+        )}
+        ${renderSummaryCard(
+          "Scheduler",
+          args.schedulerStatus.primaryScheduler,
+          args.schedulerStatus.cronFallbackEnabled ? "cron fallback enabled" : "cron fallback disabled",
+        )}
+      </div>
+
+      <form class="management-form" data-action="update-team-loop-cadence">
+        <h4>Automatic cadence</h4>
+        <label>
+          <span>Team tick interval (minutes)</span>
+          <input name="teamTickIntervalMinutes" type="number" min="1" max="60" value="${escapeHtml(args.schedulerStatus.cadence.teamTickIntervalMinutes)}" />
+        </label>
+        <label>
+          <span>Manager tick interval (minutes)</span>
+          <input name="managerTickIntervalMinutes" type="number" min="1" max="60" value="${escapeHtml(args.schedulerStatus.cadence.managerTickIntervalMinutes)}" />
+        </label>
+        <label>
+          <span>Requested by</span>
+          <input name="updatedBy" value="dashboard_team_loop_operator" />
+        </label>
+        <button class="button" type="submit">Save cadence</button>
+      </form>
+    `
+    : "";
+
+  return `
+    <section class="panel">
+      <div class="panel-header">
+        <div>
+          <h3>Team loops</h3>
+          <p class="muted">Manual execution surface over canonical operator-agent team loop routes.</p>
+        </div>
+        ${buttonMarkup}
+      </div>
+      ${cadenceMarkup}
+      ${resultMarkup}
+    </section>
+  `;
+}
+
 export function renderEmployeesDirectory(
   overview: OrgPresenceOverview,
   roles: RoleJobDescriptionProjection[],
@@ -2709,11 +2820,19 @@ export function renderEmployeeDetail(
   `;
 }
 
-export function renderTeamsOverview(overview: OrgPresenceOverview): string {
+export function renderTeamsOverview(
+  overview: OrgPresenceOverview,
+  teamLoopResults: TeamLoopResult[] = [],
+): string {
   const tasksById = new Map(overview.tasks.map((task) => [task.id, task]));
   const teamIds = uniqueTeamIds(overview);
 
   return `
+    ${renderTeamLoopPanel({
+      results: teamLoopResults,
+      schedulerStatus: overview.schedulerStatus,
+    })}
+
     <section class="panel">
       <div class="panel-header">
         <h2>Teams</h2>
@@ -2752,6 +2871,7 @@ export function renderTeamsOverview(overview: OrgPresenceOverview): string {
 export function renderTeamDetail(
   overview: OrgPresenceOverview,
   teamId: string,
+  teamLoopResult?: TeamLoopResult,
 ): string {
   const tasksById = new Map(overview.tasks.map((task) => [task.id, task]));
   const employees = overview.employees.filter((employee) => employee.identity.teamId === teamId);
@@ -2773,6 +2893,12 @@ export function renderTeamDetail(
         ${renderSummaryCard("Roadmaps", roadmaps.length, "team strategic objectives")}
       </div>
     </section>
+
+    ${renderTeamLoopPanel({
+      teamId,
+      results: teamLoopResult ? [teamLoopResult] : [],
+      schedulerStatus: overview.schedulerStatus,
+    })}
 
     <section class="panel">
       <div class="panel-header"><h3>Employees</h3></div>

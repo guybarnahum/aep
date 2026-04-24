@@ -134,11 +134,21 @@ Base service: `core/operator-agent`
 
 `GET /agent/scheduler-status`
 
-- Returns scheduler mode visibility such as `primaryScheduler` and `cronFallbackEnabled`.
-- Team and manager cadence are derived from:
+- Returns scheduler mode visibility plus effective team/manager loop cadence.
+- Effective cadence is resolved from canonical operator-agent scheduler state persisted in D1 when available.
+- On first boot, that persisted state is seeded from the deployed env defaults:
 - `AEP_TEAM_TICK_INTERVAL_MINUTES`
 - `AEP_MANAGER_TICK_INTERVAL_MINUTES`
 - No separate cron registrations exist for team or manager loops.
+
+`POST /agent/scheduler-status`
+
+- Updates persisted team and manager loop cadence.
+- Accepts JSON body:
+	- `teamTickIntervalMinutes`
+	- `managerTickIntervalMinutes`
+	- `updatedBy`
+- Important invariant: cadence updates must remain bounded integer minute intervals (`1..60`) and must update canonical backend state rather than dashboard-local state.
 
 ### Roles And Employees
 

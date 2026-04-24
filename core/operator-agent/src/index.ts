@@ -478,7 +478,10 @@ async function dispatch(request: Request, env: OperatorAgentEnv): Promise<Respon
     return handleControlHistory(request, env);
   }
 
-  if (request.method === "GET" && url.pathname === "/agent/scheduler-status") {
+  if (
+    (request.method === "GET" || request.method === "POST") &&
+    url.pathname === "/agent/scheduler-status"
+  ) {
     return handleSchedulerStatus(request, env);
   }
 

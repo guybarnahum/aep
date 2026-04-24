@@ -34,6 +34,8 @@ import type {
   OperatorEmployeeRecord,
   SchedulerStatus,
   ServiceOverview,
+  TeamLoopResult,
+  TeamLoopRunAllResult,
   TeamRoadmap,
   TenantOverview,
   TenantSummary,
@@ -337,6 +339,18 @@ export async function getValidationOverview(): Promise<ValidationOverview> {
   return getJson<ValidationOverview>(getApiBaseUrl(), "/validation/overview");
 }
 
+export async function updateSchedulerCadence(args: {
+  teamTickIntervalMinutes: number;
+  managerTickIntervalMinutes: number;
+  updatedBy: string;
+}): Promise<SchedulerStatus> {
+  return postJson<SchedulerStatus>(
+    getOperatorAgentBaseUrl(),
+    "/agent/scheduler-status",
+    args as unknown as Record<string, unknown>,
+  );
+}
+
 export async function getValidationScheduler(): Promise<ValidationSchedulerState> {
   const payload = await getJson<{ scheduler: ValidationSchedulerState }>(
     getApiBaseUrl(),
@@ -516,6 +530,26 @@ export async function getOrgPresenceOverview(): Promise<OrgPresenceOverview> {
     roadmaps: departmentOverview.roadmaps,
     schedulerStatus: departmentOverview.schedulerStatus,
   };
+}
+
+export async function runTeamOnce(
+  baseUrl: string,
+  teamId: string,
+): Promise<TeamLoopResult> {
+  return postJson<TeamLoopResult>(
+    baseUrl,
+    `/agent/teams/${encodeURIComponent(teamId)}/run-once`,
+    { limit: 5 },
+  );
+}
+
+export async function runAllTeams(
+  baseUrl: string,
+): Promise<TeamLoopRunAllResult> {
+  return postJson<TeamLoopRunAllResult>(baseUrl, "/agent/teams/run", {
+    teamIds: ["team_infra", "team_web_product", "team_validation"],
+    limit: 5,
+  });
 }
 
 export async function getEmployeeControlOverview(

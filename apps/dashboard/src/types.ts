@@ -208,6 +208,36 @@ export type TeamRoadmap = {
   status: "active" | "completed";
   created_at: string;
 };
+
+export type TeamLoopResult = {
+  ok: true;
+  teamId: string;
+  status:
+    | "executed_task"
+    | "execution_failed"
+    | "no_pending_tasks"
+    | "waiting_for_staffing";
+  taskId?: string;
+  employeeId?: string;
+  roleId?: string;
+  message: string;
+  heartbeat?: {
+    status: "published" | "skipped_missing_author";
+    threadId?: string;
+    messageId?: string;
+  };
+  scanned?: {
+    pendingTasks: number;
+    eligibleTasks: number;
+  };
+};
+
+export type TeamLoopRunAllResult = {
+  ok: true;
+  count: number;
+  results: TeamLoopResult[];
+};
+
 export type RunSummary = {
   run_id: string;
   tenant_id: string;
@@ -541,6 +571,13 @@ export type ApprovalRecord = {
 export type SchedulerStatus = {
   primaryScheduler: string;
   cronFallbackEnabled: boolean;
+  cadence: {
+    teamTickIntervalMinutes: number;
+    managerTickIntervalMinutes: number;
+    updatedAt: string | null;
+    updatedBy: string | null;
+    source: "d1" | "env_default";
+  };
 };
 
 export type ValidationRunType =

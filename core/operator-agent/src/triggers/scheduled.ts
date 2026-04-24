@@ -1,5 +1,6 @@
 import { getConfig } from "@aep/operator-agent/config";
 import { isCronFallbackEnabled } from "@aep/operator-agent/lib/fallback-config";
+import { getOperatorSchedulerCadence } from "@aep/operator-agent/lib/scheduler-state";
 import type { OperatorAgentEnv } from "@aep/operator-agent/types";
 import { handleWorkerCron } from "./cron";
 import { handleManagerCron } from "./manager-cron";
@@ -34,6 +35,7 @@ export async function handleScheduledCron(
   scheduledTimeMs = Date.now(),
 ): Promise<void> {
   const config = getConfig(env);
+  const cadence = await getOperatorSchedulerCadence(env);
 
   if (!isCronFallbackEnabled(env)) {
     console.log("[operator-agent] cron fallback disabled; skipping scheduled execution", {
@@ -57,18 +59,20 @@ export async function handleScheduledCron(
 
       const minute = new Date(scheduledTimeMs).getUTCMinutes();
 
-      if (shouldRunMinuteInterval(scheduledTimeMs, config.teamTickIntervalMinutes)) {
+      if (shouldRunMinuteInterval(scheduledTimeMs, cadence.teamTickIntervalMinutes)) {
         console.log("[operator-agent] invoking team cron via interval gate", {
           minute,
-          interval: config.teamTickIntervalMinutes,
+          interval: cadence.teamTickIntervalMinutes,
+          source: cadence.source,
         });
         await handleTeamCron(env);
       }
 
-      if (shouldRunMinuteInterval(scheduledTimeMs, config.managerTickIntervalMinutes)) {
+      if (shouldRunMinuteInterval(scheduledTimeMs, cadence.managerTickIntervalMinutes)) {
         console.log("[operator-agent] invoking manager cron via interval gate", {
           minute,
-          interval: config.managerTickIntervalMinutes,
+          interval: cadence.managerTickIntervalMinutes,
+          source: cadence.source,
         });
         await handleManagerCron(env);
       }

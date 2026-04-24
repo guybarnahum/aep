@@ -98,6 +98,9 @@ import {
   resumeValidationScheduler,
   resolveEscalation,
   resolveEscalationFromThread,
+  runAllTeams,
+  runTeamOnce,
+  updateSchedulerCadence,
   runValidationNow,
   runEmployeeLifecycleAction,
   updateEmployeeProfile,
@@ -109,6 +112,7 @@ import type {
   EmployeePublicLink,
   OrgPresenceOverview,
   PageSize,
+  TeamLoopResult,
   TenantSummary,
   ValidationRunMode,
   WorkOverview,
@@ -157,6 +161,7 @@ let mutationStatusMessage: string | null = null;
 let lastRenderCompletedAt: number | null = null;
 let lastAutoRefreshAt: number | null = null;
 let activeRenderCount = 0;
+let latestTeamLoopResults: TeamLoopResult[] = [];
 
 type Route =
   | { kind: "tenant"; tenantId: string }
@@ -193,6 +198,25 @@ const DEFAULT_DEPARTMENT_PAGINATION: DepartmentPaginationState = {
   controlHistory: { page: 1, pageSize: 10 },
   approvals: { page: 1, pageSize: 10 },
 };
+
+function upsertTeamLoopResult(result: TeamLoopResult): void {
+  const existingIndex = latestTeamLoopResults.findIndex(
+    (entry) => entry.teamId === result.teamId,
+  );
+
+  if (existingIndex >= 0) {
+    latestTeamLoopResults = latestTeamLoopResults.map((entry, index) =>
+      index === existingIndex ? result : entry,
+    );
+    return;
+  }
+
+  latestTeamLoopResults = [...latestTeamLoopResults, result];
+}
+
+function getTeamLoopResult(teamId: string): TeamLoopResult | undefined {
+  return latestTeamLoopResults.find((entry) => entry.teamId === teamId);
+}
 
 function getAutoRefreshEnabled(): boolean {
   return window.localStorage.getItem("dashboard.auto-refresh") === "true";
@@ -870,6 +894,86 @@ function attachValidationHandlers(): void {
       } catch (error) {
         setMutationStatus(
           error instanceof Error ? error.message : "Failed to resume recurring validation",
+        );
+      }
+
+      void renderRoute();
+    });
+  });
+}
+
+function attachTeamLoopHandlers(): void {
+  document.querySelectorAll<HTMLButtonElement>("[data-action='run-all-teams']").forEach((button) => {
+    button.addEventListener("click", async () => {
+      try {
+        setMutationStatus("Running all team loops…");
+        void renderRoute();
+        const response = await runAllTeams(getOperatorAgentBaseUrl());
+        latestTeamLoopResults = response.results ?? [];
+        setMutationStatus(`Ran ${latestTeamLoopResults.length} team loops.`);
+      } catch (error) {
+        setMutationStatus(
+          error instanceof Error ? error.message : "Failed to run all team loops",
+        );
+      }
+
+      void renderRoute();
+    });
+  });
+
+  document
+    .querySelectorAll<HTMLFormElement>("form[data-action='update-team-loop-cadence']")
+    .forEach((form) => {
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const formData = new FormData(form);
+        const teamTickIntervalMinutes = Number(
+          formData.get("teamTickIntervalMinutes") ?? "",
+        );
+        const managerTickIntervalMinutes = Number(
+          formData.get("managerTickIntervalMinutes") ?? "",
+        );
+        const updatedBy = String(formData.get("updatedBy") ?? "").trim();
+
+        try {
+          setMutationStatus("Saving team loop cadence…");
+          void renderRoute();
+          await updateSchedulerCadence({
+            teamTickIntervalMinutes,
+            managerTickIntervalMinutes,
+            updatedBy,
+          });
+          setMutationStatus(
+            `Saved team cadence ${teamTickIntervalMinutes}m and manager cadence ${managerTickIntervalMinutes}m.`,
+          );
+        } catch (error) {
+          setMutationStatus(
+            error instanceof Error ? error.message : "Failed to update scheduler cadence",
+          );
+        }
+
+        void renderRoute();
+      });
+    });
+
+  document.querySelectorAll<HTMLButtonElement>("[data-action='run-team-once']").forEach((button) => {
+    button.addEventListener("click", async () => {
+      const teamId = button.dataset.teamId;
+      if (!teamId) {
+        setMutationStatus("Missing teamId for team loop action.");
+        void renderRoute();
+        return;
+      }
+
+      try {
+        setMutationStatus(`Running ${teamId} once…`);
+        void renderRoute();
+        const result = await runTeamOnce(getOperatorAgentBaseUrl(), teamId);
+        upsertTeamLoopResult(result);
+        setMutationStatus(`Ran team loop for ${teamId}: ${result.status}.`);
+      } catch (error) {
+        setMutationStatus(
+          error instanceof Error ? error.message : `Failed to run team loop for ${teamId}`,
         );
       }
 
@@ -1632,9 +1736,13 @@ async function renderRoute(): Promise<void> {
       } else if (route.kind === "role") {
         content += renderRoleDetail(route.roleId, roles, orgOverview, reviewCycles);
       } else if (route.kind === "teams") {
-        content += renderTeamsOverview(orgOverview);
+        content += renderTeamsOverview(orgOverview, latestTeamLoopResults);
       } else if (route.kind === "team") {
-        content += renderTeamDetail(orgOverview, route.teamId);
+        content += renderTeamDetail(
+          orgOverview,
+          route.teamId,
+          getTeamLoopResult(route.teamId),
+        );
       } else {
         content += renderCompanyOverview(orgOverview);
       }
@@ -1674,6 +1782,10 @@ async function renderRoute(): Promise<void> {
 
     if (route.kind === "validation") {
       attachValidationHandlers();
+    }
+
+    if (route.kind === "teams" || route.kind === "team") {
+      attachTeamLoopHandlers();
     }
 
     if (route.kind === "thread") {
