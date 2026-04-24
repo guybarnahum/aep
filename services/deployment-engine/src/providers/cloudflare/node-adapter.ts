@@ -12,6 +12,26 @@ export interface NodeWranglerDeployInput {
   envId: string;
 }
 
+function sanitizeCloudflareWorkerNamePart(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9-]+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function buildDeploymentName(serviceName: string, envId: string): string {
+  const baseName = sanitizeCloudflareWorkerNamePart(serviceName);
+  const runName = sanitizeCloudflareWorkerNamePart(envId);
+  const deploymentName = [baseName, runName].filter(Boolean).join("-");
+
+  if (!deploymentName) {
+    throw new Error("Could not derive a valid Cloudflare deployment name");
+  }
+
+  return deploymentName;
+}
+
 function combineOutput(stdout: unknown, stderr: unknown): string {
   const out = typeof stdout === "string" ? stdout : stdout?.toString?.() ?? "";
   const err = typeof stderr === "string" ? stderr : stderr?.toString?.() ?? "";
@@ -39,7 +59,7 @@ export class CloudflareNodeDeploymentAdapter implements DeploymentAdapter {
     };
 
     const { serviceName, workingDir, envId } = input;
-    const deploymentName = `${serviceName}-${envId}`;
+    const deploymentName = buildDeploymentName(serviceName, envId);
 
     console.log(`[deploy] deploying ${deploymentName}`);
 
