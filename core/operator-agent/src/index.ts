@@ -30,6 +30,7 @@ import { handleManagerLog } from "./routes/manager-log";
 import { handleRun } from "./routes/run";
 import { handleRunOnce } from "./routes/run-once";
 import { handleSchedulerStatus } from "./routes/scheduler-status";
+import { handleRunTeamOnce, handleRunTeams } from "./routes/team-run";
 import {
   handleCreateTask,
   handleGetTask,
@@ -99,6 +100,7 @@ async function dispatch(request: Request, env: OperatorAgentEnv): Promise<Respon
         messageThreads: "/agent/message-threads",
         run: "/agent/run",
         runOnce: "/agent/run-once",
+        teamsRun: "/agent/teams/run",
       },
     });
   }
@@ -139,6 +141,19 @@ async function dispatch(request: Request, env: OperatorAgentEnv): Promise<Respon
 
   if (url.pathname === "/agent/run-once") {
     return handleRunOnce(request, env);
+  }
+
+  if (url.pathname === "/agent/teams/run") {
+    return handleRunTeams(request, env);
+  }
+
+  const teamRunOnceMatch = url.pathname.match(/^\/agent\/teams\/([^/]+)\/run-once$/);
+  if (teamRunOnceMatch) {
+    return handleRunTeamOnce(
+      request,
+      env,
+      decodeURIComponent(teamRunOnceMatch[1]),
+    );
   }
 
   if (url.pathname === "/agent/roles") {

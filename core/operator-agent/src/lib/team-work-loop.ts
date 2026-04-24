@@ -5,7 +5,6 @@ import { getTaskStore } from "@aep/operator-agent/lib/store-factory";
 import type {
   Task,
   TaskArtifact,
-  TaskDependency,
 } from "@aep/operator-agent/lib/store-types";
 import { COMPANY_INTERNAL_AEP, type CompanyId } from "@aep/operator-agent/org/company";
 import type { TeamId } from "@aep/operator-agent/org/teams";
@@ -86,7 +85,7 @@ async function loadTaskExecutionContext(args: {
 
   return {
     task: toCoordinationTaskRecord(args.task),
-    dependencies: dependencies as TaskDependency[],
+    dependencies,
     artifacts: artifacts.map(toCoordinationTaskArtifactRecord),
   };
 }

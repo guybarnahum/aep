@@ -109,16 +109,23 @@ Base service: `core/operator-agent`
 
 `POST /agent/teams/run`
 
-- Planned PR14 team-heartbeat route.
+- PR14 team-heartbeat route.
 - Runs one bounded team-loop tick across one or more explicit teams.
+- Accepts optional JSON body:
+	- `companyId`
+	- `teamIds`
+	- `limit`
 - Important invariant: this route must select from canonical tasks and publish canonical thread messages; it must not create a parallel work store.
 - Important invariant: callers must provide or resolve real runtime employees through existing employee/role policy surfaces; the route must not depend on hardcoded employee IDs.
-- PR14C/D foundation note: the internal library work for this route now exists in `team-runtime-resolver.ts` and `team-work-loop.ts`, backed by D1 runtime employee and role-policy state. Public route wiring is intentionally deferred until the later PR14 route phase.
+- PR14E note: this route is now wired to the internal team-loop library backed by D1 runtime employee and role-policy state.
 
 `POST /agent/teams/:teamId/run-once`
 
-- Planned PR14 single-team heartbeat route.
+- PR14 single-team heartbeat route.
 - Runs one bounded loop tick for a single team.
+- Accepts optional JSON body:
+	- `companyId`
+	- `limit`
 - Important invariant: if ready work exists but has no executable runtime employee assignment, the route must return a waiting state and publish that state canonically instead of inventing hidden staffing.
 - PR14C/D staffing note: internal team-loop resolution already returns explicit waiting-for-staffing results when a team has ready work but no executable runtime employee. No seeded or hardcoded employee IDs are allowed in that path.
 
