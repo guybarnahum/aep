@@ -105,6 +105,21 @@ Base service: `core/operator-agent`
 - Requires query parameter `employeeId`.
 - Important invariant: this route must not default to an internal org/team/role when caller scope is omitted.
 
+### Team Loops
+
+`POST /agent/teams/run`
+
+- Planned PR14 team-heartbeat route.
+- Runs one bounded team-loop tick across one or more explicit teams.
+- Important invariant: this route must select from canonical tasks and publish canonical thread messages; it must not create a parallel work store.
+- Important invariant: callers must provide or resolve real runtime employees through existing employee/role policy surfaces; the route must not depend on hardcoded employee IDs.
+
+`POST /agent/teams/:teamId/run-once`
+
+- Planned PR14 single-team heartbeat route.
+- Runs one bounded loop tick for a single team.
+- Important invariant: if ready work exists but has no executable runtime employee assignment, the route must return a waiting state and publish that state canonically instead of inventing hidden staffing.
+
 `GET /agent/scheduler-status`
 
 - Returns scheduler mode visibility such as `primaryScheduler` and `cronFallbackEnabled`.

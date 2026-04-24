@@ -717,6 +717,25 @@ export class D1TaskStore implements TaskStore {
     return (rows.results ?? []).map(rowToTask);
   }
 
+  async getPendingTasksForTeam(args: {
+    teamId: string;
+    limit: number;
+  }): Promise<Task[]> {
+    const rows = await this.db
+      .prepare(
+        `SELECT *
+         FROM tasks
+         WHERE assigned_team_id = ?
+           AND status IN ('queued', 'ready')
+         ORDER BY created_at ASC
+         LIMIT ?`,
+      )
+      .bind(args.teamId, args.limit)
+      .all<TaskRow>();
+
+    return (rows.results ?? []).map(rowToTask);
+  }
+
   async updateTaskStatus(taskId: string, status: TaskStatus): Promise<void> {
     const startedAtExpr =
       status === "in_progress" ? "strftime('%Y-%m-%dT%H:%M:%fZ', 'now')" : "started_at";

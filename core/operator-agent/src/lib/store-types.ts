@@ -346,6 +346,7 @@ export interface TaskStore {
   listDependencies(taskId: string): Promise<TaskDependency[]>;
 
   getPendingTasksForEmployee(employeeId: string, teamId: string): Promise<Task[]>;
+  getPendingTasksForTeam(args: { teamId: string; limit: number }): Promise<Task[]>;
 
   updateTaskStatus(taskId: string, status: TaskStatus): Promise<void>;
   recordDecision(decision: Decision): Promise<void>;
