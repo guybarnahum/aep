@@ -87,7 +87,7 @@ Base service: `core/operator-agent`
 
 - Test-only scheduled trigger shim.
 - Only available when `ENABLE_TEST_ENDPOINTS === "true"`.
-- PR14F note: scheduled routing recognizes worker, team, and manager cron classes. In deployed environments, team and manager cadence are driven by runtime config (`AEP_TEAM_TICK_INTERVAL_MINUTES`, `AEP_MANAGER_TICK_INTERVAL_MINUTES`) on the one-minute worker tick path to stay within Cloudflare schedule limits, while the explicit team and manager cron classes remain available for test shims and manual scheduled routing checks.
+- PR14F note: scheduled routing now recognizes a single worker cron (`* * * * *`). Team and manager loops are invoked through interval gating within the worker tick.
 
 ### Execution
 
@@ -135,7 +135,10 @@ Base service: `core/operator-agent`
 `GET /agent/scheduler-status`
 
 - Returns scheduler mode visibility such as `primaryScheduler` and `cronFallbackEnabled`.
-- Team and manager heartbeat execution remain bounded by the same `AEP_CRON_FALLBACK_ENABLED` setting and run on the worker cron path when the scheduled minute matches the configured cadence intervals.
+- Team and manager cadence are derived from:
+- `AEP_TEAM_TICK_INTERVAL_MINUTES`
+- `AEP_MANAGER_TICK_INTERVAL_MINUTES`
+- No separate cron registrations exist for team or manager loops.
 
 ### Roles And Employees
 

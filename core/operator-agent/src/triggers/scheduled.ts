@@ -6,22 +6,12 @@ import { handleManagerCron } from "./manager-cron";
 import { handleTeamCron } from "./team-cron";
 
 export const WORKER_CRON = "* * * * *";
-export const TEAM_CRON = "*/2 * * * *";
-export const MANAGER_CRON = "*/5 * * * *";
 
-export type ScheduledCronKind = "worker" | "manager" | "team" | "unknown";
+export type ScheduledCronKind = "worker" | "unknown";
 
 export function classifyScheduledCron(cron: string): ScheduledCronKind {
   if (cron === WORKER_CRON) {
     return "worker";
-  }
-
-  if (cron === TEAM_CRON) {
-    return "team";
-  }
-
-  if (cron === MANAGER_CRON) {
-    return "manager";
   }
 
   return "unknown";
@@ -65,32 +55,24 @@ export async function handleScheduledCron(
       console.log("[operator-agent] invoking worker cron as fallback/bootstrap");
       await handleWorkerCron(env, scheduledTimeMs);
 
+      const minute = new Date(scheduledTimeMs).getUTCMinutes();
+
       if (shouldRunMinuteInterval(scheduledTimeMs, config.teamTickIntervalMinutes)) {
-        console.log("[operator-agent] invoking team cron via worker tick", {
-          scheduledTimeMs,
-          intervalMinutes: config.teamTickIntervalMinutes,
+        console.log("[operator-agent] invoking team cron via interval gate", {
+          minute,
+          interval: config.teamTickIntervalMinutes,
         });
         await handleTeamCron(env);
       }
 
       if (shouldRunMinuteInterval(scheduledTimeMs, config.managerTickIntervalMinutes)) {
-        console.log("[operator-agent] invoking manager cron via worker tick", {
-          scheduledTimeMs,
-          intervalMinutes: config.managerTickIntervalMinutes,
+        console.log("[operator-agent] invoking manager cron via interval gate", {
+          minute,
+          interval: config.managerTickIntervalMinutes,
         });
         await handleManagerCron(env);
       }
 
-      return;
-    }
-    case "manager": {
-      console.log("[operator-agent] invoking manager cron as fallback/bootstrap");
-      await handleManagerCron(env);
-      return;
-    }
-    case "team": {
-      console.log("[operator-agent] invoking team cron as fallback/bootstrap");
-      await handleTeamCron(env);
       return;
     }
     default:

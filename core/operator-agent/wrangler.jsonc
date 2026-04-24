@@ -97,8 +97,8 @@
         "AEP_CRON_FALLBACK_ENABLED": "true",
         "AEP_AI_ENABLED": "true",
         "AEP_AI_MODEL": "@cf/meta/llama-3.1-8b-instruct",
-        "AEP_TEAM_TICK_INTERVAL_MINUTES": "2",
-        "AEP_MANAGER_TICK_INTERVAL_MINUTES": "5",
+        "AEP_TEAM_TICK_INTERVAL_MINUTES": "30",
+        "AEP_MANAGER_TICK_INTERVAL_MINUTES": "60",
         // Configure SLACK_MIRROR_WEBHOOK_URL as an environment secret; do not commit it here.
         "MIRROR_DEFAULT_SLACK_CHANNEL": "aep-agent-feed",
         "MIRROR_APPROVALS_SLACK_CHANNEL": "aep-agent-approvals",
@@ -136,8 +136,8 @@
         "AEP_CRON_FALLBACK_ENABLED": "true",
         "AEP_AI_ENABLED": "true",
         "AEP_AI_MODEL": "@cf/meta/llama-3.1-8b-instruct",
-        "AEP_TEAM_TICK_INTERVAL_MINUTES": "2",
-        "AEP_MANAGER_TICK_INTERVAL_MINUTES": "5",
+        "AEP_TEAM_TICK_INTERVAL_MINUTES": "30",
+        "AEP_MANAGER_TICK_INTERVAL_MINUTES": "60",
         // Configure SLACK_MIRROR_WEBHOOK_URL as an environment secret; do not commit it here.
         "MIRROR_DEFAULT_SLACK_CHANNEL": "aep-agent-feed",
         "MIRROR_APPROVALS_SLACK_CHANNEL": "aep-agent-approvals",
@@ -159,8 +159,8 @@
     "AEP_CRON_FALLBACK_ENABLED": "true",
     "AEP_AI_ENABLED": "false",
     "AEP_AI_MODEL": "@cf/meta/llama-3.1-8b-instruct",
-    "AEP_TEAM_TICK_INTERVAL_MINUTES": "2",
-    "AEP_MANAGER_TICK_INTERVAL_MINUTES": "5",
+    "AEP_TEAM_TICK_INTERVAL_MINUTES": "30",
+    "AEP_MANAGER_TICK_INTERVAL_MINUTES": "60",
     // Configure SLACK_MIRROR_WEBHOOK_URL as an environment secret; do not commit it here.
     "MIRROR_DEFAULT_SLACK_CHANNEL": "aep-agent-feed",
     "MIRROR_APPROVALS_SLACK_CHANNEL": "aep-agent-approvals",

@@ -59,7 +59,7 @@ type CreateTaskEnvelope = {
   error?: string;
 };
 
-const MANAGER_CRON = "*/5 * * * *";
+const WORKER_CRON = "* * * * *";
 
 function requireEnv(name: string): string {
   const value = process.env[name];
@@ -707,9 +707,9 @@ async function main(): Promise<void> {
     );
   }
 
-  // Trigger the manager cron to generate a cron_fallback provenance entry.
+  // Trigger the worker cron and rely on interval gating to drive any nested loops.
   // The seeded work-log entry ensures the cron run also emits a decision.
-  const scheduledResult = await triggerScheduled(agentBaseUrl, MANAGER_CRON);
+  const scheduledResult = await triggerScheduled(agentBaseUrl, WORKER_CRON);
 
   if (scheduledResult.status !== 200) {
     throw new Error(
