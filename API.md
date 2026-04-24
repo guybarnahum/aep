@@ -21,6 +21,36 @@ Notes:
 - Localhost fallbacks are allowed only for local development builds.
 - Deployed builds must fail loudly if required base URL configuration is missing.
 
+## External mirroring and routing
+
+Slack and email are external adapters. Canonical AEP state remains in AEP.
+
+Secrets:
+- `SLACK_MIRROR_WEBHOOK_URL`
+
+Per-environment delivery targets:
+- `MIRROR_DEFAULT_SLACK_CHANNEL`
+- `MIRROR_APPROVALS_SLACK_CHANNEL`
+- `MIRROR_ESCALATIONS_SLACK_CHANNEL`
+- `MIRROR_ESCALATIONS_EMAIL_GROUP`
+
+Routing policy is D1-backed and maps canonical thread/message context to adapter targets.
+
+Example routing rule:
+
+```json
+{
+	"ruleId": "mirror_escalations_to_slack",
+	"enabled": true,
+	"threadKind": "escalation",
+	"severity": "critical",
+	"targetAdapter": "slack",
+	"targetKey": "MIRROR_ESCALATIONS_SLACK_CHANNEL"
+}
+```
+
+Missing Slack/email config must skip delivery explicitly. Do not fall back to `example.com`.
+
 ## Operator Agent
 
 Base service: `core/operator-agent`

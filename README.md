@@ -134,6 +134,29 @@ The `scripts/ci` directory has also been refactored to match this structure. Val
 
 Shared orchestration helpers live under `scripts/ci/tasks` and common utilities under `scripts/ci/shared`.
 
+## External mirroring configuration
+
+AEP mirrors selected canonical activity into Slack and email. Slack and email are adapters only; AEP remains the source of truth.
+
+Configuration is split into three layers:
+
+1. Secrets
+  - `SLACK_MIRROR_WEBHOOK_URL`
+  - future email provider credentials
+
+2. Per-environment delivery targets
+  - `MIRROR_DEFAULT_SLACK_CHANNEL`
+  - `MIRROR_APPROVALS_SLACK_CHANNEL`
+  - `MIRROR_ESCALATIONS_SLACK_CHANNEL`
+  - `MIRROR_ESCALATIONS_EMAIL_GROUP`
+
+3. Routing policy
+  - D1-backed rules decide which canonical threads/messages mirror to Slack or email.
+  - YAML may seed policy, but runtime routing should be queryable state.
+
+Committed config must not contain fake recipients such as `example.com`.
+Missing delivery config disables that delivery path explicitly.
+
 ---
 
 ## How the system works

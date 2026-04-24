@@ -31,6 +31,10 @@ Endpoint documentation note for future LLM sessions:
 - dashboard and ops-console may use localhost defaults only in Vite local-dev builds
 - deployed frontend builds must require explicit public base URL configuration
 - missing deployed frontend URL config should fail loudly rather than silently pointing at localhost
+- Slack and email are adapters only; AEP canonical state remains the source of truth for tasks, approvals, escalations, canonical message threads, evidence, and rationale
+- mirroring uses three layers: secrets such as `SLACK_MIRROR_WEBHOOK_URL`, per-environment delivery targets such as `MIRROR_DEFAULT_SLACK_CHANNEL` and `MIRROR_ESCALATIONS_EMAIL_GROUP`, and D1-backed routing policy that maps canonical context to logical target keys
+- do not commit placeholder live recipients such as `example.com`
+- missing delivery config should disable that delivery path and record a skipped-delivery reason
 
 ```bash
 titan@Titans-MacBook-Pro aep % tree . --gitignore

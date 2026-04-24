@@ -1,9 +1,9 @@
 import type { TaskStore } from "@aep/operator-agent/lib/store-types";
 import type { OperatorAgentEnv } from "@aep/operator-agent/types";
 import { newToken } from "@aep/shared";
+import { resolveMirrorRoutes, type MirrorRoutingContext } from "@aep/operator-agent/lib/mirror-routing";
 
 import { sendEmailMirror } from "./email-adapter";
-import { resolveMirrorTargets } from "./mirror-routing-policy";
 import { sendSlackMirror } from "./slack-webhook-adapter";
 import type {
   ExternalMessageProjection,
@@ -96,6 +96,19 @@ function targetKey(target: MirrorTarget): { channel: MirrorChannel; target: stri
   return { channel: "email", target: target.recipientGroup };
 }
 
+function buildRoutingContext(input: MirrorDispatchInput): MirrorRoutingContext {
+  const isEscalation =
+    input.routing.threadType === "escalation" ||
+    input.routing.messageType === "escalation";
+
+  return {
+    threadKind: input.routing.threadType ?? input.routing.messageType,
+    messageType: input.routing.messageType,
+    severity: isEscalation ? "critical" : undefined,
+    visibility: input.routing.humanVisibilityRequired ? "human_visible" : undefined,
+  };
+}
+
 function syntheticExternalThreadId(args: {
   channel: MirrorChannel;
   target: string;
@@ -185,6 +198,22 @@ async function dispatchToTarget(args: {
     };
   }
 
+  if (result.code === "email_not_configured") {
+    return {
+      ok: false,
+      delivery: buildDeliveryRecord({
+        messageId: args.input.messageId,
+        threadId: args.input.threadId,
+        channel: "email",
+        target: args.target.recipientGroup,
+        status: "skipped",
+        failureCode: "email_adapter_not_implemented",
+        failureReason: result.reason,
+        createdAt,
+      }),
+    };
+  }
+
   return {
     ok: false,
     delivery: buildDeliveryRecord({
@@ -211,9 +240,31 @@ export async function dispatchMessageMirrors(args: {
   >;
   input: MirrorDispatchInput;
 }): Promise<void> {
-  const targets = resolveMirrorTargets(args.env, args.input.routing);
+  const resolved = await resolveMirrorRoutes(
+    args.env,
+    buildRoutingContext(args.input),
+  );
 
-  if (targets.length === 0) {
+  for (const skipped of resolved.skipped) {
+    await args.store.createMessageMirrorDelivery(
+      buildDeliveryRecord({
+        messageId: args.input.messageId,
+        threadId: args.input.threadId,
+        channel: skipped.targetAdapter,
+        target: skipped.targetKey,
+        status: "skipped",
+        failureCode: skipped.reason,
+        failureReason: `Mirror delivery skipped: missing configuration for ${skipped.targetKey}`,
+        createdAt: new Date().toISOString(),
+      }),
+    );
+  }
+
+  if (resolved.routes.length === 0) {
+    if (resolved.skipped.length > 0) {
+      return;
+    }
+
     const channel = unresolvedFailureChannel(args.input);
     await args.store.createMessageMirrorDelivery(
       buildDeliveryRecord({
@@ -230,7 +281,11 @@ export async function dispatchMessageMirrors(args: {
     return;
   }
 
-  for (const target of targets) {
+  for (const route of resolved.routes) {
+    const target: MirrorTarget =
+      route.targetAdapter === "slack"
+        ? { kind: "slack", channelId: route.targetValue }
+        : { kind: "email", recipientGroup: route.targetValue };
     const routingTarget = targetKey(target);
     const existingThreadProjection = await args.store.getExternalThreadProjection({
       threadId: args.input.threadId,

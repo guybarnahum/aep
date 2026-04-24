@@ -20,6 +20,7 @@ import { handleEmployees } from "./routes/employees";
 import { handleEmployeeScope } from "./routes/employee-scope";
 import { handleUpdateEmployee } from "./routes/employee-update";
 import { handleRoles } from "./routes/roles";
+import { handleMirrorRoutingRules } from "./routes/mirror-routing-rules";
 import {
   handleRuntimeRolePolicies,
   handleRuntimeRolePolicyDetail,
@@ -92,6 +93,7 @@ async function dispatch(request: Request, env: OperatorAgentEnv): Promise<Respon
         roles: "/agent/roles",
         employees: "/agent/employees",
         runtimeRolePolicies: "/agent/runtime-role-policies",
+        mirrorRoutingRules: "/agent/mirror-routing-rules",
         reviewCycles: "/agent/review-cycles",
         tasks: "/agent/tasks",
         messageThreads: "/agent/message-threads",
@@ -145,6 +147,10 @@ async function dispatch(request: Request, env: OperatorAgentEnv): Promise<Respon
 
   if (url.pathname === "/agent/runtime-role-policies") {
     return handleRuntimeRolePolicies(request, env);
+  }
+
+  if (url.pathname === "/agent/mirror-routing-rules") {
+    return handleMirrorRoutingRules(request, env);
   }
 
   const runtimeRolePolicyMatch = url.pathname.match(
