@@ -7,6 +7,8 @@ export interface OperatorAgentConfig {
   controlPlaneTarget: string;
   dryRun: boolean;
   cronFallbackEnabled: boolean;
+  teamTickIntervalMinutes: number;
+  managerTickIntervalMinutes: number;
   paperclipAuthRequired: boolean;
   paperclipSharedSecret: string;
   cooldownMs: number;
@@ -76,6 +78,27 @@ function readEnvNumber(
   return fallback;
 }
 
+function readEnvPositiveInt(
+  env: Record<string, unknown> | undefined,
+  key: string,
+  fallback: number,
+  min = 1,
+  max = 60,
+): number {
+  const parsed = readEnvNumber(env, key, fallback);
+
+  if (!Number.isFinite(parsed)) {
+    return fallback;
+  }
+
+  const normalized = Math.trunc(parsed);
+  if (normalized < min || normalized > max) {
+    return fallback;
+  }
+
+  return normalized;
+}
+
 function resolveControlPlaneTarget(
   env: Record<string, unknown> | undefined,
   controlPlaneBaseUrl: string
@@ -111,6 +134,16 @@ export function getConfig(env?: Record<string, unknown>): OperatorAgentConfig {
       env,
       "AEP_CRON_FALLBACK_ENABLED",
       true
+    ),
+    teamTickIntervalMinutes: readEnvPositiveInt(
+      env,
+      "AEP_TEAM_TICK_INTERVAL_MINUTES",
+      2,
+    ),
+    managerTickIntervalMinutes: readEnvPositiveInt(
+      env,
+      "AEP_MANAGER_TICK_INTERVAL_MINUTES",
+      5,
     ),
     paperclipAuthRequired: readEnvBoolean(
       env,
