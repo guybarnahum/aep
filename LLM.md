@@ -2109,21 +2109,379 @@ Build it on top of the existing canonical AEP model.
 
 ---
 
+# 12.7 Milestone roadmap — runtime to operating company
+
+This roadmap defines the staged evolution of AEP from an organization runtime into a fully operating digital company composed of autonomous teams, governed workflows, and human-integrated collaboration surfaces.
+
+---
+
+## Current State Summary (as of latest repo)
+
+AEP currently provides:
+
+- canonical organization runtime:
+  - employees
+  - roles
+  - teams
+  - tasks
+  - artifacts
+  - threads
+  - approvals and escalations
+
+- strong governance:
+  - runtime role policies (authority, budget, escalation)
+  - lifecycle management
+  - performance reviews
+  - CI contract enforcement
+
+- execution primitives:
+  - `/agent/run` and `/agent/run-once`
+  - scheduled cron triggers
+  - task graphs and delegation via threads
+
+- external adapters (partial):
+  - Slack/email mirroring
+  - inbound reply ingestion
+  - external action mapping
+
+What is missing:
+
+- teams as active operators (no team-level loops)
+- project / intake layer
+- real team specialization outputs
+- HR / staffing workflows
+- Jira-like collaboration integration
+- productized outputs (customer-facing site)
+- super-admin cognition debug surface
+
+---
+
+# Milestone Plan
+
+## PR14 — Team Operating Loops
+
+### Goal
+
+Turn teams from static catalog entities into active operating units.
+
+### Scope
+
+- Introduce team execution loop:
+  - `/agent/teams/run`
+  - `/agent/teams/:teamId/run-once`
+
+- Team behavior:
+  - select ready canonical tasks
+  - execute or delegate via existing employee model
+  - emit heartbeat messages into canonical threads
+  - explicitly represent idle/waiting state
+
+- Integrate with:
+  - existing cron/scheduler system
+  - existing task lifecycle and provenance
+  - existing message/thread system
+
+### Must reuse
+
+- tasks
+- threads
+- artifacts
+- approvals and escalations
+
+### Must not
+
+- introduce parallel schedulers
+- bypass task ownership
+- create hidden execution paths
+
+### Validation
+
+- CI scenario:
+  - team selects ready task
+  - team logs heartbeat
+  - team handles no-task condition cleanly
+
+### Status
+
+❌ Not implemented
+
+---
+
+## PR15 — Project and Intake Model
+
+### Goal
+
+Introduce "why work exists" before it becomes tasks.
+
+### Scope
+
+- minimal project model:
+  - `projects`
+  - `intake_requests`
+
+- intake surface:
+  - customer or internal request entrypoint
+
+- PM responsibilities:
+  - convert intake → scoped project → tasks
+  - maintain linkage across layers
+
+- linkage:
+  - tasks reference project
+  - artifacts reference project context
+
+### Invariants
+
+- tasks remain canonical execution unit
+- PMs frame work but do not replace task provenance
+
+### Validation
+
+- CI scenario:
+  - intake created → project created → tasks generated → lineage preserved
+
+### Status
+
+❌ Not implemented
+
+---
+
+## PR16 — Real Team Specialization
+
+### Goal
+
+Make Web, Infra, and Validation teams produce distinct work products.
+
+### Scope
+
+#### Web Team
+
+- design artifacts
+- implementation artifacts
+
+#### Infra Team
+
+- deployment plans
+- deployment results
+- monitoring artifacts
+
+#### Validation Team
+
+- validation reports
+- issue identification
+
+#### PM
+
+- cross-team task graphs
+- delivery orchestration
+
+### Expected Artifact Payload Kinds
+
+- `design_spec`
+- `implementation_plan`
+- `deployment_plan`
+- `deployment_result`
+- `validation_report`
+
+(These should be payload `kind` values under canonical artifact types unless schema requires extension.)
+
+### Validation
+
+- CI scenario:
+  - PM creates graph
+  - Web → Infra → Validation execution chain
+  - artifacts created and linked correctly
+
+### Status
+
+🟡 Partially prepared (agents, deployment engine, validation exist; specialization not enforced)
+
+---
+
+## PR17 — External Collaboration Adapters
+
+### Goal
+
+Make AEP usable through human collaboration tools without making them canonical.
+
+### Scope
+
+- Slack integration:
+  - team/channel mapping
+  - outbound summaries
+  - inbound replies
+
+- Email integration:
+  - employee identities
+  - escalation/notification routing
+
+- Jira-like integration:
+  - task projection
+  - ticket mapping
+  - bidirectional reconciliation
+
+### Hard Invariant
+
+> AEP is the source of truth. External systems are adapters only.
+
+### Validation
+
+- CI scenarios:
+  - Slack mirror routing correctness
+  - inbound reply reconciliation
+  - external action idempotency
+  - ticket mapping consistency
+
+### Status
+
+🟡 Partially implemented (Slack/email mirror + routing exist; Jira not implemented)
+
+---
+
+## PR18 — HR and Staffing System
+
+### Goal
+
+Introduce organizational design and staffing workflows.
+
+### Scope
+
+- Job Description (JD) workflows:
+  - creation
+  - review
+
+- Hiring workflows:
+  - hiring requests
+  - human-approved employee creation
+
+- Staffing:
+  - assign employees to teams
+  - track role coverage and capacity
+
+### Must preserve
+
+- JDs are public role contracts, not prompts
+- private cognition remains hidden
+- only synthetic employees are purge-eligible
+
+### Validation
+
+- CI scenario:
+  - JD → hiring request → employee created → assigned → active in runtime
+
+### Status
+
+🟡 Partially implemented (lifecycle, persona, reviews exist; HR workflows not implemented)
+
+---
+
+## PR19 — Productization and Real Output
+
+### Goal
+
+Use AEP to deliver a real customer-facing product.
+
+### Forcing Function Product
+
+- marketing website
+- company identity surface
+- “People” / agent showcase
+- project intake interface
+
+### Delivery Loop
+
+```text
+lead / request
+  → PM framing
+  → Web design/build
+  → Infra deploy/monitor
+  → Validation test/report
+  → delivery
+  → feedback
+```
+
+### Validation
+
+- end-to-end execution of a real project through all teams
+- artifacts and threads reflect full lifecycle
+
+### Status
+
+❌ Not implemented
+
+---
+
+## PR20 — Super-Admin Cognition Debug Layer
+
+### Goal
+
+Enable controlled debugging of private cognition without breaking core boundaries.
+
+### Scope
+
+- super-admin-only access surface
+- explicit authorization model
+- full audit logging of access
+- no exposure through:
+  - APIs
+  - UI
+  - threads
+  - artifacts
+  - Slack/email/Jira adapters
+
+### Hard Invariant
+
+> Cognition debug is a narrow, audited exception — not the default read model.
+
+### Validation
+
+- CI scenario:
+  - unauthorized access fails
+  - authorized access logged and scoped correctly
+
+### Status
+
+❌ Not implemented
+
+---
+
+# Critical Path
+
+To reach a functioning operating company:
+
+1. PR14 — Team operating loops  
+2. PR15 — Project and intake model  
+3. PR16 — Real team specialization  
+4. PR17 — External collaboration adapters  
+
+These four milestones enable:
+
+> autonomous Web → Infra → Validation delivery loop
+
+PR18 (HR) and PR20 (cognition debug) are important but do not block initial company operation.
+
+---
+
+# Guiding Principles
+
+- AEP is an organization runtime, not a workflow engine
+- canonical state lives in tasks, threads, artifacts, approvals, escalations
+- employees are durable digital persons with private cognition
+- Slack/email/Jira are adapters, not sources of truth
+- UI is not a state owner
+- authorship is immutable; responsibility may transfer
+- private cognition must never leak into public surfaces
+
+---
+
 # 13. The next LLM session should:
 
 1. read this file fully
 2. inspect the repo at the target commit
 3. trust the repo over this doc if they diverge
 4. treat PR12 as complete
-5. treat PR13 as the active next phase
-6. treat PR13A through PR13G as complete in the repo state reflected here, and only start a new PR13.x milestone after checking current code:
-   * PR13A
-   * PR13B
-   * PR13C
-   * PR13D
-   * PR13E
-   * PR13F
-   * PR13G
+5. treat PR13 as completed planning context and PR14 as the active next phase unless the repo clearly shows later milestones already in progress
+6. use the roadmap in section 12.7 as the staged plan of record, and remove or update narrower milestone notes if they conflict with repo reality
 7. preserve the cognition boundary while expanding employee embodiment and lifecycle
 8. understand that the strategic goal is a real operating digital company with Web, Infra, Validation, PM, and later HR/staffing roles
 9. prefer evolving team behavior and business-facing intake over inventing new primitives casually

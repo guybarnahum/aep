@@ -37,6 +37,22 @@ The company must also support:
 
 ---
 
+
+## Current Milestone Status
+
+| Milestone | Goal | Current Status |
+|----------|------|---------------|
+| PR14 | Team operating loops / heartbeat | ❌ Not started in code. Employee execution and cron exist, but no team loop routes or logic. |
+| PR15 | Project + intake model | ❌ Not started. Tasks exist, but no project/client/intake layer. |
+| PR16 | Real Web / Infra / Validation specialization | 🟡 Partially prepared. PM planning, validation, and deployment primitives exist, but no enforced team specialization loop. |
+| PR17 | External collaboration adapters | 🟡 Partially implemented. Slack/email mirroring and routing exist; Jira-like integration not implemented. |
+| PR18 | HR / staffing system | 🟡 Partially implemented. Employee lifecycle, persona, and reviews exist; HR workflows (JD, hiring, staffing) not implemented. |
+| PR19 | Productization / marketing website | ❌ Not implemented. Internal dashboard exists, but no AEP-produced customer-facing product. |
+| PR20 | Super-admin cognition debug layer | ❌ Not implemented. Cognition boundary is strict; no debug surface exists. |
+
+
+---
+
 ## What AEP is
 
 AEP is not just a workflow runner or a bot framework.
