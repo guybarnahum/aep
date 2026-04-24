@@ -2405,6 +2405,11 @@ function renderTeamLoopPanel(args: {
 
       <form class="management-form" data-action="update-team-loop-cadence">
         <h4>Automatic cadence</h4>
+        <input
+          type="hidden"
+          name="expectedUpdatedAt"
+          value="${escapeHtml(args.schedulerStatus.cadence.updatedAt ?? "")}"
+        />
         <label>
           <span>Team tick interval (minutes)</span>
           <input name="teamTickIntervalMinutes" type="number" min="1" max="60" value="${escapeHtml(args.schedulerStatus.cadence.teamTickIntervalMinutes)}" />
@@ -2417,6 +2422,15 @@ function renderTeamLoopPanel(args: {
           <span>Requested by</span>
           <input name="updatedBy" value="dashboard_team_loop_operator" />
         </label>
+        <p class="muted small">
+          Source: ${escapeHtml(args.schedulerStatus.cadence.source)}
+          ${args.schedulerStatus.cadence.updatedBy
+            ? ` · Updated by ${escapeHtml(args.schedulerStatus.cadence.updatedBy)}`
+            : ""}
+          ${args.schedulerStatus.cadence.updatedAt
+            ? ` · Updated ${formatTimestamp(args.schedulerStatus.cadence.updatedAt)}`
+            : ""}
+        </p>
         <button class="button" type="submit">Save cadence</button>
       </form>
     `

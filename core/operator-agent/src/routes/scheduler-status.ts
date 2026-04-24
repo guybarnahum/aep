@@ -1,5 +1,6 @@
 import {
   getOperatorSchedulerStatus,
+  SchedulerCadenceConflictError,
   updateOperatorSchedulerCadence,
 } from "@aep/operator-agent/lib/scheduler-state";
 import type { OperatorAgentEnv } from "@aep/operator-agent/types";
@@ -8,6 +9,7 @@ type SchedulerCadenceUpdateBody = {
   teamTickIntervalMinutes?: unknown;
   managerTickIntervalMinutes?: unknown;
   updatedBy?: unknown;
+  expectedUpdatedAt?: unknown;
 };
 
 function jsonError(error: string, status = 400): Response {
@@ -48,10 +50,18 @@ export async function handleSchedulerStatus(
       teamTickIntervalMinutes: Number(body.teamTickIntervalMinutes),
       managerTickIntervalMinutes: Number(body.managerTickIntervalMinutes),
       updatedBy: String(body.updatedBy ?? ""),
+      expectedUpdatedAt:
+        typeof body.expectedUpdatedAt === "string"
+          ? body.expectedUpdatedAt
+          : null,
     });
 
     return Response.json(status);
   } catch (error) {
+    if (error instanceof SchedulerCadenceConflictError) {
+      return jsonError(error.message, 409);
+    }
+
     return jsonError(
       error instanceof Error ? error.message : "Failed to update scheduler cadence",
       400,

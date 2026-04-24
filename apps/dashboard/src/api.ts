@@ -343,6 +343,7 @@ export async function updateSchedulerCadence(args: {
   teamTickIntervalMinutes: number;
   managerTickIntervalMinutes: number;
   updatedBy: string;
+  expectedUpdatedAt?: string | null;
 }): Promise<SchedulerStatus> {
   return postJson<SchedulerStatus>(
     getOperatorAgentBaseUrl(),

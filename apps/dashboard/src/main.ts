@@ -934,6 +934,9 @@ function attachTeamLoopHandlers(): void {
           formData.get("managerTickIntervalMinutes") ?? "",
         );
         const updatedBy = String(formData.get("updatedBy") ?? "").trim();
+        const expectedUpdatedAt = String(
+          formData.get("expectedUpdatedAt") ?? "",
+        ).trim();
 
         try {
           setMutationStatus("Saving team loop cadence…");
@@ -942,6 +945,7 @@ function attachTeamLoopHandlers(): void {
             teamTickIntervalMinutes,
             managerTickIntervalMinutes,
             updatedBy,
+            expectedUpdatedAt: expectedUpdatedAt || null,
           });
           setMutationStatus(
             `Saved team cadence ${teamTickIntervalMinutes}m and manager cadence ${managerTickIntervalMinutes}m.`,

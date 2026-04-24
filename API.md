@@ -136,9 +136,10 @@ Base service: `core/operator-agent`
 
 - Returns scheduler mode visibility plus effective team/manager loop cadence.
 - Effective cadence is resolved from canonical operator-agent scheduler state persisted in D1 when available.
-- On first boot, that persisted state is seeded from the deployed env defaults:
+- On first boot, when no canonical scheduler row exists, that persisted state is seeded from the deployed env defaults:
 - `AEP_TEAM_TICK_INTERVAL_MINUTES`
 - `AEP_MANAGER_TICK_INTERVAL_MINUTES`
+- Legacy `30/60` migration seed rows with no updater are normalized to deployed env defaults by runtime initialization.
 - No separate cron registrations exist for team or manager loops.
 
 `POST /agent/scheduler-status`
@@ -148,7 +149,10 @@ Base service: `core/operator-agent`
 	- `teamTickIntervalMinutes`
 	- `managerTickIntervalMinutes`
 	- `updatedBy`
+	- optional `expectedUpdatedAt`
 - Important invariant: cadence updates must remain bounded integer minute intervals (`1..60`) and must update canonical backend state rather than dashboard-local state.
+- Important invariant: non-integer values, missing updater identity, and out-of-range values are rejected.
+- Important invariant: when `expectedUpdatedAt` is provided and no longer matches canonical state, the route returns `409` and the caller must reload before saving again.
 
 ### Roles And Employees
 

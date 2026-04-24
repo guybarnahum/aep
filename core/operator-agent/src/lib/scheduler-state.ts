@@ -3,6 +3,15 @@ import { isCronFallbackEnabled } from "@aep/operator-agent/lib/fallback-config";
 import type { OperatorAgentEnv } from "@aep/operator-agent/types";
 
 const SCHEDULER_NAME = "operator-agent";
+const LEGACY_MIGRATION_TEAM_INTERVAL_MINUTES = 30;
+const LEGACY_MIGRATION_MANAGER_INTERVAL_MINUTES = 60;
+
+export class SchedulerCadenceConflictError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "SchedulerCadenceConflictError";
+  }
+}
 
 type SchedulerStateRow = {
   scheduler_name: string;
@@ -46,6 +55,35 @@ function normalizeInterval(value: unknown, fallback: number): number {
   return normalized;
 }
 
+function parseRequiredInterval(value: unknown, fieldName: string): number {
+  const parsed =
+    typeof value === "number"
+      ? value
+      : typeof value === "string" && value.trim().length > 0
+        ? Number(value)
+        : NaN;
+
+  if (!Number.isInteger(parsed) || parsed < 1 || parsed > 60) {
+    throw new Error(`${fieldName} must be an integer between 1 and 60`);
+  }
+
+  return parsed;
+}
+
+function isLegacyMigrationSeed(row: SchedulerStateRow): boolean {
+  return (
+    row.updated_by === null &&
+    normalizeInterval(
+      row.team_tick_interval_minutes,
+      Number.NaN,
+    ) === LEGACY_MIGRATION_TEAM_INTERVAL_MINUTES &&
+    normalizeInterval(
+      row.manager_tick_interval_minutes,
+      Number.NaN,
+    ) === LEGACY_MIGRATION_MANAGER_INTERVAL_MINUTES
+  );
+}
+
 function getDefaultCadence(env?: OperatorAgentEnv): Pick<
   OperatorSchedulerCadence,
   "teamTickIntervalMinutes" | "managerTickIntervalMinutes"
@@ -59,24 +97,63 @@ function getDefaultCadence(env?: OperatorAgentEnv): Pick<
 
 async function ensureSchedulerState(db: D1Database, env?: OperatorAgentEnv): Promise<void> {
   const defaults = getDefaultCadence(env);
-  await db
+
+  const existing = await db
     .prepare(
-      `INSERT OR IGNORE INTO operator_scheduler_state (
+      `SELECT
          scheduler_name,
          team_tick_interval_minutes,
          manager_tick_interval_minutes,
          updated_at,
          updated_by
-       ) VALUES (?, ?, ?, ?, ?)`,
+       FROM operator_scheduler_state
+       WHERE scheduler_name = ?
+       LIMIT 1`,
     )
-    .bind(
-      SCHEDULER_NAME,
-      defaults.teamTickIntervalMinutes,
-      defaults.managerTickIntervalMinutes,
-      new Date().toISOString(),
-      null,
-    )
-    .run();
+    .bind(SCHEDULER_NAME)
+    .first<SchedulerStateRow>();
+
+  if (!existing) {
+    await db
+      .prepare(
+        `INSERT INTO operator_scheduler_state (
+           scheduler_name,
+           team_tick_interval_minutes,
+           manager_tick_interval_minutes,
+           updated_at,
+           updated_by
+         ) VALUES (?, ?, ?, ?, ?)`,
+      )
+      .bind(
+        SCHEDULER_NAME,
+        defaults.teamTickIntervalMinutes,
+        defaults.managerTickIntervalMinutes,
+        new Date().toISOString(),
+        null,
+      )
+      .run();
+    return;
+  }
+
+  if (isLegacyMigrationSeed(existing)) {
+    await db
+      .prepare(
+        `UPDATE operator_scheduler_state
+         SET team_tick_interval_minutes = ?,
+             manager_tick_interval_minutes = ?,
+             updated_at = ?,
+             updated_by = ?
+         WHERE scheduler_name = ?`,
+      )
+      .bind(
+        defaults.teamTickIntervalMinutes,
+        defaults.managerTickIntervalMinutes,
+        new Date().toISOString(),
+        null,
+        SCHEDULER_NAME,
+      )
+      .run();
+  }
 }
 
 function mapSchedulerCadence(
@@ -159,28 +236,21 @@ export async function updateOperatorSchedulerCadence(args: {
   teamTickIntervalMinutes: number;
   managerTickIntervalMinutes: number;
   updatedBy: string;
+  expectedUpdatedAt?: string | null;
 }): Promise<OperatorSchedulerStatus> {
   const db = args.env.OPERATOR_AGENT_DB;
   if (!db) {
     throw new Error("OPERATOR_AGENT_DB is required for scheduler cadence updates");
   }
 
-  const teamTickIntervalMinutes = normalizeInterval(
+  const teamTickIntervalMinutes = parseRequiredInterval(
     args.teamTickIntervalMinutes,
-    Number.NaN,
+    "teamTickIntervalMinutes",
   );
-  const managerTickIntervalMinutes = normalizeInterval(
+  const managerTickIntervalMinutes = parseRequiredInterval(
     args.managerTickIntervalMinutes,
-    Number.NaN,
+    "managerTickIntervalMinutes",
   );
-
-  if (!Number.isFinite(teamTickIntervalMinutes)) {
-    throw new Error("teamTickIntervalMinutes must be an integer between 1 and 60");
-  }
-
-  if (!Number.isFinite(managerTickIntervalMinutes)) {
-    throw new Error("managerTickIntervalMinutes must be an integer between 1 and 60");
-  }
 
   if (typeof args.updatedBy !== "string" || args.updatedBy.trim().length === 0) {
     throw new Error("updatedBy is required for scheduler cadence updates");
@@ -189,23 +259,49 @@ export async function updateOperatorSchedulerCadence(args: {
   await ensureSchedulerState(db, args.env);
 
   const updatedAt = new Date().toISOString();
-  await db
-    .prepare(
-      `UPDATE operator_scheduler_state
-       SET team_tick_interval_minutes = ?,
-           manager_tick_interval_minutes = ?,
-           updated_at = ?,
-           updated_by = ?
-       WHERE scheduler_name = ?`,
-    )
-    .bind(
-      teamTickIntervalMinutes,
-      managerTickIntervalMinutes,
-      updatedAt,
-      args.updatedBy.trim(),
-      SCHEDULER_NAME,
-    )
-    .run();
+  const query =
+    typeof args.expectedUpdatedAt === "string" &&
+    args.expectedUpdatedAt.trim().length > 0
+      ? `UPDATE operator_scheduler_state
+         SET team_tick_interval_minutes = ?,
+             manager_tick_interval_minutes = ?,
+             updated_at = ?,
+             updated_by = ?
+         WHERE scheduler_name = ?
+           AND updated_at = ?`
+      : `UPDATE operator_scheduler_state
+         SET team_tick_interval_minutes = ?,
+             manager_tick_interval_minutes = ?,
+             updated_at = ?,
+             updated_by = ?
+         WHERE scheduler_name = ?`;
+
+  const bindings =
+    typeof args.expectedUpdatedAt === "string" &&
+    args.expectedUpdatedAt.trim().length > 0
+      ? [
+          teamTickIntervalMinutes,
+          managerTickIntervalMinutes,
+          updatedAt,
+          args.updatedBy.trim(),
+          SCHEDULER_NAME,
+          args.expectedUpdatedAt.trim(),
+        ]
+      : [
+          teamTickIntervalMinutes,
+          managerTickIntervalMinutes,
+          updatedAt,
+          args.updatedBy.trim(),
+          SCHEDULER_NAME,
+        ];
+
+  const result = await db.prepare(query).bind(...bindings).run();
+
+  if ((result.meta?.changes ?? 0) < 1) {
+    throw new SchedulerCadenceConflictError(
+      "Scheduler cadence was updated by another actor; reload before saving again",
+    );
+  }
 
   return getOperatorSchedulerStatus(args.env);
 }
