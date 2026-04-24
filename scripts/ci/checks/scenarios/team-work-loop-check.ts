@@ -4,7 +4,11 @@ import { getJson, postJson } from "../../shared/http";
 
 type TeamLoopResult = {
   ok: true;
-  status: "executed_task" | "no_pending_tasks" | "waiting_for_staffing";
+  status:
+    | "executed_task"
+    | "execution_failed"
+    | "no_pending_tasks"
+    | "waiting_for_staffing";
   teamId: string;
   scanned: {
     pendingTasks: number;
@@ -13,6 +17,11 @@ type TeamLoopResult = {
   taskId?: string;
   employeeId?: string;
   roleId?: string;
+  heartbeat?: {
+    status: "published" | "skipped_missing_author";
+    threadId?: string;
+    messageId?: string;
+  };
   message: string;
 };
 
@@ -61,11 +70,22 @@ async function main(): Promise<void> {
     `unexpected single team result teamId: ${singleTeam.teamId}`,
   );
   assert(
-    ["executed_task", "no_pending_tasks", "waiting_for_staffing"].includes(
-      singleTeam.status,
-    ),
+    [
+      "executed_task",
+      "execution_failed",
+      "no_pending_tasks",
+      "waiting_for_staffing",
+    ].includes(singleTeam.status),
     `unexpected single team status: ${singleTeam.status}`,
   );
+
+  if (singleTeam.status !== "no_pending_tasks") {
+    assert(
+      singleTeam.heartbeat?.status === "published" ||
+        singleTeam.heartbeat?.status === "skipped_missing_author",
+      "team loop result with selected work must include heartbeat publication status",
+    );
+  }
 
   const allTeams = await postJson<TeamRunResponse>(
     `${baseUrl}/agent/teams/run`,
@@ -98,6 +118,7 @@ async function main(): Promise<void> {
   console.log("- PASS: single team loop route returns bounded status");
   console.log("- PASS: multi-team loop route returns one result per requested team");
   console.log("- PASS: invalid team IDs are rejected");
+  console.log("- PASS: selected team work reports heartbeat publication status");
 }
 
 void main().catch((error) => {
