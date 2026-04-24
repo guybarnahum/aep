@@ -359,11 +359,36 @@ async function createTask(
 
 async function triggerScheduled(
   agentBaseUrl: string,
-  cron: string
+  cron: string,
+  scheduledTimeMs?: number,
 ): Promise<{ status: number }> {
-  const url = `${agentBaseUrl}/__scheduled?cron=${encodeURIComponent(cron)}`;
+  const query = new URLSearchParams({
+    cron,
+    ...(typeof scheduledTimeMs === "number" && Number.isFinite(scheduledTimeMs)
+      ? { scheduledTime: String(Math.trunc(scheduledTimeMs)) }
+      : {}),
+  });
+  const url = `${agentBaseUrl}/__scheduled?${query.toString()}`;
   const response = await fetch(url, { method: "POST" });
   return { status: response.status };
+}
+
+function alignScheduledTimeForMinuteInterval(
+  intervalMinutes: number,
+  referenceMs = Date.now(),
+): number {
+  const safeInterval =
+    Number.isFinite(intervalMinutes) && intervalMinutes > 0
+      ? Math.trunc(intervalMinutes)
+      : 1;
+
+  const date = new Date(referenceMs);
+  const minute = date.getUTCMinutes();
+  const minuteOffset = (safeInterval - (minute % safeInterval)) % safeInterval;
+
+  date.setUTCMinutes(minute + minuteOffset, 0, 0);
+
+  return date.getTime();
 }
 
 async function main(): Promise<void> {
@@ -693,6 +718,9 @@ async function main(): Promise<void> {
   const schedulerStatus = (await readJson(schedulerStatusResponse)) as {
     primaryScheduler?: string;
     cronFallbackEnabled?: boolean;
+    cadence?: {
+      managerTickIntervalMinutes?: number;
+    };
   };
 
   if (schedulerStatusResponse.status !== 200) {
@@ -707,9 +735,20 @@ async function main(): Promise<void> {
     );
   }
 
+  const managerTickIntervalMinutes = Number(
+    schedulerStatus.cadence?.managerTickIntervalMinutes ?? 1,
+  );
+  const alignedScheduledTimeMs = alignScheduledTimeForMinuteInterval(
+    managerTickIntervalMinutes,
+  );
+
   // Trigger the worker cron and rely on interval gating to drive any nested loops.
   // The seeded work-log entry ensures the cron run also emits a decision.
-  const scheduledResult = await triggerScheduled(agentBaseUrl, WORKER_CRON);
+  const scheduledResult = await triggerScheduled(
+    agentBaseUrl,
+    WORKER_CRON,
+    alignedScheduledTimeMs,
+  );
 
   if (scheduledResult.status !== 200) {
     throw new Error(
