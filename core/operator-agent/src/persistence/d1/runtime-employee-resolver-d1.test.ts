@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  resolveRuntimeEmployeesForTeam,
   resolveRuntimeEmployeeByRole,
 } from "./runtime-employee-resolver-d1";
 import type { OperatorAgentEnv } from "@aep/operator-agent/types";
@@ -95,6 +96,40 @@ class FakeD1Database {
       });
 
       return row ? { ...row } : null;
+    }
+
+    if (
+      normalized.includes("FROM employees_catalog e") &&
+      normalized.includes("INNER JOIN roles_catalog r") &&
+      normalized.includes("e.team_id = ?") &&
+      mode === "all"
+    ) {
+      const teamId = String(args[0]);
+      const companyId = args.length > 1 ? String(args[1]) : undefined;
+
+      return this.runtimeEmployees
+        .filter((employee) => {
+          return (
+            employee.team_id === teamId &&
+            (companyId ? employee.company_id === companyId : true)
+          );
+        })
+        .sort((left, right) => {
+          const leftSynthetic = left.is_synthetic === 1 || left.is_synthetic === "1";
+          const rightSynthetic = right.is_synthetic === 1 || right.is_synthetic === "1";
+
+          if (leftSynthetic !== rightSynthetic) {
+            return leftSynthetic ? 1 : -1;
+          }
+
+          const createdAtCompare = (left.created_at ?? "").localeCompare(right.created_at ?? "");
+          if (createdAtCompare !== 0) {
+            return createdAtCompare;
+          }
+
+          return left.employee_id.localeCompare(right.employee_id);
+        })
+        .map((row) => ({ ...row }));
     }
 
     throw new Error(`Unhandled fake D1 SQL: ${normalized} [mode=${mode}]`);
@@ -208,4 +243,64 @@ test("runtime employee resolver fails closed when runtime role policy is missing
   });
 
   assert.equal(employee, undefined);
+});
+
+test("runtime employee resolver lists team employees in stable runtime order", async () => {
+  const env = createEnv({
+    runtimeEmployees: [
+      {
+        employee_id: "qa002",
+        employee_name: "Synthetic Validation",
+        company_id: "company_internal_aep",
+        team_id: "team_validation",
+        role_id: "reliability-engineer",
+        manager_role_id: "infra-ops-manager",
+        created_at: "2024-01-03T00:00:00.000Z",
+        is_synthetic: 1,
+      },
+      {
+        employee_id: "qa001",
+        employee_name: "Primary Validation",
+        company_id: "company_internal_aep",
+        team_id: "team_validation",
+        role_id: "reliability-engineer",
+        manager_role_id: "infra-ops-manager",
+        created_at: "2024-01-02T00:00:00.000Z",
+        is_synthetic: 0,
+      },
+    ],
+    runtimeRolePolicies: [
+      {
+        role_id: "reliability-engineer",
+        authority_json: JSON.stringify({
+          allowedOperatorActions: ["execute-remediation"],
+          requireTraceVerification: true,
+        }),
+        budget_json: JSON.stringify({
+          maxActionsPerScan: 5,
+          maxActionsPerHour: 10,
+          maxActionsPerTenantPerHour: 2,
+          tokenBudgetDaily: 0,
+          runtimeBudgetMsPerScan: 10000,
+          verificationReadsPerAction: 4,
+        }),
+        escalation_json: JSON.stringify({
+          onBudgetExhausted: "notify-human",
+          onRepeatedVerificationFailure: "disable-agent",
+          onProdTenantAction: "require-manager-approval",
+        }),
+      },
+    ],
+  });
+
+  const employees = await resolveRuntimeEmployeesForTeam({
+    env,
+    companyId: "company_internal_aep",
+    teamId: "team_validation",
+  });
+
+  assert.deepEqual(
+    employees.map((employee) => employee.identity.employeeId),
+    ["qa001", "qa002"],
+  );
 });

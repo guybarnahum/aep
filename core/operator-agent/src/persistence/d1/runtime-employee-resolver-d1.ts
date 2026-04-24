@@ -125,6 +125,34 @@ export async function resolveRuntimeEmployeeByRole(args: {
   return row ? rowToRuntimeEmployee(args.env, row) : undefined;
 }
 
+export async function resolveRuntimeEmployeesForTeam(args: {
+  env: OperatorAgentEnv;
+  companyId?: CompanyId;
+  teamId: TeamId;
+}): Promise<AgentEmployeeDefinition[]> {
+  const db = requireDb(args.env);
+  const clauses = ["e.team_id = ?"];
+  const bindings: string[] = [args.teamId];
+
+  if (args.companyId) {
+    clauses.push("e.company_id = ?");
+    bindings.push(args.companyId);
+  }
+
+  const rows = await db
+    .prepare(runtimeEmployeeBaseQuery(clauses.join(" AND ")))
+    .bind(...bindings)
+    .all<RuntimeEmployeeRow>();
+
+  const employees = await Promise.all(
+    (rows.results ?? []).map((row) => rowToRuntimeEmployee(args.env, row)),
+  );
+
+  return employees.filter(
+    (employee): employee is AgentEmployeeDefinition => Boolean(employee),
+  );
+}
+
 export async function resolveRuntimeEmployeeIdsByRoles(args: {
   env: OperatorAgentEnv;
   companyId?: CompanyId;

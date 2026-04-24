@@ -113,12 +113,14 @@ Base service: `core/operator-agent`
 - Runs one bounded team-loop tick across one or more explicit teams.
 - Important invariant: this route must select from canonical tasks and publish canonical thread messages; it must not create a parallel work store.
 - Important invariant: callers must provide or resolve real runtime employees through existing employee/role policy surfaces; the route must not depend on hardcoded employee IDs.
+- PR14C/D foundation note: the internal library work for this route now exists in `team-runtime-resolver.ts` and `team-work-loop.ts`, backed by D1 runtime employee and role-policy state. Public route wiring is intentionally deferred until the later PR14 route phase.
 
 `POST /agent/teams/:teamId/run-once`
 
 - Planned PR14 single-team heartbeat route.
 - Runs one bounded loop tick for a single team.
 - Important invariant: if ready work exists but has no executable runtime employee assignment, the route must return a waiting state and publish that state canonically instead of inventing hidden staffing.
+- PR14C/D staffing note: internal team-loop resolution already returns explicit waiting-for-staffing results when a team has ready work but no executable runtime employee. No seeded or hardcoded employee IDs are allowed in that path.
 
 `GET /agent/scheduler-status`
 
