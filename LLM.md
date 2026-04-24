@@ -2146,7 +2146,6 @@ AEP currently provides:
 
 What is missing:
 
-- teams as active operators (no team-level loops)
 - project / intake layer
 - real team specialization outputs
 - HR / staffing workflows
@@ -2203,7 +2202,7 @@ Turn teams from static catalog entities into active operating units.
 
 ### Status
 
-❌ Not implemented
+✅ Implemented
 
 ---
 
@@ -2211,34 +2210,123 @@ Turn teams from static catalog entities into active operating units.
 
 ### Goal
 
-Introduce "why work exists" before it becomes tasks.
+Make AEP a company with a real front door for work.
+
+Shift from:
+
+- teams execute tasks autonomously
+
+to:
+
+- company receives work -> structures it -> assigns it -> executes it
+
+This is the work-intake and project-structuring layer that feeds existing team loops.
+
+### Canonical primitives
+
+- `intake_requests`
+  - external or internal demand signals (submitted, triaged, converted, rejected)
+  - examples: build website, fix bug, add feature, improve SEO
+
+- `projects`
+  - structured containers for execution
+  - may link back to an intake request
+  - own the task graph lifecycle context
+
+### Core invariant
+
+- no parallel task system is introduced
+- tasks and dependencies remain canonical execution primitives
+- PR15 adds structured creation and linkage only
 
 ### Scope
 
-- minimal project model:
-  - `projects`
-  - `intake_requests`
+#### PR15A — Intake Requests (canonical)
 
-- intake surface:
-  - customer or internal request entrypoint
+- backend table: `intake_requests`
+- routes:
+  - `POST /agent/intake`
+  - `GET /agent/intake`
+  - `GET /agent/intake/:id`
+- invariant:
+  - no tasks are created here; intake is signal capture only
 
-- PM responsibilities:
-  - convert intake → scoped project → tasks
-  - maintain linkage across layers
+#### PR15B — Project Model
 
-- linkage:
-  - tasks reference project
-  - artifacts reference project context
+- backend table: `projects`
+- routes:
+  - `POST /agent/projects`
+  - `GET /agent/projects`
+  - `GET /agent/projects/:id`
+- invariants:
+  - a project may link to intake
+  - project is the container for downstream task graph planning
+
+#### PR15C — PM Agent: Intake -> Project
+
+- PM flow:
+  1. read intake
+  2. decide reject or convert
+  3. when converting, create project and update intake status
+- rationale boundary:
+  - no hidden reasoning is exposed
+  - bounded rationale is published via canonical threads
+
+#### PR15D — Project -> Task Graph
+
+- PM creates initial tasks and dependencies using existing task surfaces
+- no new task subsystem is introduced
+- expected pattern:
+  - project context -> tasks -> dependencies -> team loop execution
+
+#### PR15E — UI: Intake + Projects
+
+- dashboard intake view:
+  - submit form, list requests, status tracking
+- dashboard project view:
+  - list projects, link to tasks, project status visibility
+- UI remains caller/projection, not state owner
+
+#### PR15F — CI and invariants
+
+- add checks for:
+  - intake creation
+  - project creation
+  - intake -> project conversion
+  - project-linked task graph creation
+  - optional: no direct bypass patterns where policy forbids them
+
+#### PR15G — Docs and continuity
+
+- update:
+  - `LLM.md` architecture and PR15 flow
+  - `README.md` how work enters the company
+  - `API.md` intake and project endpoints
 
 ### Invariants
 
 - tasks remain canonical execution unit
-- PMs frame work but do not replace task provenance
+- PM frames work but does not replace task provenance
+- do not embed intake logic inside tasks
+- do not expose PM hidden reasoning directly
+- use canonical threads for explanation and rationale publication
+- keep authorship and responsibility model intact
+- keep AEP canonical state as source of truth
+
+### End-to-end flow after PR15
+
+User/client/system
+-> intake request
+-> PM team triage and structuring
+-> project
+-> task graph (existing)
+-> team loops (PR14)
+-> execution and heartbeats
 
 ### Validation
 
 - CI scenario:
-  - intake created → project created → tasks generated → lineage preserved
+  - intake created -> project created -> tasks generated -> lineage preserved
 
 ### Status
 
@@ -2480,7 +2568,7 @@ PR18 (HR) and PR20 (cognition debug) are important but do not block initial comp
 2. inspect the repo at the target commit
 3. trust the repo over this doc if they diverge
 4. treat PR12 as complete
-5. treat PR13 as completed planning context and PR14 as the active next phase unless the repo clearly shows later milestones already in progress
+5. treat PR13 and PR14 as completed context; treat PR15 as the active next milestone unless repo state clearly shows later milestones in progress
 6. use the roadmap in section 12.7 as the staged plan of record, and remove or update narrower milestone notes if they conflict with repo reality
 7. preserve the cognition boundary while expanding employee embodiment and lifecycle
 8. understand that the strategic goal is a real operating digital company with Web, Infra, Validation, PM, and later HR/staffing roles
