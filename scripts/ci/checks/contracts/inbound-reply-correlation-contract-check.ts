@@ -3,6 +3,7 @@
 import { createOperatorAgentClient } from "../../clients/operator-agent-client";
 import { resolveServiceBaseUrl } from "../../../lib/service-map";
 import { resolveEmployeeIdsByKey } from "../../lib/employee-resolution";
+import { hasOnlyNonDeliveredMirrorOutcomes } from "../../shared/operator-agent-check-helpers";
 import { handleOperatorAgentSoftSkip } from "../../shared/soft-skip";
 import { newToken } from "@aep/shared";
 
@@ -101,10 +102,9 @@ async function main(): Promise<void> {
 
   if (
     externalThreadProjections.length === 0 &&
-    outboundDeliveries.length > 0 &&
-    outboundDeliveries.every((delivery: any) => delivery.status === "failed")
+    hasOnlyNonDeliveredMirrorOutcomes(outboundDeliveries)
   ) {
-    softSkip("no external thread projection was formed because outbound mirror delivery failed");
+    softSkip("no external thread projection was formed because outbound mirror delivery was non-delivered");
   }
 
   assert(externalThreadProjections.length >= 1, "Expected an external thread projection for inbound correlation");

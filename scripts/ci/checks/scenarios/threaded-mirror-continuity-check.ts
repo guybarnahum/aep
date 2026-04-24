@@ -3,6 +3,7 @@
 import { createOperatorAgentClient } from "../../clients/operator-agent-client";
 import { resolveServiceBaseUrl } from "../../../lib/service-map";
 import { resolveEmployeeIdsByKey } from "../../lib/employee-resolution";
+import { hasOnlyNonDeliveredMirrorOutcomes } from "../../shared/operator-agent-check-helpers";
 import { handleOperatorAgentSoftSkip } from "../../shared/soft-skip";
 
 export {};
@@ -126,9 +127,9 @@ async function main(): Promise<void> {
     externalThreadProjections.length === 0 &&
     firstProjections.length === 0 &&
     secondProjections.length === 0 &&
-    [...firstDeliveries, ...secondDeliveries].every((delivery: any) => delivery.status === "failed")
+    hasOnlyNonDeliveredMirrorOutcomes([...firstDeliveries, ...secondDeliveries])
   ) {
-    softSkip("all mirror deliveries failed before an external thread projection could be formed");
+    softSkip("all mirror deliveries were non-delivered before an external thread projection could be formed");
   }
 
   assert(externalThreadProjections.length >= 1, "Expected at least one external thread projection");

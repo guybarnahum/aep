@@ -1,6 +1,7 @@
 /* eslint-disable no-console */
 
 import { resolveEmployeeIdsByKey } from "../lib/employee-resolution";
+import { hasDeliveredMirrorOutcome } from "./operator-agent-check-helpers";
 
 export type AdapterCapabilities = {
   slackConfigured: boolean;
@@ -59,13 +60,9 @@ export async function detectAdapterCapabilities(baseUrl: string): Promise<Adapte
       ? json.mirrorDeliveries
       : [];
 
-    const slackConfigured = deliveries.some(
-      (d: any) => d?.channel === "slack" && d?.status !== "failed",
-    );
+    const slackConfigured = hasDeliveredMirrorOutcome(deliveries, "slack");
 
-    const emailConfigured = deliveries.some(
-      (d: any) => d?.channel === "email" && d?.status !== "failed",
-    );
+    const emailConfigured = hasDeliveredMirrorOutcome(deliveries, "email");
 
     return { slackConfigured, emailConfigured };
   } catch {

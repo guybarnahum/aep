@@ -14,10 +14,41 @@ export {};
 const FIXTURE_INFRA_OPS_MANAGER_ID = "fixture_infra_ops_manager";
 const FIXTURE_RELIABILITY_ENGINEER_ID = "fixture_reliability_engineer";
 
+type MirrorRoutingRuleRow = {
+  rule_id: string;
+  enabled: number;
+  thread_kind: string | null;
+  message_type: string | null;
+  severity: string | null;
+  visibility: string | null;
+  target_adapter: "slack" | "email";
+  target_key: string;
+};
+
 function assert(condition: unknown, message: string): void {
   if (!condition) {
     throw new Error(message);
   }
+}
+
+function createEnvWithMirrorRules(args: {
+  rules: MirrorRoutingRuleRow[];
+  values?: Record<string, string>;
+}) {
+  return {
+    OPERATOR_AGENT_DB: {
+      prepare() {
+        return {
+          async all<T>() {
+            return {
+              results: args.rules as T[],
+            };
+          },
+        };
+      },
+    },
+    ...(args.values ?? {}),
+  };
 }
 
 function createProjectionStore() {
@@ -111,10 +142,24 @@ async function main(): Promise<void> {
     const projectionStore = createProjectionStore();
 
     await dispatchMessageMirrors({
-      env: {
-        MIRROR_DEFAULT_SLACK_CHANNEL: "aep-agent-feed",
-        SLACK_MIRROR_WEBHOOK_URL: webhookUrl,
-      } as any,
+      env: createEnvWithMirrorRules({
+        rules: [
+          {
+            rule_id: "mirror_coordination_to_default_slack",
+            enabled: 1,
+            thread_kind: "coordination",
+            message_type: null,
+            severity: null,
+            visibility: null,
+            target_adapter: "slack",
+            target_key: "MIRROR_DEFAULT_SLACK_CHANNEL",
+          },
+        ],
+        values: {
+          MIRROR_DEFAULT_SLACK_CHANNEL: "aep-agent-feed",
+          SLACK_MIRROR_WEBHOOK_URL: webhookUrl,
+        },
+      }) as any,
       store: projectionStore.store as any,
       input: {
         messageId: "msg_pr10b_contract_success",
@@ -162,7 +207,7 @@ async function main(): Promise<void> {
 
   const failedRun = createProjectionStore();
   await dispatchMessageMirrors({
-    env: {} as any,
+    env: createEnvWithMirrorRules({ rules: [] }) as any,
     store: failedRun.store as any,
     input: {
       messageId: "msg_pr10b_contract_failed",

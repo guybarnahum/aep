@@ -1,6 +1,43 @@
 import type { EmployeeProjection } from "../contracts/employees";
 import type { ApprovalEntry, ApprovalState } from "../contracts/approvals";
 
+type MirrorDeliveryRecord = {
+  channel?: unknown;
+  status?: unknown;
+};
+
+const NON_DELIVERED_MIRROR_STATUSES = new Set(["failed", "skipped"]);
+
+export function hasObservableMirrorOutcome(deliveries: unknown[]): boolean {
+  return deliveries.some((delivery) => {
+    const status = (delivery as MirrorDeliveryRecord | null | undefined)?.status;
+    return status === "delivered" || NON_DELIVERED_MIRROR_STATUSES.has(String(status));
+  });
+}
+
+export function hasDeliveredMirrorOutcome(
+  deliveries: unknown[],
+  channel?: string,
+): boolean {
+  return deliveries.some((delivery) => {
+    const entry = delivery as MirrorDeliveryRecord | null | undefined;
+    return (
+      entry?.status === "delivered" &&
+      (typeof channel === "undefined" || entry?.channel === channel)
+    );
+  });
+}
+
+export function hasOnlyNonDeliveredMirrorOutcomes(deliveries: unknown[]): boolean {
+  return (
+    deliveries.length > 0 &&
+    deliveries.every((delivery) => {
+      const status = (delivery as MirrorDeliveryRecord | null | undefined)?.status;
+      return NON_DELIVERED_MIRROR_STATUSES.has(String(status));
+    })
+  );
+}
+
 export function validateEmployeeProjectionBehavior(
   employee: EmployeeProjection,
 ): void {

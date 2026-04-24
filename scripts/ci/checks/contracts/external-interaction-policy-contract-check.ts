@@ -7,6 +7,7 @@ import {
   detectAdapterCapabilities,
   warnIfNoAdapters,
 } from "../../shared/adapter-capability";
+import { hasOnlyNonDeliveredMirrorOutcomes } from "../../shared/operator-agent-check-helpers";
 import {
   assertRequiredPostRoute,
   hasOptionalPostRoute,
@@ -51,10 +52,9 @@ async function requireProjection(args: {
 
   if (
     projections.length === 0 &&
-    outboundDeliveries.length > 0 &&
-    outboundDeliveries.every((delivery: any) => delivery.status === "failed")
+    hasOnlyNonDeliveredMirrorOutcomes(outboundDeliveries)
   ) {
-    softSkip("no external thread projection was formed because outbound mirror delivery failed");
+    softSkip("no external thread projection was formed because outbound mirror delivery was non-delivered");
   }
 
   assert(projections.length >= 1, `Expected external projection for thread ${args.threadId}`);

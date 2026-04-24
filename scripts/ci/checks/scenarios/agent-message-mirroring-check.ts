@@ -3,6 +3,7 @@
 import { createOperatorAgentClient } from "../../clients/operator-agent-client";
 import { resolveServiceBaseUrl } from "../../../lib/service-map";
 import { resolveEmployeeIdsByKey } from "../../lib/employee-resolution";
+import { hasObservableMirrorOutcome } from "../../shared/operator-agent-check-helpers";
 import { handleOperatorAgentSoftSkip } from "../../shared/soft-skip";
 
 export {};
@@ -93,12 +94,10 @@ async function main(): Promise<void> {
     throw new Error(`Expected at least one mirror delivery record for message ${created.messageId}`);
   }
 
-  const hasObservableOutcome = message.mirrorDeliveries.some(
-    (delivery: any) => delivery.status === "delivered" || delivery.status === "failed",
-  );
+  const hasObservableOutcome = hasObservableMirrorOutcome(message.mirrorDeliveries);
 
   if (!hasObservableOutcome) {
-    throw new Error(`Expected delivered or failed mirror outcome, got ${JSON.stringify(message.mirrorDeliveries)}`);
+    throw new Error(`Expected delivered, failed, or skipped mirror outcome, got ${JSON.stringify(message.mirrorDeliveries)}`);
   }
 
   console.log(`- PASS: ${CHECK_LABEL}`);
