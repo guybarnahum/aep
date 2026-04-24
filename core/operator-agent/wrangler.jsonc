@@ -67,9 +67,6 @@
         "PAPERCLIP_SHARED_SECRET": "",
         "PAPERCLIP_AUTH_REQUIRED": "false"
       },
-      "triggers": {
-        "crons": ["* * * * *", "*/2 * * * *", "*/5 * * * *"]
-      },
       "services": [
         {
           "binding": "CONTROL_PLANE",
@@ -107,9 +104,6 @@
         "PAPERCLIP_SHARED_SECRET": "",
         "PAPERCLIP_AUTH_REQUIRED": "false"
       },
-      "triggers": {
-        "crons": ["* * * * *", "*/2 * * * *", "*/5 * * * *"]
-      },
       "services": [
         {
           "binding": "CONTROL_PLANE",
@@ -146,9 +140,6 @@
         "PAPERCLIP_SHARED_SECRET": "",
         "PAPERCLIP_AUTH_REQUIRED": "false",
         "ENABLE_TEST_ENDPOINTS": "false"
-      },
-      "triggers": {
-        "crons": ["* * * * *", "*/2 * * * *", "*/5 * * * *"]
       },
       "services": [
         {
