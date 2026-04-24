@@ -61,6 +61,12 @@ type RouteCheck = {
   expectedError?: string;
 };
 
+const BOOLEAN_FLAGS = new Set([
+  "skip-happy",
+  "skip-not-found",
+  "check-forced-failure",
+]);
+
 function parseArgs(argv: string[]): CliOptions {
   const args = new Map<string, string>();
 
@@ -72,7 +78,7 @@ function parseArgs(argv: string[]): CliOptions {
     const next = argv[i + 1];
 
     if (!next || next.startsWith("--")) {
-      args.set(key, "true");
+      args.set(key, BOOLEAN_FLAGS.has(key) ? "true" : "");
       continue;
     }
 
