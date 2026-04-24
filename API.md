@@ -87,6 +87,7 @@ Base service: `core/operator-agent`
 
 - Test-only scheduled trigger shim.
 - Only available when `ENABLE_TEST_ENDPOINTS === "true"`.
+- PR14F note: scheduled routing recognizes worker, team, and manager cron classes. Team heartbeat scheduling runs through the same cron fallback gate as the existing operator-agent scheduled paths.
 
 ### Execution
 
@@ -132,6 +133,7 @@ Base service: `core/operator-agent`
 `GET /agent/scheduler-status`
 
 - Returns scheduler mode visibility such as `primaryScheduler` and `cronFallbackEnabled`.
+- Team heartbeat cron is scheduled separately from worker and manager cron, but still remains bounded by the same `AEP_CRON_FALLBACK_ENABLED` setting.
 
 ### Roles And Employees
 

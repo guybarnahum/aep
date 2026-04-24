@@ -2,15 +2,21 @@ import { isCronFallbackEnabled } from "@aep/operator-agent/lib/fallback-config";
 import type { OperatorAgentEnv } from "@aep/operator-agent/types";
 import { handleWorkerCron } from "./cron";
 import { handleManagerCron } from "./manager-cron";
+import { handleTeamCron } from "./team-cron";
 
 export const WORKER_CRON = "* * * * *";
+export const TEAM_CRON = "*/2 * * * *";
 export const MANAGER_CRON = "*/5 * * * *";
 
-export type ScheduledCronKind = "worker" | "manager" | "unknown";
+export type ScheduledCronKind = "worker" | "manager" | "team" | "unknown";
 
 export function classifyScheduledCron(cron: string): ScheduledCronKind {
   if (cron === WORKER_CRON) {
     return "worker";
+  }
+
+  if (cron === TEAM_CRON) {
+    return "team";
   }
 
   if (cron === MANAGER_CRON) {
@@ -49,6 +55,11 @@ export async function handleScheduledCron(
     case "manager": {
       console.log("[operator-agent] invoking manager cron as fallback/bootstrap");
       await handleManagerCron(env);
+      return;
+    }
+    case "team": {
+      console.log("[operator-agent] invoking team cron as fallback/bootstrap");
+      await handleTeamCron(env);
       return;
     }
     default:

@@ -38,6 +38,11 @@ const CHECKS: ValidationCheck[] = [
     scriptPath: "scripts/ci/checks/policy/scheduled-routing-check.ts",
   },
   {
+    id: "team-work-loop",
+    label: "Team work loop check",
+    scriptPath: "scripts/ci/checks/scenarios/team-work-loop-check.ts",
+  },
+  {
     id: "dispatch-validation-runs",
     label: "Dispatch validation runs",
     scriptPath: "scripts/ci/checks/scenarios/dispatch-validation-runs.ts",
