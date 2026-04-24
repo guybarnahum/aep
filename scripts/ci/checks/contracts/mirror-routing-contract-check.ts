@@ -93,7 +93,7 @@ async function main(): Promise<void> {
   const threadProjections: ExternalThreadProjection[] = [];
   const messageProjections: ExternalMessageProjection[] = [];
   await dispatchMessageMirrors({
-    env: {} as any,
+    env: configuredEnv as any,
     store: {
       async createMessageMirrorDelivery(delivery: MirrorDeliveryRecord) {
         deliveries.push(delivery);
