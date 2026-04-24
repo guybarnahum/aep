@@ -1,7 +1,7 @@
 import type { TaskStore } from "@aep/operator-agent/lib/store-types";
 import type { OperatorAgentEnv } from "@aep/operator-agent/types";
 import { newToken } from "@aep/shared";
-import { resolveMirrorRoutes, type MirrorRoutingContext } from "@aep/operator-agent/lib/mirror-routing";
+import { resolveMirrorRoutes, type MirrorRoutingContext } from "../lib/mirror-routing";
 
 import { sendEmailMirror } from "./email-adapter";
 import { sendSlackMirror } from "./slack-webhook-adapter";

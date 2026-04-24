@@ -1,7 +1,7 @@
 import {
   listMirrorRoutingRules,
   type MirrorRoutingRule,
-} from "@aep/operator-agent/persistence/d1/mirror-routing-rule-store-d1";
+} from "../persistence/d1/mirror-routing-rule-store-d1";
 import type { OperatorAgentEnv } from "@aep/operator-agent/types";
 
 export type MirrorRoutingContext = {
