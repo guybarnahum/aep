@@ -35,6 +35,11 @@ import {
   handleGetIntake,
   handleListIntake,
 } from "./routes/intake";
+import {
+  handleCreateProject,
+  handleGetProject,
+  handleListProjects,
+} from "./routes/projects";
 import { handleRunTeamOnce, handleRunTeams } from "./routes/team-run";
 import {
   handleCreateTask,
@@ -107,6 +112,7 @@ async function dispatch(request: Request, env: OperatorAgentEnv): Promise<Respon
         runOnce: "/agent/run-once",
         teamsRun: "/agent/teams/run",
         intake: "/agent/intake",
+        projects: "/agent/projects",
       },
     });
   }
@@ -335,6 +341,20 @@ async function dispatch(request: Request, env: OperatorAgentEnv): Promise<Respon
   const intakeMatch = url.pathname.match(/^\/agent\/intake\/([^/]+)$/);
   if (intakeMatch) {
     return handleGetIntake(request, env, decodeURIComponent(intakeMatch[1]));
+  }
+
+  if (url.pathname === "/agent/projects") {
+    if (request.method === "POST") {
+      return handleCreateProject(request, env);
+    }
+    if (request.method === "GET") {
+      return handleListProjects(request, env);
+    }
+  }
+
+  const projectMatch = url.pathname.match(/^\/agent\/projects\/([^/]+)$/);
+  if (projectMatch) {
+    return handleGetProject(request, env, decodeURIComponent(projectMatch[1]));
   }
 
   if (url.pathname === "/agent/roadmaps" && request.method === "GET") {

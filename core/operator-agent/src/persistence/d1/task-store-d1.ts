@@ -9,6 +9,8 @@ import type {
 import {
   type IntakeListQuery,
   type IntakeRequest,
+  type Project,
+  type ProjectListQuery,
   type ExternalInteractionAuditRecord,
   TaskDependencyValidationError,
   type ThreadExternalInteractionPolicy,
@@ -199,6 +201,20 @@ type IntakeRequestRow = {
   source: string;
   status: string;
   created_at: string;
+};
+
+type ProjectRow = {
+  id: string;
+  company_id: string;
+  intake_request_id: string | null;
+  title: string;
+  description: string | null;
+  owner_team_id: string;
+  status: string;
+  created_at: string;
+  updated_at: string;
+  completed_at: string | null;
+  archived_at: string | null;
 };
 
 function requireDb(env: OperatorAgentEnv): D1Database {
@@ -393,6 +409,22 @@ function rowToIntakeRequest(row: IntakeRequestRow): IntakeRequest {
     source: row.source,
     status: row.status as IntakeRequest["status"],
     createdAt: row.created_at,
+  };
+}
+
+function rowToProject(row: ProjectRow): Project {
+  return {
+    id: row.id,
+    companyId: row.company_id,
+    intakeRequestId: row.intake_request_id,
+    title: row.title,
+    description: row.description,
+    ownerTeamId: row.owner_team_id,
+    status: row.status as Project["status"],
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    completedAt: row.completed_at,
+    archivedAt: row.archived_at,
   };
 }
 
@@ -812,6 +844,87 @@ export class D1TaskStore implements TaskStore {
       .all<IntakeRequestRow>();
 
     return (rows.results ?? []).map(rowToIntakeRequest);
+  }
+
+  async createProject(args: Project): Promise<void> {
+    await this.db
+      .prepare(
+        `INSERT INTO projects (
+          id,
+          company_id,
+          intake_request_id,
+          title,
+          description,
+          owner_team_id,
+          status,
+          created_at,
+          updated_at,
+          completed_at,
+          archived_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .bind(
+        args.id,
+        args.companyId,
+        args.intakeRequestId ?? null,
+        args.title,
+        args.description ?? null,
+        args.ownerTeamId,
+        args.status,
+        args.createdAt,
+        args.updatedAt,
+        args.completedAt ?? null,
+        args.archivedAt ?? null,
+      )
+      .run();
+  }
+
+  async getProject(id: string): Promise<Project | null> {
+    const row = await this.db
+      .prepare(`SELECT * FROM projects WHERE id = ? LIMIT 1`)
+      .bind(id)
+      .first<ProjectRow>();
+
+    return row ? rowToProject(row) : null;
+  }
+
+  async listProjects(query: ProjectListQuery): Promise<Project[]> {
+    const clauses: string[] = [];
+    const binds: Array<string | number> = [];
+
+    if (query.companyId) {
+      clauses.push("company_id = ?");
+      binds.push(query.companyId);
+    }
+
+    if (query.ownerTeamId) {
+      clauses.push("owner_team_id = ?");
+      binds.push(query.ownerTeamId);
+    }
+
+    if (query.status) {
+      clauses.push("status = ?");
+      binds.push(query.status);
+    }
+
+    if (query.intakeRequestId) {
+      clauses.push("intake_request_id = ?");
+      binds.push(query.intakeRequestId);
+    }
+
+    const where = clauses.length > 0 ? `WHERE ${clauses.join(" AND ")}` : "";
+    const rows = await this.db
+      .prepare(
+        `SELECT *
+         FROM projects
+         ${where}
+         ORDER BY created_at DESC
+         LIMIT ?`,
+      )
+      .bind(...binds, query.limit ?? 50)
+      .all<ProjectRow>();
+
+    return (rows.results ?? []).map(rowToProject);
   }
 
   async updateTaskStatus(taskId: string, status: TaskStatus): Promise<void> {

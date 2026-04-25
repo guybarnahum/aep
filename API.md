@@ -182,6 +182,42 @@ Important invariants:
 - Intake is a demand signal only.
 - Conversion to work happens later via PM agents (PR15C).
 
+### Projects
+
+`POST /agent/projects`
+
+- Create a canonical project.
+- Required fields:
+	- `companyId`
+	- `title`
+	- `ownerTeamId`
+- Optional fields:
+	- `description`
+	- `intakeRequestId`
+- Status is initialized to `active`.
+- If `intakeRequestId` is supplied, it must exist and belong to the same company.
+
+`GET /agent/projects`
+
+- List canonical projects.
+- Optional query:
+	- `companyId`
+	- `ownerTeamId`
+	- `status`
+	- `intakeRequestId`
+	- `limit`
+
+`GET /agent/projects/:id`
+
+- Fetch one canonical project.
+
+Important invariants:
+
+- Projects do NOT execute work directly.
+- Projects do NOT create tasks in PR15B.
+- Projects are containers for future PM-created task graphs.
+- Task graph creation begins later in PR15D.
+
 ### Roles And Employees
 
 `GET /agent/roles`
