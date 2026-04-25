@@ -42,9 +42,9 @@ The company must also support:
 
 | Milestone | Goal | Current Status |
 |----------|------|---------------|
-| PR14 | Team operating loops / heartbeat | ❌ Not started in code. Employee execution and cron exist, but no team loop routes or logic. |
-| PR15 | Project + intake model | ❌ Not started. Tasks exist, but no project/client/intake layer. |
-| PR16 | Real Web / Infra / Validation specialization | 🟡 Partially prepared. PM planning, validation, and deployment primitives exist, but no enforced team specialization loop. |
+| PR14 | Team operating loops / heartbeat | ✅ Complete. Team loop routes, persisted cadence, dashboard visibility, canonical heartbeat publication, and CI coverage exist. |
+| PR15 | Project + intake model | ✅ PR15A-F complete. Intake, projects, intake conversion, project task graphs, dashboard UI, and CI scenario coverage exist. |
+| PR16 | Real Web / Infra / Validation specialization | 🟡 Next. PM planning, validation, deployment, and team loops exist; role-specific work behavior needs strengthening. |
 | PR17 | External collaboration adapters | 🟡 Partially implemented. Slack/email mirroring and routing exist; Jira-like integration not implemented. |
 | PR18 | HR / staffing system | 🟡 Partially implemented. Employee lifecycle, persona, and reviews exist; HR workflows (JD, hiring, staffing) not implemented. |
 | PR19 | Productization / marketing website | ❌ Not implemented. Internal dashboard exists, but no AEP-produced customer-facing product. |
@@ -196,11 +196,11 @@ allowed exception categories.
 AEP uses a simple organizational model:
 
 ```text
-task → assigned employee → execution → decision → result
+intake → project → task graph → assigned employee → execution → decision → result
 ```
 
 This is important because work is no longer modeled as direct system calls.  
-It is modeled as **organizational responsibility**.
+It enters through a company front door, becomes a project, and then becomes canonical task responsibility.
 
 That means:
 
@@ -215,7 +215,14 @@ The longer-term operating loop is richer than a single execution hop. AEP is mov
 research / request -> PM framing -> design -> delegation -> execution -> validation -> deployment / delivery -> follow-up communication
 ```
 
-The current repository already has strong primitives for tasks, threads, approvals, escalations, and visibility. The main remaining gap is to turn those primitives into persistent team behavior loops.
+The current repository now has canonical primitives for this flow:
+
+- intake requests capture demand
+- projects structure execution
+- project task graphs create canonical tasks and dependencies
+- team loops select and execute ready work
+- threads and messages publish public coordination rationale
+- artifacts, decisions, approvals, and escalations preserve traceability
 
 ---
 
@@ -581,9 +588,9 @@ The main gap is no longer foundational primitives. The repo already has durable 
 
 The larger gap is organizational behavior:
 
-- teams are present, but not yet fully operating as persistent autonomous units
-- PM, dev, infra, validation, and HR roles exist more as cataloged and UI-visible structure than as full work-producing loops
-- project / client / intake flows are still weak compared with the target company model
+- teams now have autonomous loop routes, persisted cadence, dashboard visibility, and canonical heartbeat publication
+- PM, dev, infra, validation, and HR roles still need richer behavior specialization
+- project / client / intake flows now exist canonically, but still need richer PM planning intelligence and external adapters
 - Slack and email mirroring exist, but account provisioning and operational team usage are not yet first-class product features
 - Jira-like ticket integration is not yet present
 - the debug-only "god view" into inner cognition is intentionally absent today and would require a narrow, explicit super-admin boundary
@@ -598,21 +605,56 @@ So the next phase is not "add more agent primitives." It is:
 
 The most important next steps are:
 
-1. **Team work loops**
-  - make Web, Infra, and Validation operate as real team-level execution units
-  - add heartbeat behavior around communicate -> design -> delegate -> execute -> deliver
+1. **PR15G — Documentation closeout**
+  - mark PR15A-F complete
+  - document the intake -> project -> task graph operating model
+  - align README, LLM.md, and API.md around current code reality
 
-2. **Project and intake model**
-  - add the business-facing layer that converts leads, research, and customer needs into canonical work
+2. **PR16 — Role-realism and team specialization**
+  - make PM, Web, Infra, and Validation roles produce distinct kinds of work
+  - strengthen team-specific task types, planning templates, and execution expectations
+  - keep all work in canonical tasks, artifacts, threads, approvals, escalations, and project/task graph links
 
-3. **Role-realism pass**
-  - strengthen PM, dev, infra, validation, and HR role contracts so they produce distinct kinds of work
-
-4. **External collaboration adapters**
+3. **PR17 — External collaboration adapters**
   - expand Slack, email, and later Jira while preserving AEP as the source of truth
 
-5. **Super-admin debug policy**
+4. **PR18 — HR / staffing workflow**
+  - formalize job-description drafting, hiring requests, employee creation, and staffing gaps
+
+5. **PR20 — Super-admin debug policy**
   - add a tightly scoped introspection path for cognition debugging without breaking default privacy boundaries
+
+---
+
+## Intake and project flow
+
+AEP now has a canonical business-facing work entry path:
+
+```text
+request / research / client need
+        ↓
+intake request
+        ↓
+PM triage or conversion
+        ↓
+project
+        ↓
+canonical task graph
+        ↓
+team loops
+        ↓
+execution, validation, delivery, and follow-up
+```
+
+Important boundaries:
+
+- intake is only a demand signal
+- projects are containers, not execution engines
+- executable work remains canonical tasks
+- dependencies remain canonical task dependencies
+- dashboard forms call backend routes and do not own state
+- public rationale may be published to threads
+- private cognition remains private
 
 ---
 

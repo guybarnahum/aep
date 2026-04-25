@@ -4,7 +4,7 @@ Repository (source of truth):
 👉 https://github.com/guybarnahum/aep
 
 The repository code is the source of truth.  
-This document is aligned to commit `7c4a6af9cdf1c2de4b04aa1bf9fb30d6f9fd3695`.
+This document is aligned to commit `1ff3c3817a9217be3b0636f4228d3b90b9354bc5`.
 
 Endpoint documentation note for future LLM sessions:
 
@@ -36,6 +36,9 @@ Endpoint documentation note for future LLM sessions:
 - do not commit placeholder live recipients such as `example.com`
 - missing delivery config should disable that delivery path and record a skipped-delivery reason
 - CI must enforce the hardcoded runtime identifier guardrail. Active runtime/config/CI code must not reintroduce static employee IDs, committed cleanup tokens, placeholder live recipients, personal workers.dev URLs, or implicit internal-org default routing. Historical migrations, docs, examples, and local-dev-only scripts may contain literal examples when clearly scoped.
+- PR15A-F are complete in code: AEP now has canonical intake requests, canonical projects, intake-to-project conversion, project-to-task-graph creation, dashboard UI, and deployed CI scenario coverage for the intake -> project -> task graph flow.
+- Intake and projects are canonical operator-agent state. The dashboard only calls canonical routes and must not become the owner of intake, project, or task state.
+- Project task graphs must use existing canonical tasks and dependencies. Do not introduce a parallel project-work store.
 
 ```bash
 titan@Titans-MacBook-Pro aep % tree . --gitignore
@@ -577,6 +580,35 @@ They carry:
 - lifecycle status
 - dependency state
 - provenance from source thread / approval / escalation when applicable
+- optional project linkage in task payload (`projectId`, `intakeRequestId`, `projectTaskClientId`) when tasks are created from a project task graph
+
+### Intake Requests
+Intake requests are the canonical demand signal for new work entering the company.
+
+They represent:
+- customer requests
+- internal operator requests
+- research or PM-identified opportunities
+- future website / Slack / email / Jira-sourced demand
+
+Important invariants:
+- intake does not execute work
+- intake does not create tasks directly
+- intake may be triaged, rejected, or converted
+- intake-to-project conversion publishes only public coordination rationale
+- private PM cognition must not be exposed
+
+### Projects
+Projects are canonical containers for structured execution.
+
+Projects may be created directly or converted from intake requests.
+
+Important invariants:
+- projects do not execute work directly
+- projects own/organize task graphs
+- task graph creation must use canonical tasks and dependencies
+- every project-created task is linked back through task payload
+- no parallel project-work table or project-local task state may be introduced
 
 ### Artifacts
 Artifacts are durable work products attached to tasks.
@@ -2146,7 +2178,6 @@ AEP currently provides:
 
 What is missing:
 
-- project / intake layer
 - real team specialization outputs
 - HR / staffing workflows
 - Jira-like collaboration integration
@@ -2330,7 +2361,7 @@ User/client/system
 
 ### Status
 
-❌ Not implemented
+✅ Implemented (PR15A-F complete; PR15G closes docs continuity)
 
 ---
 
@@ -2568,7 +2599,7 @@ PR18 (HR) and PR20 (cognition debug) are important but do not block initial comp
 2. inspect the repo at the target commit
 3. trust the repo over this doc if they diverge
 4. treat PR12 as complete
-5. treat PR13 and PR14 as completed context; treat PR15 as the active next milestone unless repo state clearly shows later milestones in progress
+5. treat PR13, PR14, and PR15 as completed context; treat PR16 as the active next milestone unless repo state clearly shows later milestones in progress
 6. use the roadmap in section 12.7 as the staged plan of record, and remove or update narrower milestone notes if they conflict with repo reality
 7. preserve the cognition boundary while expanding employee embodiment and lifecycle
 8. understand that the strategic goal is a real operating digital company with Web, Infra, Validation, PM, and later HR/staffing roles

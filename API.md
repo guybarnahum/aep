@@ -272,6 +272,7 @@ Important invariants:
 - No parallel project-work store is introduced.
 - PR15D task graph creation does not expose private PM cognition; only public coordination rationale may be published.
 - PR15F CI validates the complete intake -> project -> task graph flow against deployed operator-agent routes, including negative cases for double conversion, invalid team ownership, and unknown task dependencies.
+- PR15G docs closeout note: the canonical work-entry model is now intake -> project -> task graph -> team loop execution. Endpoint docs should preserve that separation and avoid describing intake or projects as execution surfaces.
 
 ### Roles And Employees
 
