@@ -124,6 +124,34 @@ export type IntakeListQuery = {
   limit?: number;
 };
 
+export type ProjectStatus =
+  | "active"
+  | "paused"
+  | "completed"
+  | "archived";
+
+export type Project = {
+  id: string;
+  companyId: string;
+  intakeRequestId?: string | null;
+  title: string;
+  description?: string | null;
+  ownerTeamId: string;
+  status: ProjectStatus;
+  createdAt: string;
+  updatedAt: string;
+  completedAt?: string | null;
+  archivedAt?: string | null;
+};
+
+export type ProjectListQuery = {
+  companyId?: string;
+  ownerTeamId?: string;
+  status?: ProjectStatus;
+  intakeRequestId?: string;
+  limit?: number;
+};
+
 export type TaskStatus =
   | "queued"
   | "blocked"
@@ -373,6 +401,10 @@ export interface TaskStore {
   createIntakeRequest(args: IntakeRequest): Promise<void>;
   getIntakeRequest(id: string): Promise<IntakeRequest | null>;
   listIntakeRequests(query: IntakeListQuery): Promise<IntakeRequest[]>;
+
+  createProject(args: Project): Promise<void>;
+  getProject(id: string): Promise<Project | null>;
+  listProjects(query: ProjectListQuery): Promise<Project[]>;
 
   updateTaskStatus(taskId: string, status: TaskStatus): Promise<void>;
   recordDecision(decision: Decision): Promise<void>;
