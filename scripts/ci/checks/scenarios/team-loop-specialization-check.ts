@@ -9,6 +9,7 @@ type TeamLoopResult = {
   status:
     | "executed_task"
     | "execution_failed"
+    | "manager_review_requested"
     | "no_pending_tasks"
     | "waiting_for_staffing";
   taskId?: string;

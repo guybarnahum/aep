@@ -163,6 +163,7 @@ export type TaskStatus =
   | "blocked"
   | "ready"
   | "in_progress"
+  | "parked"
   | "completed"
   | "failed"
   | "escalated";
@@ -408,6 +409,11 @@ export interface TaskStore {
   listProjects(query: ProjectListQuery): Promise<Project[]>;
 
   updateTaskStatus(taskId: string, status: TaskStatus): Promise<void>;
+  parkTask(args: {
+    taskId: string;
+    parkedByEmployeeId: string;
+    reason: string;
+  }): Promise<void>;
   recordDecision(decision: Decision): Promise<void>;
 
   createArtifact(

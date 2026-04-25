@@ -31,6 +31,7 @@ import { newId } from "@aep/shared";
 export type TeamWorkLoopStatus =
   | "execution_failed"
   | "executed_task"
+  | "manager_review_requested"
   | "no_pending_tasks"
   | "waiting_for_staffing";
 
@@ -84,6 +85,17 @@ type TeamTaskCandidate = {
   createdAtRank: number;
 };
 
+type CognitiveTaskSelectionRecommendation = {
+  selectedTaskId?: string;
+  confidence: "low" | "medium" | "high";
+  recommendation:
+    | "execute"
+    | "defer"
+    | "request_manager_review";
+  publicRationale: string;
+  consideredTaskIds: string[];
+};
+
 function candidateStatusRank(status: TaskCandidateStatus): number {
   return status === "ready" ? 0 : 1;
 }
@@ -133,13 +145,71 @@ function compareCandidates(a: TeamTaskCandidate, b: TeamTaskCandidate): number {
   return a.task.id.localeCompare(b.task.id);
 }
 
-function prioritizeTask(tasks: Task[], teamId: TeamId): TeamTaskCandidate | undefined {
+function prioritizeCandidates(tasks: Task[], teamId: TeamId): TeamTaskCandidate[] {
   const candidates = tasks
     .map((task) => toTaskCandidate(task, teamId))
     .filter((candidate): candidate is TeamTaskCandidate => Boolean(candidate));
 
   candidates.sort(compareCandidates);
-  return candidates[0];
+  return candidates;
+}
+
+function buildSchedulingContext(args: {
+  teamId: TeamId;
+  candidates: TeamTaskCandidate[];
+}): Record<string, unknown> {
+  return {
+    teamId: args.teamId,
+    candidates: args.candidates.map((candidate) => ({
+      taskId: candidate.task.id,
+      taskType: candidate.task.taskType,
+      title: candidate.task.title,
+      status: candidate.task.status,
+      discipline: candidate.discipline,
+      expectedForTeam: candidate.expectedForTeam,
+      payloadSummary: {
+        projectId: candidate.task.payload.projectId,
+        priority: candidate.task.payload.priority,
+        urgency: candidate.task.payload.urgency,
+        deadline: candidate.task.payload.deadline,
+      },
+    })),
+  };
+}
+
+async function selectTaskWithCognition(args: {
+  env: OperatorAgentEnv;
+  teamId: TeamId;
+  candidates: TeamTaskCandidate[];
+}): Promise<CognitiveTaskSelectionRecommendation> {
+  const schedulingContext = buildSchedulingContext({
+    teamId: args.teamId,
+    candidates: args.candidates,
+  });
+
+  if (args.candidates.length === 0) {
+    return {
+      confidence: "high",
+      recommendation: "defer",
+      consideredTaskIds: [],
+      publicRationale: "No candidate tasks were available for cognitive scheduling.",
+    };
+  }
+
+  // PR16D initial implementation:
+  // Build bounded context and keep an auditable deterministic fallback until a
+  // dedicated team-level scheduling cognition path is wired.
+  void args.env;
+  void schedulingContext;
+
+  return {
+    selectedTaskId: args.candidates[0]?.task.id,
+    confidence: "low",
+    recommendation: "execute",
+    consideredTaskIds: args.candidates.map((candidate) => candidate.task.id),
+    publicRationale:
+      "Selected by deterministic fallback because cognitive scheduling was unavailable.",
+  };
 }
 
 function toSelection(candidate: TeamTaskCandidate): TeamTaskSelection {
@@ -259,6 +329,61 @@ async function publishTeamHeartbeat(args: {
   };
 }
 
+async function publishSchedulingReviewThread(args: {
+  env: OperatorAgentEnv;
+  companyId: CompanyId;
+  teamId: TeamId;
+  recommendation: CognitiveTaskSelectionRecommendation;
+  candidates: TeamTaskCandidate[];
+}): Promise<void> {
+  const taskStore = getTaskStore(args.env);
+  const primaryTask = args.candidates[0]?.task;
+  const authorEmployeeId =
+    primaryTask?.assignedEmployeeId
+    ?? primaryTask?.ownerEmployeeId
+    ?? primaryTask?.createdByEmployeeId;
+
+  if (!authorEmployeeId) {
+    return;
+  }
+
+  const threadId = newId(`thr_team_sched_review_${args.teamId}`);
+  await taskStore.createMessageThread({
+    id: threadId,
+    companyId: args.companyId,
+    topic: `Scheduling review requested: ${args.teamId}`,
+    createdByEmployeeId: authorEmployeeId,
+    relatedTaskId: primaryTask?.id,
+    visibility: "org",
+  });
+
+  await taskStore.createMessage({
+    id: newId(`msg_team_sched_review_${args.teamId}`),
+    threadId,
+    companyId: args.companyId,
+    senderEmployeeId: authorEmployeeId,
+    receiverTeamId: args.teamId,
+    type: "coordination",
+    status: "delivered",
+    source: "system",
+    subject: "Manager review requested for scheduling",
+    body: args.recommendation.publicRationale,
+    payload: {
+      kind: "team_scheduling_review_requested",
+      teamId: args.teamId,
+      recommendation: args.recommendation,
+      schedulingContext: buildSchedulingContext({
+        teamId: args.teamId,
+        candidates: args.candidates,
+      }),
+    },
+    requiresResponse: true,
+    responseActionType: "manager_scheduling_review",
+    responseActionStatus: "requested",
+    relatedTaskId: primaryTask?.id,
+  });
+}
+
 function toCoordinationTaskRecord(task: Task): CoordinationTaskRecord {
   return {
     ...task,
@@ -311,8 +436,38 @@ export async function runTeamWorkLoop(args: {
     limit: args.limit ?? 20,
   });
   const eligibleTasks = pendingTasks.filter((task) => task.companyId === companyId);
-  const selected = prioritizeTask(eligibleTasks, args.teamId);
+  const candidates = prioritizeCandidates(eligibleTasks, args.teamId);
+  const recommendation = await selectTaskWithCognition({
+    env: args.env,
+    teamId: args.teamId,
+    candidates,
+  });
+  const selected = candidates.find(
+    (candidate) => candidate.task.id === recommendation.selectedTaskId,
+  );
   const task = selected?.task;
+
+  if (recommendation.recommendation === "request_manager_review") {
+    await publishSchedulingReviewThread({
+      env: args.env,
+      teamId: args.teamId,
+      companyId,
+      recommendation,
+      candidates,
+    });
+
+    return {
+      ok: true,
+      status: "manager_review_requested",
+      companyId,
+      teamId: args.teamId,
+      scanned: {
+        pendingTasks: pendingTasks.length,
+        eligibleTasks: eligibleTasks.length,
+      },
+      message: recommendation.publicRationale,
+    };
+  }
 
   if (!task) {
     return {
@@ -324,7 +479,10 @@ export async function runTeamWorkLoop(args: {
         pendingTasks: pendingTasks.length,
         eligibleTasks: eligibleTasks.length,
       },
-      message: `No queued or ready canonical tasks are available for ${args.teamId}.`,
+      message:
+        recommendation.recommendation === "defer"
+          ? recommendation.publicRationale
+          : `No queued or ready canonical tasks are available for ${args.teamId}.`,
     };
   }
 

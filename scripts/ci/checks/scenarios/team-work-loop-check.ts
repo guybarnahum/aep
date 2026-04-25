@@ -7,6 +7,7 @@ type TeamLoopResult = {
   status:
     | "executed_task"
     | "execution_failed"
+    | "manager_review_requested"
     | "no_pending_tasks"
     | "waiting_for_staffing";
   teamId: string;
@@ -73,6 +74,7 @@ async function main(): Promise<void> {
     [
       "executed_task",
       "execution_failed",
+      "manager_review_requested",
       "no_pending_tasks",
       "waiting_for_staffing",
     ].includes(singleTeam.status),

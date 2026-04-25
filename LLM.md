@@ -40,11 +40,20 @@ Endpoint documentation note for future LLM sessions:
 - PR16A begins role realism by adding a native task contract registry. Task types are no longer arbitrary strings: they resolve through code-owned task contracts that define canonical task type, discipline, expected teams, expected artifacts, legacy aliases, and default role hints. Legacy PR15 task aliases are accepted only at creation boundaries and normalized before persistence, so canonical task state uses PR16 vocabulary only.
 - PR16B extends the same task contract registry with payload contracts. Task payload requirements are validated at the canonical task-store creation boundary before persistence, so direct route creation, project task graphs, thread delegation, and agent-created work all share one contract path. This keeps specialization inside the existing task/artifact/thread model instead of introducing team-specific stores.
 - PR16C adds team-loop specialization on top of canonical task contracts. Team loop task picking is now role/discipline aware and ordered by contract-defined canonical task-type priority, while remaining in the same canonical task store and scheduler flow. Team loop responses and heartbeat payloads now expose specialization selection metadata.
-- PR16F introduces cognitive prioritization and work distribution while preserving canonical state boundaries. Code defines constraints; cognition makes bounded prioritization decisions.
+- PR16 sequencing order is:
+  - PR16A - Task Type Taxonomy
+  - PR16B - Payload Contracts
+  - PR16C - Team Loop Specialization
+  - PR16D - Cognitive Prioritization and Manager-Mediated Parking
+  - PR16E - Artifact Expectations
+  - PR16F - Delegation Patterns
+  - PR16G - CI Coverage
+  - PR16H - Docs
+- PR16D introduces cognitive prioritization and manager-mediated parking while preserving canonical state boundaries. Code gathers safe candidates and enforces contracts; cognition ranks, recommends, and explains tradeoffs through public rationale.
 
-### PR16F - Cognitive Prioritization And Work Distribution
+### PR16D - Cognitive Prioritization And Manager-Mediated Parking
 
-PR16F introduces LLM-based cognitive prioritization and scheduling decisions, replacing rigid code-only selection with bounded, auditable discretion.
+PR16D makes prioritization a cognitive decision rather than a fixed code rule.
 
 Core principle:
 
@@ -96,7 +105,7 @@ This preserves AEP as a company, not an autonomous swarm.
 
 ### Task State Extension
 
-PR16F introduces:
+PR16D introduces:
 
 status: parked
 
@@ -141,7 +150,7 @@ Must always hold:
 
 ### Architectural Intent
 
-PR16 evolves AEP from a deterministic task executor to a cognitively steered organization runtime, where contracts define roles, cognition exercises judgment, and managers enforce prioritization decisions.
+PR16D continues AEP's evolution from deterministic task execution toward a cognitively steered organization runtime, where contracts define boundaries, cognition exercises judgment, and managers enforce prioritization decisions including parking/resume transitions.
 - Intake and projects are canonical operator-agent state. The dashboard only calls canonical routes and must not become the owner of intake, project, or task state.
 - Project task graphs must use existing canonical tasks and dependencies. Do not introduce a parallel project-work store.
 

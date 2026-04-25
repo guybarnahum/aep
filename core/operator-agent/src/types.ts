@@ -244,6 +244,7 @@ export type CoordinationTaskStatus =
   | "blocked"
   | "ready"
   | "in_progress"
+  | "parked"
   | "completed"
   | "failed"
   | "escalated";

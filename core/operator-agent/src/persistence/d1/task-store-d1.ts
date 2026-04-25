@@ -953,6 +953,25 @@ export class D1TaskStore implements TaskStore {
     }
   }
 
+  async parkTask(args: {
+    taskId: string;
+    parkedByEmployeeId: string;
+    reason: string;
+  }): Promise<void> {
+    void args.parkedByEmployeeId;
+    void args.reason;
+
+    await this.db
+      .prepare(
+        `UPDATE tasks
+         SET status = 'parked',
+             updated_at = CURRENT_TIMESTAMP
+         WHERE id = ?`,
+      )
+      .bind(args.taskId)
+      .run();
+  }
+
   private async releaseCompletedDependency(completedTaskId: string): Promise<void> {
     const dependents = await this.db
       .prepare(

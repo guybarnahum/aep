@@ -205,6 +205,10 @@ intake → project → task graph → assigned employee → execution → decisi
 
 AEP is evolving from rule-based execution to cognitively steered work distribution.
 
+### Cognitive Prioritization
+
+AEP does not treat scheduling as a rigid queue. Teams gather candidate work, then use bounded cognition to recommend what should happen next. Managers make preemption decisions. Parking a task is explicit, auditable, and reversible.
+
 ### Before
 
 - Teams selected tasks using simple rules (for example first ready task)
