@@ -112,8 +112,8 @@ async function listReviewEvidenceMap(
   const out: Record<string, EmployeePerformanceReviewEvidence[]> = {};
 
   // Cloudflare D1/SQLite has a maximum bind parameter count per statement.
-  // Batch the IN-clause lookups so large review sets cannot overflow it.
-  const batchSize = 200;
+  // Use a conservative chunk size to remain safe across environments.
+  const batchSize = 50;
   for (let i = 0; i < reviewIds.length; i += batchSize) {
     const batch = reviewIds.slice(i, i + batchSize);
     const placeholders = batch.map(() => "?").join(", ");
