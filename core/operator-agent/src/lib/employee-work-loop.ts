@@ -3,6 +3,7 @@ import {
   thinkWithinEmployeeBoundary,
 } from "@aep/operator-agent/lib/employee-cognition";
 import { getTaskStore } from "@aep/operator-agent/lib/store-factory";
+import { normalizeTaskType } from "@aep/operator-agent/lib/task-contracts";
 import type {
   EmployeeMessage,
   MessageThread,
@@ -39,7 +40,7 @@ function asStoreTask(task: ResolvedTaskExecutionContext["task"]): Task {
     ownerEmployeeId: task.ownerEmployeeId,
     assignedEmployeeId: task.assignedEmployeeId,
     createdByEmployeeId: task.createdByEmployeeId,
-    taskType: task.taskType,
+    taskType: normalizeTaskType(task.taskType),
     title: task.title,
     status: task.status,
     payload: task.payload,

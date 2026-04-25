@@ -38,6 +38,7 @@ function hasOperatorAgentSchemaEnv(): boolean {
 function main(): void {
   runNpmScript("test:unit:operator-agent");
   runNpmScript("typecheck:operator-agent");
+  runNpmScript("ci:team-loop-specialization-contract-check");
 
   const checks: CheckSpec[] = [];
 
@@ -69,6 +70,10 @@ function main(): void {
       {
         label: "task-payload normalization contract check",
         scriptPath: "scripts/ci/checks/contracts/task-payload-normalization-contract-check.ts",
+      },
+      {
+        label: "team loop specialization check",
+        scriptPath: "scripts/ci/checks/scenarios/team-loop-specialization-check.ts",
       },
     );
   } else {

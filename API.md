@@ -120,6 +120,7 @@ Base service: `core/operator-agent`
 - Important invariant: callers must provide or resolve real runtime employees through existing employee/role policy surfaces; the route must not depend on hardcoded employee IDs.
 - PR14E note: this route is now wired to the internal team-loop library backed by D1 runtime employee and role-policy state.
 - PR14H note: when the loop selects canonical work, it records team heartbeat publication status in the response. Heartbeat messages are canonical `coordination` messages linked to the selected task.
+- PR16C note: task selection is now specialization-aware and contract-driven. The loop prioritizes canonical ready work first, then team-expected disciplines and canonical task-type order from the task contract registry. Responses and heartbeat payloads include selection metadata (`selection.taskType`, `selection.discipline`, and priority details).
 
 `POST /agent/teams/:teamId/run-once`
 
@@ -131,6 +132,7 @@ Base service: `core/operator-agent`
 - Important invariant: if ready work exists but has no executable runtime employee assignment, the route must return a waiting state and publish that state canonically instead of inventing hidden staffing.
 - PR14C/D staffing note: internal team-loop resolution already returns explicit waiting-for-staffing results when a team has ready work but no executable runtime employee. No seeded or hardcoded employee IDs are allowed in that path.
 - PR14H note: execution failures are returned as bounded `execution_failed` team-loop results and are published as canonical heartbeat messages when an author can be resolved from the task or selected employee.
+- PR16C note: single-team loop responses include specialization selection metadata for the chosen canonical task, and published team heartbeat messages carry the same selection details.
 
 `GET /agent/scheduler-status`
 

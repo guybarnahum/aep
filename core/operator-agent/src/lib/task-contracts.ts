@@ -239,6 +239,33 @@ const CONTRACT_BY_TYPE = new Map(
   TASK_CONTRACTS.map((contract) => [contract.taskType, contract]),
 );
 
+const TASK_TYPE_PRIORITY_ORDER: readonly CanonicalTaskType[] = [
+  "project_planning",
+  "requirements_definition",
+  "task_graph_planning",
+  "web_design",
+  "web_implementation",
+  "ui_iteration",
+  "deployment",
+  "monitoring_setup",
+  "incident_response",
+  "test_execution",
+  "bug_report",
+  "verification",
+  "coordination",
+  "analysis",
+];
+
+const TASK_TYPE_PRIORITY_BY_TYPE = new Map<CanonicalTaskType, number>(
+  TASK_TYPE_PRIORITY_ORDER.map((taskType, index) => [taskType, index]),
+);
+
+const DISCIPLINE_PRIORITY_BY_TEAM: Record<TeamId, readonly TaskDiscipline[]> = {
+  [TEAM_WEB_PRODUCT]: ["pm", "web", "coordination", "infra", "validation"],
+  [TEAM_INFRA]: ["infra", "coordination", "validation", "web", "pm"],
+  [TEAM_VALIDATION]: ["validation", "coordination", "infra", "web", "pm"],
+};
+
 const TYPE_BY_ALIAS = new Map<string, CanonicalTaskType>(
   TASK_CONTRACTS.flatMap((contract) =>
     (contract.legacyAliases ?? []).map((alias) => [alias, contract.taskType] as const),
@@ -278,6 +305,30 @@ export function getTaskContract(taskType: string): TaskContract {
 
 export function getDefaultRoleIdForTaskType(taskType: string): AgentRoleId | undefined {
   return getTaskContract(taskType).defaultRoleId;
+}
+
+export function getTaskDiscipline(taskType: string): TaskDiscipline {
+  return getTaskContract(taskType).discipline;
+}
+
+export function isTaskExpectedForTeam(taskType: string, teamId: TeamId): boolean {
+  return getTaskContract(taskType).expectedTeamIds.includes(teamId);
+}
+
+export function getTaskTypePriority(taskType: string): number {
+  const canonicalTaskType = normalizeTaskType(taskType);
+  return TASK_TYPE_PRIORITY_BY_TYPE.get(canonicalTaskType) ?? Number.MAX_SAFE_INTEGER;
+}
+
+export function getTeamDisciplinePriority(args: {
+  teamId: TeamId;
+  taskType: string;
+}): number {
+  const contract = getTaskContract(args.taskType);
+  const priorities = DISCIPLINE_PRIORITY_BY_TEAM[args.teamId];
+  const index = priorities.indexOf(contract.discipline);
+
+  return index >= 0 ? index : Number.MAX_SAFE_INTEGER;
 }
 
 function actualPayloadType(value: unknown): TaskPayloadPrimitive | undefined {

@@ -128,9 +128,15 @@ jobs:
         run: |
           npx tsx scripts/ci/checks/scenarios/team-work-loop-check.ts 2>&1 | tee -a post-deploy-validation.log
 
+      - name: Team loop specialization check
+        id: team_loop_specialization_check
+        if: steps.config.outputs.enabled == 'true' && steps.team_work_loop_check.outcome == 'success'
+        run: |
+          npx tsx scripts/ci/checks/scenarios/team-loop-specialization-check.ts 2>&1 | tee -a post-deploy-validation.log
+
       - name: Intake/project flow check
         id: intake_project_flow
-        if: steps.config.outputs.enabled == 'true' && steps.team_work_loop_check.outcome == 'success'
+        if: steps.config.outputs.enabled == 'true' && steps.team_loop_specialization_check.outcome == 'success'
         run: |
           npx tsx scripts/ci/checks/scenarios/intake-project-flow-check.ts 2>&1 | tee -a post-deploy-validation.log
 
@@ -351,6 +357,7 @@ jobs:
               "${{ steps.scheduled_routing_check.outcome }}" == "success" && \
               "${{ steps.paperclip_first_execution_check.outcome }}" == "success" && \
               "${{ steps.team_work_loop_check.outcome }}" == "success" && \
+              "${{ steps.team_loop_specialization_check.outcome }}" == "success" && \
               "${{ steps.intake_project_flow.outcome }}" == "success" && \
               "${{ steps.dispatch_validation_runs.outcome }}" == "success" && \
               "${{ steps.post_deploy_validation.outcome }}" == "success" && \
@@ -442,6 +449,7 @@ jobs:
           emit_check "scheduled routing check" "${{ steps.scheduled_routing_check.outcome }}"
           emit_check "paperclip first execution check" "${{ steps.paperclip_first_execution_check.outcome }}"
           emit_check "team work loop check" "${{ steps.team_work_loop_check.outcome }}"
+          emit_check "team loop specialization check" "${{ steps.team_loop_specialization_check.outcome }}"
           emit_check "intake/project flow check" "${{ steps.intake_project_flow.outcome }}"
           emit_check "dispatch validation runs" "${{ steps.dispatch_validation_runs.outcome }}"
           emit_check "execute validation dispatch" "${{ steps.post_deploy_validation.outcome }}"

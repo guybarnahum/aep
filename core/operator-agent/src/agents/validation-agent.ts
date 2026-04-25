@@ -9,12 +9,14 @@ import {
 import { logInfo } from "@aep/operator-agent/lib/logger";
 import { publishTaskRationaleToThread } from "@aep/operator-agent/lib/rationale-thread-publisher";
 import { getTaskStore } from "@aep/operator-agent/lib/store-factory";
+import { normalizeTaskType } from "@aep/operator-agent/lib/task-contracts";
 import type { Task } from "@aep/operator-agent/lib/store-types";
 import { newId } from "@aep/shared";
 import type {
   EmployeePublicRationalePresentationStyle,
   OperatorAgentEnv,
   ResolvedEmployeeRunContext,
+  ResolvedTaskExecutionContext,
   ValidationAgentResponse,
   ValidationFinding,
   ValidationResultArtifact,
@@ -22,8 +24,30 @@ import type {
   ValidationTaskDecision,
 } from "@aep/operator-agent/types";
 
-const VALIDATION_TASK_TYPE = "validate-deployment";
+const VALIDATION_TASK_TYPE = "verification";
 const HEALTH_CHECK_TIMEOUT_MS = 5_000;
+
+function asStoreTask(task: ResolvedTaskExecutionContext["task"]): Task {
+  return {
+    id: task.id,
+    companyId: task.companyId,
+    originatingTeamId: task.originatingTeamId,
+    assignedTeamId: task.assignedTeamId,
+    ownerEmployeeId: task.ownerEmployeeId,
+    assignedEmployeeId: task.assignedEmployeeId,
+    createdByEmployeeId: task.createdByEmployeeId,
+    taskType: normalizeTaskType(task.taskType),
+    title: task.title,
+    status: task.status,
+    payload: task.payload,
+    blockingDependencyCount: task.blockingDependencyCount,
+    createdAt: task.createdAt,
+    updatedAt: task.updatedAt,
+    startedAt: task.startedAt,
+    completedAt: task.completedAt,
+    failedAt: task.failedAt,
+  };
+}
 
 function decisionId(taskId: string): string {
   return newId(`dec_${taskId}`);
@@ -77,7 +101,7 @@ async function loadTasksForRun(
   context: ResolvedEmployeeRunContext,
 ): Promise<Task[]> {
   if (context.taskContext?.task) {
-    return [context.taskContext.task];
+    return [asStoreTask(context.taskContext.task)];
   }
 
   const taskStore = getTaskStore(env);

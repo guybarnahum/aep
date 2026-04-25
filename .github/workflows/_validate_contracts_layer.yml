@@ -115,6 +115,10 @@ jobs:
         id: task_payload_normalization_contract
         run: npx tsx scripts/ci/checks/contracts/task-payload-normalization-contract-check.ts | tee task-payload-normalization-contract-check.log
 
+      - name: Run team-loop specialization contract check
+        id: team_loop_specialization_contract
+        run: npx tsx scripts/ci/checks/contracts/team-loop-specialization-contract-check.ts | tee team-loop-specialization-contract-check.log
+
       - name: Run hardcoded runtime identifier guardrail
         id: no_hardcoded_runtime_identifiers
         run: npm run ci:no-hardcoded-runtime-identifiers | tee no-hardcoded-runtime-identifiers-check.log
@@ -184,6 +188,7 @@ jobs:
             "${{ steps.task_type_normalization_contract.outcome }}" == "success" && \
             "${{ steps.task_payload_contract.outcome }}" == "success" && \
             "${{ steps.task_payload_normalization_contract.outcome }}" == "success" && \
+            "${{ steps.team_loop_specialization_contract.outcome }}" == "success" && \
             "${{ steps.no_hardcoded_runtime_identifiers.outcome }}" == "success" && \
             "${{ steps.runtime_projection.outcome }}" == "success" && \
             "${{ steps.employee_scope.outcome }}" == "success" && \
@@ -234,6 +239,7 @@ jobs:
           echo "- $(status_emoji "${{ steps.task_type_normalization_contract.outcome }}") task-type-normalization-contract-check: ${{ steps.task_type_normalization_contract.outcome }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- $(status_emoji "${{ steps.task_payload_contract.outcome }}") task-payload-contract-check: ${{ steps.task_payload_contract.outcome }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- $(status_emoji "${{ steps.task_payload_normalization_contract.outcome }}") task-payload-normalization-contract-check: ${{ steps.task_payload_normalization_contract.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- $(status_emoji "${{ steps.team_loop_specialization_contract.outcome }}") team-loop-specialization-contract-check: ${{ steps.team_loop_specialization_contract.outcome }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- $(status_emoji "${{ steps.no_hardcoded_runtime_identifiers.outcome }}") no-hardcoded-runtime-identifiers-check: ${{ steps.no_hardcoded_runtime_identifiers.outcome }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- $(status_emoji "${{ steps.runtime_projection.outcome }}") runtime-projection-check: ${{ steps.runtime_projection.outcome }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- $(status_emoji "${{ steps.employee_scope.outcome }}") employee-scope-check: ${{ steps.employee_scope.outcome }}" >> "$GITHUB_STEP_SUMMARY"

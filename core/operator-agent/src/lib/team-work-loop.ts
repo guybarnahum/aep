@@ -17,6 +17,12 @@ import type {
   ResolvedTaskExecutionContext,
 } from "@aep/operator-agent/types";
 import {
+  getTaskDiscipline,
+  getTaskTypePriority,
+  getTeamDisciplinePriority,
+  isTaskExpectedForTeam,
+} from "@aep/operator-agent/lib/task-contracts";
+import {
   resolveRuntimeEmployeeForTeamTask,
   type TeamRuntimeResolution,
 } from "@aep/operator-agent/lib/team-runtime-resolver";
@@ -34,6 +40,15 @@ export type TeamHeartbeatPublication = {
   messageId?: string;
 };
 
+export type TeamTaskSelection = {
+  status: "ready" | "queued";
+  taskType: string;
+  discipline: string;
+  expectedForTeam: boolean;
+  teamDisciplinePriority: number;
+  taskTypePriority: number;
+};
+
 export interface TeamWorkLoopResult {
   ok: true;
   status: TeamWorkLoopStatus;
@@ -46,6 +61,7 @@ export interface TeamWorkLoopResult {
   taskId?: string;
   employeeId?: string;
   roleId?: string;
+  selection?: TeamTaskSelection;
   heartbeat?: TeamHeartbeatPublication;
   resolution?: TeamRuntimeResolution;
   result?: AgentExecutionResponse;
@@ -56,9 +72,85 @@ function toCompanyId(companyId?: string): CompanyId {
   return (companyId ?? COMPANY_INTERNAL_AEP) as CompanyId;
 }
 
-function prioritizeTask(tasks: Task[]): Task | undefined {
-  return tasks.find((task) => task.status === "ready")
-    ?? tasks.find((task) => task.status === "queued");
+type TaskCandidateStatus = "ready" | "queued";
+
+type TeamTaskCandidate = {
+  task: Task;
+  status: TaskCandidateStatus;
+  discipline: string;
+  expectedForTeam: boolean;
+  teamDisciplinePriority: number;
+  taskTypePriority: number;
+  createdAtRank: number;
+};
+
+function candidateStatusRank(status: TaskCandidateStatus): number {
+  return status === "ready" ? 0 : 1;
+}
+
+function timestampRank(task: Task): number {
+  const timestamp = task.createdAt ? Date.parse(task.createdAt) : Number.NaN;
+  return Number.isFinite(timestamp) ? timestamp : Number.MAX_SAFE_INTEGER;
+}
+
+function toTaskCandidate(task: Task, teamId: TeamId): TeamTaskCandidate | undefined {
+  if (task.status !== "ready" && task.status !== "queued") {
+    return undefined;
+  }
+
+  return {
+    task,
+    status: task.status,
+    discipline: getTaskDiscipline(task.taskType),
+    expectedForTeam: isTaskExpectedForTeam(task.taskType, teamId),
+    teamDisciplinePriority: getTeamDisciplinePriority({ teamId, taskType: task.taskType }),
+    taskTypePriority: getTaskTypePriority(task.taskType),
+    createdAtRank: timestampRank(task),
+  };
+}
+
+function compareCandidates(a: TeamTaskCandidate, b: TeamTaskCandidate): number {
+  if (candidateStatusRank(a.status) !== candidateStatusRank(b.status)) {
+    return candidateStatusRank(a.status) - candidateStatusRank(b.status);
+  }
+
+  if (a.expectedForTeam !== b.expectedForTeam) {
+    return a.expectedForTeam ? -1 : 1;
+  }
+
+  if (a.teamDisciplinePriority !== b.teamDisciplinePriority) {
+    return a.teamDisciplinePriority - b.teamDisciplinePriority;
+  }
+
+  if (a.taskTypePriority !== b.taskTypePriority) {
+    return a.taskTypePriority - b.taskTypePriority;
+  }
+
+  if (a.createdAtRank !== b.createdAtRank) {
+    return a.createdAtRank - b.createdAtRank;
+  }
+
+  return a.task.id.localeCompare(b.task.id);
+}
+
+function prioritizeTask(tasks: Task[], teamId: TeamId): TeamTaskCandidate | undefined {
+  const candidates = tasks
+    .map((task) => toTaskCandidate(task, teamId))
+    .filter((candidate): candidate is TeamTaskCandidate => Boolean(candidate));
+
+  candidates.sort(compareCandidates);
+  return candidates[0];
+}
+
+function toSelection(candidate: TeamTaskCandidate): TeamTaskSelection {
+  return {
+    status: candidate.status,
+    taskType: candidate.task.taskType,
+    discipline: candidate.discipline,
+    expectedForTeam: candidate.expectedForTeam,
+    teamDisciplinePriority: candidate.teamDisciplinePriority,
+    taskTypePriority: candidate.taskTypePriority,
+  };
 }
 
 function selectHeartbeatAuthor(args: {
@@ -115,6 +207,7 @@ async function publishTeamHeartbeat(args: {
   teamId: TeamId;
   resolution?: TeamRuntimeResolution;
   status: TeamWorkLoopStatus;
+  selection?: TeamTaskSelection;
   body: string;
 }): Promise<TeamHeartbeatPublication> {
   const authorEmployeeId = selectHeartbeatAuthor({
@@ -151,6 +244,7 @@ async function publishTeamHeartbeat(args: {
       teamId: args.teamId,
       taskId: args.task.id,
       status: args.status,
+      selection: args.selection,
       resolutionStatus: args.resolution?.status,
       candidateEmployeeIds: args.resolution?.candidateEmployeeIds ?? [],
     },
@@ -217,7 +311,8 @@ export async function runTeamWorkLoop(args: {
     limit: args.limit ?? 20,
   });
   const eligibleTasks = pendingTasks.filter((task) => task.companyId === companyId);
-  const task = prioritizeTask(eligibleTasks);
+  const selected = prioritizeTask(eligibleTasks, args.teamId);
+  const task = selected?.task;
 
   if (!task) {
     return {
@@ -246,6 +341,7 @@ export async function runTeamWorkLoop(args: {
       teamId: args.teamId,
       resolution,
       status: "waiting_for_staffing",
+      selection: selected ? toSelection(selected) : undefined,
       body: message,
     });
 
@@ -259,6 +355,7 @@ export async function runTeamWorkLoop(args: {
         eligibleTasks: eligibleTasks.length,
       },
       taskId: task.id,
+      selection: selected ? toSelection(selected) : undefined,
       heartbeat,
       resolution,
       message,
@@ -298,6 +395,7 @@ export async function runTeamWorkLoop(args: {
       teamId: args.teamId,
       resolution,
       status: "execution_failed",
+      selection: selected ? toSelection(selected) : undefined,
       body: `Team ${args.teamId} selected task ${task.id}, but execution failed for ${resolution.employee.identity.employeeId}: ${message}`,
     });
 
@@ -313,6 +411,7 @@ export async function runTeamWorkLoop(args: {
       taskId: task.id,
       employeeId: resolution.employee.identity.employeeId,
       roleId: resolution.employee.identity.roleId,
+      selection: selected ? toSelection(selected) : undefined,
       heartbeat,
       resolution,
       message,
@@ -326,6 +425,7 @@ export async function runTeamWorkLoop(args: {
     teamId: args.teamId,
     resolution,
     status: "executed_task",
+    selection: selected ? toSelection(selected) : undefined,
     body: message,
   });
 
@@ -341,6 +441,7 @@ export async function runTeamWorkLoop(args: {
     taskId: task.id,
     employeeId: resolution.employee.identity.employeeId,
     roleId: resolution.employee.identity.roleId,
+    selection: selected ? toSelection(selected) : undefined,
     heartbeat,
     resolution,
     result,
