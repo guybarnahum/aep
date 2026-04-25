@@ -134,6 +134,7 @@ Base service: `core/operator-agent`
 - PR14H note: execution failures are returned as bounded `execution_failed` team-loop results and are published as canonical heartbeat messages when an author can be resolved from the task or selected employee.
 - PR16C note: single-team loop responses include specialization selection metadata for the chosen canonical task, and published team heartbeat messages carry the same selection details.
 - PR16D note: team-loop scheduling now invokes bounded cognition for candidate prioritization and public rationale generation. When cognition recommends `request_manager_review`, the loop publishes a canonical scheduling review thread and returns `manager_review_requested` without preempting work automatically.
+- PR16E note: task contracts define expected artifact types and task detail now reports `artifactExpectations` derived from those contracts. This remains soft validation (visibility only), and team heartbeat payloads may include artifact expectation status after execution or failure.
 
 `GET /agent/scheduler-status`
 
@@ -530,6 +531,7 @@ PR16D scheduling and parking note:
 `GET /agent/tasks/:taskId`
 
 - Returns task detail.
+- Includes `artifactExpectations`, derived from the task contract registry and currently enforced as soft visibility.
 
 `POST /agent/tasks/:taskId/park`
 

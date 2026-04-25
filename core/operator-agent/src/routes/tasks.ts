@@ -3,6 +3,7 @@ import { getTaskStore } from "@aep/operator-agent/lib/store-factory";
 import {
   TaskPayloadValidationError,
   TaskTypeValidationError,
+  evaluateTaskArtifactExpectations,
 } from "@aep/operator-agent/lib/task-contracts";
 import {
   TaskDependencyValidationError,
@@ -261,12 +262,17 @@ export async function handleGetTask(
     decision,
     relatedThreads,
   });
+  const artifactExpectations = evaluateTaskArtifactExpectations({
+    taskType: task.taskType,
+    artifactTypes: artifacts.map((artifact) => artifact.artifactType),
+  });
 
   return Response.json({
     ok: true,
     task,
     dependencies,
     artifacts,
+    artifactExpectations,
     decision,
     relatedThreads,
     visibilitySummary,

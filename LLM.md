@@ -51,6 +51,23 @@ Endpoint documentation note for future LLM sessions:
   - PR16H - Docs
 - PR16D introduces cognitive prioritization and manager-mediated parking while preserving canonical state boundaries. Code gathers safe candidates and enforces contracts; cognition ranks, recommends, and explains tradeoffs through public rationale.
 
+  ### PR16E - Artifact Expectations + Live Scheduling Coverage
+
+  PR16E makes task output expectations visible and auditable without adding new state.
+  Expected artifact types remain defined in the task contract registry. Task detail
+  responses evaluate whether the task has produced expected artifacts and expose a
+  soft `artifactExpectations` block.
+
+  This is intentionally soft enforcement:
+
+  - missing expected artifacts are visible
+  - CI can assert expectations
+  - execution is not blocked yet
+
+  PR16E also adds live scenario coverage for PR16D cognitive scheduling and
+  manager-mediated parking, because source-level checks alone are not sufficient
+  for the organization-runtime contract.
+
 ### PR16D - Cognitive Prioritization And Manager-Mediated Parking
 
 PR16D makes prioritization a cognitive decision rather than a fixed code rule.

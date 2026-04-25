@@ -396,3 +396,36 @@ export function validateTaskPayloadContract(args: {
 
   return contract.taskType;
 }
+
+export type TaskArtifactExpectationStatus =
+  | "satisfied"
+  | "missing_expected_artifacts";
+
+export type TaskArtifactExpectationResult = {
+  status: TaskArtifactExpectationStatus;
+  taskType: CanonicalTaskType;
+  expectedArtifacts: readonly TaskArtifactType[];
+  presentArtifacts: readonly TaskArtifactType[];
+  missingArtifacts: readonly TaskArtifactType[];
+};
+
+export function evaluateTaskArtifactExpectations(args: {
+  taskType: string;
+  artifactTypes: readonly TaskArtifactType[];
+}): TaskArtifactExpectationResult {
+  const contract = getTaskContract(args.taskType);
+  const present = new Set(args.artifactTypes);
+  const missingArtifacts = contract.expectedArtifacts.filter(
+    (artifactType) => !present.has(artifactType),
+  );
+
+  return {
+    status: missingArtifacts.length === 0
+      ? "satisfied"
+      : "missing_expected_artifacts",
+    taskType: contract.taskType,
+    expectedArtifacts: contract.expectedArtifacts,
+    presentArtifacts: args.artifactTypes,
+    missingArtifacts,
+  };
+}

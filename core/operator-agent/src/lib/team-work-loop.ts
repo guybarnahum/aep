@@ -27,6 +27,7 @@ import type {
   ResolvedTaskExecutionContext,
 } from "@aep/operator-agent/types";
 import {
+  evaluateTaskArtifactExpectations,
   getTaskDiscipline,
   getTaskTypePriority,
   getTeamDisciplinePriority,
@@ -383,6 +384,7 @@ async function publishTeamHeartbeat(args: {
   resolution?: TeamRuntimeResolution;
   status: TeamWorkLoopStatus;
   selection?: TeamTaskSelection;
+  artifactExpectations?: ReturnType<typeof evaluateTaskArtifactExpectations>;
   body: string;
 }): Promise<TeamHeartbeatPublication> {
   const authorEmployeeId = selectHeartbeatAuthor({
@@ -420,6 +422,7 @@ async function publishTeamHeartbeat(args: {
       taskId: args.task.id,
       status: args.status,
       selection: args.selection,
+      artifactExpectations: args.artifactExpectations,
       resolutionStatus: args.resolution?.status,
       candidateEmployeeIds: args.resolution?.candidateEmployeeIds ?? [],
     },
@@ -525,6 +528,22 @@ async function loadTaskExecutionContext(args: {
     dependencies,
     artifacts: artifacts.map(toCoordinationTaskArtifactRecord),
   };
+}
+
+async function loadArtifactExpectationsForTask(args: {
+  env: OperatorAgentEnv;
+  task: Task;
+}) {
+  const taskStore = getTaskStore(args.env);
+  const artifacts = await taskStore.listArtifacts({
+    taskId: args.task.id,
+    limit: 50,
+  });
+
+  return evaluateTaskArtifactExpectations({
+    taskType: args.task.taskType,
+    artifactTypes: artifacts.map((artifact) => artifact.artifactType),
+  });
 }
 
 export async function runTeamWorkLoop(args: {
@@ -652,6 +671,10 @@ export async function runTeamWorkLoop(args: {
     );
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
+    const artifactExpectations = await loadArtifactExpectationsForTask({
+      env: args.env,
+      task,
+    });
     const heartbeat = await publishTeamHeartbeat({
       env: args.env,
       task,
@@ -659,6 +682,7 @@ export async function runTeamWorkLoop(args: {
       resolution,
       status: "execution_failed",
       selection: selected ? toSelection(selected) : undefined,
+      artifactExpectations,
       body: `Team ${args.teamId} selected task ${task.id}, but execution failed for ${resolution.employee.identity.employeeId}: ${message}`,
     });
 
@@ -681,6 +705,10 @@ export async function runTeamWorkLoop(args: {
     };
   }
 
+  const artifactExpectations = await loadArtifactExpectationsForTask({
+    env: args.env,
+    task,
+  });
   const message = `Executed task ${task.id} for ${args.teamId} via ${resolution.employee.identity.employeeId}.`;
   const heartbeat = await publishTeamHeartbeat({
     env: args.env,
@@ -689,6 +717,7 @@ export async function runTeamWorkLoop(args: {
     resolution,
     status: "executed_task",
     selection: selected ? toSelection(selected) : undefined,
+    artifactExpectations,
     body: message,
   });
 
