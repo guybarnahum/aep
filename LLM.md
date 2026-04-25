@@ -40,6 +40,108 @@ Endpoint documentation note for future LLM sessions:
 - PR16A begins role realism by adding a native task contract registry. Task types are no longer arbitrary strings: they resolve through code-owned task contracts that define canonical task type, discipline, expected teams, expected artifacts, legacy aliases, and default role hints. Legacy PR15 task aliases are accepted only at creation boundaries and normalized before persistence, so canonical task state uses PR16 vocabulary only.
 - PR16B extends the same task contract registry with payload contracts. Task payload requirements are validated at the canonical task-store creation boundary before persistence, so direct route creation, project task graphs, thread delegation, and agent-created work all share one contract path. This keeps specialization inside the existing task/artifact/thread model instead of introducing team-specific stores.
 - PR16C adds team-loop specialization on top of canonical task contracts. Team loop task picking is now role/discipline aware and ordered by contract-defined canonical task-type priority, while remaining in the same canonical task store and scheduler flow. Team loop responses and heartbeat payloads now expose specialization selection metadata.
+- PR16F introduces cognitive prioritization and work distribution while preserving canonical state boundaries. Code defines constraints; cognition makes bounded prioritization decisions.
+
+### PR16F - Cognitive Prioritization And Work Distribution
+
+PR16F introduces LLM-based cognitive prioritization and scheduling decisions, replacing rigid code-only selection with bounded, auditable discretion.
+
+Core principle:
+
+> Code defines constraints. Cognition makes decisions.
+
+What remains code-defined:
+
+- Canonical task model (tasks, dependencies, artifacts)
+- Task contract registry (types, payloads, expectations)
+- Candidate task set (ready + assigned tasks)
+- Safety boundaries (no hidden state, no direct mutation outside APIs)
+- Audit surfaces (threads, artifacts, logs)
+
+What becomes cognitive:
+
+- Task prioritization within a team
+- Tradeoffs between competing ready tasks
+- Whether to split, defer, or delegate work
+- Planning and task graph creation
+- Identification of scheduling conflicts
+- Recommendation of preemption (not execution of it)
+
+Team loop evolution:
+
+1. Gather candidate tasks (ready, assigned, dependency-satisfied)
+2. Construct bounded execution context
+3. Invoke role cognition (LLM) to rank tasks, generate private reasoning, and produce a public rationale summary
+4. Select task or request manager intervention
+5. Publish decision as coordination thread message, with optional rationale artifact
+
+Important boundary:
+
+- Private reasoning remains private
+- Only public rationale summaries are persisted
+
+### Manager-Mediated Prioritization And Preemption
+
+Workers do not autonomously preempt tasks.
+
+Flow:
+
+team loop detects conflict or higher-priority work
+-> publishes scheduling context
+-> manager reviews
+-> manager decides
+-> system applies decision
+
+This preserves AEP as a company, not an autonomous swarm.
+
+### Task State Extension
+
+PR16F introduces:
+
+status: parked
+
+Meaning:
+
+- task is intentionally paused
+- not eligible for execution
+- retains full context and artifacts
+- can be resumed to ready
+
+State model:
+
+queued -> ready -> in_progress -> completed
+                 -> parked -> ready
+
+Constraints:
+
+- parking is manager-mediated
+- no silent worker-driven parking
+- all transitions must be auditable
+
+### Preemption Model (Bounded)
+
+Preemption is not an interrupt primitive.
+
+It is modeled as:
+
+current task -> parked
+new task -> executed
+
+With explicit manager decision, thread/artifact record, and no hidden state transitions.
+
+### Cognitive Scheduling Invariants
+
+Must always hold:
+
+- No hidden prioritization state outside canonical surfaces
+- No scheduler tables
+- No dashboard-owned scheduling state
+- No direct mutation of tasks outside APIs
+- All decisions reconstructable from tasks, artifacts, threads, approvals, and manager logs
+
+### Architectural Intent
+
+PR16 evolves AEP from a deterministic task executor to a cognitively steered organization runtime, where contracts define roles, cognition exercises judgment, and managers enforce prioritization decisions.
 - Intake and projects are canonical operator-agent state. The dashboard only calls canonical routes and must not become the owner of intake, project, or task state.
 - Project task graphs must use existing canonical tasks and dependencies. Do not introduce a parallel project-work store.
 

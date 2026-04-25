@@ -199,6 +199,91 @@ AEP uses a simple organizational model:
 intake → project → task graph → assigned employee → execution → decision → result
 ```
 
+---
+
+## Cognitive Work Distribution (PR16 Evolution)
+
+AEP is evolving from rule-based execution to cognitively steered work distribution.
+
+### Before
+
+- Teams selected tasks using simple rules (for example first ready task)
+- Scheduling was implicit and deterministic
+
+### After (PR16)
+
+- Teams evaluate multiple ready tasks
+- A bounded LLM context is used to:
+  - prioritize work
+  - recommend next actions
+  - identify conflicts
+
+Key principle:
+
+> AEP uses cognition for judgment, not for state.
+
+All decisions are:
+
+- constrained by canonical task state
+- recorded through threads and artifacts
+- visible and auditable
+
+---
+
+## Manager Role In Prioritization
+
+AEP models real organizational behavior:
+
+- Workers execute tasks
+- Managers decide priorities
+
+When conflicts arise:
+
+team loop detects competing work
+-> publishes context
+-> manager decides
+-> system applies decision
+
+---
+
+## Task Parking And Preemption
+
+AEP supports controlled preemption through a canonical state:
+
+status: parked
+
+This allows:
+
+- pausing lower-priority work
+- switching to higher-priority tasks
+- resuming work later
+
+Important:
+
+- Tasks are not interrupted arbitrarily
+- Preemption is a manager decision
+- All changes are visible and auditable
+
+---
+
+## Design Philosophy
+
+AEP is not:
+
+- a workflow engine
+- a rule-based scheduler
+
+AEP is:
+
+> an organization runtime
+
+Where:
+
+- tasks are work
+- teams are execution units
+- managers enforce priorities
+- cognition provides judgment
+
 This is important because work is no longer modeled as direct system calls.  
 It enters through a company front door, becomes a project, and then becomes canonical task responsibility.
 
