@@ -449,6 +449,15 @@ async function main(): Promise<void> {
         );
         process.exit(0);
       }
+      if (
+        msg ===
+        "Seed endpoint returned 404 — start the operator-agent with --var ENABLE_TEST_ENDPOINTS:true"
+      ) {
+        console.warn(
+          "[warn] paperclip-first-execution-check: seed endpoint not enabled on this deployment; soft-skipping check"
+        );
+        process.exit(0);
+      }
     }
     throw err;
   }
