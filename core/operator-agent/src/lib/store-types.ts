@@ -124,6 +124,11 @@ export type IntakeListQuery = {
   limit?: number;
 };
 
+export type IntakeStatusUpdate = {
+  id: string;
+  status: IntakeRequestStatus;
+};
+
 export type ProjectStatus =
   | "active"
   | "paused"
@@ -401,6 +406,7 @@ export interface TaskStore {
   createIntakeRequest(args: IntakeRequest): Promise<void>;
   getIntakeRequest(id: string): Promise<IntakeRequest | null>;
   listIntakeRequests(query: IntakeListQuery): Promise<IntakeRequest[]>;
+  updateIntakeRequestStatus(args: IntakeStatusUpdate): Promise<void>;
 
   createProject(args: Project): Promise<void>;
   getProject(id: string): Promise<Project | null>;

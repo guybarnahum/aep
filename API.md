@@ -176,11 +176,30 @@ Base service: `core/operator-agent`
 
 - Fetch a single intake request.
 
+`PATCH /agent/intake/:id`
+
+- Update the status of an intake request.
+- Required body fields:
+	- `status` — one of `submitted`, `triaged`, `converted`, `rejected`
+- Returns the updated intake request.
+
+`POST /agent/intake/:id/convert-to-project`
+
+- Convert an intake request into a canonical project.
+- Creates a project (status `active`, `ownerTeamId` = web-product team) linked to the intake.
+- Marks the intake status as `converted`.
+- Creates a coordination message thread and an initial system note.
+- Returns `{ ok, intake, project, threadId, messageId }` with a `201` status.
+- Returns `409` if the intake has already been converted.
+- Returns `422` if the intake has been rejected.
+
 Important invariants:
 
 - Intake does NOT create tasks.
 - Intake is a demand signal only.
-- Conversion to work happens later via PM agents (PR15C).
+- Triage sets status to `triaged`; rejection sets status to `rejected`.
+- Conversion is the only operation that creates a project from an intake.
+- A converted intake cannot be converted again.
 
 ### Projects
 
@@ -214,7 +233,7 @@ Important invariants:
 Important invariants:
 
 - Projects do NOT execute work directly.
-- Projects do NOT create tasks in PR15B.
+- Projects can be created directly via `POST /agent/projects` or via intake conversion (`POST /agent/intake/:id/convert-to-project`).
 - Projects are containers for future PM-created task graphs.
 - Task graph creation begins later in PR15D.
 

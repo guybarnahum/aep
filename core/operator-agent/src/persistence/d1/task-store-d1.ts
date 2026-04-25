@@ -9,6 +9,7 @@ import type {
 import {
   type IntakeListQuery,
   type IntakeRequest,
+  type IntakeStatusUpdate,
   type Project,
   type ProjectListQuery,
   type ExternalInteractionAuditRecord,
@@ -844,6 +845,13 @@ export class D1TaskStore implements TaskStore {
       .all<IntakeRequestRow>();
 
     return (rows.results ?? []).map(rowToIntakeRequest);
+  }
+
+  async updateIntakeRequestStatus(args: IntakeStatusUpdate): Promise<void> {
+    await this.db
+      .prepare(`UPDATE intake_requests SET status = ? WHERE id = ?`)
+      .bind(args.status, args.id)
+      .run();
   }
 
   async createProject(args: Project): Promise<void> {

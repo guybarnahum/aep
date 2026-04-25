@@ -1,5 +1,6 @@
 import { getTaskStore } from "@aep/operator-agent/lib/store-factory";
 import { newId } from "@aep/shared";
+import type { IntakeRequestStatus } from "@aep/operator-agent/lib/store-types";
 import type { OperatorAgentEnv } from "@aep/operator-agent/types";
 
 type CreateIntakeBody = {
@@ -115,4 +116,61 @@ export async function handleGetIntake(
   }
 
   return Response.json({ ok: true, item });
+}
+
+type UpdateIntakeStatusBody = {
+  status?: unknown;
+};
+
+const INTAKE_STATUSES: IntakeRequestStatus[] = [
+  "submitted",
+  "triaged",
+  "converted",
+  "rejected",
+];
+
+function parseIntakeStatus(raw: unknown): IntakeRequestStatus | null {
+  if (typeof raw === "string" && (INTAKE_STATUSES as string[]).includes(raw)) {
+    return raw as IntakeRequestStatus;
+  }
+  return null;
+}
+
+export async function handleUpdateIntakeStatus(
+  request: Request,
+  env: OperatorAgentEnv | undefined,
+  id: string,
+): Promise<Response> {
+  if (request.method !== "PATCH") {
+    return new Response("Method Not Allowed", { status: 405 });
+  }
+
+  if (!env) {
+    return jsonError("Missing operator-agent environment", 500);
+  }
+
+  let body: UpdateIntakeStatusBody;
+  try {
+    body = (await request.json()) as UpdateIntakeStatusBody;
+  } catch {
+    return jsonError("Invalid JSON body");
+  }
+
+  const status = parseIntakeStatus(body.status);
+  if (!status) {
+    return jsonError(
+      `status must be one of: ${INTAKE_STATUSES.join(", ")}`,
+    );
+  }
+
+  const store = getTaskStore(env);
+  const existing = await store.getIntakeRequest(id);
+  if (!existing) {
+    return jsonError("Not found", 404);
+  }
+
+  await store.updateIntakeRequestStatus({ id, status });
+  const updated = await store.getIntakeRequest(id);
+
+  return Response.json({ ok: true, item: updated });
 }

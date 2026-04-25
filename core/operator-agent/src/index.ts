@@ -34,7 +34,9 @@ import {
   handleCreateIntake,
   handleGetIntake,
   handleListIntake,
+  handleUpdateIntakeStatus,
 } from "./routes/intake";
+import { handleConvertIntakeToProject } from "./routes/intake-convert";
 import {
   handleCreateProject,
   handleGetProject,
@@ -338,8 +340,16 @@ async function dispatch(request: Request, env: OperatorAgentEnv): Promise<Respon
     }
   }
 
+  const intakeConvertMatch = url.pathname.match(/^\/agent\/intake\/([^/]+)\/convert-to-project$/);
+  if (intakeConvertMatch) {
+    return handleConvertIntakeToProject(request, env, decodeURIComponent(intakeConvertMatch[1]));
+  }
+
   const intakeMatch = url.pathname.match(/^\/agent\/intake\/([^/]+)$/);
   if (intakeMatch) {
+    if (request.method === "PATCH") {
+      return handleUpdateIntakeStatus(request, env, decodeURIComponent(intakeMatch[1]));
+    }
     return handleGetIntake(request, env, decodeURIComponent(intakeMatch[1]));
   }
 
