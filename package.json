@@ -53,6 +53,8 @@
     "ci:task-artifact-expectation-live-check": "tsx scripts/ci/checks/scenarios/task-artifact-expectation-live-check.ts",
     "ci:task-parking-live-check": "tsx scripts/ci/checks/scenarios/task-parking-live-check.ts",
     "ci:team-loop-cognitive-scheduling-live-check": "tsx scripts/ci/checks/scenarios/team-loop-cognitive-scheduling-live-check.ts",
+    "ci:task-delegation-pattern-contract-check": "tsx scripts/ci/checks/contracts/task-delegation-pattern-contract-check.ts",
+    "ci:task-delegation-live-check": "tsx scripts/ci/checks/scenarios/task-delegation-live-check.ts",
     "ci:no-hardcoded-runtime-identifiers": "tsx scripts/ci/checks/contracts/no-hardcoded-runtime-identifiers-check.ts",
     "ci:task-dependency-integrity-check": "tsx scripts/ci/checks/contracts/task-dependency-integrity-check.ts",
     "ci:task-artifact-contract-check": "tsx scripts/ci/checks/contracts/task-artifact-contract-check.ts",

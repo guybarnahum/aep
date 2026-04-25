@@ -68,6 +68,33 @@ Endpoint documentation note for future LLM sessions:
   manager-mediated parking, because source-level checks alone are not sufficient
   for the organization-runtime contract.
 
+### PR16F - Delegation Patterns
+
+PR16F makes delegation contract-driven. Task contracts define allowed follow-up
+task types, and delegation creates ordinary canonical tasks with provenance.
+
+Delegation invariants:
+
+- no delegation tables
+- no team-specific work stores
+- no dashboard-owned delegation state
+- source task remains canonical
+- delegated task is a normal task
+- provenance is stored in task payload and coordination thread/message
+
+Example delegation edges:
+
+```text
+PM planning -> Web design / Web implementation
+Web implementation -> Infra deployment
+Infra deployment -> Validation verification
+Validation verification -> Bug report / Coordination
+Bug report -> PM/Web/Infra follow-up
+```
+
+Delegation is organizational behavior over canonical tasks, not a new workflow
+engine.
+
 ### PR16D - Cognitive Prioritization And Manager-Mediated Parking
 
 PR16D makes prioritization a cognitive decision rather than a fixed code rule.

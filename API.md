@@ -520,6 +520,13 @@ PR16D scheduling and parking note:
 - Parking is explicit, auditable, and route-mediated.
 - Team loops may return `manager_review_requested` when cognition identifies scheduling tradeoffs that require manager approval.
 
+PR16F delegation note:
+
+- Task contracts define allowed next-task delegation patterns.
+- Delegation creates normal canonical tasks with dependency/provenance links.
+- Invalid delegation edges are rejected at the task delegation boundary.
+- Slack/email/UI remain adapters only and do not own delegation state.
+
 `GET /agent/tasks`
 
 - Lists canonical coordination tasks.
@@ -542,6 +549,26 @@ PR16D scheduling and parking note:
 	- `managerDecisionId`
 - Applies canonical task status transition to `parked`.
 - Persists a canonical coordination audit thread/message linked to the parked task.
+
+`POST /agent/tasks/:taskId/delegate`
+
+- Creates a delegated canonical task from an existing source task.
+- Required JSON body fields:
+	- `delegatedByEmployeeId`
+	- `taskType`
+	- `title`
+- Optional JSON body fields:
+	- `assignedTeamId`
+	- `payload`
+	- `dependsOnSourceTask`
+- Delegation is validated against the source task's task contract.
+- Delegated tasks receive canonical provenance in payload:
+	- `sourceTaskId`
+	- `sourceTaskType`
+	- `delegatedByEmployeeId`
+	- inherited `projectId` / `intakeRequestId` when available
+- Creates a canonical coordination thread/message recording the delegation.
+- Does not introduce a separate delegation/work store.
 
 `GET /agent/tasks/:taskId/artifacts`
 

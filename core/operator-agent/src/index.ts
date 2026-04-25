@@ -50,6 +50,7 @@ import {
   handleListTasks,
   handleParkTask,
 } from "./routes/tasks";
+import { handleDelegateTaskFromTask } from "./routes/task-delegate";
 import {
   handleCreateTaskArtifact,
   handleListTaskArtifacts,
@@ -219,6 +220,15 @@ async function dispatch(request: Request, env: OperatorAgentEnv): Promise<Respon
   const taskParkMatch = url.pathname.match(/^\/agent\/tasks\/([^/]+)\/park$/);
   if (taskParkMatch && request.method === "POST") {
     return handleParkTask(request, env, decodeURIComponent(taskParkMatch[1]));
+  }
+
+  const taskDelegateMatch = url.pathname.match(/^\/agent\/tasks\/([^/]+)\/delegate$/);
+  if (taskDelegateMatch && request.method === "POST") {
+    return handleDelegateTaskFromTask(
+      request,
+      env,
+      decodeURIComponent(taskDelegateMatch[1]),
+    );
   }
 
   const taskArtifactsMatch = url.pathname.match(/^\/agent\/tasks\/([^/]+)\/artifacts$/);

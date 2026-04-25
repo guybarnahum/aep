@@ -36,8 +36,13 @@ export type TaskContract = {
   expectedTeamIds: readonly TeamId[];
   expectedArtifacts: readonly TaskArtifactType[];
   payloadContract: TaskPayloadContract;
+  delegation?: TaskDelegationContract;
   legacyAliases?: readonly string[];
   defaultRoleId?: AgentRoleId;
+};
+
+export type TaskDelegationContract = {
+  allowedNextTaskTypes: readonly CanonicalTaskType[];
 };
 
 export type TaskPayloadPrimitive =
@@ -112,6 +117,9 @@ export const TASK_CONTRACTS: readonly TaskContract[] = [
       field("objectiveTitle", "string"),
       field("sourceRef", "string"),
     ]),
+    delegation: {
+      allowedNextTaskTypes: ["web_design", "web_implementation"],
+    },
   },
   {
     taskType: "task_graph_planning",
@@ -122,6 +130,14 @@ export const TASK_CONTRACTS: readonly TaskContract[] = [
       field("objectiveTitle", "string"),
       field("targetUrl", "string"),
     ]),
+    delegation: {
+      allowedNextTaskTypes: [
+        "requirements_definition",
+        "web_design",
+        "web_implementation",
+        "coordination",
+      ],
+    },
     legacyAliases: ["plan-website-delivery", "plan-feature"],
   },
   {
@@ -133,6 +149,9 @@ export const TASK_CONTRACTS: readonly TaskContract[] = [
       field("targetUrl", "string"),
       field("objectiveTitle", "string"),
     ]),
+    delegation: {
+      allowedNextTaskTypes: ["web_implementation", "ui_iteration"],
+    },
     legacyAliases: ["website-design"],
   },
   {
@@ -144,6 +163,9 @@ export const TASK_CONTRACTS: readonly TaskContract[] = [
       field("targetUrl", "string"),
       field("requirementsRef", "string"),
     ]),
+    delegation: {
+      allowedNextTaskTypes: ["deployment", "ui_iteration", "verification"],
+    },
     legacyAliases: ["website-implementation", "implementation"],
   },
   {
@@ -155,6 +177,9 @@ export const TASK_CONTRACTS: readonly TaskContract[] = [
       field("targetUrl", "string"),
       field("feedbackRef", "string"),
     ]),
+    delegation: {
+      allowedNextTaskTypes: ["web_implementation", "verification"],
+    },
   },
   {
     taskType: "deployment",
@@ -165,6 +190,13 @@ export const TASK_CONTRACTS: readonly TaskContract[] = [
       field("environment", "string"),
       field("artifactRef", "string"),
     ]),
+    delegation: {
+      allowedNextTaskTypes: [
+        "verification",
+        "monitoring_setup",
+        "incident_response",
+      ],
+    },
     legacyAliases: ["website-deployment"],
   },
   {
@@ -176,6 +208,9 @@ export const TASK_CONTRACTS: readonly TaskContract[] = [
       field("environment", "string"),
       field("targetUrl", "string"),
     ]),
+    delegation: {
+      allowedNextTaskTypes: ["verification", "incident_response"],
+    },
   },
   {
     taskType: "incident_response",
@@ -186,6 +221,9 @@ export const TASK_CONTRACTS: readonly TaskContract[] = [
       field("incidentRef", "string"),
       field("severity", "string"),
     ]),
+    delegation: {
+      allowedNextTaskTypes: ["bug_report", "verification", "coordination"],
+    },
   },
   {
     taskType: "test_execution",
@@ -196,6 +234,9 @@ export const TASK_CONTRACTS: readonly TaskContract[] = [
       field("targetUrl", "string"),
       field("testPlanRef", "string"),
     ]),
+    delegation: {
+      allowedNextTaskTypes: ["bug_report", "verification", "coordination"],
+    },
   },
   {
     taskType: "bug_report",
@@ -206,6 +247,14 @@ export const TASK_CONTRACTS: readonly TaskContract[] = [
       field("sourceTaskId", "string"),
       field("summary", "string"),
     ]),
+    delegation: {
+      allowedNextTaskTypes: [
+        "requirements_definition",
+        "web_implementation",
+        "deployment",
+        "coordination",
+      ],
+    },
   },
   {
     taskType: "verification",
@@ -216,6 +265,9 @@ export const TASK_CONTRACTS: readonly TaskContract[] = [
       field("targetUrl", "string"),
       field("subjectRef", "string"),
     ]),
+    delegation: {
+      allowedNextTaskTypes: ["bug_report", "deployment", "coordination"],
+    },
     legacyAliases: ["validate-deployment"],
     defaultRoleId: "reliability-engineer",
   },
@@ -225,6 +277,18 @@ export const TASK_CONTRACTS: readonly TaskContract[] = [
     expectedTeamIds: [TEAM_WEB_PRODUCT, TEAM_INFRA, TEAM_VALIDATION],
     expectedArtifacts: ["result"],
     payloadContract: payloadContract([field("topic", "string")]),
+    delegation: {
+      allowedNextTaskTypes: [
+        "project_planning",
+        "requirements_definition",
+        "web_design",
+        "web_implementation",
+        "deployment",
+        "test_execution",
+        "verification",
+        "analysis",
+      ],
+    },
   },
   {
     taskType: "analysis",
@@ -232,6 +296,15 @@ export const TASK_CONTRACTS: readonly TaskContract[] = [
     expectedTeamIds: [TEAM_WEB_PRODUCT, TEAM_INFRA, TEAM_VALIDATION],
     expectedArtifacts: ["plan"],
     payloadContract: payloadContract([field("question", "string")]),
+    delegation: {
+      allowedNextTaskTypes: [
+        "coordination",
+        "requirements_definition",
+        "web_implementation",
+        "deployment",
+        "verification",
+      ],
+    },
   },
 ] as const;
 
@@ -427,5 +500,40 @@ export function evaluateTaskArtifactExpectations(args: {
     expectedArtifacts: contract.expectedArtifacts,
     presentArtifacts: args.artifactTypes,
     missingArtifacts,
+  };
+}
+
+export type TaskDelegationValidationResult =
+  | { ok: true; sourceTaskType: CanonicalTaskType; delegatedTaskType: CanonicalTaskType }
+  | {
+    ok: false;
+    sourceTaskType: CanonicalTaskType;
+    delegatedTaskType: CanonicalTaskType;
+    reason: "delegation_not_allowed";
+    allowedNextTaskTypes: readonly CanonicalTaskType[];
+  };
+
+export function validateTaskDelegationPattern(args: {
+  sourceTaskType: string;
+  delegatedTaskType: string;
+}): TaskDelegationValidationResult {
+  const source = getTaskContract(args.sourceTaskType);
+  const delegated = getTaskContract(args.delegatedTaskType);
+  const allowedNextTaskTypes = source.delegation?.allowedNextTaskTypes ?? [];
+
+  if (!allowedNextTaskTypes.includes(delegated.taskType)) {
+    return {
+      ok: false,
+      sourceTaskType: source.taskType,
+      delegatedTaskType: delegated.taskType,
+      reason: "delegation_not_allowed",
+      allowedNextTaskTypes,
+    };
+  }
+
+  return {
+    ok: true,
+    sourceTaskType: source.taskType,
+    delegatedTaskType: delegated.taskType,
   };
 }
