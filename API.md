@@ -527,6 +527,16 @@ PR16F delegation note:
 - Invalid delegation edges are rejected at the task delegation boundary.
 - Slack/email/UI remain adapters only and do not own delegation state.
 
+PR16G closeout note:
+
+- PR16 role realism is guarded by an umbrella contract check:
+	`npm run ci:pr16-role-realism-contract-check`
+- The check verifies task contracts, payload contracts, artifact expectations,
+	parked task state, cognitive scheduling, delegation route wiring, and PR16
+	CI script registration.
+- PR16 behavior remains inside canonical AEP primitives and does not introduce
+	scheduler tables, delegation tables, or team-specific work stores.
+
 `GET /agent/tasks`
 
 - Lists canonical coordination tasks.

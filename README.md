@@ -44,7 +44,7 @@ The company must also support:
 |----------|------|---------------|
 | PR14 | Team operating loops / heartbeat | ✅ Complete. Team loop routes, persisted cadence, dashboard visibility, canonical heartbeat publication, and CI coverage exist. |
 | PR15 | Project + intake model | ✅ PR15A-F complete. Intake, projects, intake conversion, project task graphs, dashboard UI, and CI scenario coverage exist. |
-| PR16 | Real Web / Infra / Validation specialization | 🟡 Next. PM planning, validation, deployment, and team loops exist; role-specific work behavior needs strengthening. |
+| PR16 | Real Web / Infra / Validation specialization | ✅ Complete through PR16G. Native task contracts, payload contracts, team-loop specialization, cognitive scheduling, manager-mediated parking, artifact expectations, delegation patterns, and CI/docs closeout exist. |
 | PR17 | External collaboration adapters | 🟡 Partially implemented. Slack/email mirroring and routing exist; Jira-like integration not implemented. |
 | PR18 | HR / staffing system | 🟡 Partially implemented. Employee lifecycle, persona, and reviews exist; HR workflows (JD, hiring, staffing) not implemented. |
 | PR19 | Productization / marketing website | ❌ Not implemented. Internal dashboard exists, but no AEP-produced customer-facing product. |
@@ -186,6 +186,12 @@ Run locally:
 npm run ci:no-hardcoded-runtime-identifiers
 ```
 
+PR16 role-realism integration check:
+
+```bash
+npm run ci:pr16-role-realism-contract-check
+```
+
 Historical migrations, docs, examples, and local-dev-only scripts are treated as
 allowed exception categories.
 
@@ -231,6 +237,31 @@ All decisions are:
 - constrained by canonical task state
 - recorded through threads and artifacts
 - visible and auditable
+
+### PR16 Role Realism Contract
+
+PR16 makes role behavior part of the AEP substrate rather than a bolt-on rule
+layer.
+
+Each canonical task type now carries:
+
+- responsible discipline
+- expected team ownership
+- required payload shape
+- expected artifact output
+- allowed delegation patterns
+
+This lets AEP behave more like a company:
+
+```text
+PM plans
+Web designs/builds
+Infra deploys/monitors
+Validation verifies/reports
+Managers prioritize and park work
+```
+
+Code owns the boundaries. Cognition owns the judgment.
 
 ---
 

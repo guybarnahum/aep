@@ -40,15 +40,14 @@ Endpoint documentation note for future LLM sessions:
 - PR16A begins role realism by adding a native task contract registry. Task types are no longer arbitrary strings: they resolve through code-owned task contracts that define canonical task type, discipline, expected teams, expected artifacts, legacy aliases, and default role hints. Legacy PR15 task aliases are accepted only at creation boundaries and normalized before persistence, so canonical task state uses PR16 vocabulary only.
 - PR16B extends the same task contract registry with payload contracts. Task payload requirements are validated at the canonical task-store creation boundary before persistence, so direct route creation, project task graphs, thread delegation, and agent-created work all share one contract path. This keeps specialization inside the existing task/artifact/thread model instead of introducing team-specific stores.
 - PR16C adds team-loop specialization on top of canonical task contracts. Team loop task picking is now role/discipline aware and ordered by contract-defined canonical task-type priority, while remaining in the same canonical task store and scheduler flow. Team loop responses and heartbeat payloads now expose specialization selection metadata.
-- PR16 sequencing order is:
-  - PR16A - Task Type Taxonomy
-  - PR16B - Payload Contracts
-  - PR16C - Team Loop Specialization
-  - PR16D - Cognitive Prioritization and Manager-Mediated Parking
-  - PR16E - Artifact Expectations
-  - PR16F - Delegation Patterns
-  - PR16G - CI Coverage
-  - PR16H - Docs
+- PR16 is complete through PR16G. PR16 moved AEP from generic task execution toward role-realistic organizational behavior:
+  - PR16A - native task contract taxonomy
+  - PR16B - task payload contracts
+  - PR16C - team-loop specialization
+  - PR16D - cognitive prioritization and manager-mediated parking
+  - PR16E - artifact expectations and live scheduling/parking coverage
+  - PR16F - contract-driven delegation patterns
+  - PR16G - integrated CI and documentation closeout
 - PR16D introduces cognitive prioritization and manager-mediated parking while preserving canonical state boundaries. Code gathers safe candidates and enforces contracts; cognition ranks, recommends, and explains tradeoffs through public rationale.
 
   ### PR16E - Artifact Expectations + Live Scheduling Coverage
@@ -94,6 +93,55 @@ Bug report -> PM/Web/Infra follow-up
 
 Delegation is organizational behavior over canonical tasks, not a new workflow
 engine.
+
+### PR16G - Role Realism Closeout
+
+PR16G closes the role-realism stage by adding an umbrella CI guard and aligning
+docs around the final PR16 model.
+
+PR16 final state:
+
+```text
+task contract
+  -> task type
+  -> payload contract
+  -> team/discipline expectation
+  -> artifact expectation
+  -> delegation pattern
+  -> cognitive scheduling context
+```
+
+Important invariant:
+
+> Code constrains structure. Cognition exercises bounded judgment.
+
+PR16 does not add:
+
+- scheduler tables
+- delegation tables
+- project-work tables
+- team-specific work stores
+- dashboard-owned state
+
+All PR16 behavior remains inside:
+
+- tasks
+- task dependencies
+- artifacts
+- threads/messages
+- approvals/escalations
+- projects/intake links
+- manager/audit surfaces
+
+The umbrella CI check is:
+
+```bash
+npm run ci:pr16-role-realism-contract-check
+```
+
+It verifies the integrated PR16 contract surface: task contracts, payload
+contracts, parked state, cognitive scheduling, artifact expectations,
+delegation route wiring, and PR16 live/contract CI script registration.
 
 ### PR16D - Cognitive Prioritization And Manager-Mediated Parking
 
