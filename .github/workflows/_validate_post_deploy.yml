@@ -151,6 +151,12 @@ jobs:
         run: |
           npx tsx scripts/ci/checks/scenarios/task-reassignment-continuity-check.ts 2>&1 | tee -a post-deploy-validation.log
 
+      - name: Intake/project flow check
+        id: intake_project_flow
+        if: steps.config.outputs.enabled == 'true' && steps.post_deploy_validation.outcome == 'success'
+        run: |
+          npx tsx scripts/ci/checks/scenarios/intake-project-flow-check.ts 2>&1 | tee -a post-deploy-validation.log
+
       - name: Validation loop feedback check
         id: validation_loop_feedback
         if: steps.config.outputs.enabled == 'true' && steps.post_deploy_validation.outcome == 'success'
