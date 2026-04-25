@@ -496,6 +496,18 @@ The task contract registry also carries team-discipline, default role, and
 artifact-expectation metadata for PR16B-F. It must remain code-owned and must
 not become a dashboard-owned state store.
 
+PR16B note: task creation also validates payload shape through the same
+task contract registry. Required payload fields are enforced at canonical
+task creation time, before persistence. This applies equally to direct task
+creation, project task graphs, thread delegation, and agent-created tasks.
+
+Examples:
+
+- `web_implementation` requires `targetUrl` and `requirementsRef`
+- `deployment` requires `environment` and `artifactRef`
+- `verification` requires `targetUrl` and `subjectRef`
+- `bug_report` requires `sourceTaskId` and `summary`
+
 `GET /agent/tasks`
 
 - Lists canonical coordination tasks.

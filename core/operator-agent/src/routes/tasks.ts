@@ -1,6 +1,9 @@
 import { summarizeTaskVisibility } from "@aep/operator-agent/lib/human-visibility-summary";
 import { getTaskStore } from "@aep/operator-agent/lib/store-factory";
-import { TaskTypeValidationError } from "@aep/operator-agent/lib/task-contracts";
+import {
+  TaskPayloadValidationError,
+  TaskTypeValidationError,
+} from "@aep/operator-agent/lib/task-contracts";
 import {
   TaskDependencyValidationError,
   type Decision,
@@ -93,6 +96,22 @@ export async function handleCreateTask(
           error: error.message,
           code: "unsupported_task_type",
           details: { taskType: error.taskType },
+        },
+        { status: 400 },
+      );
+    }
+
+    if (error instanceof TaskPayloadValidationError) {
+      return Response.json(
+        {
+          ok: false,
+          error: error.message,
+          code: error.code,
+          details: {
+            taskType: error.taskType,
+            field: error.field,
+            expectedType: error.expectedType ?? null,
+          },
         },
         { status: 400 },
       );

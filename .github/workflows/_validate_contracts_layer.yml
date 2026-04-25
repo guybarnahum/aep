@@ -107,6 +107,14 @@ jobs:
         id: task_type_normalization_contract
         run: npx tsx scripts/ci/checks/contracts/task-type-normalization-contract-check.ts | tee task-type-normalization-contract-check.log
 
+      - name: Run task-payload contract check
+        id: task_payload_contract
+        run: npx tsx scripts/ci/checks/contracts/task-payload-contract-check.ts | tee task-payload-contract-check.log
+
+      - name: Run task-payload normalization contract check
+        id: task_payload_normalization_contract
+        run: npx tsx scripts/ci/checks/contracts/task-payload-normalization-contract-check.ts | tee task-payload-normalization-contract-check.log
+
       - name: Run hardcoded runtime identifier guardrail
         id: no_hardcoded_runtime_identifiers
         run: npm run ci:no-hardcoded-runtime-identifiers | tee no-hardcoded-runtime-identifiers-check.log
@@ -174,6 +182,8 @@ jobs:
             "${{ steps.operator_agent_contract.outcome }}" == "success" && \
             "${{ steps.task_type_contract.outcome }}" == "success" && \
             "${{ steps.task_type_normalization_contract.outcome }}" == "success" && \
+            "${{ steps.task_payload_contract.outcome }}" == "success" && \
+            "${{ steps.task_payload_normalization_contract.outcome }}" == "success" && \
             "${{ steps.no_hardcoded_runtime_identifiers.outcome }}" == "success" && \
             "${{ steps.runtime_projection.outcome }}" == "success" && \
             "${{ steps.employee_scope.outcome }}" == "success" && \
@@ -222,6 +232,8 @@ jobs:
           echo "- $(status_emoji "${{ steps.operator_agent_contract.outcome }}") operator-agent-contract-check: ${{ steps.operator_agent_contract.outcome }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- $(status_emoji "${{ steps.task_type_contract.outcome }}") task-type-contract-check: ${{ steps.task_type_contract.outcome }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- $(status_emoji "${{ steps.task_type_normalization_contract.outcome }}") task-type-normalization-contract-check: ${{ steps.task_type_normalization_contract.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- $(status_emoji "${{ steps.task_payload_contract.outcome }}") task-payload-contract-check: ${{ steps.task_payload_contract.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- $(status_emoji "${{ steps.task_payload_normalization_contract.outcome }}") task-payload-normalization-contract-check: ${{ steps.task_payload_normalization_contract.outcome }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- $(status_emoji "${{ steps.no_hardcoded_runtime_identifiers.outcome }}") no-hardcoded-runtime-identifiers-check: ${{ steps.no_hardcoded_runtime_identifiers.outcome }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- $(status_emoji "${{ steps.runtime_projection.outcome }}") runtime-projection-check: ${{ steps.runtime_projection.outcome }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- $(status_emoji "${{ steps.employee_scope.outcome }}") employee-scope-check: ${{ steps.employee_scope.outcome }}" >> "$GITHUB_STEP_SUMMARY"

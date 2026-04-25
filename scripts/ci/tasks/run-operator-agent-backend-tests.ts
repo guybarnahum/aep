@@ -66,6 +66,10 @@ function main(): void {
         label: "task-type normalization contract check",
         scriptPath: "scripts/ci/checks/contracts/task-type-normalization-contract-check.ts",
       },
+      {
+        label: "task-payload normalization contract check",
+        scriptPath: "scripts/ci/checks/contracts/task-payload-normalization-contract-check.ts",
+      },
     );
   } else {
     console.log(

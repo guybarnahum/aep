@@ -23,6 +23,16 @@ for (const contract of TASK_CONTRACTS) {
     throw new Error(`Task contract has no expected artifacts: ${contract.taskType}`);
   }
 
+  if (!contract.payloadContract) {
+    throw new Error(`Task contract has no payload contract: ${contract.taskType}`);
+  }
+
+  for (const field of contract.payloadContract.required) {
+    if (!field.key.trim()) {
+      throw new Error(`Task contract has an empty required payload key: ${contract.taskType}`);
+    }
+  }
+
   const resolved = getTaskContract(contract.taskType);
   if (resolved.taskType !== contract.taskType) {
     throw new Error(`Failed to resolve canonical task type: ${contract.taskType}`);

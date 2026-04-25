@@ -29,7 +29,10 @@ import {
   type TaskStatus,
   type TaskStore,
 } from "@aep/operator-agent/lib/store-types";
-import { normalizeTaskType } from "@aep/operator-agent/lib/task-contracts";
+import {
+  normalizeTaskType,
+  validateTaskPayloadContract,
+} from "@aep/operator-agent/lib/task-contracts";
 import { newId } from "@aep/shared";
 import type { OperatorAgentEnv } from "@aep/operator-agent/types";
 
@@ -617,7 +620,10 @@ export class D1TaskStore implements TaskStore {
     task: TaskCreateInput;
     dependsOnTaskIds?: string[];
   }): Promise<void> {
-    const canonicalTaskType = normalizeTaskType(args.task.taskType);
+    const canonicalTaskType = validateTaskPayloadContract({
+      taskType: args.task.taskType,
+      payload: args.task.payload,
+    });
 
     const dependsOnTaskIds = await this.validateDependencies({
       taskId: args.task.id,

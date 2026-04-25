@@ -1,5 +1,8 @@
 import { getTaskStore } from "@aep/operator-agent/lib/store-factory";
-import { TaskTypeValidationError } from "@aep/operator-agent/lib/task-contracts";
+import {
+  TaskPayloadValidationError,
+  TaskTypeValidationError,
+} from "@aep/operator-agent/lib/task-contracts";
 import { TaskDependencyValidationError } from "@aep/operator-agent/lib/store-types";
 import { isTeamId } from "@aep/operator-agent/org/teams";
 import type { OperatorAgentEnv } from "@aep/operator-agent/types";
@@ -208,6 +211,15 @@ export async function handleCreateProjectTaskGraph(
       return jsonError(error.message, 400, {
         code: "unsupported_task_type",
         taskType: error.taskType,
+      });
+    }
+
+    if (error instanceof TaskPayloadValidationError) {
+      return jsonError(error.message, 400, {
+        code: error.code,
+        taskType: error.taskType,
+        field: error.field,
+        expectedType: error.expectedType ?? null,
       });
     }
 

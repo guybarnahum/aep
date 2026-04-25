@@ -43,6 +43,8 @@ async function main(): Promise<void> {
       source: CHECK_NAME,
       legacyAlias: LEGACY_ALIAS,
       expectedCanonicalType: EXPECTED_CANONICAL_TYPE,
+      objectiveTitle: "Task type normalization objective",
+      targetUrl: "https://example.invalid",
       agentBaseUrl,
     },
   });

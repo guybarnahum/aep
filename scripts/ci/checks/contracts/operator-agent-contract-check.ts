@@ -859,9 +859,12 @@ async function main(): Promise<void> {
     assignedTeamId: "team_web_product",
     assignedEmployeeId: productManagerWebEmployeeId,
     createdByEmployeeId: infraOpsManagerEmployeeId,
-    taskType: "plan-feature",
+    taskType: "analysis",
     title: `Review evidence task ${Date.now()}`,
-    payload: { source: "ci-review-check" },
+    payload: {
+      question: "What is the best review framing for this execution evidence?",
+      source: "ci-review-check",
+    },
   });
   if (!reviewTask?.ok || typeof reviewTask.taskId !== "string") {
     throw new Error("Expected review evidence task creation to succeed");

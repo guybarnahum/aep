@@ -175,6 +175,7 @@ async function buildWebsitePlan(args: {
           objectiveTitle,
           targetUrl,
           phase: "deployment",
+          environment: "staging",
         },
       },
       {
@@ -332,6 +333,24 @@ async function createChildTaskGraph(args: {
       (id) => stepTaskIds[id],
     );
 
+    const payload: Record<string, unknown> = {
+      ...step.payload,
+      planningRootTaskId: args.rootTask.id,
+      planningRootTaskTitle: args.rootTask.title,
+    };
+
+    if (step.taskType === "web_implementation") {
+      payload.requirementsRef = stepTaskIds.design;
+    }
+
+    if (step.taskType === "deployment") {
+      payload.artifactRef = stepTaskIds.implement;
+    }
+
+    if (step.taskType === "verification") {
+      payload.subjectRef = stepTaskIds.deploy;
+    }
+
     await taskStore.createTaskWithDependencies({
       task: {
         id: stepTaskIds[step.id],
@@ -343,11 +362,7 @@ async function createChildTaskGraph(args: {
         createdByEmployeeId: args.context.employee.identity.employeeId,
         taskType: step.taskType,
         title: step.title,
-        payload: {
-          ...step.payload,
-          planningRootTaskId: args.rootTask.id,
-          planningRootTaskTitle: args.rootTask.title,
-        },
+        payload,
       },
       dependsOnTaskIds,
     });
