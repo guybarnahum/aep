@@ -122,7 +122,7 @@ export const TASK_CONTRACTS: readonly TaskContract[] = [
       field("objectiveTitle", "string"),
       field("targetUrl", "string"),
     ]),
-    legacyAliases: ["plan-website-delivery"],
+    legacyAliases: ["plan-website-delivery", "plan-feature"],
   },
   {
     taskType: "web_design",
