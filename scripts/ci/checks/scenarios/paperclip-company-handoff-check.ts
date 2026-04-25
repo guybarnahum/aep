@@ -160,9 +160,10 @@ async function main(): Promise<void> {
     assignedTeamId: TEAM_ID,
     createdByEmployeeId: infraOpsManagerEmployeeId,
     assignedEmployeeId: infraOpsManagerEmployeeId,
-    taskType: "paperclip-company-handoff-check",
+    taskType: "coordination",
     title: "paperclip company handoff check",
     payload: {
+      topic: "Validate paperclip company handoff provenance.",
       scenario: "paperclip-company-handoff-check",
     },
   });
