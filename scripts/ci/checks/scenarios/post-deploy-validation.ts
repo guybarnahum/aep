@@ -21,6 +21,7 @@ type CheckResult = {
   dispatchBatchId?: string;
 };
 
+// Helper-only checklist for local/manual runs; authoritative CI ordering lives in .github/workflows/_validate_post_deploy.yml.
 const CHECKS: ValidationCheck[] = [
   {
     id: "operator-surface",
@@ -28,14 +29,14 @@ const CHECKS: ValidationCheck[] = [
     scriptPath: "scripts/ci/checks/contracts/operator-surface-check.ts",
   },
   {
-    id: "paperclip-first-execution",
-    label: "Paperclip first execution check",
-    scriptPath: "scripts/ci/checks/scenarios/paperclip-first-execution-check.ts",
-  },
-  {
     id: "scheduled-routing",
     label: "Scheduled routing check",
     scriptPath: "scripts/ci/checks/policy/scheduled-routing-check.ts",
+  },
+  {
+    id: "paperclip-first-execution",
+    label: "Paperclip first execution check",
+    scriptPath: "scripts/ci/checks/scenarios/paperclip-first-execution-check.ts",
   },
   {
     id: "team-work-loop",
