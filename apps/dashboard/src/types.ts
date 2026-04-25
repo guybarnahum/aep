@@ -238,6 +238,56 @@ export type TeamLoopRunAllResult = {
   results: TeamLoopResult[];
 };
 
+export type IntakeRequestStatus =
+  | "submitted"
+  | "triaged"
+  | "converted"
+  | "rejected";
+
+export type IntakeRequestRecord = {
+  id: string;
+  companyId: string;
+  title: string;
+  description?: string | null;
+  requestedBy: string;
+  source: string;
+  status: IntakeRequestStatus;
+  createdAt: string;
+};
+
+export type ProjectStatus =
+  | "active"
+  | "paused"
+  | "completed"
+  | "archived";
+
+export type ProjectRecord = {
+  id: string;
+  companyId: string;
+  intakeRequestId?: string | null;
+  title: string;
+  description?: string | null;
+  ownerTeamId: string;
+  status: ProjectStatus;
+  createdAt: string;
+  updatedAt: string;
+  completedAt?: string | null;
+  archivedAt?: string | null;
+};
+
+export type ProjectTaskGraphTaskInput = {
+  clientTaskId: string;
+  title: string;
+  taskType: string;
+  assignedTeamId: string;
+  dependsOnClientTaskIds?: string[];
+};
+
+export type CompanyWorkIntakeOverview = {
+  intake: IntakeRequestRecord[];
+  projects: ProjectRecord[];
+};
+
 export type RunSummary = {
   run_id: string;
   tenant_id: string;

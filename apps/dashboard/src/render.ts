@@ -125,6 +125,7 @@ function renderRoadmapsTable(roadmaps: TeamRoadmap[]): string {
   `;
 }
 import type {
+  CompanyWorkIntakeOverview,
   ApprovalActionFilter,
   ApprovalRecord,
   ApprovalStatusFilter,
@@ -145,6 +146,7 @@ import type {
   EscalationRecord,
   EscalationStateFilter,
   ExternalMirrorOverview,
+  IntakeRequestRecord,
   ManagerDecisionRecord,
   MessageThreadDetail,
   MessageThreadRecord,
@@ -155,6 +157,7 @@ import type {
   OrgPresenceOverview,
   RoleJobDescriptionProjection,
   RuntimeRolePolicyRecord,
+  ProjectRecord,
   TaskArtifactRecord,
   TaskDependency,
   TaskDetail,
@@ -1142,7 +1145,7 @@ export function renderToolbar(args: {
 }
 
 export function renderPrimaryNav(args: {
-  activeView: "tenant" | "department" | "work" | "people" | "company" | "mirrors" | "activity" | "validation" | "runtime-role-policies";
+  activeView: "tenant" | "department" | "work" | "intake-projects" | "people" | "company" | "mirrors" | "activity" | "validation" | "runtime-role-policies";
   tenantHref: string;
 }): string {
   return `
@@ -1153,6 +1156,9 @@ export function renderPrimaryNav(args: {
         </a>
         <a class="view-nav-link ${args.activeView === "work" ? "view-nav-link-active" : ""}" href="#work">
           Work
+        </a>
+        <a class="view-nav-link ${args.activeView === "intake-projects" ? "view-nav-link-active" : ""}" href="#intake-projects">
+          Intake &amp; Projects
         </a>
         <a class="view-nav-link ${args.activeView === "activity" ? "view-nav-link-active" : ""}" href="#activity">
           Activity
@@ -1837,6 +1843,188 @@ export function renderWorkOverview(overview: WorkOverview): string {
         ${sortedThreads.map(renderThreadCard).join("")}
       </div>
     </section>
+  `;
+}
+
+function renderStatusPill(status: string): string {
+  return `<span class="status-pill">${escapeHtml(status)}</span>`;
+}
+
+function defaultTaskGraphJson(): string {
+  return escapeHtml(JSON.stringify(
+    [
+      {
+        clientTaskId: "requirements",
+        title: "Define project requirements",
+        taskType: "project_requirements",
+        assignedTeamId: "team_web_product",
+      },
+      {
+        clientTaskId: "implementation",
+        title: "Implement project deliverable",
+        taskType: "implementation",
+        assignedTeamId: "team_web_product",
+        dependsOnClientTaskIds: ["requirements"],
+      },
+      {
+        clientTaskId: "deploy",
+        title: "Deploy project deliverable",
+        taskType: "deployment",
+        assignedTeamId: "team_infra",
+        dependsOnClientTaskIds: ["implementation"],
+      },
+      {
+        clientTaskId: "validate",
+        title: "Validate deployed project",
+        taskType: "validation",
+        assignedTeamId: "team_validation",
+        dependsOnClientTaskIds: ["deploy"],
+      },
+    ],
+    null,
+    2,
+  ));
+}
+
+function renderIntakeCard(intake: IntakeRequestRecord): string {
+  const canConvert = intake.status !== "converted" && intake.status !== "rejected";
+
+  return `
+    <article class="card">
+      <div class="card-header">
+        <div>
+          <h3>${escapeHtml(intake.title)}</h3>
+          <p class="muted">${escapeHtml(intake.id)} · ${escapeHtml(intake.source)} · requested by ${escapeHtml(intake.requestedBy)}</p>
+        </div>
+        ${renderStatusPill(intake.status)}
+      </div>
+      <p>${escapeHtml(intake.description ?? "No description provided.")}</p>
+      <div class="button-row">
+        <button data-action="triage-intake" data-intake-id="${escapeHtml(intake.id)}">Mark triaged</button>
+        <button data-action="reject-intake" data-intake-id="${escapeHtml(intake.id)}">Reject</button>
+      </div>
+      ${
+        canConvert
+          ? `
+            <form class="stacked-form" data-action="convert-intake">
+              <input type="hidden" name="intakeId" value="${escapeHtml(intake.id)}" />
+              <label>Converted by employee ID
+                <input name="convertedByEmployeeId" placeholder="live employee id" required />
+              </label>
+              <label>Owner team
+                <select name="ownerTeamId">
+                  <option value="team_web_product">Web/Product</option>
+                  <option value="team_infra">Infra</option>
+                  <option value="team_validation">Validation</option>
+                </select>
+              </label>
+              <label>Project title
+                <input name="projectTitle" value="${escapeHtml(intake.title)}" />
+              </label>
+              <label>Project description
+                <textarea name="projectDescription" rows="2">${escapeHtml(intake.description ?? "")}</textarea>
+              </label>
+              <label>Public rationale
+                <textarea name="rationale" rows="2">Accepted as a canonical AEP project.</textarea>
+              </label>
+              <button type="submit">Convert to project</button>
+            </form>
+          `
+          : ""
+      }
+    </article>
+  `;
+}
+
+function renderProjectCard(project: ProjectRecord): string {
+  return `
+    <article class="card">
+      <div class="card-header">
+        <div>
+          <h3>${escapeHtml(project.title)}</h3>
+          <p class="muted">${escapeHtml(project.id)} · ${escapeHtml(project.ownerTeamId)}</p>
+        </div>
+        ${renderStatusPill(project.status)}
+      </div>
+      <p>${escapeHtml(project.description ?? "No description provided.")}</p>
+      ${
+        project.intakeRequestId
+          ? `<p class="muted">Intake: ${escapeHtml(project.intakeRequestId)}</p>`
+          : ""
+      }
+      <form class="stacked-form" data-action="create-project-task-graph">
+        <input type="hidden" name="projectId" value="${escapeHtml(project.id)}" />
+        <label>Created by employee ID
+          <input name="createdByEmployeeId" placeholder="live employee id" required />
+        </label>
+        <label>Public rationale
+          <textarea name="rationale" rows="2">Initial task graph for this project.</textarea>
+        </label>
+        <label>Task graph JSON
+          <textarea name="tasksJson" rows="12">${defaultTaskGraphJson()}</textarea>
+        </label>
+        <button type="submit">Create task graph</button>
+      </form>
+    </article>
+  `;
+}
+
+export function renderIntakeProjectsOverview(
+  overview: CompanyWorkIntakeOverview,
+): string {
+  return `
+    <main>
+      <section class="panel">
+        <h2>Intake &amp; Projects</h2>
+        <p class="muted">
+          Work enters AEP through intake, becomes projects, then becomes canonical task graphs.
+        </p>
+      </section>
+
+      <section class="panel">
+        <h3>Create intake request</h3>
+        <form class="grid-form" data-action="create-intake">
+          <label>Company ID
+            <input name="companyId" value="company_internal_aep" required />
+          </label>
+          <label>Requested by
+            <input name="requestedBy" value="dashboard_operator" required />
+          </label>
+          <label>Source
+            <input name="source" value="dashboard" required />
+          </label>
+          <label>Title
+            <input name="title" required />
+          </label>
+          <label class="wide">Description
+            <textarea name="description" rows="3"></textarea>
+          </label>
+          <button type="submit">Submit intake</button>
+        </form>
+      </section>
+
+      <section class="panel">
+        <h3>Intake requests</h3>
+        <div class="card-grid">
+          ${
+            overview.intake.length > 0
+              ? overview.intake.map(renderIntakeCard).join("")
+              : `<p class="muted">No intake requests yet.</p>`
+          }
+        </div>
+      </section>
+
+      <section class="panel">
+        <h3>Projects</h3>
+        <div class="card-grid">
+          ${
+            overview.projects.length > 0
+              ? overview.projects.map(renderProjectCard).join("")
+              : `<p class="muted">No projects yet.</p>`
+          }
+        </div>
+      </section>
+    </main>
   `;
 }
 

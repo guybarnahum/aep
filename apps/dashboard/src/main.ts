@@ -64,6 +64,9 @@ import {
   acknowledgeEscalationFromThread,
   approveApproval,
   approveFromThread,
+  createIntakeRequest,
+  convertIntakeToProject,
+  createProjectTaskGraph,
   createEmployee,
   createEmployeeReview,
   createCanonicalThreadMessage,
@@ -75,6 +78,7 @@ import {
   getEmployeeEffectivePolicy,
   getEmployeeEmploymentEvents,
   getEmployeeReviews,
+  getCompanyWorkIntakeOverview,
   getExternalMirrorOverview,
   getMessageThreadDetail,
   getMessageThreads,
@@ -103,10 +107,12 @@ import {
   updateSchedulerCadence,
   runValidationNow,
   runEmployeeLifecycleAction,
+  updateIntakeStatus,
   updateEmployeeProfile,
   updateRuntimeRolePolicy,
 } from "./api";
 import type {
+  CompanyWorkIntakeOverview,
   DepartmentFilters,
   DepartmentPaginationState,
   EmployeePublicLink,
@@ -123,6 +129,7 @@ import {
   renderEmployeeDetail,
   renderEmployeesDirectory,
   renderExternalMirrorOverview,
+  renderIntakeProjectsOverview,
   renderNarrativeTimeline,
   renderPrimaryNav,
   renderRoleDetail,
@@ -167,6 +174,7 @@ type Route =
   | { kind: "tenant"; tenantId: string }
   | { kind: "service"; tenantId: string; serviceId: string }
   | { kind: "work" }
+  | { kind: "intakeProjects" }
   | { kind: "task"; taskId: string }
   | { kind: "thread"; threadId: string }
   | { kind: "employees" }
@@ -346,6 +354,7 @@ function setRefreshingIndicator(isRefreshing: boolean): void {
 function isLiveOperationalRoute(route: Route): boolean {
   return (
     route.kind === "work" ||
+    route.kind === "intakeProjects" ||
     route.kind === "task" ||
     route.kind === "thread" ||
     route.kind === "employee" ||
@@ -359,6 +368,8 @@ function getLiveSurfaceLabel(route: Route): string | null {
   switch (route.kind) {
     case "work":
       return "Canonical work";
+    case "intakeProjects":
+      return "Intake & Projects";
     case "task":
       return "Task detail";
     case "thread":
@@ -464,6 +475,10 @@ function getRoute(defaultTenantId: string): Route {
 
   if (hash === "work") {
     return { kind: "work" };
+  }
+
+  if (hash === "intake-projects") {
+    return { kind: "intakeProjects" };
   }
 
   if (hash === "employees") {
@@ -984,6 +999,142 @@ function attachTeamLoopHandlers(): void {
       void renderRoute();
     });
   });
+}
+
+function parseTaskGraphJson(raw: string): Array<{
+  clientTaskId: string;
+  title: string;
+  taskType: string;
+  assignedTeamId: string;
+  dependsOnClientTaskIds?: string[];
+}> {
+  const parsed = JSON.parse(raw);
+  if (!Array.isArray(parsed)) {
+    throw new Error("Task graph JSON must be an array");
+  }
+  return parsed;
+}
+
+function attachIntakeProjectHandlers(): void {
+  document
+    .querySelectorAll<HTMLFormElement>("form[data-action='create-intake']")
+    .forEach((form) => {
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const formData = new FormData(form);
+
+        try {
+          setMutationStatus("Creating intake request...");
+          void renderRoute();
+          const intake = await createIntakeRequest({
+            companyId: String(formData.get("companyId") ?? "").trim(),
+            title: String(formData.get("title") ?? "").trim(),
+            description: String(formData.get("description") ?? "").trim(),
+            requestedBy: String(formData.get("requestedBy") ?? "").trim(),
+            source: String(formData.get("source") ?? "dashboard").trim(),
+          });
+          setMutationStatus(`Created intake ${intake.id}.`);
+        } catch (error) {
+          setMutationStatus(error instanceof Error ? error.message : "Failed to create intake");
+        }
+
+        void renderRoute();
+      });
+    });
+
+  document
+    .querySelectorAll<HTMLButtonElement>("[data-action='triage-intake']")
+    .forEach((button) => {
+      button.addEventListener("click", async () => {
+        const intakeId = button.dataset.intakeId;
+        if (!intakeId) return;
+
+        try {
+          setMutationStatus(`Marking ${intakeId} triaged...`);
+          void renderRoute();
+          await updateIntakeStatus(intakeId, "triaged");
+          setMutationStatus(`Marked ${intakeId} triaged.`);
+        } catch (error) {
+          setMutationStatus(error instanceof Error ? error.message : "Failed to triage intake");
+        }
+
+        void renderRoute();
+      });
+    });
+
+  document
+    .querySelectorAll<HTMLButtonElement>("[data-action='reject-intake']")
+    .forEach((button) => {
+      button.addEventListener("click", async () => {
+        const intakeId = button.dataset.intakeId;
+        if (!intakeId) return;
+
+        try {
+          setMutationStatus(`Rejecting ${intakeId}...`);
+          void renderRoute();
+          await updateIntakeStatus(intakeId, "rejected");
+          setMutationStatus(`Rejected ${intakeId}.`);
+        } catch (error) {
+          setMutationStatus(error instanceof Error ? error.message : "Failed to reject intake");
+        }
+
+        void renderRoute();
+      });
+    });
+
+  document
+    .querySelectorAll<HTMLFormElement>("form[data-action='convert-intake']")
+    .forEach((form) => {
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const formData = new FormData(form);
+        const intakeId = String(formData.get("intakeId") ?? "").trim();
+
+        try {
+          setMutationStatus(`Converting ${intakeId} to project...`);
+          void renderRoute();
+          const result = await convertIntakeToProject({
+            intakeId,
+            convertedByEmployeeId: String(formData.get("convertedByEmployeeId") ?? "").trim(),
+            ownerTeamId: String(formData.get("ownerTeamId") ?? "").trim(),
+            projectTitle: String(formData.get("projectTitle") ?? "").trim(),
+            projectDescription: String(formData.get("projectDescription") ?? "").trim(),
+            rationale: String(formData.get("rationale") ?? "").trim(),
+          });
+          setMutationStatus(`Created project ${result.project.id} from intake ${intakeId}.`);
+        } catch (error) {
+          setMutationStatus(error instanceof Error ? error.message : "Failed to convert intake");
+        }
+
+        void renderRoute();
+      });
+    });
+
+  document
+    .querySelectorAll<HTMLFormElement>("form[data-action='create-project-task-graph']")
+    .forEach((form) => {
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const formData = new FormData(form);
+        const projectId = String(formData.get("projectId") ?? "").trim();
+
+        try {
+          setMutationStatus(`Creating task graph for ${projectId}...`);
+          void renderRoute();
+          const result = await createProjectTaskGraph({
+            projectId,
+            createdByEmployeeId: String(formData.get("createdByEmployeeId") ?? "").trim(),
+            rationale: String(formData.get("rationale") ?? "").trim(),
+            tasks: parseTaskGraphJson(String(formData.get("tasksJson") ?? "[]")),
+          });
+          setMutationStatus(`Created ${result.taskCount} tasks for project ${projectId}.`);
+        } catch (error) {
+          setMutationStatus(error instanceof Error ? error.message : "Failed to create task graph");
+        }
+
+        void renderRoute();
+      });
+    });
 }
 
 function resolveThreadMessageRecipient(detail: Awaited<ReturnType<typeof getMessageThreadDetail>>): {
@@ -1575,6 +1726,7 @@ async function renderRoute(): Promise<void> {
     const orgHashes = [
       "department",
       "work",
+      "intake-projects",
       "employees",
       "roles",
       "runtime-role-policies",
@@ -1634,6 +1786,8 @@ async function renderRoute(): Promise<void> {
           ? "department"
           : route.kind === "work" || route.kind === "task" || route.kind === "thread"
             ? "work"
+            : route.kind === "intakeProjects"
+              ? "intake-projects"
             : route.kind === "employees" ||
                 route.kind === "employee" ||
                 route.kind === "roles" ||
@@ -1655,6 +1809,7 @@ async function renderRoute(): Promise<void> {
       tenantHref: `#tenant/${encodeURIComponent(
         route.kind === "department" ||
           route.kind === "work" ||
+          route.kind === "intakeProjects" ||
           route.kind === "task" ||
           route.kind === "thread" ||
           route.kind === "employees" ||
@@ -1679,6 +1834,9 @@ async function renderRoute(): Promise<void> {
         threads: await getMessageThreads(),
       };
       content += renderWorkOverview(overview);
+    } else if (route.kind === "intakeProjects") {
+      const overview: CompanyWorkIntakeOverview = await getCompanyWorkIntakeOverview();
+      content += renderIntakeProjectsOverview(overview);
     } else if (route.kind === "task") {
       const detail = await getTaskDetail(route.taskId);
       content += renderTaskDetail(detail);
@@ -1790,6 +1948,10 @@ async function renderRoute(): Promise<void> {
 
     if (route.kind === "teams" || route.kind === "team") {
       attachTeamLoopHandlers();
+    }
+
+    if (route.kind === "intakeProjects") {
+      attachIntakeProjectHandlers();
     }
 
     if (route.kind === "thread") {

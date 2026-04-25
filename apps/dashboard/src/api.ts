@@ -1,4 +1,5 @@
 import type {
+  CompanyWorkIntakeOverview,
   CreateCanonicalThreadMessageInput,
   CreateCanonicalThreadMessageResponse,
   DelegateTaskFromThreadInput,
@@ -13,6 +14,7 @@ import type {
   EmployeePublicLink,
   EmployeeReviewCycleRecord,
   ExternalMirrorOverview,
+  IntakeRequestRecord,
   MessageThreadDetail,
   MessageThreadRecord,
   MirrorThreadOverview,
@@ -22,6 +24,8 @@ import type {
   RoleJobDescriptionProjection,
   RuntimeRolePolicyInput,
   RuntimeRolePolicyRecord,
+  ProjectRecord,
+  ProjectTaskGraphTaskInput,
   TaskDetail,
   TaskRecord,
   ApprovalRecord,
@@ -551,6 +555,107 @@ export async function runAllTeams(
     teamIds: ["team_infra", "team_web_product", "team_validation"],
     limit: 5,
   });
+}
+
+export async function getCompanyWorkIntakeOverview(): Promise<CompanyWorkIntakeOverview> {
+  const agentBaseUrl = getOperatorAgentBaseUrl();
+  const [intakePayload, projectsPayload] = await Promise.all([
+    getJson<{ ok: boolean; items: IntakeRequestRecord[] }>(
+      agentBaseUrl,
+      "/agent/intake?limit=100",
+    ),
+    getJson<{ ok: boolean; projects: ProjectRecord[] }>(
+      agentBaseUrl,
+      "/agent/projects?limit=100",
+    ),
+  ]);
+
+  return {
+    intake: intakePayload.items ?? [],
+    projects: projectsPayload.projects ?? [],
+  };
+}
+
+export async function createIntakeRequest(input: {
+  companyId: string;
+  title: string;
+  description?: string;
+  requestedBy: string;
+  source: string;
+}): Promise<IntakeRequestRecord> {
+  const payload = await postJson<{
+    ok: boolean;
+    intake: IntakeRequestRecord;
+  }>(getOperatorAgentBaseUrl(), "/agent/intake", input);
+
+  return payload.intake;
+}
+
+export async function updateIntakeStatus(
+  intakeId: string,
+  status: string,
+): Promise<IntakeRequestRecord> {
+  const payload = await patchJson<{
+    ok: boolean;
+    item: IntakeRequestRecord;
+  }>(
+    getOperatorAgentBaseUrl(),
+    `/agent/intake/${encodeURIComponent(intakeId)}`,
+    { status },
+  );
+
+  return payload.item;
+}
+
+export async function convertIntakeToProject(input: {
+  intakeId: string;
+  convertedByEmployeeId: string;
+  ownerTeamId?: string;
+  projectTitle?: string;
+  projectDescription?: string;
+  rationale?: string;
+}): Promise<{
+  ok: boolean;
+  intake: IntakeRequestRecord;
+  project: ProjectRecord;
+  threadId: string;
+  messageId: string;
+}> {
+  return postJson(
+    getOperatorAgentBaseUrl(),
+    `/agent/intake/${encodeURIComponent(input.intakeId)}/convert-to-project`,
+    {
+      convertedByEmployeeId: input.convertedByEmployeeId,
+      ownerTeamId: input.ownerTeamId,
+      projectTitle: input.projectTitle,
+      projectDescription: input.projectDescription,
+      rationale: input.rationale,
+    },
+  );
+}
+
+export async function createProjectTaskGraph(input: {
+  projectId: string;
+  createdByEmployeeId: string;
+  rationale?: string;
+  tasks: ProjectTaskGraphTaskInput[];
+}): Promise<{
+  ok: boolean;
+  project: ProjectRecord;
+  taskIds: string[];
+  taskCount: number;
+  threadId: string;
+  messageId: string;
+}> {
+  return postJson(
+    getOperatorAgentBaseUrl(),
+    `/agent/projects/${encodeURIComponent(input.projectId)}/task-graph`,
+    {
+      createdByEmployeeId: input.createdByEmployeeId,
+      rationale: input.rationale,
+      tasks: input.tasks,
+    },
+  );
 }
 
 export async function getEmployeeControlOverview(
