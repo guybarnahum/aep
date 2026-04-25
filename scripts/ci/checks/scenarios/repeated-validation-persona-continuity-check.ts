@@ -137,6 +137,7 @@ async function createFreshValidationTask(
     title: `Repeated validation persona continuity ${suffix}`,
     payload: {
       targetUrl: getTargetUrl(),
+      subjectRef: `ci:${CHECK_NAME}:${suffix}`,
       source: CHECK_NAME,
       continuityRun: suffix,
       useControlPlaneBinding: false,
