@@ -80,6 +80,7 @@ import { handlePurgeEmployee } from "./routes/te-purge-employee";
 import { handleSeedWorkLog } from "./routes/te-seed-work-log";
 import { handleWorkLog } from "./routes/work-log";
 import { handleScheduledCron } from "./triggers/scheduled";
+import { TaskTypeValidationError } from "./lib/task-contracts";
 import type { OperatorAgentEnv } from "./types";
 
 const CORS_HEADERS: Record<string, string> = {
@@ -602,6 +603,19 @@ export default {
       }
       return withCors(await dispatch(request, env));
     } catch (error) {
+      if (error instanceof TaskTypeValidationError) {
+        const response = Response.json(
+          {
+            ok: false,
+            error: error.message,
+            code: "unsupported_task_type",
+            details: { taskType: error.taskType },
+          },
+          { status: 400 },
+        );
+        return withCors(response);
+      }
+
       const message = error instanceof Error ? error.message : String(error);
       console.error("Unhandled operator-agent fetch error", {
         method: request.method,
