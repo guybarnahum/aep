@@ -271,6 +271,7 @@ Important invariants:
 - Task graph creation must use canonical tasks and dependencies only.
 - No parallel project-work store is introduced.
 - PR15D task graph creation does not expose private PM cognition; only public coordination rationale may be published.
+- PR15F CI validates the complete intake -> project -> task graph flow against deployed operator-agent routes, including negative cases for double conversion, invalid team ownership, and unknown task dependencies.
 
 ### Roles And Employees
 

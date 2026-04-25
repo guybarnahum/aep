@@ -43,6 +43,11 @@ const CHECKS: ValidationCheck[] = [
     scriptPath: "scripts/ci/checks/scenarios/team-work-loop-check.ts",
   },
   {
+    id: "intake-project-flow",
+    label: "Intake/project flow check",
+    scriptPath: "scripts/ci/checks/scenarios/intake-project-flow-check.ts",
+  },
+  {
     id: "dispatch-validation-runs",
     label: "Dispatch validation runs",
     scriptPath: "scripts/ci/checks/scenarios/dispatch-validation-runs.ts",
@@ -80,7 +85,10 @@ function requireBaseUrl(): string {
 }
 
 function main(): void {
-  const baseUrl = requireBaseUrl();
+  const isDryRun = hasArg("--dry-run");
+  const baseUrl = isDryRun
+    ? process.env.CONTROL_PLANE_BASE_URL ?? "<CONTROL_PLANE_BASE_URL>"
+    : requireBaseUrl();
 
   const checks = CHECKS.map((check) => {
     if (check.id === "validation-verdict") {
@@ -128,7 +136,7 @@ function main(): void {
     return check;
   });
 
-  if (hasArg("--dry-run")) {
+  if (isDryRun) {
     console.log("post-deploy-validation dry run");
     for (const check of checks) {
       const args = check.args?.join(" ") ?? "";
