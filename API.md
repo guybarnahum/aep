@@ -238,12 +238,39 @@ Important invariants:
 
 - Fetch one canonical project.
 
+`POST /agent/projects/:id/task-graph`
+
+- Create a canonical task graph for an active project.
+- Required body fields:
+	- `createdByEmployeeId`
+	- `tasks`
+- Optional body fields:
+	- `rationale`
+- Each task requires:
+	- `clientTaskId`
+	- `title`
+	- `taskType`
+	- `assignedTeamId`
+- Each task may include:
+	- `ownerEmployeeId`
+	- `assignedEmployeeId`
+	- `payload`
+	- `dependsOnClientTaskIds`
+- Creates canonical tasks using the existing task store and task dependency model.
+- Links every created task to the project through task payload:
+	- `projectId`
+	- `intakeRequestId`
+	- `projectTaskClientId`
+- Creates an org-visible coordination thread/message summarizing the graph creation.
+
 Important invariants:
 
 - Projects do NOT execute work directly.
 - Projects can be created directly via `POST /agent/projects` or via intake conversion (`POST /agent/intake/:id/convert-to-project`).
-- Projects are containers for future PM-created task graphs.
-- Task graph creation begins later in PR15D.
+- Projects are containers for PM-created task graphs.
+- Task graph creation must use canonical tasks and dependencies only.
+- No parallel project-work store is introduced.
+- PR15D task graph creation does not expose private PM cognition; only public coordination rationale may be published.
 
 ### Roles And Employees
 

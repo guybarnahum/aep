@@ -42,6 +42,7 @@ import {
   handleGetProject,
   handleListProjects,
 } from "./routes/projects";
+import { handleCreateProjectTaskGraph } from "./routes/project-plan";
 import { handleRunTeamOnce, handleRunTeams } from "./routes/team-run";
 import {
   handleCreateTask,
@@ -360,6 +361,17 @@ async function dispatch(request: Request, env: OperatorAgentEnv): Promise<Respon
     if (request.method === "GET") {
       return handleListProjects(request, env);
     }
+  }
+
+  const projectTaskGraphMatch = url.pathname.match(
+    /^\/agent\/projects\/([^/]+)\/task-graph$/,
+  );
+  if (projectTaskGraphMatch) {
+    return handleCreateProjectTaskGraph(
+      request,
+      env,
+      decodeURIComponent(projectTaskGraphMatch[1]),
+    );
   }
 
   const projectMatch = url.pathname.match(/^\/agent\/projects\/([^/]+)$/);
