@@ -102,6 +102,28 @@ export interface IAgentWorkLogStore {
   listByEmployee(args: { employeeId: string; limit: number }): Promise<AgentWorkLogEntry[]>;
 }
 
+export type IntakeRequestStatus =
+  | "submitted"
+  | "triaged"
+  | "converted"
+  | "rejected";
+
+export type IntakeRequest = {
+  id: string;
+  companyId: string;
+  title: string;
+  description?: string | null;
+  requestedBy: string;
+  source: string;
+  status: IntakeRequestStatus;
+  createdAt: string;
+};
+
+export type IntakeListQuery = {
+  companyId?: string;
+  limit?: number;
+};
+
 export type TaskStatus =
   | "queued"
   | "blocked"
@@ -347,6 +369,10 @@ export interface TaskStore {
 
   getPendingTasksForEmployee(employeeId: string, teamId: string): Promise<Task[]>;
   getPendingTasksForTeam(args: { teamId: string; limit: number }): Promise<Task[]>;
+
+  createIntakeRequest(args: IntakeRequest): Promise<void>;
+  getIntakeRequest(id: string): Promise<IntakeRequest | null>;
+  listIntakeRequests(query: IntakeListQuery): Promise<IntakeRequest[]>;
 
   updateTaskStatus(taskId: string, status: TaskStatus): Promise<void>;
   recordDecision(decision: Decision): Promise<void>;

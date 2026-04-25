@@ -7,6 +7,8 @@ import type {
   MirrorDeliveryRecord,
 } from "@aep/operator-agent/adapters/types";
 import {
+  type IntakeListQuery,
+  type IntakeRequest,
   type ExternalInteractionAuditRecord,
   TaskDependencyValidationError,
   type ThreadExternalInteractionPolicy,
@@ -188,6 +190,17 @@ type ExternalInteractionAuditRow = {
   created_at: string;
 };
 
+type IntakeRequestRow = {
+  id: string;
+  company_id: string;
+  title: string;
+  description: string | null;
+  requested_by: string;
+  source: string;
+  status: string;
+  created_at: string;
+};
+
 function requireDb(env: OperatorAgentEnv): D1Database {
   if (!env.OPERATOR_AGENT_DB) {
     throw new Error("Missing OPERATOR_AGENT_DB binding");
@@ -366,6 +379,19 @@ function rowToExternalInteractionAuditRecord(
     externalActionId: row.external_action_id ?? undefined,
     decision: row.decision as ExternalInteractionAuditRecord["decision"],
     reasonCode: row.reason_code,
+    createdAt: row.created_at,
+  };
+}
+
+function rowToIntakeRequest(row: IntakeRequestRow): IntakeRequest {
+  return {
+    id: row.id,
+    companyId: row.company_id,
+    title: row.title,
+    description: row.description,
+    requestedBy: row.requested_by,
+    source: row.source,
+    status: row.status as IntakeRequest["status"],
     createdAt: row.created_at,
   };
 }
@@ -734,6 +760,58 @@ export class D1TaskStore implements TaskStore {
       .all<TaskRow>();
 
     return (rows.results ?? []).map(rowToTask);
+  }
+
+  async createIntakeRequest(args: IntakeRequest): Promise<void> {
+    await this.db
+      .prepare(
+        `INSERT INTO intake_requests (
+          id, company_id, title, description,
+          requested_by, source, status, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .bind(
+        args.id,
+        args.companyId,
+        args.title,
+        args.description ?? null,
+        args.requestedBy,
+        args.source,
+        args.status,
+        args.createdAt,
+      )
+      .run();
+  }
+
+  async getIntakeRequest(id: string): Promise<IntakeRequest | null> {
+    const row = await this.db
+      .prepare(`SELECT * FROM intake_requests WHERE id = ?`)
+      .bind(id)
+      .first<IntakeRequestRow>();
+
+    if (!row) {
+      return null;
+    }
+
+    return rowToIntakeRequest(row);
+  }
+
+  async listIntakeRequests(query: IntakeListQuery): Promise<IntakeRequest[]> {
+    const rows = await this.db
+      .prepare(
+        `SELECT * FROM intake_requests
+         WHERE (? IS NULL OR company_id = ?)
+         ORDER BY created_at DESC
+         LIMIT ?`,
+      )
+      .bind(
+        query.companyId ?? null,
+        query.companyId ?? null,
+        query.limit ?? 50,
+      )
+      .all<IntakeRequestRow>();
+
+    return (rows.results ?? []).map(rowToIntakeRequest);
   }
 
   async updateTaskStatus(taskId: string, status: TaskStatus): Promise<void> {

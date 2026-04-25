@@ -30,6 +30,11 @@ import { handleManagerLog } from "./routes/manager-log";
 import { handleRun } from "./routes/run";
 import { handleRunOnce } from "./routes/run-once";
 import { handleSchedulerStatus } from "./routes/scheduler-status";
+import {
+  handleCreateIntake,
+  handleGetIntake,
+  handleListIntake,
+} from "./routes/intake";
 import { handleRunTeamOnce, handleRunTeams } from "./routes/team-run";
 import {
   handleCreateTask,
@@ -101,6 +106,7 @@ async function dispatch(request: Request, env: OperatorAgentEnv): Promise<Respon
         run: "/agent/run",
         runOnce: "/agent/run-once",
         teamsRun: "/agent/teams/run",
+        intake: "/agent/intake",
       },
     });
   }
@@ -315,6 +321,20 @@ async function dispatch(request: Request, env: OperatorAgentEnv): Promise<Respon
 
   if (url.pathname === "/agent/manager-log") {
     return handleManagerLog(request, env);
+  }
+
+  if (url.pathname === "/agent/intake") {
+    if (request.method === "POST") {
+      return handleCreateIntake(request, env);
+    }
+    if (request.method === "GET") {
+      return handleListIntake(request, env);
+    }
+  }
+
+  const intakeMatch = url.pathname.match(/^\/agent\/intake\/([^/]+)$/);
+  if (intakeMatch) {
+    return handleGetIntake(request, env, decodeURIComponent(intakeMatch[1]));
   }
 
   if (url.pathname === "/agent/roadmaps" && request.method === "GET") {

@@ -154,6 +154,34 @@ Base service: `core/operator-agent`
 - Important invariant: non-integer values, missing updater identity, and out-of-range values are rejected.
 - Important invariant: when `expectedUpdatedAt` is provided and no longer matches canonical state, the route returns `409` and the caller must reload before saving again.
 
+### Intake Requests
+
+`POST /agent/intake`
+
+- Create a new intake request.
+- Required fields:
+	- `companyId`
+	- `title`
+	- `requestedBy`
+	- `source`
+- Status is always initialized to `submitted`.
+
+`GET /agent/intake`
+
+- List intake requests.
+- Optional query:
+	- `companyId`
+
+`GET /agent/intake/:id`
+
+- Fetch a single intake request.
+
+Important invariants:
+
+- Intake does NOT create tasks.
+- Intake is a demand signal only.
+- Conversion to work happens later via PM agents (PR15C).
+
 ### Roles And Employees
 
 `GET /agent/roles`
