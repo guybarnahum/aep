@@ -169,6 +169,7 @@ async function main(): Promise<void> {
     title: "Employee cognition boundary fresh-task check",
     payload: {
       targetUrl: getTargetUrl(),
+      subjectRef: "deployment_validation_subject",
       source: "employee-cognition-boundary-check",
       useControlPlaneBinding: false,
     },
