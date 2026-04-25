@@ -48,6 +48,7 @@ import {
   handleCreateTask,
   handleGetTask,
   handleListTasks,
+  handleParkTask,
 } from "./routes/tasks";
 import {
   handleCreateTaskArtifact,
@@ -213,6 +214,11 @@ async function dispatch(request: Request, env: OperatorAgentEnv): Promise<Respon
   const taskMatch = url.pathname.match(/^\/agent\/tasks\/([^/]+)$/);
   if (taskMatch && request.method === "GET") {
     return handleGetTask(request, env, decodeURIComponent(taskMatch[1]));
+  }
+
+  const taskParkMatch = url.pathname.match(/^\/agent\/tasks\/([^/]+)\/park$/);
+  if (taskParkMatch && request.method === "POST") {
+    return handleParkTask(request, env, decodeURIComponent(taskParkMatch[1]));
   }
 
   const taskArtifactsMatch = url.pathname.match(/^\/agent\/tasks\/([^/]+)\/artifacts$/);

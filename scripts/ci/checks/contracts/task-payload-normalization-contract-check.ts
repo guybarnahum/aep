@@ -5,6 +5,28 @@ import { handleOperatorAgentSoftSkip } from "../../shared/soft-skip";
 
 const CHECK_NAME = "task-payload-normalization-contract-check";
 
+function extractFailureBody(error: unknown): Record<string, unknown> | undefined {
+  const message = error instanceof Error ? error.message : String(error);
+  const marker = "Request failed:";
+  const markerIndex = message.indexOf(marker);
+
+  if (markerIndex === -1) {
+    return undefined;
+  }
+
+  const firstBrace = message.indexOf("{", markerIndex + marker.length);
+  if (firstBrace === -1) {
+    return undefined;
+  }
+
+  const jsonText = message.slice(firstBrace).trim();
+  try {
+    return JSON.parse(jsonText) as Record<string, unknown>;
+  } catch {
+    return undefined;
+  }
+}
+
 async function main(): Promise<void> {
   const client = createOperatorAgentClient();
 
@@ -17,28 +39,38 @@ async function main(): Promise<void> {
     throw error;
   }
 
-  const missingPayloadResponse = await client.createTask({
-    companyId: "company_internal_aep",
-    originatingTeamId: "team_web_product",
-    assignedTeamId: "team_web_product",
-    createdByEmployeeId: CHECK_NAME,
-    taskType: "web_implementation",
-    title: "Invalid PR16B payload check",
-    payload: {
-      targetUrl: "https://example.invalid",
-    },
-  });
+  try {
+    await client.createTask({
+      companyId: "company_internal_aep",
+      originatingTeamId: "team_web_product",
+      assignedTeamId: "team_web_product",
+      createdByEmployeeId: CHECK_NAME,
+      taskType: "web_implementation",
+      title: "Invalid PR16B payload check",
+      payload: {
+        targetUrl: "https://example.invalid",
+      },
+    });
 
-  if (missingPayloadResponse?.ok) {
-    throw new Error(
-      `Expected missing requirementsRef to fail: ${JSON.stringify(missingPayloadResponse)}`,
-    );
-  }
+    throw new Error("Expected missing requirementsRef to fail");
+  } catch (error) {
+    const failure = extractFailureBody(error);
+    if (!failure) {
+      throw error;
+    }
 
-  if (missingPayloadResponse?.code !== "missing_required_payload_field") {
-    throw new Error(
-      `Expected missing_required_payload_field, got: ${JSON.stringify(missingPayloadResponse)}`,
-    );
+    if (failure.code !== "missing_required_payload_field") {
+      throw new Error(
+        `Expected missing_required_payload_field, got: ${JSON.stringify(failure)}`,
+      );
+    }
+
+    const details = (failure.details ?? {}) as Record<string, unknown>;
+    if (details.field !== "requirementsRef") {
+      throw new Error(
+        `Expected missing requirementsRef detail, got: ${JSON.stringify(failure)}`,
+      );
+    }
   }
 
   const validResponse = await client.createTask({

@@ -47,6 +47,8 @@
     "ci:task-payload-normalization-contract-check": "tsx scripts/ci/checks/contracts/task-payload-normalization-contract-check.ts",
     "ci:team-loop-specialization-contract-check": "tsx scripts/ci/checks/contracts/team-loop-specialization-contract-check.ts",
     "ci:team-loop-specialization-check": "tsx scripts/ci/checks/scenarios/team-loop-specialization-check.ts",
+    "ci:team-loop-cognitive-scheduling-contract-check": "tsx scripts/ci/checks/contracts/team-loop-cognitive-scheduling-contract-check.ts",
+    "ci:task-parking-contract-check": "tsx scripts/ci/checks/contracts/task-parking-contract-check.ts",
     "ci:no-hardcoded-runtime-identifiers": "tsx scripts/ci/checks/contracts/no-hardcoded-runtime-identifiers-check.ts",
     "ci:task-dependency-integrity-check": "tsx scripts/ci/checks/contracts/task-dependency-integrity-check.ts",
     "ci:task-artifact-contract-check": "tsx scripts/ci/checks/contracts/task-artifact-contract-check.ts",

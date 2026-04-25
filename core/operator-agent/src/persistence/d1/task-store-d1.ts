@@ -997,9 +997,45 @@ export class D1TaskStore implements TaskStore {
     taskId: string;
     parkedByEmployeeId: string;
     reason: string;
+    managerDecisionId: string;
   }): Promise<void> {
-    void args.parkedByEmployeeId;
-    void args.reason;
+    const parkedByEmployeeId = args.parkedByEmployeeId.trim();
+    const reason = args.reason.trim();
+    const managerDecisionId = args.managerDecisionId.trim();
+
+    if (!parkedByEmployeeId) {
+      throw new Error("parkTask requires parkedByEmployeeId");
+    }
+    if (!reason) {
+      throw new Error("parkTask requires reason");
+    }
+    if (!managerDecisionId) {
+      throw new Error("parkTask requires managerDecisionId");
+    }
+
+    const taskRow = await this.db
+      .prepare(
+        `SELECT id, company_id, assigned_team_id, title, status
+         FROM tasks
+         WHERE id = ?
+         LIMIT 1`,
+      )
+      .bind(args.taskId)
+      .first<{
+        id: string;
+        company_id: string;
+        assigned_team_id: string | null;
+        title: string | null;
+        status: string;
+      }>();
+
+    if (!taskRow) {
+      throw new Error(`Cannot park unknown task: ${args.taskId}`);
+    }
+
+    if (taskRow.status === "completed" || taskRow.status === "failed") {
+      throw new Error(`Cannot park terminal task ${args.taskId} with status=${taskRow.status}`);
+    }
 
     await this.db
       .prepare(
@@ -1010,6 +1046,38 @@ export class D1TaskStore implements TaskStore {
       )
       .bind(args.taskId)
       .run();
+
+    const threadId = newId(`thr_task_park_${args.taskId}`);
+    await this.createMessageThread({
+      id: threadId,
+      companyId: taskRow.company_id,
+      topic: `Task parked: ${args.taskId}`,
+      createdByEmployeeId: parkedByEmployeeId,
+      relatedTaskId: args.taskId,
+      visibility: "org",
+    });
+
+    await this.createMessage({
+      id: newId(`msg_task_park_${args.taskId}`),
+      threadId,
+      companyId: taskRow.company_id,
+      senderEmployeeId: parkedByEmployeeId,
+      receiverTeamId: taskRow.assigned_team_id ?? undefined,
+      type: "coordination",
+      status: "delivered",
+      source: "system",
+      subject: "Manager parked task",
+      body: reason,
+      payload: {
+        kind: "task_parked",
+        taskId: args.taskId,
+        managerDecisionId,
+        reason,
+        parkedByEmployeeId,
+      },
+      requiresResponse: false,
+      relatedTaskId: args.taskId,
+    });
   }
 
   private async releaseCompletedDependency(completedTaskId: string): Promise<void> {

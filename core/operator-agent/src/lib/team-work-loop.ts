@@ -1,4 +1,8 @@
 import { getConfig } from "@aep/operator-agent/config";
+import {
+  derivePublicRationale,
+  thinkWithinEmployeeBoundary,
+} from "@aep/operator-agent/lib/employee-cognition";
 import { makeCronFallbackContext } from "@aep/operator-agent/lib/execution-context";
 import { executeEmployeeRun } from "@aep/operator-agent/lib/execute-employee-run";
 import { getTaskStore } from "@aep/operator-agent/lib/store-factory";
@@ -7,8 +11,14 @@ import type {
   TaskArtifact,
 } from "@aep/operator-agent/lib/store-types";
 import { COMPANY_INTERNAL_AEP, type CompanyId } from "@aep/operator-agent/org/company";
-import type { TeamId } from "@aep/operator-agent/org/teams";
+import {
+  TEAM_INFRA,
+  TEAM_VALIDATION,
+  TEAM_WEB_PRODUCT,
+  type TeamId,
+} from "@aep/operator-agent/org/teams";
 import type {
+  AgentRoleId,
   AgentExecutionResponse,
   CoordinationTaskArtifactRecord,
   CoordinationTaskRecord,
@@ -177,6 +187,65 @@ function buildSchedulingContext(args: {
   };
 }
 
+function schedulerRoleForTeam(teamId: TeamId): AgentRoleId {
+  if (teamId === TEAM_INFRA) {
+    return "infra-ops-manager";
+  }
+
+  if (teamId === TEAM_VALIDATION) {
+    return "validation-pm";
+  }
+
+  if (teamId === TEAM_WEB_PRODUCT) {
+    return "product-manager-web";
+  }
+
+  return "product-manager";
+}
+
+function recommendationFromSuggestedNextAction(
+  suggestedNextAction?: string,
+): CognitiveTaskSelectionRecommendation["recommendation"] | undefined {
+  if (!suggestedNextAction) {
+    return undefined;
+  }
+
+  const normalized = suggestedNextAction.trim().toLowerCase();
+  if (!normalized) {
+    return undefined;
+  }
+
+  if (
+    normalized.includes("request_manager_review")
+    || (normalized.includes("manager") && normalized.includes("review"))
+  ) {
+    return "request_manager_review";
+  }
+
+  if (normalized.includes("defer")) {
+    return "defer";
+  }
+
+  if (normalized.includes("execute")) {
+    return "execute";
+  }
+
+  return undefined;
+}
+
+function selectedTaskFromCognition(args: {
+  candidates: TeamTaskCandidate[];
+  cognitionText: string;
+}): string | undefined {
+  for (const candidate of args.candidates) {
+    if (args.cognitionText.includes(candidate.task.id)) {
+      return candidate.task.id;
+    }
+  }
+
+  return args.candidates[0]?.task.id;
+}
+
 async function selectTaskWithCognition(args: {
   env: OperatorAgentEnv;
   teamId: TeamId;
@@ -196,19 +265,55 @@ async function selectTaskWithCognition(args: {
     };
   }
 
-  // PR16D initial implementation:
-  // Build bounded context and keep an auditable deterministic fallback until a
-  // dedicated team-level scheduling cognition path is wired.
-  void args.env;
-  void schedulingContext;
+  const roleId = schedulerRoleForTeam(args.teamId);
+  const cognition = await thinkWithinEmployeeBoundary(
+    {
+      employee: {
+        employeeId: `team_scheduler_${args.teamId}`,
+        employeeName: `Team scheduler (${args.teamId})`,
+        companyId: COMPANY_INTERNAL_AEP,
+        teamId: args.teamId,
+        roleId,
+      },
+      observations: [
+        `Evaluate scheduling candidates for team ${args.teamId}.`,
+        `Candidate IDs in deterministic priority order: ${args.candidates
+          .map((candidate) => candidate.task.id)
+          .join(", ")}`,
+        `Scheduling context: ${JSON.stringify(schedulingContext)}`,
+      ],
+    },
+    args.env,
+  );
+
+  const publicRationale = derivePublicRationale(cognition);
+  const structuredAction = recommendationFromSuggestedNextAction(
+    cognition.structured?.suggestedNextAction,
+  );
+  const recommendation = structuredAction
+    ?? (cognition.structured?.riskLevel === "high"
+      ? "request_manager_review"
+      : "execute");
+  const cognitionText = [
+    cognition.publicSummary,
+    cognition.structured?.intent ?? "",
+    cognition.structured?.suggestedNextAction ?? "",
+  ]
+    .filter(Boolean)
+    .join("\n");
+  const selectedTaskId = recommendation === "execute"
+    ? selectedTaskFromCognition({
+      candidates: args.candidates,
+      cognitionText,
+    })
+    : undefined;
 
   return {
-    selectedTaskId: args.candidates[0]?.task.id,
-    confidence: "low",
-    recommendation: "execute",
+    selectedTaskId,
+    confidence: cognition.mode === "ai" ? "medium" : "low",
+    recommendation,
     consideredTaskIds: args.candidates.map((candidate) => candidate.task.id),
-    publicRationale:
-      "Selected by deterministic fallback because cognitive scheduling was unavailable.",
+    publicRationale: publicRationale.summary,
   };
 }
 

@@ -25,6 +25,12 @@ type CreateTaskRequest = {
   dependsOnTaskIds?: string[];
 };
 
+type ParkTaskRequest = {
+  parkedByEmployeeId?: string;
+  reason?: string;
+  managerDecisionId?: string;
+};
+
 type DecisionRow = Decision;
 
 function parseLimit(url: URL, defaultValue = 50): number {
@@ -264,5 +270,72 @@ export async function handleGetTask(
     decision,
     relatedThreads,
     visibilitySummary,
+  });
+}
+
+export async function handleParkTask(
+  request: Request,
+  env: OperatorAgentEnv | undefined,
+  taskId: string,
+): Promise<Response> {
+  if (request.method !== "POST") {
+    return new Response("Method Not Allowed", { status: 405 });
+  }
+
+  if (!env) {
+    return Response.json(
+      { ok: false, error: "Missing operator-agent environment" },
+      { status: 500 },
+    );
+  }
+
+  let body: ParkTaskRequest;
+  try {
+    body = (await request.json()) as ParkTaskRequest;
+  } catch {
+    return Response.json(
+      { ok: false, error: "Request body must be valid JSON" },
+      { status: 400 },
+    );
+  }
+
+  const parkedByEmployeeId = body.parkedByEmployeeId?.trim();
+  const reason = body.reason?.trim();
+  const managerDecisionId = body.managerDecisionId?.trim();
+
+  if (!parkedByEmployeeId || !reason || !managerDecisionId) {
+    return Response.json(
+      {
+        ok: false,
+        error: "parkedByEmployeeId, reason, and managerDecisionId are required",
+      },
+      { status: 400 },
+    );
+  }
+
+  const store = getTaskStore(env);
+  try {
+    await store.parkTask({
+      taskId,
+      parkedByEmployeeId,
+      reason,
+      managerDecisionId,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return Response.json(
+      {
+        ok: false,
+        error: message,
+      },
+      { status: message.includes("unknown task") ? 404 : 400 },
+    );
+  }
+
+  return Response.json({
+    ok: true,
+    taskId,
+    status: "parked",
+    managerDecisionId,
   });
 }

@@ -413,6 +413,7 @@ export interface TaskStore {
     taskId: string;
     parkedByEmployeeId: string;
     reason: string;
+    managerDecisionId: string;
   }): Promise<void>;
   recordDecision(decision: Decision): Promise<void>;
 

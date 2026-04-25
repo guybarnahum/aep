@@ -133,6 +133,7 @@ Base service: `core/operator-agent`
 - PR14C/D staffing note: internal team-loop resolution already returns explicit waiting-for-staffing results when a team has ready work but no executable runtime employee. No seeded or hardcoded employee IDs are allowed in that path.
 - PR14H note: execution failures are returned as bounded `execution_failed` team-loop results and are published as canonical heartbeat messages when an author can be resolved from the task or selected employee.
 - PR16C note: single-team loop responses include specialization selection metadata for the chosen canonical task, and published team heartbeat messages carry the same selection details.
+- PR16D note: team-loop scheduling now invokes bounded cognition for candidate prioritization and public rationale generation. When cognition recommends `request_manager_review`, the loop publishes a canonical scheduling review thread and returns `manager_review_requested` without preempting work automatically.
 
 `GET /agent/scheduler-status`
 
@@ -489,8 +490,10 @@ Legacy PR15 task type aliases are accepted at API/task-creation boundaries
 and normalized before persistence:
 
 - `plan-website-delivery` -> `task_graph_planning`
+- `plan-feature` -> `task_graph_planning`
 - `website-design` -> `web_design`
 - `website-implementation` -> `web_implementation`
+- `implementation` -> `web_implementation`
 - `website-deployment` -> `deployment`
 - `validate-deployment` -> `verification`
 
@@ -510,6 +513,12 @@ Examples:
 - `verification` requires `targetUrl` and `subjectRef`
 - `bug_report` requires `sourceTaskId` and `summary`
 
+PR16D scheduling and parking note:
+
+- Canonical task status includes `parked` for manager-mediated preemption decisions.
+- Parking is explicit, auditable, and route-mediated.
+- Team loops may return `manager_review_requested` when cognition identifies scheduling tradeoffs that require manager approval.
+
 `GET /agent/tasks`
 
 - Lists canonical coordination tasks.
@@ -521,6 +530,16 @@ Examples:
 `GET /agent/tasks/:taskId`
 
 - Returns task detail.
+
+`POST /agent/tasks/:taskId/park`
+
+- Manager-mediated task preemption endpoint.
+- Required JSON body fields:
+	- `parkedByEmployeeId`
+	- `reason`
+	- `managerDecisionId`
+- Applies canonical task status transition to `parked`.
+- Persists a canonical coordination audit thread/message linked to the parked task.
 
 `GET /agent/tasks/:taskId/artifacts`
 
