@@ -13,6 +13,7 @@ import {
   type Project,
   type ProjectListQuery,
   type ExternalInteractionAuditRecord,
+  type TaskCreateInput,
   TaskDependencyValidationError,
   type ThreadExternalInteractionPolicy,
   type Decision,
@@ -28,6 +29,7 @@ import {
   type TaskStatus,
   type TaskStore,
 } from "@aep/operator-agent/lib/store-types";
+import { normalizeTaskType } from "@aep/operator-agent/lib/task-contracts";
 import { newId } from "@aep/shared";
 import type { OperatorAgentEnv } from "@aep/operator-agent/types";
 
@@ -226,6 +228,8 @@ function requireDb(env: OperatorAgentEnv): D1Database {
 }
 
 function rowToTask(row: TaskRow): Task {
+  const canonicalTaskType = normalizeTaskType(row.task_type);
+
   return {
     id: row.id,
     companyId: row.company_id,
@@ -234,7 +238,7 @@ function rowToTask(row: TaskRow): Task {
     ownerEmployeeId: row.owner_employee_id ?? undefined,
     assignedEmployeeId: row.assigned_employee_id ?? row.employee_id ?? undefined,
     createdByEmployeeId: row.created_by_employee_id ?? undefined,
-    taskType: row.task_type,
+    taskType: canonicalTaskType,
     title: row.title ?? row.task_type,
     status: row.status as TaskStatus,
     payload: fromJson<Record<string, unknown>>(row.payload) ?? {},
@@ -605,34 +609,16 @@ export class D1TaskStore implements TaskStore {
     }
   }
 
-  async createTask(
-    task: Omit<
-      Task,
-      | "status"
-      | "blockingDependencyCount"
-      | "createdAt"
-      | "updatedAt"
-      | "startedAt"
-      | "completedAt"
-      | "failedAt"
-    >,
-  ): Promise<void> {
+  async createTask(task: TaskCreateInput): Promise<void> {
     await this.createTaskWithDependencies({ task, dependsOnTaskIds: [] });
   }
 
   async createTaskWithDependencies(args: {
-    task: Omit<
-      Task,
-      | "status"
-      | "blockingDependencyCount"
-      | "createdAt"
-      | "updatedAt"
-      | "startedAt"
-      | "completedAt"
-      | "failedAt"
-    >;
+    task: TaskCreateInput;
     dependsOnTaskIds?: string[];
   }): Promise<void> {
+    const canonicalTaskType = normalizeTaskType(args.task.taskType);
+
     const dependsOnTaskIds = await this.validateDependencies({
       taskId: args.task.id,
       companyId: args.task.companyId,
@@ -674,7 +660,7 @@ export class D1TaskStore implements TaskStore {
           args.task.createdByEmployeeId ?? null,
           args.task.assignedTeamId,
           args.task.assignedEmployeeId ?? null,
-          args.task.taskType,
+          canonicalTaskType,
           args.task.title,
           initialStatus,
           toJson(args.task.payload),

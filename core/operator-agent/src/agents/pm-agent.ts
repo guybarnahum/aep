@@ -131,7 +131,7 @@ async function buildWebsitePlan(args: {
   const validationAssignee = await resolver.resolveEmployeeForTask({
     companyId,
     teamId: validationOwner.teamId,
-    taskType: "validate-deployment",
+    taskType: "verification",
   });
 
   return {
@@ -143,7 +143,7 @@ async function buildWebsitePlan(args: {
         id: "design",
         capability: "design",
         title: `Design website scope for ${objectiveTitle}`,
-        taskType: "website-design",
+        taskType: "web_design",
         assignedTeamId: designOwner.teamId,
         payload: {
           objectiveTitle,
@@ -155,7 +155,7 @@ async function buildWebsitePlan(args: {
         id: "implement",
         capability: "implementation",
         title: `Implement website for ${objectiveTitle}`,
-        taskType: "website-implementation",
+        taskType: "web_implementation",
         assignedTeamId: implementationOwner.teamId,
         dependsOnStepIds: ["design"],
         payload: {
@@ -168,7 +168,7 @@ async function buildWebsitePlan(args: {
         id: "deploy",
         capability: "deployment",
         title: `Deploy website for ${objectiveTitle}`,
-        taskType: "website-deployment",
+        taskType: "deployment",
         assignedTeamId: deploymentOwner.teamId,
         dependsOnStepIds: ["implement"],
         payload: {
@@ -181,7 +181,7 @@ async function buildWebsitePlan(args: {
         id: "validate",
         capability: "validation",
         title: `Validate website deployment for ${objectiveTitle}`,
-        taskType: "validate-deployment",
+        taskType: "verification",
         assignedTeamId: validationOwner.teamId,
         assignedEmployeeId: validationAssignee.employeeId,
         dependsOnStepIds: ["deploy"],
@@ -223,7 +223,7 @@ async function ensurePlanningRootTask(args: {
     ownerEmployeeId: args.context.employee.identity.employeeId,
     assignedEmployeeId: args.context.employee.identity.employeeId,
     createdByEmployeeId: args.context.employee.identity.employeeId,
-    taskType: "plan-website-delivery",
+    taskType: "task_graph_planning",
     title: args.plan.planningTaskTitle,
     payload: {
       objectiveTitle: args.plan.objectiveTitle,

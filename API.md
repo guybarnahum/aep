@@ -473,6 +473,29 @@ Dashboard note:
 
 ### Tasks
 
+Task creation validates `taskType` through the canonical AEP task contract registry.
+
+Canonical task state stores only PR16 task types:
+
+- PM: `project_planning`, `requirements_definition`, `task_graph_planning`
+- Web: `web_design`, `web_implementation`, `ui_iteration`
+- Infra: `deployment`, `monitoring_setup`, `incident_response`
+- Validation: `test_execution`, `bug_report`, `verification`
+- Cross-cutting: `coordination`, `analysis`
+
+Legacy PR15 task type aliases are accepted at API/task-creation boundaries
+and normalized before persistence:
+
+- `plan-website-delivery` -> `task_graph_planning`
+- `website-design` -> `web_design`
+- `website-implementation` -> `web_implementation`
+- `website-deployment` -> `deployment`
+- `validate-deployment` -> `verification`
+
+The task contract registry also carries team-discipline, default role, and
+artifact-expectation metadata for PR16B-F. It must remain code-owned and must
+not become a dashboard-owned state store.
+
 `GET /agent/tasks`
 
 - Lists canonical coordination tasks.

@@ -16,6 +16,7 @@ import type {
   MirrorChannel,
   MirrorDeliveryRecord,
 } from "@aep/operator-agent/adapters/types";
+import type { CanonicalTaskType } from "./task-contracts";
 
 export interface IApprovalStore {
   write(record: ApprovalRecord): Promise<void>;
@@ -190,7 +191,7 @@ export interface Task {
   ownerEmployeeId?: string;
   assignedEmployeeId?: string;
   createdByEmployeeId?: string;
-  taskType: string;
+  taskType: CanonicalTaskType;
   title: string;
   status: TaskStatus;
   payload: Record<string, unknown>;
@@ -368,31 +369,25 @@ export interface TaskArtifactListQuery {
   limit: number;
 }
 
+export type TaskCreateInput = Omit<
+  Task,
+  | "status"
+  | "blockingDependencyCount"
+  | "createdAt"
+  | "updatedAt"
+  | "startedAt"
+  | "completedAt"
+  | "failedAt"
+  | "taskType"
+> & {
+  taskType: string;
+};
+
 export interface TaskStore {
-  createTask(
-    task: Omit<
-      Task,
-      | "status"
-      | "blockingDependencyCount"
-      | "createdAt"
-      | "updatedAt"
-      | "startedAt"
-      | "completedAt"
-      | "failedAt"
-    >,
-  ): Promise<void>;
+  createTask(task: TaskCreateInput): Promise<void>;
 
   createTaskWithDependencies(args: {
-    task: Omit<
-      Task,
-      | "status"
-      | "blockingDependencyCount"
-      | "createdAt"
-      | "updatedAt"
-      | "startedAt"
-      | "completedAt"
-      | "failedAt"
-    >;
+    task: TaskCreateInput;
     dependsOnTaskIds?: string[];
   }): Promise<void>;
 

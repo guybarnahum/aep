@@ -37,6 +37,7 @@ Endpoint documentation note for future LLM sessions:
 - missing delivery config should disable that delivery path and record a skipped-delivery reason
 - CI must enforce the hardcoded runtime identifier guardrail. Active runtime/config/CI code must not reintroduce static employee IDs, committed cleanup tokens, placeholder live recipients, personal workers.dev URLs, or implicit internal-org default routing. Historical migrations, docs, examples, and local-dev-only scripts may contain literal examples when clearly scoped.
 - PR15A-F are complete in code: AEP now has canonical intake requests, canonical projects, intake-to-project conversion, project-to-task-graph creation, dashboard UI, and deployed CI scenario coverage for the intake -> project -> task graph flow.
+- PR16A begins role realism by adding a native task contract registry. Task types are no longer arbitrary strings: they resolve through code-owned task contracts that define canonical task type, discipline, expected teams, expected artifacts, legacy aliases, and default role hints. Legacy PR15 task aliases are accepted only at creation boundaries and normalized before persistence, so canonical task state uses PR16 vocabulary only.
 - Intake and projects are canonical operator-agent state. The dashboard only calls canonical routes and must not become the owner of intake, project, or task state.
 - Project task graphs must use existing canonical tasks and dependencies. Do not introduce a parallel project-work store.
 

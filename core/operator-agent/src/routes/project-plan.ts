@@ -1,4 +1,5 @@
 import { getTaskStore } from "@aep/operator-agent/lib/store-factory";
+import { TaskTypeValidationError } from "@aep/operator-agent/lib/task-contracts";
 import { TaskDependencyValidationError } from "@aep/operator-agent/lib/store-types";
 import { isTeamId } from "@aep/operator-agent/org/teams";
 import type { OperatorAgentEnv } from "@aep/operator-agent/types";
@@ -203,6 +204,13 @@ export async function handleCreateProjectTaskGraph(
       createdTaskIds.push(taskId);
     }
   } catch (error) {
+    if (error instanceof TaskTypeValidationError) {
+      return jsonError(error.message, 400, {
+        code: "unsupported_task_type",
+        taskType: error.taskType,
+      });
+    }
+
     if (error instanceof TaskDependencyValidationError) {
       return jsonError(error.message, 400, {
         code: error.code,

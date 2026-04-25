@@ -62,6 +62,10 @@ function main(): void {
         label: "operator-agent contract check",
         scriptPath: "scripts/ci/checks/contracts/operator-agent-contract-check.ts",
       },
+      {
+        label: "task-type normalization contract check",
+        scriptPath: "scripts/ci/checks/contracts/task-type-normalization-contract-check.ts",
+      },
     );
   } else {
     console.log(

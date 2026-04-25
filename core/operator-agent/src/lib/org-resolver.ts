@@ -1,4 +1,5 @@
 import { resolveRuntimeEmployeeByRole } from "@aep/operator-agent/persistence/d1/runtime-employee-resolver-d1";
+import { getDefaultRoleIdForTaskType } from "@aep/operator-agent/lib/task-contracts";
 import type { AgentRoleId, OperatorAgentEnv } from "@aep/operator-agent/types";
 
 export type OrgCapability =
@@ -37,17 +38,9 @@ const DEFAULT_CAPABILITY_TEAM_MAP: Record<OrgCapability, string> = {
 };
 
 function defaultRoleForTask(args: {
-  teamId: string;
   taskType: string;
 }): AgentRoleId | undefined {
-  if (
-    args.teamId === "team_validation"
-    && args.taskType === "validate-deployment"
-  ) {
-    return "reliability-engineer";
-  }
-
-  return undefined;
+  return getDefaultRoleIdForTaskType(args.taskType);
 }
 
 async function lookupCapabilityTeamInDb(args: {
@@ -105,7 +98,6 @@ export function createOrgResolver(
       taskType: string;
     }): Promise<ResolvedTaskAssignee> {
       const roleId = defaultRoleForTask({
-        teamId: args.teamId,
         taskType: args.taskType,
       });
 

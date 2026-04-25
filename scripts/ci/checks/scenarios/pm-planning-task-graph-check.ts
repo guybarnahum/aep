@@ -102,7 +102,7 @@ async function main(): Promise<void> {
   );
 
   const planningRoot = newTasks.find(
-    (task: any) => task.taskType === "plan-website-delivery",
+    (task: any) => task.taskType === "task_graph_planning",
   );
 
   if (!planningRoot?.id) {
@@ -156,16 +156,16 @@ async function main(): Promise<void> {
   }
 
   const designTask = childTasks.find(
-    (detail: any) => detail.task.taskType === "website-design",
+    (detail: any) => detail.task.taskType === "web_design",
   );
   const implementTask = childTasks.find(
-    (detail: any) => detail.task.taskType === "website-implementation",
+    (detail: any) => detail.task.taskType === "web_implementation",
   );
   const deployTask = childTasks.find(
-    (detail: any) => detail.task.taskType === "website-deployment",
+    (detail: any) => detail.task.taskType === "deployment",
   );
   const validateTask = childTasks.find(
-    (detail: any) => detail.task.taskType === "validate-deployment",
+    (detail: any) => detail.task.taskType === "verification",
   );
 
   if (!designTask || !implementTask || !deployTask || !validateTask) {
