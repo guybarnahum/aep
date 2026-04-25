@@ -233,15 +233,23 @@ async function main(): Promise<void> {
       {
         clientTaskId: "requirements",
         title: `PR15F Define requirements ${unique}`,
-        taskType: "project_requirements",
+        taskType: "requirements_definition",
         assignedTeamId: "team_web_product",
+        payload: {
+          objectiveTitle: `PR15F requirements objective ${unique}`,
+          sourceRef: `intake:${intake.id}`,
+        },
       },
       {
         clientTaskId: "implementation",
         title: `PR15F Implement deliverable ${unique}`,
-        taskType: "implementation",
+        taskType: "web_implementation",
         assignedTeamId: "team_web_product",
         dependsOnClientTaskIds: ["requirements"],
+        payload: {
+          targetUrl: "https://example.invalid/pr15f/implementation",
+          requirementsRef: "requirements",
+        },
       },
       {
         clientTaskId: "deploy",
@@ -249,13 +257,21 @@ async function main(): Promise<void> {
         taskType: "deployment",
         assignedTeamId: "team_infra",
         dependsOnClientTaskIds: ["implementation"],
+        payload: {
+          environment: "staging",
+          artifactRef: "build_pr15f_fixture",
+        },
       },
       {
         clientTaskId: "validate",
         title: `PR15F Validate deliverable ${unique}`,
-        taskType: "validation",
+        taskType: "verification",
         assignedTeamId: "team_validation",
         dependsOnClientTaskIds: ["deploy"],
+        payload: {
+          targetUrl: "https://example.invalid/pr15f/verification",
+          subjectRef: "deploy",
+        },
       },
     ],
   });
