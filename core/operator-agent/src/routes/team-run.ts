@@ -82,22 +82,44 @@ export async function handleRunTeams(
 
   const limit = parseLimit(body.limit);
   const results = [];
-  for (const teamId of teamIds) {
-    results.push(
-      await runTeamWorkLoop({
-        env: env as OperatorAgentEnv,
-        companyId: body.companyId as CompanyId | undefined,
-        teamId,
-        limit,
-      }),
-    );
-  }
 
-  return Response.json({
-    ok: true,
-    count: results.length,
-    results,
-  });
+  try {
+    for (const teamId of teamIds) {
+      try {
+        results.push(
+          await runTeamWorkLoop({
+            env: env as OperatorAgentEnv,
+            companyId: body.companyId as CompanyId | undefined,
+            teamId,
+            limit,
+          }),
+        );
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        
+        // Log and include error in results instead of failing entire batch
+        console.error(`Error running work loop for team ${teamId}:`, error);
+        results.push({
+          ok: false,
+          teamId,
+          error: message.includes("Failed to normalize taskType")
+            ? `Data integrity error: ${message}`
+            : `Error running team work loop: ${message}`,
+        } as unknown as typeof results[0]);
+      }
+    }
+
+    const allSuccessful = results.every((r) => (r as any)?.ok !== false);
+    return Response.json({
+      ok: allSuccessful,
+      count: results.length,
+      results,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error("Unexpected error in handleRunTeams:", error);
+    return jsonError(`Unexpected error while running teams: ${message}`, 500);
+  }
 }
 
 export async function handleRunTeamOnce(
@@ -118,13 +140,29 @@ export async function handleRunTeamOnce(
     return jsonError(`Unsupported teamId: ${teamId}`, 400);
   }
 
-  const body = await readOptionalJsonBody(request);
-  const result = await runTeamWorkLoop({
-    env: env as OperatorAgentEnv,
-    companyId: body.companyId as CompanyId | undefined,
-    teamId,
-    limit: parseLimit(body.limit),
-  });
+  try {
+    const body = await readOptionalJsonBody(request);
+    const result = await runTeamWorkLoop({
+      env: env as OperatorAgentEnv,
+      companyId: body.companyId as CompanyId | undefined,
+      teamId,
+      limit: parseLimit(body.limit),
+    });
 
-  return Response.json(result);
+    return Response.json(result);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+
+    // Data integrity errors
+    if (message.includes("Failed to normalize taskType")) {
+      return jsonError(
+        `Data integrity error while loading team tasks: ${message}`,
+        500,
+      );
+    }
+
+    // Unexpected errors
+    console.error(`Unexpected error in team run loop for ${teamId}:`, error);
+    return jsonError(`Unexpected error while running team work loop: ${message}`, 500);
+  }
 }

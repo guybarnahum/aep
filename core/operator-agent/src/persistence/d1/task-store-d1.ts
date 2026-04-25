@@ -32,6 +32,7 @@ import {
 import {
   normalizeTaskType,
   validateTaskPayloadContract,
+  type CanonicalTaskType,
 } from "@aep/operator-agent/lib/task-contracts";
 import { newId } from "@aep/shared";
 import type { OperatorAgentEnv } from "@aep/operator-agent/types";
