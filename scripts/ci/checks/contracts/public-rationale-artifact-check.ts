@@ -93,6 +93,7 @@ async function main(): Promise<void> {
     title: "PR7.8C public rationale artifact task",
     payload: {
       targetUrl: getTargetUrl(),
+      subjectRef: "deployment_validation_subject",
       source: "public-rationale-artifact-check",
     },
   });

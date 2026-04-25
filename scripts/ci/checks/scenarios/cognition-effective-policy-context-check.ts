@@ -129,6 +129,7 @@ function makeRunContext(): ResolvedEmployeeRunContext {
         status: "ready",
         payload: {
           targetUrl: "https://example.com",
+          subjectRef: "deployment_validation_subject",
         },
         blockingDependencyCount: 0,
       },
@@ -238,7 +239,7 @@ function makeFakeEnv(): OperatorAgentEnv {
           },
         };
       },
-    } as unknown as D1Database,
+    } as unknown as any,
     __captured: {
       get system(): string {
         return capturedSystem;

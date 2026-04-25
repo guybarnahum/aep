@@ -82,6 +82,7 @@ async function main() {
 
   const payload = {
     targetUrl,
+    subjectRef: "deployment_validation_subject",
     useControlPlaneBinding: true,
   };
 

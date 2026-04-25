@@ -13,6 +13,7 @@ const CHECK_NAME = "task-reassignment-continuity-check";
 const TEAM_ID = "team_validation";
 const ROLE_ID = "validation-engineer";
 const COMPANY_ID = "company_internal_aep";
+const VALIDATION_TARGET_URL = "https://example.invalid";
 let CREATED_BY_EMPLOYEE_ID = "";
 
 type SqlRow = Record<string, unknown>;
@@ -317,7 +318,12 @@ async function main(): Promise<void> {
       createdByEmployeeId: CREATED_BY_EMPLOYEE_ID,
       taskType: "validate-deployment",
       title: `${CHECK_NAME} leave continuity`,
-      payload: { source: CHECK_NAME, case: "leave" },
+      payload: {
+        source: CHECK_NAME,
+        case: "leave",
+        targetUrl: VALIDATION_TARGET_URL,
+        subjectRef: "deployment_validation_subject",
+      },
     });
 
     if (!leaveTask?.ok || typeof leaveTask.taskId !== "string") {
@@ -359,7 +365,12 @@ async function main(): Promise<void> {
       createdByEmployeeId: CREATED_BY_EMPLOYEE_ID,
       taskType: "validate-deployment",
       title: `${CHECK_NAME} terminate continuity`,
-      payload: { source: CHECK_NAME, case: "terminate" },
+      payload: {
+        source: CHECK_NAME,
+        case: "terminate",
+        targetUrl: VALIDATION_TARGET_URL,
+        subjectRef: "deployment_validation_subject",
+      },
     });
 
     if (!terminateTask?.ok || typeof terminateTask.taskId !== "string") {

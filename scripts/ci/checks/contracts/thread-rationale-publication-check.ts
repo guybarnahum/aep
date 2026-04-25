@@ -89,6 +89,7 @@ async function main(): Promise<void> {
     title: "PR7.8D thread rationale publication task",
     payload: {
       targetUrl: getTargetUrl(),
+      subjectRef: "deployment_validation_subject",
       source: "thread-rationale-publication-check",
     },
   });

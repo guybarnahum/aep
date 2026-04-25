@@ -121,6 +121,7 @@ async function main(): Promise<void> {
     title: "Validation loop feedback scenario check",
     payload: {
       targetUrl: getTargetUrl(),
+      subjectRef: "deployment_validation_subject",
       source: CHECK_NAME,
       useControlPlaneBinding: false,
     },
