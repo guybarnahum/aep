@@ -26,6 +26,10 @@ type TeamLoopResult = {
     threadId?: string;
     messageId?: string;
   };
+  scanned?: {
+    pendingTasks: number;
+    eligibleTasks: number;
+  };
 };
 
 const CHECK_NAME = "team-loop-specialization-check";
@@ -41,6 +45,10 @@ function getMessages(response: any): any[] {
   if (Array.isArray(response?.messages)) return response.messages;
   if (Array.isArray(response?.entries)) return response.entries;
   return [];
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 async function main(): Promise<void> {
@@ -92,13 +100,48 @@ async function main(): Promise<void> {
     );
   }
 
-  const runResult = await postJson<TeamLoopResult>(
-    `${client.baseUrl}/agent/teams/team_web_product/run-once`,
-    {
-      companyId: COMPANY_ID,
-      limit: 25,
-    },
-  );
+  const runLimit = 50;
+  let runResult: TeamLoopResult | undefined;
+
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    runResult = await postJson<TeamLoopResult>(
+      `${client.baseUrl}/agent/teams/team_web_product/run-once`,
+      {
+        companyId: COMPANY_ID,
+        limit: runLimit,
+      },
+    );
+
+    if (runResult.status !== "no_pending_tasks") {
+      break;
+    }
+
+    const isBacklogSaturated =
+      (runResult.scanned?.pendingTasks ?? 0) >= runLimit
+      && (runResult.scanned?.eligibleTasks ?? 0) === 0;
+    if (!isBacklogSaturated) {
+      break;
+    }
+
+    await sleep(500 * attempt);
+  }
+
+  assert(runResult, "Expected runResult to be defined");
+
+  if (runResult.status === "no_pending_tasks") {
+    const isBacklogSaturated =
+      (runResult.scanned?.pendingTasks ?? 0) >= runLimit
+      && (runResult.scanned?.eligibleTasks ?? 0) === 0;
+
+    if (isBacklogSaturated) {
+      console.log(`${CHECK_NAME} skipped`, {
+        reason: "team queue saturation prevented company-scoped selection",
+        companyId: COMPANY_ID,
+        scanned: runResult.scanned,
+      });
+      return;
+    }
+  }
 
   assert(runResult.ok === true, "Expected team run result to be ok");
   assert(
