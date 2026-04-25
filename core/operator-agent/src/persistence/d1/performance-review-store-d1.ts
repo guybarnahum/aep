@@ -109,26 +109,33 @@ async function listReviewEvidenceMap(
   }
 
   const db = requireDb(env);
-  const placeholders = reviewIds.map(() => "?").join(", ");
-  const rows = await db
-    .prepare(
-      `SELECT review_id, evidence_type, evidence_id
-       FROM employee_review_evidence_links
-       WHERE review_id IN (${placeholders})
-       ORDER BY review_id, created_at ASC`,
-    )
-    .bind(...reviewIds)
-    .all<ReviewEvidenceRow>();
-
   const out: Record<string, EmployeePerformanceReviewEvidence[]> = {};
-  for (const row of rows.results ?? []) {
-    if (!out[row.review_id]) {
-      out[row.review_id] = [];
+
+  // Cloudflare D1/SQLite has a maximum bind parameter count per statement.
+  // Batch the IN-clause lookups so large review sets cannot overflow it.
+  const batchSize = 200;
+  for (let i = 0; i < reviewIds.length; i += batchSize) {
+    const batch = reviewIds.slice(i, i + batchSize);
+    const placeholders = batch.map(() => "?").join(", ");
+    const rows = await db
+      .prepare(
+        `SELECT review_id, evidence_type, evidence_id
+         FROM employee_review_evidence_links
+         WHERE review_id IN (${placeholders})
+         ORDER BY review_id, created_at ASC`,
+      )
+      .bind(...batch)
+      .all<ReviewEvidenceRow>();
+
+    for (const row of rows.results ?? []) {
+      if (!out[row.review_id]) {
+        out[row.review_id] = [];
+      }
+      out[row.review_id].push({
+        evidenceType: row.evidence_type,
+        evidenceId: row.evidence_id,
+      });
     }
-    out[row.review_id].push({
-      evidenceType: row.evidence_type,
-      evidenceId: row.evidence_id,
-    });
   }
 
   return out;
