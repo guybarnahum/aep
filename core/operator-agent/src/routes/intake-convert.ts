@@ -1,10 +1,22 @@
 import { getTaskStore } from "@aep/operator-agent/lib/store-factory";
 import { newId } from "@aep/shared";
-import { TEAM_WEB_PRODUCT } from "@aep/operator-agent/org/teams";
+import { TEAM_WEB_PRODUCT, isTeamId } from "@aep/operator-agent/org/teams";
 import type { OperatorAgentEnv } from "@aep/operator-agent/types";
+
+type ConvertIntakeBody = {
+  ownerTeamId?: unknown;
+  projectTitle?: unknown;
+  projectDescription?: unknown;
+  convertedByEmployeeId?: unknown;
+  rationale?: unknown;
+};
 
 function jsonError(message: string, status = 400): Response {
   return Response.json({ ok: false, error: message }, { status });
+}
+
+function stringOrEmpty(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
 }
 
 export async function handleConvertIntakeToProject(
@@ -18,6 +30,13 @@ export async function handleConvertIntakeToProject(
 
   if (!env) {
     return jsonError("Missing operator-agent environment", 500);
+  }
+
+  let body: ConvertIntakeBody;
+  try {
+    body = (await request.json()) as ConvertIntakeBody;
+  } catch {
+    return jsonError("Invalid JSON body");
   }
 
   const store = getTaskStore(env);
@@ -35,6 +54,25 @@ export async function handleConvertIntakeToProject(
     return jsonError("Rejected intake requests cannot be converted", 422);
   }
 
+  const ownerTeamId = stringOrEmpty(body.ownerTeamId) || TEAM_WEB_PRODUCT;
+  if (!isTeamId(ownerTeamId)) {
+    return jsonError(`Unsupported ownerTeamId: ${ownerTeamId}`);
+  }
+
+  const convertedByEmployeeId = stringOrEmpty(body.convertedByEmployeeId);
+  if (!convertedByEmployeeId) {
+    return jsonError("convertedByEmployeeId is required");
+  }
+
+  const projectTitle = stringOrEmpty(body.projectTitle) || intake.title;
+  const projectDescription =
+    stringOrEmpty(body.projectDescription) ||
+    intake.description ||
+    `Project converted from intake request ${intake.id}.`;
+  const rationale =
+    stringOrEmpty(body.rationale) ||
+    "PM converted this intake request into a canonical project.";
+
   const now = new Date().toISOString();
   const projectId = newId("project");
 
@@ -42,9 +80,9 @@ export async function handleConvertIntakeToProject(
     id: projectId,
     companyId: intake.companyId,
     intakeRequestId: intake.id,
-    title: intake.title,
-    description: intake.description ?? null,
-    ownerTeamId: TEAM_WEB_PRODUCT,
+    title: projectTitle,
+    description: projectDescription,
+    ownerTeamId,
     status: "active",
     createdAt: now,
     updatedAt: now,
@@ -58,8 +96,9 @@ export async function handleConvertIntakeToProject(
   await store.createMessageThread({
     id: threadId,
     companyId: intake.companyId,
-    topic: `Project coordination: ${intake.title}`,
-    visibility: "internal",
+    topic: `Intake converted: ${intake.title}`,
+    createdByEmployeeId: convertedByEmployeeId,
+    visibility: "org",
   });
 
   const messageId = newId("message");
@@ -67,12 +106,19 @@ export async function handleConvertIntakeToProject(
     id: messageId,
     threadId,
     companyId: intake.companyId,
-    senderEmployeeId: intake.requestedBy,
+    senderEmployeeId: convertedByEmployeeId,
+    receiverTeamId: ownerTeamId,
     type: "coordination",
     status: "delivered",
     source: "system",
-    body: `Intake request "${intake.title}" has been converted to project ${projectId}.`,
-    payload: { intakeRequestId: intake.id, projectId },
+    subject: "Intake converted to project",
+    body: rationale,
+    payload: {
+      kind: "intake_project_conversion",
+      intakeRequestId: intake.id,
+      projectId,
+      ownerTeamId,
+    },
     requiresResponse: false,
   });
 

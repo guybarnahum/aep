@@ -186,7 +186,13 @@ Base service: `core/operator-agent`
 `POST /agent/intake/:id/convert-to-project`
 
 - Convert an intake request into a canonical project.
-- Creates a project (status `active`, `ownerTeamId` = web-product team) linked to the intake.
+- Accepts JSON body:
+	- `convertedByEmployeeId` (required)
+	- optional `ownerTeamId` (defaults to web-product team)
+	- optional `projectTitle` (defaults to intake title)
+	- optional `projectDescription` (defaults to intake description)
+	- optional `rationale`
+- Creates a project (status `active`) linked to the intake.
 - Marks the intake status as `converted`.
 - Creates a coordination message thread and an initial system note.
 - Returns `{ ok, intake, project, threadId, messageId }` with a `201` status.
@@ -200,6 +206,8 @@ Important invariants:
 - Triage sets status to `triaged`; rejection sets status to `rejected`.
 - Conversion is the only operation that creates a project from an intake.
 - A converted intake cannot be converted again.
+- Conversion requires a real employee author and publishes only public coordination rationale.
+- Conversion does not expose private PM cognition.
 
 ### Projects
 
