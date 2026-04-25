@@ -232,7 +232,17 @@ function requireDb(env: OperatorAgentEnv): D1Database {
 }
 
 function rowToTask(row: TaskRow): Task {
-  const canonicalTaskType = normalizeTaskType(row.task_type);
+  let canonicalTaskType: CanonicalTaskType;
+  try {
+    canonicalTaskType = normalizeTaskType(row.task_type);
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    throw new Error(
+      `Failed to normalize taskType for task ${row.id}: ${errorMessage}. ` +
+        `Unknown taskType: "${row.task_type}". ` +
+        `Please add "${row.task_type}" as a legacyAlias in task-contracts.ts or correct the database value.`,
+    );
+  }
 
   return {
     id: row.id,
@@ -257,6 +267,26 @@ function rowToTask(row: TaskRow): Task {
     completedAt: row.completed_at ?? undefined,
     failedAt: row.failed_at ?? undefined,
   };
+}
+
+function mapTaskRowsSafely(args: {
+  rows: TaskRow[];
+  context: string;
+}): Task[] {
+  const tasks: Task[] = [];
+
+  for (const row of args.rows) {
+    try {
+      tasks.push(rowToTask(row));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error(
+        `[task-store] skipping invalid task row in ${args.context}: taskId=${row.id}, taskType=${row.task_type}, error=${message}`,
+      );
+    }
+  }
+
+  return tasks;
 }
 
 function rowToDependency(row: TaskDependencyRow): TaskDependency {
@@ -737,7 +767,10 @@ export class D1TaskStore implements TaskStore {
       .bind(...binds, query.limit)
       .all<TaskRow>();
 
-    return (rows.results ?? []).map(rowToTask);
+    return mapTaskRowsSafely({
+      rows: rows.results ?? [],
+      context: "listTasks",
+    });
   }
 
   async listDependencies(taskId: string): Promise<TaskDependency[]> {
@@ -766,7 +799,10 @@ export class D1TaskStore implements TaskStore {
       .bind(employeeId, teamId)
       .all<TaskRow>();
 
-    return (rows.results ?? []).map(rowToTask);
+    return mapTaskRowsSafely({
+      rows: rows.results ?? [],
+      context: "getPendingTasksForEmployee",
+    });
   }
 
   async getPendingTasksForTeam(args: {
@@ -785,7 +821,10 @@ export class D1TaskStore implements TaskStore {
       .bind(args.teamId, args.limit)
       .all<TaskRow>();
 
-    return (rows.results ?? []).map(rowToTask);
+    return mapTaskRowsSafely({
+      rows: rows.results ?? [],
+      context: "getPendingTasksForTeam",
+    });
   }
 
   async createIntakeRequest(args: IntakeRequest): Promise<void> {

@@ -144,7 +144,7 @@ export const TASK_CONTRACTS: readonly TaskContract[] = [
       field("targetUrl", "string"),
       field("requirementsRef", "string"),
     ]),
-    legacyAliases: ["website-implementation"],
+    legacyAliases: ["website-implementation", "implementation"],
   },
   {
     taskType: "ui_iteration",

@@ -152,19 +152,32 @@ export async function handleListTasks(
   const url = new URL(request.url);
   const store = getTaskStore(env);
 
-  const tasks = await store.listTasks({
-    companyId: url.searchParams.get("companyId") ?? undefined,
-    assignedTeamId: url.searchParams.get("assignedTeamId") ?? undefined,
-    assignedEmployeeId: url.searchParams.get("assignedEmployeeId") ?? undefined,
-    status: (url.searchParams.get("status") as TaskStatus | null) ?? undefined,
-    limit: parseLimit(url),
-  });
+  try {
+    const tasks = await store.listTasks({
+      companyId: url.searchParams.get("companyId") ?? undefined,
+      assignedTeamId: url.searchParams.get("assignedTeamId") ?? undefined,
+      assignedEmployeeId: url.searchParams.get("assignedEmployeeId") ?? undefined,
+      status: (url.searchParams.get("status") as TaskStatus | null) ?? undefined,
+      limit: parseLimit(url),
+    });
 
-  return Response.json({
-    ok: true,
-    count: tasks.length,
-    tasks,
-  });
+    return Response.json({
+      ok: true,
+      count: tasks.length,
+      tasks,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return Response.json(
+      {
+        ok: false,
+        error: message.includes("Failed to normalize taskType")
+          ? `Data integrity error while listing tasks: ${message}`
+          : `Failed to list tasks: ${message}`,
+      },
+      { status: 500 },
+    );
+  }
 }
 
 export async function handleGetTask(
@@ -184,7 +197,21 @@ export async function handleGetTask(
   }
 
   const store = getTaskStore(env);
-  const task = await store.getTask(taskId);
+  let task;
+  try {
+    task = await store.getTask(taskId);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return Response.json(
+      {
+        ok: false,
+        error: message.includes("Failed to normalize taskType")
+          ? `Data integrity error while loading task ${taskId}: ${message}`
+          : `Failed to load task ${taskId}: ${message}`,
+      },
+      { status: 500 },
+    );
+  }
 
   if (!task) {
     return Response.json({ ok: false, error: "task not found" }, { status: 404 });

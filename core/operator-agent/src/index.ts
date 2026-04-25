@@ -580,10 +580,30 @@ export default {
     request: Request,
     env: OperatorAgentEnv,
   ): Promise<Response> {
-    if (request.method === "OPTIONS") {
-      return new Response(null, { status: 204, headers: CORS_HEADERS });
+    try {
+      if (request.method === "OPTIONS") {
+        return new Response(null, { status: 204, headers: CORS_HEADERS });
+      }
+      return withCors(await dispatch(request, env));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error("Unhandled operator-agent fetch error", {
+        method: request.method,
+        path: new URL(request.url).pathname,
+        message,
+      });
+
+      const response = Response.json(
+        {
+          ok: false,
+          error: message.includes("Failed to normalize taskType")
+            ? `Data integrity error: ${message}`
+            : `Unhandled worker error: ${message}`,
+        },
+        { status: 500 },
+      );
+      return withCors(response);
     }
-    return withCors(await dispatch(request, env));
   },
 
   async scheduled(
