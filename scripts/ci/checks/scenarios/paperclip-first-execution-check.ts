@@ -478,9 +478,10 @@ async function main(): Promise<void> {
     assignedTeamId: "team_infra",
     createdByEmployeeId: managerEmployeeId,
     assignedEmployeeId: managerEmployeeId,
-    taskType: "paperclip-manager-check",
+    taskType: "coordination",
     title: "paperclip first execution manager check",
     payload: {
+      topic: "Validate first paperclip manager execution provenance.",
       scenario: "paperclip-first-execution-check",
       phase: "manager",
     },
@@ -591,9 +592,10 @@ async function main(): Promise<void> {
     assignedTeamId: "team_infra",
     createdByEmployeeId: managerEmployeeId,
     assignedEmployeeId: timeoutRecoveryEmployeeId,
-    taskType: "paperclip-worker-check",
+    taskType: "coordination",
     title: "paperclip first execution worker check",
     payload: {
+      topic: "Validate first paperclip worker execution provenance.",
       scenario: "paperclip-first-execution-check",
       phase: "worker",
       targetEmployeeId: timeoutRecoveryEmployeeId,
