@@ -5,6 +5,10 @@ const PURGE_TABLE_ORDER = [
   "employee_review_evidence_links",
   "employee_performance_reviews",
   "employee_review_cycles",
+  "approvals",
+  "manager_decisions",
+  "escalations",
+  "agent_work_log",
   "employee_scope_bindings",
   "employee_public_links",
   "employee_visual_identity",
@@ -146,6 +150,103 @@ export async function handlePurgeCiArtifacts(
            WHERE requested_by LIKE ?`,
         )
         .bind(ciActorPrefix)
+        .run();
+      deletedCount = result.meta?.changes ?? 0;
+    } else if (table === "approvals") {
+      const result = await db
+        .prepare(
+          `DELETE FROM approvals
+           WHERE requested_by_employee_id LIKE ?
+              OR task_id IN (
+                SELECT id FROM tasks
+                WHERE created_by_employee_id LIKE ?
+                   OR json_extract(payload, '$.__ci.runId') = ?
+              )
+              OR json_extract(payload_json, '$.__ci.runId') = ?
+              OR executed_by_employee_id IN (
+                SELECT id FROM employees_catalog
+                WHERE created_by_employee_id LIKE ?
+                   OR is_synthetic = 1
+              )`,
+        )
+        .bind(ciActorPrefix, ciActorPrefix, runId, runId, ciActorPrefix)
+        .run();
+      deletedCount = result.meta?.changes ?? 0;
+    } else if (table === "manager_decisions") {
+      const result = await db
+        .prepare(
+          `DELETE FROM manager_decisions
+           WHERE employee_id IN (
+             SELECT id FROM employees_catalog
+             WHERE created_by_employee_id LIKE ?
+                OR is_synthetic = 1
+           )
+              OR approval_id IN (
+                SELECT approval_id FROM approvals
+                WHERE requested_by_employee_id LIKE ?
+                   OR task_id IN (
+                     SELECT id FROM tasks
+                     WHERE created_by_employee_id LIKE ?
+                        OR json_extract(payload, '$.__ci.runId') = ?
+                   )
+                   OR json_extract(payload_json, '$.__ci.runId') = ?
+              )
+              OR json_extract(execution_context_json, '$.taskId') IN (
+                SELECT id FROM tasks
+                WHERE created_by_employee_id LIKE ?
+                   OR json_extract(payload, '$.__ci.runId') = ?
+              )`,
+        )
+        .bind(
+          ciActorPrefix,
+          ciActorPrefix,
+          ciActorPrefix,
+          runId,
+          runId,
+          ciActorPrefix,
+          runId,
+        )
+        .run();
+      deletedCount = result.meta?.changes ?? 0;
+    } else if (table === "escalations") {
+      const result = await db
+        .prepare(
+          `DELETE FROM escalations
+           WHERE json_extract(execution_context_json, '$.taskId') IN (
+             SELECT id FROM tasks
+             WHERE created_by_employee_id LIKE ?
+                OR json_extract(payload, '$.__ci.runId') = ?
+           )
+              OR EXISTS (
+                SELECT 1
+                FROM json_each(escalations.affected_employee_ids_json)
+                WHERE value IN (
+                  SELECT id FROM employees_catalog
+                  WHERE created_by_employee_id LIKE ?
+                     OR is_synthetic = 1
+                )
+              )`,
+        )
+        .bind(ciActorPrefix, runId, ciActorPrefix)
+        .run();
+      deletedCount = result.meta?.changes ?? 0;
+    } else if (table === "agent_work_log") {
+      const result = await db
+        .prepare(
+          `DELETE FROM agent_work_log
+           WHERE employee_id IN (
+             SELECT id FROM employees_catalog
+             WHERE created_by_employee_id LIKE ?
+                OR is_synthetic = 1
+           )
+              OR json_extract(execution_context_json, '$.taskId') IN (
+                SELECT id FROM tasks
+                WHERE created_by_employee_id LIKE ?
+                   OR json_extract(payload, '$.__ci.runId') = ?
+              )
+              OR json_extract(execution_context_json, '$.actor') LIKE ?`,
+        )
+        .bind(ciActorPrefix, ciActorPrefix, runId, ciActorPrefix)
         .run();
       deletedCount = result.meta?.changes ?? 0;
     } else if (table === "employee_review_cycles") {
