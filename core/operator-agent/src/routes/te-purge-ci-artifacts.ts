@@ -131,14 +131,13 @@ export async function handlePurgeCiArtifacts(
     let deletedCount = 0;
 
     if (table === "intake_requests") {
-      // intake_requests uses requestedBy
+      // No JSON payload column; match on requested_by ci-actor prefix only
       const result = await db
         .prepare(
           `DELETE FROM ${table}
-           WHERE (requested_by LIKE ? OR requested_by LIKE 'ci:%')
-             AND (json_extract(data, '$.__ci.runId') = ? OR requested_by LIKE ?)`,
+           WHERE requested_by LIKE ?`,
         )
-        .bind(ciActorPrefix, runId, `ci:%:${runId}`)
+        .bind(ciActorPrefix)
         .run();
       deletedCount = result.meta?.changes ?? 0;
     } else if (table === "employee_review_cycles") {
@@ -151,37 +150,56 @@ export async function handlePurgeCiArtifacts(
         .bind(ciActorPrefix)
         .run();
       deletedCount = result.meta?.changes ?? 0;
-    } else if (
-      table === "tasks" ||
-      table === "projects" ||
-      table === "task_artifacts" ||
-      table === "message_threads"
-    ) {
-      // These tables have created_by_employee_id and/or a payload/content JSON column
-      const actorCol =
-        table === "task_artifacts" ? "created_by_employee_id"
-        : table === "message_threads" ? "created_by_employee_id"
-        : "created_by_employee_id";
-      const payloadCol =
-        table === "tasks" ? "payload"
-        : table === "projects" ? "payload"
-        : table === "task_artifacts" ? "content"
-        : "payload";
+    } else if (table === "tasks") {
+      // has created_by_employee_id and payload (TEXT JSON)
       const result = await db
         .prepare(
-          `DELETE FROM ${table}
-           WHERE (${actorCol} LIKE ? OR ${actorCol} LIKE 'ci:%')
-              OR json_extract(${payloadCol}, '$.__ci.runId') = ?`,
+          `DELETE FROM tasks
+           WHERE created_by_employee_id LIKE ?
+              OR json_extract(payload, '$.__ci.runId') = ?`,
         )
         .bind(ciActorPrefix, runId)
         .run();
       deletedCount = result.meta?.changes ?? 0;
-    } else if (table === "employee_messages") {
+    } else if (table === "projects") {
+      // No creator or payload column; identify via linked intake_requests.requested_by
       const result = await db
         .prepare(
-          `DELETE FROM ${table}
-           WHERE sender_employee_id LIKE ? OR sender_employee_id LIKE 'ci:%'
-              OR json_extract(payload, '$.__ci.runId') = ?`,
+          `DELETE FROM projects
+           WHERE intake_request_id IN (
+             SELECT id FROM intake_requests WHERE requested_by LIKE 'ci:%'
+           )`,
+        )
+        .run();
+      deletedCount = result.meta?.changes ?? 0;
+    } else if (table === "task_artifacts") {
+      // JSON column is content_json (not content)
+      const result = await db
+        .prepare(
+          `DELETE FROM task_artifacts
+           WHERE created_by_employee_id LIKE ?
+              OR json_extract(content_json, '$.__ci.runId') = ?`,
+        )
+        .bind(ciActorPrefix, runId)
+        .run();
+      deletedCount = result.meta?.changes ?? 0;
+    } else if (table === "message_threads") {
+      // No payload column; match on created_by_employee_id only
+      const result = await db
+        .prepare(
+          `DELETE FROM message_threads
+           WHERE created_by_employee_id LIKE ?`,
+        )
+        .bind(ciActorPrefix)
+        .run();
+      deletedCount = result.meta?.changes ?? 0;
+    } else if (table === "employee_messages") {
+      // JSON column is payload_json (not payload)
+      const result = await db
+        .prepare(
+          `DELETE FROM employee_messages
+           WHERE sender_employee_id LIKE ?
+              OR json_extract(payload_json, '$.__ci.runId') = ?`,
         )
         .bind(ciActorPrefix, runId)
         .run();
