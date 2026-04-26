@@ -50,6 +50,7 @@ type CreateEmployeeRequest = {
   birthYear?: number;
   publicLinks?: EmployeePublicLink[];
   isSynthetic?: boolean;
+  createdByEmployeeId?: string;
   approvedBy?: string;
   threadId?: string;
   effectiveAt?: string;
@@ -191,6 +192,7 @@ export async function handleEmployees(
         birthYear: body.birthYear,
         publicLinks: body.publicLinks,
         isSynthetic: body.isSynthetic === true,
+        createdByEmployeeId: body.createdByEmployeeId,
         approvedBy: body.approvedBy,
         threadId: body.threadId,
         effectiveAt: body.effectiveAt,

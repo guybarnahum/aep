@@ -5,6 +5,10 @@ const PURGE_TABLE_ORDER = [
   "employee_review_evidence_links",
   "employee_performance_reviews",
   "employee_review_cycles",
+  "employee_visual_identity",
+  "employee_prompt_profiles",
+  "employee_personas",
+  "employees_catalog",
   "message_mirror_deliveries",
   "external_message_projections",
   "external_thread_projections",
@@ -177,6 +181,59 @@ export async function handlePurgeCiArtifacts(
               )`,
         )
         .bind(ciActorPrefix, ciActorPrefix)
+        .run();
+      deletedCount = result.meta?.changes ?? 0;
+    } else if (table === "employee_personas") {
+      // FK to employees_catalog(id) via employee_id; delete profiles of CI-created employees
+      const result = await db
+        .prepare(
+          `DELETE FROM employee_personas
+           WHERE employee_id IN (
+             SELECT id FROM employees_catalog
+             WHERE created_by_employee_id LIKE ?
+                OR is_synthetic = 1
+           )`,
+        )
+        .bind(ciActorPrefix)
+        .run();
+      deletedCount = result.meta?.changes ?? 0;
+    } else if (table === "employee_prompt_profiles") {
+      // FK to employees_catalog(id) via employee_id; delete profiles of CI-created employees
+      const result = await db
+        .prepare(
+          `DELETE FROM employee_prompt_profiles
+           WHERE employee_id IN (
+             SELECT id FROM employees_catalog
+             WHERE created_by_employee_id LIKE ?
+                OR is_synthetic = 1
+           )`,
+        )
+        .bind(ciActorPrefix)
+        .run();
+      deletedCount = result.meta?.changes ?? 0;
+    } else if (table === "employee_visual_identity") {
+      // FK to employees_catalog(id) via employee_id; delete profiles of CI-created employees
+      const result = await db
+        .prepare(
+          `DELETE FROM employee_visual_identity
+           WHERE employee_id IN (
+             SELECT id FROM employees_catalog
+             WHERE created_by_employee_id LIKE ?
+                OR is_synthetic = 1
+           )`,
+        )
+        .bind(ciActorPrefix)
+        .run();
+      deletedCount = result.meta?.changes ?? 0;
+    } else if (table === "employees_catalog") {
+      // Delete synthetic employees and CI-created employee records
+      const result = await db
+        .prepare(
+          `DELETE FROM employees_catalog
+           WHERE created_by_employee_id LIKE ?
+              OR is_synthetic = 1`,
+        )
+        .bind(ciActorPrefix)
         .run();
       deletedCount = result.meta?.changes ?? 0;
     } else if (table === "tasks") {

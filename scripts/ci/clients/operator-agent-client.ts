@@ -102,6 +102,7 @@ export type CreateEmployeeRequest = {
   birthYear?: number;
   publicLinks?: EmployeePublicLink[];
   isSynthetic?: boolean;
+  createdByEmployeeId?: string;
   approvedBy?: string;
   threadId?: string;
   effectiveAt?: string;
