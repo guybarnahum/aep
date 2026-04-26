@@ -46,7 +46,7 @@ The company must also support:
 | PR15 | Project + intake model | ✅ PR15A-F complete. Intake, projects, intake conversion, project task graphs, dashboard UI, and CI scenario coverage exist. |
 | PR16 | Real Web / Infra / Validation specialization | ✅ Complete through PR16G. Native task contracts, payload contracts, team-loop specialization, cognitive scheduling, manager-mediated parking, artifact expectations, delegation patterns, and CI/docs closeout exist. |
 | PR17 | External collaboration adapters | ✅ Complete through PR17G. Slack/email are hardened collaboration adapters; Jira-like systems are design-only projection adapters; PR17 CI guards routing, mapping, inbound correlation, idempotency, policy, skipped delivery, placeholder recipients, and adapter state ownership. |
-| PR18 | HR / staffing system | 🟡 Partially implemented. Employee lifecycle, persona, and reviews exist; HR workflows (JD, hiring, staffing) not implemented. |
+| PR18 | HR / staffing system | 🟡 PR18A inventory complete. Employee lifecycle, persona, and reviews exist; staffing contracts, gap detection, hiring requests, and hiring-to-employee linkage are not implemented. |
 | PR19 | Productization / marketing website | ❌ Not implemented. Internal dashboard exists, but no AEP-produced customer-facing product. |
 | PR20 | Super-admin cognition debug layer | ❌ Not implemented. Cognition boundary is strict; no debug surface exists. |
 
@@ -149,6 +149,33 @@ The `scripts/ci` directory has also been refactored to match this structure. Val
 - `scripts/ci/checks/scenarios`
 
 Shared orchestration helpers live under `scripts/ci/tasks` and common utilities under `scripts/ci/shared`.
+
+## HR / staffing inventory
+
+PR18A confirms that AEP already has foundational employee-management surfaces:
+
+- employee catalog
+- role-backed employee creation
+- role-code employee ID allocation
+- lifecycle actions and employment events
+- persona generation / approval
+- review cycles and evidence-linked performance reviews
+- dashboard people-management views
+
+The missing layer is staffing, not basic employee storage.
+
+PR18 will add staffing as native organization-runtime behavior:
+
+- job descriptions
+- staffing requests
+- hiring recommendations
+- role gaps
+- hiring-request approval and fulfillment
+- staffing dashboard visibility
+- CI guardrails for staffing lifecycle correctness
+
+Staffing must remain inside canonical AEP primitives. It must not become a
+recruiting CRM, candidate pipeline, or parallel HR database.
 
 ## External collaboration adapters
 

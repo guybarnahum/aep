@@ -4,7 +4,7 @@ Repository (source of truth):
 👉 https://github.com/guybarnahum/aep
 
 The repository code is the source of truth.  
-This document is aligned to commit `6578cdc7392ce74cd18f59a27c2bf16c4482ecc3`.
+This document is aligned to commit `6e6b82dfc34c19e5f0851f5928731a41e756446b`.
 
 Endpoint documentation note for future LLM sessions:
 
@@ -411,6 +411,55 @@ npm run ci:external-adapter-state-ownership-contract-check
 PR17 does not turn AEP into a Slack bot, email bot, Jira clone, or workflow
 engine. It adds external collaboration surfaces for an organization runtime
 whose canonical state remains AEP.
+
+### PR18A - HR Contract Inventory
+
+PR18A is docs-only and inventories the existing HR/staffing surface.
+
+Current code-owned HR surfaces:
+
+- employee catalog and projections via `/agent/employees`
+- canonical employee creation via `POST /agent/employees`
+- role-code employee ID allocation from `roles_catalog.employee_id_code`
+- employee public profile, visual identity, and public links
+- employee lifecycle actions:
+  - activate
+  - reassign team
+  - change role
+  - start/end leave
+  - retire
+  - terminate
+  - rehire
+  - archive
+- employment event history
+- persona generation and approval
+- review cycles
+- evidence-linked performance reviews
+- task reassignment continuity when an employee becomes unavailable
+- dashboard people-management surfaces backed by canonical routes
+
+Missing PR18 contracts:
+
+- `JobDescription`
+- `StaffingRequest`
+- `HiringRecommendation`
+- `RoleGap`
+
+Missing PR18 behavior:
+
+- no staffing gap detection API
+- no canonical hiring request lifecycle
+- no hiring-request-to-employee linkage
+- no staffing dashboard view for gaps and hiring requests
+- no PR18 staffing CI umbrella
+
+Important boundary:
+
+> HR must not become a parallel system. Staffing changes must flow through
+> canonical AEP routes, employee lifecycle events, approvals, threads/messages,
+> tasks/projects, and audit surfaces.
+
+PR18A makes no runtime changes.
 
 ### PR16D - Cognitive Prioritization And Manager-Mediated Parking
 

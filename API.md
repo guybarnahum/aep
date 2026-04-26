@@ -439,6 +439,38 @@ Important invariants:
 - Important invariant: role-level prompt scaffolding remains private and is not exposed through this route.
 - Live-selection note: CI capability-based employee resolution may use this route as role metadata input when a caller needs to select an employee by expected role behavior instead of by seeded identity.
 
+### HR / Staffing Inventory
+
+PR18A inventory status:
+
+- Existing employee catalog, employee lifecycle, persona, and review routes are canonical AEP routes.
+- Employee creation already flows through `POST /agent/employees`.
+- Employee lifecycle changes already flow through explicit `/agent/employees/:employeeId/...` action routes.
+- Review cycles and employee reviews already exist as canonical governance/evidence surfaces.
+- Staffing-specific contracts are not implemented yet.
+
+Missing staffing routes:
+
+- no `GET /agent/staffing/role-gaps`
+- no `GET /agent/staffing/requests`
+- no `POST /agent/staffing/requests`
+- no hiring request approval/fulfillment route
+- no hiring recommendation route
+
+Missing staffing contracts:
+
+- `JobDescription`
+- `StaffingRequest`
+- `HiringRecommendation`
+- `RoleGap`
+
+Canonical boundary:
+
+- UI may display staffing state and trigger canonical actions only.
+- HR/staffing must not directly mutate employee state outside employee creation and lifecycle routes.
+- Staffing must not introduce a parallel HR database outside canonical AEP tables.
+- Hiring must not auto-create employees without approval and canonical audit linkage.
+
 ### Runtime Role Policies
 
 `GET /agent/runtime-role-policies`
