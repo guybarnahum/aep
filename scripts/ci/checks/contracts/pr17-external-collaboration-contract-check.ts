@@ -5,7 +5,7 @@ import { resolve } from "node:path";
 import {
   EXTERNAL_ADAPTER_CONTRACTS,
   getExternalAdapterContract,
-} from "../../../../core/operator-agent/src/adapters/external-collaboration-contract";
+} from "@aep/operator-agent/src/adapters/external-collaboration-contract";
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) {
@@ -91,6 +91,10 @@ const messagesRouteSource = readFileSync(
 );
 
 const packageSource = readFileSync(resolve(process.cwd(), "package.json"), "utf8");
+const hardcodedGuardSource = readFileSync(
+  resolve(process.cwd(), "scripts/ci/checks/contracts/no-hardcoded-runtime-identifiers-check.ts"),
+  "utf8",
+);
 
 assert(
   dispatcherSource.includes("getExternalThreadProjection"),
@@ -155,6 +159,27 @@ assert(
 assert(
   packageSource.includes("ci:jira-like-adapter-design-contract-check"),
   "package.json must expose Jira-like adapter design contract check",
+);
+
+const requiredPr17Scripts = [
+  "ci:mirror-routing-contract-check",
+  "ci:external-thread-mapping-contract-check",
+  "ci:inbound-reply-correlation-contract-check",
+  "ci:external-action-contract-check",
+  "ci:external-interaction-policy-contract-check",
+  "ci:slack-adapter-contract-check",
+  "ci:email-adapter-contract-check",
+  "ci:jira-like-adapter-design-contract-check",
+  "ci:external-adapter-state-ownership-contract-check",
+];
+
+for (const scriptName of requiredPr17Scripts) {
+  assert(packageSource.includes(`"${scriptName}"`), `Missing PR17 CI script ${scriptName}`);
+}
+
+assert(
+  hardcodedGuardSource.includes("example\\.com"),
+  "Runtime literal guard must continue checking placeholder recipient regex",
 );
 
 console.log("pr17-external-collaboration-contract-check passed", {

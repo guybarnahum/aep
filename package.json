@@ -60,6 +60,7 @@
     "ci:slack-adapter-contract-check": "tsx scripts/ci/checks/contracts/slack-adapter-contract-check.ts",
     "ci:email-adapter-contract-check": "tsx scripts/ci/checks/contracts/email-adapter-contract-check.ts",
     "ci:jira-like-adapter-design-contract-check": "tsx scripts/ci/checks/contracts/jira-like-adapter-design-contract-check.ts",
+    "ci:external-adapter-state-ownership-contract-check": "tsx scripts/ci/checks/contracts/external-adapter-state-ownership-contract-check.ts",
     "ci:no-hardcoded-runtime-identifiers": "tsx scripts/ci/checks/contracts/no-hardcoded-runtime-identifiers-check.ts",
     "ci:task-dependency-integrity-check": "tsx scripts/ci/checks/contracts/task-dependency-integrity-check.ts",
     "ci:task-artifact-contract-check": "tsx scripts/ci/checks/contracts/task-artifact-contract-check.ts",

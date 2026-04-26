@@ -244,6 +244,19 @@ Run the Jira-like adapter design contract check:
 npm run ci:jira-like-adapter-design-contract-check
 ```
 
+### PR17 external collaboration CI
+
+The external collaboration adapter layer is guarded by CI checks for routing,
+projection mapping, inbound correlation, idempotency, policy enforcement,
+missing-config skip behavior, placeholder recipient protection, and state
+ownership boundaries.
+
+Run the umbrella check:
+
+```bash
+npm run ci:pr17-external-collaboration-contract-check
+```
+
 ### Runtime literal guardrail
 
 The repo includes a CI guardrail that prevents active runtime/config/CI code from

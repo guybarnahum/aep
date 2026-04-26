@@ -158,6 +158,21 @@ Status reconciliation rule:
 PR17E does not add Jira runtime delivery, credentials, webhooks, or tables beyond
 design-level contracts.
 
+### External collaboration CI coverage
+
+PR17 external collaboration contracts are guarded by CI.
+
+The coverage includes:
+
+- mirror routing
+- external projection mapping
+- inbound reply correlation
+- external action idempotency
+- external action policy enforcement
+- skipped delivery when configuration is missing
+- placeholder-recipient guardrails
+- no adapter ownership of canonical AEP work state
+
 ## Hardcoded runtime identifier guardrail
 
 Active runtime, deployed config, and live CI checks must not depend on:

@@ -309,6 +309,41 @@ npm run ci:jira-like-adapter-design-contract-check
 This check verifies that Jira remains design-only, requires projection mapping,
 denies canonical state ownership, and has no direct canonical status mutation.
 
+### PR17F - External Collaboration CI Coverage
+
+PR17F consolidates PR17 adapter checks into a CI coverage layer.
+
+The PR17 CI surface now guards:
+
+- mirror routing contract
+- external thread/message mapping
+- inbound reply correlation
+- duplicate delivery/idempotency
+- external action idempotency
+- external action policy enforcement
+- skipped delivery with missing Slack/email configuration
+- no committed placeholder recipients
+- no external adapter ownership of canonical work state
+- Jira-like systems remaining design-only
+
+The PR17 umbrella check is:
+
+```bash
+npm run ci:pr17-external-collaboration-contract-check
+```
+
+Additional adapter-specific checks:
+
+```bash
+npm run ci:slack-adapter-contract-check
+npm run ci:email-adapter-contract-check
+npm run ci:jira-like-adapter-design-contract-check
+npm run ci:external-adapter-state-ownership-contract-check
+```
+
+PR17F does not add runtime adapter behavior. It makes the existing PR17
+boundaries harder to regress.
+
 ### PR16D - Cognitive Prioritization And Manager-Mediated Parking
 
 PR16D makes prioritization a cognitive decision rather than a fixed code rule.
