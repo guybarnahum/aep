@@ -7,6 +7,7 @@ import { newId } from "@aep/shared";
 type CreateProjectBody = {
   companyId?: unknown;
   intakeRequestId?: unknown;
+  createdByEmployeeId?: unknown;
   title?: unknown;
   description?: unknown;
   ownerTeamId?: unknown;
@@ -65,10 +66,15 @@ export async function handleCreateProject(
     typeof body.ownerTeamId === "string" ? body.ownerTeamId.trim() : "";
   const description =
     typeof body.description === "string" ? body.description.trim() : "";
+  const createdByEmployeeId =
+    typeof body.createdByEmployeeId === "string"
+      ? body.createdByEmployeeId.trim()
+      : "";
   const intakeRequestId =
     typeof body.intakeRequestId === "string" && body.intakeRequestId.trim()
       ? body.intakeRequestId.trim()
       : null;
+  let intakeRequestedBy: string | null = null;
 
   if (!companyId || !title || !ownerTeamId) {
     return jsonError("Missing required fields: companyId, title, ownerTeamId");
@@ -90,6 +96,7 @@ export async function handleCreateProject(
         "Project companyId must match linked intake request companyId",
       );
     }
+    intakeRequestedBy = intake.requestedBy;
   }
 
   const now = new Date().toISOString();
@@ -97,6 +104,7 @@ export async function handleCreateProject(
     id: newId("project"),
     companyId,
     intakeRequestId,
+    createdByEmployeeId: createdByEmployeeId || intakeRequestedBy,
     title,
     description: description || null,
     ownerTeamId,

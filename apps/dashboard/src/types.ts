@@ -265,6 +265,7 @@ export type ProjectRecord = {
   id: string;
   companyId: string;
   intakeRequestId?: string | null;
+  createdByEmployeeId?: string | null;
   title: string;
   description?: string | null;
   ownerTeamId: string;

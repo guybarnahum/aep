@@ -214,6 +214,7 @@ type ProjectRow = {
   id: string;
   company_id: string;
   intake_request_id: string | null;
+  created_by_employee_id: string | null;
   title: string;
   description: string | null;
   owner_team_id: string;
@@ -456,6 +457,7 @@ function rowToProject(row: ProjectRow): Project {
     id: row.id,
     companyId: row.company_id,
     intakeRequestId: row.intake_request_id,
+    createdByEmployeeId: row.created_by_employee_id,
     title: row.title,
     description: row.description,
     ownerTeamId: row.owner_team_id,
@@ -893,6 +895,7 @@ export class D1TaskStore implements TaskStore {
           id,
           company_id,
           intake_request_id,
+          created_by_employee_id,
           title,
           description,
           owner_team_id,
@@ -901,12 +904,13 @@ export class D1TaskStore implements TaskStore {
           updated_at,
           completed_at,
           archived_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .bind(
         args.id,
         args.companyId,
         args.intakeRequestId ?? null,
+        args.createdByEmployeeId ?? null,
         args.title,
         args.description ?? null,
         args.ownerTeamId,

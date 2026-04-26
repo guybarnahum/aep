@@ -223,6 +223,7 @@ Important invariants:
 	- `title`
 	- `ownerTeamId`
 - Optional fields:
+	- `createdByEmployeeId`
 	- `description`
 	- `intakeRequestId`
 - Status is initialized to `active`.

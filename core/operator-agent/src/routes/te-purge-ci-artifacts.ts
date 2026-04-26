@@ -427,15 +427,21 @@ export async function handlePurgeCiArtifacts(
         .run();
       deletedCount = result.meta?.changes ?? 0;
     } else if (table === "projects") {
-      // No creator or payload column; identify via linked intake_requests.requested_by
+      // Prefer explicit creator provenance, then fallback to linked CI intake rows
+      // and legacy CI description/title markers used by older route contract checks.
       const result = await db
         .prepare(
           `DELETE FROM projects
-           WHERE intake_request_id IN (
-             SELECT id FROM intake_requests WHERE requested_by LIKE ?
-           )`,
+           WHERE created_by_employee_id LIKE ?
+              OR intake_request_id IN (
+             SELECT id FROM intake_requests
+             WHERE requested_by LIKE ?
+                OR source = 'ci'
+           )
+              OR description LIKE 'CI-created%'
+              OR title LIKE '% CI %'`,
         )
-        .bind(ciActorPrefix)
+        .bind(ciActorPrefix, ciActorPrefix)
         .run();
       deletedCount = result.meta?.changes ?? 0;
     } else if (table === "task_artifacts") {

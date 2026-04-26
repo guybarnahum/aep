@@ -22,6 +22,7 @@ type ProjectRecord = {
   id: string;
   companyId: string;
   intakeRequestId?: string | null;
+  createdByEmployeeId?: string | null;
   title: string;
   description?: string | null;
   ownerTeamId: string;
@@ -179,6 +180,7 @@ async function main(): Promise<void> {
     project: ProjectRecord;
   }>(`${baseUrl}/agent/projects`, {
     companyId: "company_internal_aep",
+    createdByEmployeeId: ciActor(CHECK_NAME),
     title: `PR15F Direct Project ${unique}`,
     description: "CI-created direct project for route contract validation.",
     ownerTeamId: "team_web_product",

@@ -80,6 +80,7 @@ export async function handleConvertIntakeToProject(
     id: projectId,
     companyId: intake.companyId,
     intakeRequestId: intake.id,
+    createdByEmployeeId: convertedByEmployeeId,
     title: projectTitle,
     description: projectDescription,
     ownerTeamId,
