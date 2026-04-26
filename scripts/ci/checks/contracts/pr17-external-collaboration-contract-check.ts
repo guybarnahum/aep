@@ -152,6 +152,11 @@ assert(
   "package.json must expose Email adapter hardening contract check",
 );
 
+assert(
+  packageSource.includes("ci:jira-like-adapter-design-contract-check"),
+  "package.json must expose Jira-like adapter design contract check",
+);
+
 console.log("pr17-external-collaboration-contract-check passed", {
   adapterCount: EXTERNAL_ADAPTER_CONTRACTS.length,
 });

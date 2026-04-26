@@ -227,6 +227,23 @@ Run the email adapter contract check:
 npm run ci:email-adapter-contract-check
 ```
 
+### Jira-like ticket adapter design
+
+PR17E defines Jira-like systems as projection and collaboration adapters only.
+
+AEP remains the source of truth for tasks, projects, threads, approvals,
+escalations, artifacts, and audit records.
+
+Jira-like systems may later project canonical work as external tickets and send
+comments/actions back into AEP, but they must not own work state or directly set
+canonical status.
+
+Run the Jira-like adapter design contract check:
+
+```bash
+npm run ci:jira-like-adapter-design-contract-check
+```
+
 ### Runtime literal guardrail
 
 The repo includes a CI guardrail that prevents active runtime/config/CI code from

@@ -24,6 +24,7 @@ const ALLOWED_PATH_PATTERNS = [
   /^examples\//,
   /^scripts\/dev\//,
   /^scripts\/ci\/checks\/contracts\/no-hardcoded-runtime-identifiers-check\.ts$/,
+  /^scripts\/ci\/checks\/contracts\/email-adapter-contract-check\.ts$/,
   /^scripts\/ci\/shared\/runtime-literal-allowlist\.ts$/,
   /\.test\.ts$/,
 ];

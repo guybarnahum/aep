@@ -143,6 +143,60 @@ export type ExternalDeliveryAuditContract = Pick<
   "messageId" | "threadId" | "channel" | "target" | "status" | "externalMessageId" | "failureCode"
 >;
 
+export type JiraLikeTicketProjectionContract = {
+  adapter: "jira";
+  implemented: false;
+  canonicalSource:
+    | { kind: "project"; projectId: string }
+    | { kind: "task"; taskId: string }
+    | { kind: "thread"; threadId: string };
+  externalTicketId: string;
+  externalProjectKey?: string;
+  externalUrl?: string;
+};
+
+export type JiraLikeInboundCommentContract = {
+  adapter: "jira";
+  externalTicketId: string;
+  externalCommentId: string;
+  externalAuthorId?: string;
+  body: string;
+  receivedAt: string;
+};
+
+export type JiraLikeStatusReconciliationRule = {
+  externalStatus: string;
+  canonicalEffect:
+    | "no_op"
+    | "request_manager_review"
+    | "create_canonical_message"
+    | "create_external_action";
+  directCanonicalMutationAllowed: false;
+};
+
+export const JIRA_LIKE_STATUS_RECONCILIATION_RULES: JiraLikeStatusReconciliationRule[] = [
+  {
+    externalStatus: "todo",
+    canonicalEffect: "no_op",
+    directCanonicalMutationAllowed: false,
+  },
+  {
+    externalStatus: "in_progress",
+    canonicalEffect: "create_canonical_message",
+    directCanonicalMutationAllowed: false,
+  },
+  {
+    externalStatus: "blocked",
+    canonicalEffect: "request_manager_review",
+    directCanonicalMutationAllowed: false,
+  },
+  {
+    externalStatus: "done",
+    canonicalEffect: "request_manager_review",
+    directCanonicalMutationAllowed: false,
+  },
+];
+
 export function getExternalAdapterContract(
   adapter: ExternalAdapterKind,
 ): ExternalAdapterContract | undefined {

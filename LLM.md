@@ -268,6 +268,47 @@ This check verifies email payload construction, placeholder-recipient denial,
 missing-provider skipped delivery, and the invariant that skipped email delivery
 does not create external projection records.
 
+### PR17E - Jira-like Ticket Adapter Design
+
+PR17E introduces the design contract for Jira-like systems without building a
+runtime Jira integration.
+
+Jira-like systems are projection and collaboration adapters only.
+
+They may eventually:
+
+- project canonical projects, tasks, and threads as external tickets
+- map external ticket IDs back to canonical AEP IDs
+- ingest external comments as canonical thread messages
+- request allowed actions through canonical AEP routes
+- expose external URLs for human navigation
+
+They must not:
+
+- own task state
+- own project state
+- directly set canonical task status
+- own approvals or escalations
+- bypass canonical APIs
+- expose private cognition
+
+Status reconciliation is signal-based:
+
+- external `todo` is informational
+- external `in_progress` may create a canonical message
+- external `blocked` requests manager review
+- external `done` requests manager review
+- no external status directly mutates canonical task/project state
+
+PR17E adds the CI guard:
+
+```bash
+npm run ci:jira-like-adapter-design-contract-check
+```
+
+This check verifies that Jira remains design-only, requires projection mapping,
+denies canonical state ownership, and has no direct canonical status mutation.
+
 ### PR16D - Cognitive Prioritization And Manager-Mediated Parking
 
 PR16D makes prioritization a cognitive decision rather than a fixed code rule.

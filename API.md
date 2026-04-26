@@ -127,6 +127,37 @@ Missing email configuration is explicit:
 - disabled provider transport records skipped delivery with `email_adapter_not_configured`
 - placeholder recipient targets record skipped delivery with `email_target_invalid`
 
+### Jira-like ticket adapter
+
+Jira-like systems are design-only in PR17E.
+
+A Jira-like system may eventually:
+
+- project canonical projects, tasks, and threads as external tickets
+- map external ticket IDs back to canonical AEP IDs
+- ingest external comments as canonical thread messages
+- request allowed external actions through canonical AEP routes
+- surface external ticket URLs for human navigation
+
+A Jira-like system must not:
+
+- own canonical task state
+- own canonical project state
+- directly set canonical task status
+- directly approve or resolve AEP approvals/escalations
+- bypass canonical AEP APIs
+- expose private cognition
+
+Status reconciliation rule:
+
+- external status changes are signals
+- AEP task/project state remains canonical
+- `blocked` and `done` should request manager review or create canonical messages
+- external status changes must not directly mutate canonical status
+
+PR17E does not add Jira runtime delivery, credentials, webhooks, or tables beyond
+design-level contracts.
+
 ## Hardcoded runtime identifier guardrail
 
 Active runtime, deployed config, and live CI checks must not depend on:
