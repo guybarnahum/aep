@@ -196,7 +196,7 @@ jobs:
       - validate-async-contracts
       - validate-paperclip-handoff
     if: ${{ always() && needs.deploy-async-environment.result == 'success' && (needs.validate-async-contracts.result == 'success' || needs.validate-async-contracts.result == 'skipped') && (needs.validate-paperclip-handoff.result == 'success' || needs.validate-paperclip-handoff.result == 'skipped') }}
-    uses: ./.github/workflows/_validate_post_deploy.yml
+    uses: ./.github/workflows/_validate_scenarios_layer.yml
     with:
       environment_name: async-validation
       control_plane_base_url: ${{ needs.deploy-async-environment.outputs.control_plane_base_url }}

@@ -52,7 +52,7 @@ Reusable internal workflows use a leading underscore and an action-oriented name
 - `_validate_schema_layer.yml`
 - `_validate_contracts_layer.yml`
 - `_validate_policy_layer.yml`
-- `_validate_post_deploy.yml`
+- `_validate_scenarios_layer.yml`
 - `_validate_async_orchestration.yml`
 - `_validate_escalation_integrity.yml`
 - `_validate_multi_worker_safety.yml`
@@ -229,7 +229,7 @@ Shared environment bring-up primitive.
 
 Control-plane validation is now handled within the environment layer and post-deploy validation.
 
-### `_validate_post_deploy.yml`
+### `_validate_scenarios_layer.yml`
 
 Reusable lightweight post-deploy validation suite.
 
@@ -303,7 +303,7 @@ Reusable async-validation scenario suite for cross-worker safety behavior.
 ├── _validate_schema_layer.yml
 ├── _validate_contracts_layer.yml
 ├── _validate_policy_layer.yml
-├── _validate_post_deploy.yml
+├── _validate_scenarios_layer.yml
 ├── _validate_async_orchestration.yml
 ├── _validate_escalation_integrity.yml
 ├── _validate_multi_worker_safety.yml
@@ -332,7 +332,7 @@ scripts/ci/checks/<layer>/
 
 ## Validation level model
 
-`_validate_post_deploy.yml` accepts a `validation_level` input that gates which
+`_validate_scenarios_layer.yml` accepts a `validation_level` input that gates which
 scenario checks run. Levels are strictly ordered — each level includes all checks
 from lower levels.
 

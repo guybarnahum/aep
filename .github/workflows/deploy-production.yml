@@ -132,7 +132,7 @@ jobs:
 
   validate-production-scenarios:
     needs: deploy-production-env
-    uses: ./.github/workflows/_validate_post_deploy.yml
+    uses: ./.github/workflows/_validate_scenarios_layer.yml
     with:
       environment_name: production
       control_plane_base_url: ${{ needs.deploy-production-env.outputs.control_plane_base_url }}

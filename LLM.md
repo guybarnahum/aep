@@ -268,7 +268,7 @@ titan@Titans-MacBook-Pro aep % tree . --gitignore
 │       ├── _validate_operator_surface.yml
 │       ├── _validate_paperclip_handoff.yml
 │       ├── _validate_policy_layer.yml
-│       ├── _validate_post_deploy.yml
+│       ├── _validate_scenarios_layer.yml
 │       ├── _validate_runtime_read_safety.yml
 │       ├── _validate_schema_layer.yml
 │       ├── deploy-preview.yml
@@ -1465,7 +1465,7 @@ Reusable workflows are structured by layer:
 - `_validate_schema_layer.yml`
 - `_validate_contracts_layer.yml`
 - `_validate_policy_layer.yml`
-- `_validate_post_deploy.yml`
+- `_validate_scenarios_layer.yml`
 
 Top-level workflows compose these layers into full validation lanes:
 

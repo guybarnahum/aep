@@ -21,7 +21,7 @@ type CheckResult = {
   dispatchBatchId?: string;
 };
 
-// Helper-only checklist for local/manual runs; authoritative CI ordering lives in .github/workflows/_validate_post_deploy.yml.
+// Helper-only checklist for local/manual runs; authoritative CI ordering lives in .github/workflows/_validate_scenarios_layer.yml.
 const CHECKS: ValidationCheck[] = [
   {
     id: "operator-surface",

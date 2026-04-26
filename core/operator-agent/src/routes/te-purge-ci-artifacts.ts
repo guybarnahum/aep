@@ -150,6 +150,35 @@ export async function handlePurgeCiArtifacts(
         .bind(ciActorPrefix)
         .run();
       deletedCount = result.meta?.changes ?? 0;
+    } else if (table === "employee_review_evidence_links") {
+      // Evidence rows are linked by review_id; remove those tied to CI-created reviews.
+      const result = await db
+        .prepare(
+          `DELETE FROM employee_review_evidence_links
+           WHERE review_id IN (
+             SELECT review_id
+             FROM employee_performance_reviews
+             WHERE created_by LIKE ?
+           )`,
+        )
+        .bind(ciActorPrefix)
+        .run();
+      deletedCount = result.meta?.changes ?? 0;
+    } else if (table === "employee_performance_reviews") {
+      // No payload column; rely on created_by and parent cycle linkage.
+      const result = await db
+        .prepare(
+          `DELETE FROM employee_performance_reviews
+           WHERE created_by LIKE ?
+              OR review_cycle_id IN (
+                SELECT review_cycle_id
+                FROM employee_review_cycles
+                WHERE created_by LIKE ?
+              )`,
+        )
+        .bind(ciActorPrefix, ciActorPrefix)
+        .run();
+      deletedCount = result.meta?.changes ?? 0;
     } else if (table === "tasks") {
       // has created_by_employee_id and payload (TEXT JSON)
       const result = await db
@@ -167,9 +196,10 @@ export async function handlePurgeCiArtifacts(
         .prepare(
           `DELETE FROM projects
            WHERE intake_request_id IN (
-             SELECT id FROM intake_requests WHERE requested_by LIKE 'ci:%'
+             SELECT id FROM intake_requests WHERE requested_by LIKE ?
            )`,
         )
+        .bind(ciActorPrefix)
         .run();
       deletedCount = result.meta?.changes ?? 0;
     } else if (table === "task_artifacts") {
@@ -200,6 +230,39 @@ export async function handlePurgeCiArtifacts(
           `DELETE FROM employee_messages
            WHERE sender_employee_id LIKE ?
               OR json_extract(payload_json, '$.__ci.runId') = ?`,
+        )
+        .bind(ciActorPrefix, runId)
+        .run();
+      deletedCount = result.meta?.changes ?? 0;
+    } else if (table === "task_dependencies") {
+      // FK to tasks (task_id, depends_on_task_id) requires deleting dependent edges first.
+      const result = await db
+        .prepare(
+          `DELETE FROM task_dependencies
+           WHERE task_id IN (
+             SELECT id FROM tasks
+             WHERE created_by_employee_id LIKE ?
+                OR json_extract(payload, '$.__ci.runId') = ?
+           )
+              OR depends_on_task_id IN (
+                SELECT id FROM tasks
+                WHERE created_by_employee_id LIKE ?
+                   OR json_extract(payload, '$.__ci.runId') = ?
+              )`,
+        )
+        .bind(ciActorPrefix, runId, ciActorPrefix, runId)
+        .run();
+      deletedCount = result.meta?.changes ?? 0;
+    } else if (table === "decisions") {
+      // FK to tasks(task_id); remove decisions tied to CI-created tasks first.
+      const result = await db
+        .prepare(
+          `DELETE FROM decisions
+           WHERE task_id IN (
+             SELECT id FROM tasks
+             WHERE created_by_employee_id LIKE ?
+                OR json_extract(payload, '$.__ci.runId') = ?
+           )`,
         )
         .bind(ciActorPrefix, runId)
         .run();

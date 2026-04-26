@@ -114,7 +114,7 @@ jobs:
 
   validate-staging-scenarios:
     needs: deploy-staging-env
-    uses: ./.github/workflows/_validate_post_deploy.yml
+    uses: ./.github/workflows/_validate_scenarios_layer.yml
     with:
       environment_name: staging
       control_plane_base_url: ${{ needs.deploy-staging-env.outputs.control_plane_base_url }}
