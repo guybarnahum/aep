@@ -142,3 +142,11 @@ export type ExternalDeliveryAuditContract = Pick<
   MirrorDeliveryRecord,
   "messageId" | "threadId" | "channel" | "target" | "status" | "externalMessageId" | "failureCode"
 >;
+
+export function getExternalAdapterContract(
+  adapter: ExternalAdapterKind,
+): ExternalAdapterContract | undefined {
+  return EXTERNAL_ADAPTER_CONTRACTS.find(
+    (contract) => contract.adapter === adapter,
+  );
+}

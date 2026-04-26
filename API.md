@@ -23,9 +23,34 @@ Notes:
 
 ## External collaboration adapters
 
-Slack and email are implemented external collaboration adapters. Jira-like ticket systems are design-only in PR17.
+Slack and email are implemented external collaboration adapters. Jira-like
+ticket systems are design-only at PR17B.
 
-Canonical AEP state remains in AEP. External systems may project canonical threads/messages, receive replies/actions, and map external IDs back to canonical AEP IDs. External systems must not own task state, project state, approvals, escalations, or private cognition.
+Canonical AEP state remains in AEP.
+
+External systems may:
+
+- mirror canonical threads/messages
+- receive replies/actions
+- project task/project/thread visibility
+- map external IDs back to canonical AEP IDs
+
+External systems must not:
+
+- own task state
+- own project state
+- own approvals or escalations
+- bypass canonical AEP APIs
+- expose private cognition
+
+The code-owned external adapter contract defines:
+
+- external thread projection
+- external message projection
+- inbound reply contract
+- external action contract
+- idempotency contract
+- policy enforcement contract
 
 Implemented contracts:
 - external thread projection: canonical `threadId` + adapter/target -> external thread id
@@ -36,6 +61,16 @@ Implemented contracts:
 - policy enforcement: allowed channels, targets, actors, and action/thread compatibility
 
 Jira-like systems must be modeled as ticket projection/collaboration adapters only. Ticket status, comments, and actions reconcile through canonical AEP routes and mapping/audit tables.
+
+Jira-like ticket systems must follow the same adapter model:
+
+- tickets project canonical task/project/thread state
+- external ticket IDs map back to canonical AEP IDs
+- inbound comments become canonical thread messages
+- external status/action changes reconcile through allowed canonical routes
+- denied actions are audited and do not mutate canonical state directly
+
+AEP remains the source of truth for work state.
 
 ## Hardcoded runtime identifier guardrail
 

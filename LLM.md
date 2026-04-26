@@ -147,9 +147,24 @@ It verifies the integrated PR16 contract surface: task contracts, payload
 contracts, parked state, cognitive scheduling, artifact expectations,
 delegation route wiring, and PR16 live/contract CI script registration.
 
-### PR17 - External Collaboration Adapters
+### PR17B - Canonical External Collaboration Contract
 
-PR17 makes external collaboration adapters explicit while preserving AEP as the source of truth.
+PR17B makes external collaboration a code-owned contract instead of a set of
+implicit adapter behaviors.
+
+The contract defines:
+
+- supported adapter identities: Slack, email, and Jira-like systems
+- supported collaboration surfaces:
+  - external thread projection
+  - external message projection
+  - inbound reply ingestion
+  - external action ingestion
+  - Jira-like ticket projection
+- canonical resources that may be projected
+- idempotency keys
+- policy enforcement points
+- denied adapter capabilities
 
 Implemented:
 - Slack/email outbound mirroring
@@ -165,7 +180,7 @@ Implemented:
 Design-only:
 - Jira-like ticket projection adapter
 
-Canonical rule:
+Canonical invariant:
 
 > External systems are projection and collaboration surfaces. AEP owns work state.
 
@@ -181,6 +196,17 @@ External systems must not:
 - own approvals or escalations
 - bypass canonical AEP APIs
 - expose private cognition
+
+PR17B adds the CI guard:
+
+```bash
+npm run ci:pr17-external-collaboration-contract-check
+```
+
+The check verifies that Slack, email, and Jira-like systems have explicit
+contracts, that all adapters deny canonical state ownership, that Jira remains
+design-only, and that existing mirror/inbound/action/policy wiring remains in
+place.
 
 ### PR16D - Cognitive Prioritization And Manager-Mediated Parking
 

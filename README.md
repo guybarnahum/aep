@@ -45,7 +45,7 @@ The company must also support:
 | PR14 | Team operating loops / heartbeat | ✅ Complete. Team loop routes, persisted cadence, dashboard visibility, canonical heartbeat publication, and CI coverage exist. |
 | PR15 | Project + intake model | ✅ PR15A-F complete. Intake, projects, intake conversion, project task graphs, dashboard UI, and CI scenario coverage exist. |
 | PR16 | Real Web / Infra / Validation specialization | ✅ Complete through PR16G. Native task contracts, payload contracts, team-loop specialization, cognitive scheduling, manager-mediated parking, artifact expectations, delegation patterns, and CI/docs closeout exist. |
-| PR17 | External collaboration adapters | ✅ Contracted. Slack/email mirroring, routing, projection maps, inbound replies, external actions, policy/audit, and CI guardrails exist. Jira-like ticket systems are documented as projection/collaboration adapters only, not canonical stores. |
+| PR17 | External collaboration adapters | 🟡 PR17B contract foundation. Slack/email mirroring, routing, projections, inbound replies, external actions, and policy checks exist. Jira-like systems are design-only projection adapters. |
 | PR18 | HR / staffing system | 🟡 Partially implemented. Employee lifecycle, persona, and reviews exist; HR workflows (JD, hiring, staffing) not implemented. |
 | PR19 | Productization / marketing website | ❌ Not implemented. Internal dashboard exists, but no AEP-produced customer-facing product. |
 | PR20 | Super-admin cognition debug layer | ❌ Not implemented. Cognition boundary is strict; no debug surface exists. |
@@ -152,7 +152,7 @@ Shared orchestration helpers live under `scripts/ci/tasks` and common utilities 
 
 ## External collaboration adapters
 
-Slack and email are implemented adapters. Jira-like systems are planned as ticket projection adapters.
+AEP mirrors selected canonical activity into Slack and email. Slack and email are implemented collaboration adapters; Jira-like systems are planned as projection adapters. AEP remains the source of truth.
 
 AEP remains canonical for:
 - tasks
@@ -170,6 +170,18 @@ External systems are allowed to:
 - store external ID mappings
 
 They are not allowed to own work state or expose private cognition.
+
+PR17B adds a code-owned external adapter contract. The contract makes the
+adapter boundary explicit:
+
+- external adapters can project threads/messages and collect replies/actions
+- external adapters require canonical mapping and audit records
+- external adapters must not own task, project, approval, or escalation state
+- external adapters must not expose private cognition
+- all external writes reconcile through canonical AEP routes
+
+This keeps Slack, email, and future Jira-like systems as collaboration surfaces,
+not work stores.
 
 ### Runtime literal guardrail
 
