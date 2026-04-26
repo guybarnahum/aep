@@ -147,6 +147,11 @@ assert(
   "package.json must expose Slack adapter hardening contract check",
 );
 
+assert(
+  packageSource.includes("ci:email-adapter-contract-check"),
+  "package.json must expose Email adapter hardening contract check",
+);
+
 console.log("pr17-external-collaboration-contract-check passed", {
   adapterCount: EXTERNAL_ADAPTER_CONTRACTS.length,
 });

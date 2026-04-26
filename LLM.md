@@ -240,6 +240,34 @@ This check verifies Slack payload construction, missing-webhook skip behavior,
 and the invariant that skipped Slack delivery does not create external
 projection records.
 
+### PR17D - Email Adapter Hardening
+
+PR17D brings the email adapter to the same conceptual model as Slack while
+keeping provider delivery disabled until a real email transport is configured.
+
+Email behavior remains adapter-only:
+
+- outbound email mirrors canonical AEP messages
+- email thread continuity is represented through external thread projection maps
+  only after successful delivery
+- email message continuity is represented through external message projection
+  maps only after successful delivery
+- inbound email replies correlate back to canonical AEP threads
+- email approval/escalation actions reconcile through canonical action routes
+- missing email delivery configuration records skipped delivery, not hidden failure
+- placeholder recipients such as `example.com` are rejected
+- email never owns task, project, approval, escalation, or cognition state
+
+PR17D adds the CI guard:
+
+```bash
+npm run ci:email-adapter-contract-check
+```
+
+This check verifies email payload construction, placeholder-recipient denial,
+missing-provider skipped delivery, and the invariant that skipped email delivery
+does not create external projection records.
+
 ### PR16D - Cognitive Prioritization And Manager-Mediated Parking
 
 PR16D makes prioritization a cognitive decision rather than a fixed code rule.

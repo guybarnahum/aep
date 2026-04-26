@@ -97,6 +97,36 @@ Missing Slack configuration is explicit:
 - missing routing target config records skipped delivery with `missing_target_config`
 - missing `SLACK_MIRROR_WEBHOOK_URL` records skipped delivery with `slack_adapter_not_configured`
 
+### Email adapter
+
+Email is an implemented external collaboration adapter with provider transport
+disabled until a real provider is configured.
+
+Email may:
+
+- receive mirrored canonical escalation/thread/message visibility
+- preserve thread continuity through external thread projection maps when
+	delivery succeeds
+- preserve message continuity through external message projection maps when
+	delivery succeeds
+- send inbound replies through `/agent/messages/inbound`
+- send allowed approval/escalation actions through `/agent/messages/external-action`
+
+Email must not:
+
+- own task state
+- own project state
+- directly mutate approval or escalation state
+- bypass canonical AEP action routes
+- expose private cognition
+- use committed placeholder recipients such as `example.com`
+
+Missing email configuration is explicit:
+
+- missing routing target config records skipped delivery with `missing_target_config`
+- disabled provider transport records skipped delivery with `email_adapter_not_configured`
+- placeholder recipient targets record skipped delivery with `email_target_invalid`
+
 ## Hardcoded runtime identifier guardrail
 
 Active runtime, deployed config, and live CI checks must not depend on:

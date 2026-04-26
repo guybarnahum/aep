@@ -205,6 +205,28 @@ Run the Slack adapter contract check:
 npm run ci:slack-adapter-contract-check
 ```
 
+### Email adapter hardening
+
+Email is treated as a production-shaped collaboration adapter even while real
+provider transport remains disabled.
+
+Email mirrors canonical AEP messages and actions while AEP retains ownership of
+threads, tasks, projects, approvals, escalations, artifacts, and audit records.
+
+PR17D hardens email behavior around:
+
+- explicit email payload construction
+- placeholder recipient denial
+- skipped delivery when provider transport is missing
+- inbound reply correlation
+- external action reconciliation through canonical routes
+
+Run the email adapter contract check:
+
+```bash
+npm run ci:email-adapter-contract-check
+```
+
 ### Runtime literal guardrail
 
 The repo includes a CI guardrail that prevents active runtime/config/CI code from

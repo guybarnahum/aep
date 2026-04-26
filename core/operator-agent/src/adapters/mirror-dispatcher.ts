@@ -214,7 +214,7 @@ async function dispatchToTarget(args: {
     };
   }
 
-  if (result.code === "email_not_configured") {
+  if (result.code === "email_not_configured" || result.code === "email_target_invalid") {
     return {
       ok: false,
       delivery: buildDeliveryRecord({
@@ -223,7 +223,10 @@ async function dispatchToTarget(args: {
         channel: "email",
         target: args.target.recipientGroup,
         status: "skipped",
-        failureCode: "email_adapter_not_implemented",
+        failureCode:
+          result.code === "email_target_invalid"
+            ? "email_target_invalid"
+            : "email_adapter_not_configured",
         failureReason: result.reason,
         createdAt,
       }),
