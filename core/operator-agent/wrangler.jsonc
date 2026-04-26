@@ -109,7 +109,7 @@
         "PAPERCLIP_AUTH_REQUIRED": "false",
         // CI_CLEANUP_TOKEN must be configured as a Cloudflare secret for the staging environment;
         // do not commit a real value here.
-        "CI_CLEANUP_TOKEN": ""
+        // "CI_CLEANUP_TOKEN": ""
       },
       "services": [
         {
