@@ -45,7 +45,7 @@ The company must also support:
 | PR14 | Team operating loops / heartbeat | ✅ Complete. Team loop routes, persisted cadence, dashboard visibility, canonical heartbeat publication, and CI coverage exist. |
 | PR15 | Project + intake model | ✅ PR15A-F complete. Intake, projects, intake conversion, project task graphs, dashboard UI, and CI scenario coverage exist. |
 | PR16 | Real Web / Infra / Validation specialization | ✅ Complete through PR16G. Native task contracts, payload contracts, team-loop specialization, cognitive scheduling, manager-mediated parking, artifact expectations, delegation patterns, and CI/docs closeout exist. |
-| PR17 | External collaboration adapters | 🟡 Partially implemented. Slack/email mirroring and routing exist; Jira-like integration not implemented. |
+| PR17 | External collaboration adapters | ✅ Contracted. Slack/email mirroring, routing, projection maps, inbound replies, external actions, policy/audit, and CI guardrails exist. Jira-like ticket systems are documented as projection/collaboration adapters only, not canonical stores. |
 | PR18 | HR / staffing system | 🟡 Partially implemented. Employee lifecycle, persona, and reviews exist; HR workflows (JD, hiring, staffing) not implemented. |
 | PR19 | Productization / marketing website | ❌ Not implemented. Internal dashboard exists, but no AEP-produced customer-facing product. |
 | PR20 | Super-admin cognition debug layer | ❌ Not implemented. Cognition boundary is strict; no debug surface exists. |
@@ -150,28 +150,26 @@ The `scripts/ci` directory has also been refactored to match this structure. Val
 
 Shared orchestration helpers live under `scripts/ci/tasks` and common utilities under `scripts/ci/shared`.
 
-## External mirroring configuration
+## External collaboration adapters
 
-AEP mirrors selected canonical activity into Slack and email. Slack and email are adapters only; AEP remains the source of truth.
+Slack and email are implemented adapters. Jira-like systems are planned as ticket projection adapters.
 
-Configuration is split into three layers:
+AEP remains canonical for:
+- tasks
+- projects
+- threads/messages
+- approvals
+- escalations
+- artifacts
+- audit records
 
-1. Secrets
-  - `SLACK_MIRROR_WEBHOOK_URL`
-  - future email provider credentials
+External systems are allowed to:
+- mirror canonical visibility
+- collect replies/comments
+- trigger allowed actions through canonical routes
+- store external ID mappings
 
-2. Per-environment delivery targets
-  - `MIRROR_DEFAULT_SLACK_CHANNEL`
-  - `MIRROR_APPROVALS_SLACK_CHANNEL`
-  - `MIRROR_ESCALATIONS_SLACK_CHANNEL`
-  - `MIRROR_ESCALATIONS_EMAIL_GROUP`
-
-3. Routing policy
-  - D1-backed rules decide which canonical threads/messages mirror to Slack or email.
-  - YAML may seed policy, but runtime routing should be queryable state.
-
-Committed config must not contain fake recipients such as `example.com`.
-Missing delivery config disables that delivery path explicitly.
+They are not allowed to own work state or expose private cognition.
 
 ### Runtime literal guardrail
 

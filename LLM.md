@@ -4,7 +4,7 @@ Repository (source of truth):
 👉 https://github.com/guybarnahum/aep
 
 The repository code is the source of truth.  
-This document is aligned to commit `1ff3c3817a9217be3b0636f4228d3b90b9354bc5`.
+This document is aligned to commit `6578cdc7392ce74cd18f59a27c2bf16c4482ecc3`.
 
 Endpoint documentation note for future LLM sessions:
 
@@ -146,6 +146,41 @@ npm run ci:pr16-role-realism-contract-check
 It verifies the integrated PR16 contract surface: task contracts, payload
 contracts, parked state, cognitive scheduling, artifact expectations,
 delegation route wiring, and PR16 live/contract CI script registration.
+
+### PR17 - External Collaboration Adapters
+
+PR17 makes external collaboration adapters explicit while preserving AEP as the source of truth.
+
+Implemented:
+- Slack/email outbound mirroring
+- mirror routing policy
+- skipped delivery records when delivery config is missing
+- external thread projection mapping
+- external message projection mapping
+- inbound reply correlation
+- external action records
+- external interaction policy/audit
+- external approval/escalation action routing
+
+Design-only:
+- Jira-like ticket projection adapter
+
+Canonical rule:
+
+> External systems are projection and collaboration surfaces. AEP owns work state.
+
+External systems may:
+- mirror canonical threads/messages
+- receive replies/actions
+- project task/project/thread visibility
+- map external IDs back to canonical AEP IDs
+
+External systems must not:
+- own task state
+- own project state
+- own approvals or escalations
+- bypass canonical AEP APIs
+- expose private cognition
 
 ### PR16D - Cognitive Prioritization And Manager-Mediated Parking
 

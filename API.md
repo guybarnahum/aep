@@ -21,35 +21,21 @@ Notes:
 - Localhost fallbacks are allowed only for local development builds.
 - Deployed builds must fail loudly if required base URL configuration is missing.
 
-## External mirroring and routing
+## External collaboration adapters
 
-Slack and email are external adapters. Canonical AEP state remains in AEP.
+Slack and email are implemented external collaboration adapters. Jira-like ticket systems are design-only in PR17.
 
-Secrets:
-- `SLACK_MIRROR_WEBHOOK_URL`
+Canonical AEP state remains in AEP. External systems may project canonical threads/messages, receive replies/actions, and map external IDs back to canonical AEP IDs. External systems must not own task state, project state, approvals, escalations, or private cognition.
 
-Per-environment delivery targets:
-- `MIRROR_DEFAULT_SLACK_CHANNEL`
-- `MIRROR_APPROVALS_SLACK_CHANNEL`
-- `MIRROR_ESCALATIONS_SLACK_CHANNEL`
-- `MIRROR_ESCALATIONS_EMAIL_GROUP`
+Implemented contracts:
+- external thread projection: canonical `threadId` + adapter/target -> external thread id
+- external message projection: canonical `messageId` + adapter/target -> external message id
+- inbound reply correlation: external thread id -> canonical thread -> canonical message
+- external action correlation: external action id -> canonical thread/action route
+- idempotency: duplicate external messages/actions resolve without duplicate canonical mutation
+- policy enforcement: allowed channels, targets, actors, and action/thread compatibility
 
-Routing policy is D1-backed and maps canonical thread/message context to adapter targets.
-
-Example routing rule:
-
-```json
-{
-	"ruleId": "mirror_escalations_to_slack",
-	"enabled": true,
-	"threadKind": "escalation",
-	"severity": "critical",
-	"targetAdapter": "slack",
-	"targetKey": "MIRROR_ESCALATIONS_SLACK_CHANNEL"
-}
-```
-
-Missing Slack/email config must skip delivery explicitly. Do not fall back to `example.com`.
+Jira-like systems must be modeled as ticket projection/collaboration adapters only. Ticket status, comments, and actions reconcile through canonical AEP routes and mapping/audit tables.
 
 ## Hardcoded runtime identifier guardrail
 
