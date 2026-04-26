@@ -459,10 +459,10 @@ Missing staffing routes:
 
 Missing staffing contracts:
 
-- `JobDescription`
-- `StaffingRequest`
-- `HiringRecommendation`
-- `RoleGap`
+- `JobDescription` - now code-owned in PR18B; no public route yet
+- `StaffingRequest` - now code-owned in PR18B; no public route yet
+- `HiringRecommendation` - now code-owned in PR18B; no public route yet
+- `RoleGap` - now code-owned in PR18B; no public route yet
 
 Canonical boundary:
 
@@ -470,6 +470,7 @@ Canonical boundary:
 - HR/staffing must not directly mutate employee state outside employee creation and lifecycle routes.
 - Staffing must not introduce a parallel HR database outside canonical AEP tables.
 - Hiring must not auto-create employees without approval and canonical audit linkage.
+- PR18B defines the staffing contracts in code only. Runtime API surfaces begin in later PR18 stages.
 
 ### Runtime Role Policies
 

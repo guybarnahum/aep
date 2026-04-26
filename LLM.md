@@ -461,6 +461,51 @@ Important boundary:
 
 PR18A makes no runtime changes.
 
+### PR18B - Canonical Staffing Contract
+
+PR18B adds code-owned staffing contracts without adding runtime routes or new
+state mutation paths.
+
+Canonical staffing contract kinds:
+
+- `JobDescription`
+- `StaffingRequest`
+- `HiringRecommendation`
+- `RoleGap`
+
+Each contract defines:
+
+- canonical ID field
+- source linkage to task/project/thread/role/review/manager context
+- AEP ownership
+- lifecycle states
+- approval boundary
+- direct employee mutation denial
+- parallel HR database denial
+
+Important boundaries:
+
+- role gaps are advisory only
+- staffing requests require approval before fulfillment
+- hiring recommendations require manager review / approval
+- employee creation must flow through `POST /agent/employees`
+- lifecycle changes must flow through existing employee lifecycle routes
+- UI and external adapters must not own staffing state
+
+PR18B CI guard:
+
+```bash
+npm run ci:pr18-staffing-contract-check
+```
+
+PR18B does not add:
+
+- recruiting CRM behavior
+- candidate pipeline state
+- resume parsing
+- auto-hiring
+- direct employee table mutation outside canonical routes
+
 ### PR16D - Cognitive Prioritization And Manager-Mediated Parking
 
 PR16D makes prioritization a cognitive decision rather than a fixed code rule.

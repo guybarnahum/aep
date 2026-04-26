@@ -46,7 +46,7 @@ The company must also support:
 | PR15 | Project + intake model | ✅ PR15A-F complete. Intake, projects, intake conversion, project task graphs, dashboard UI, and CI scenario coverage exist. |
 | PR16 | Real Web / Infra / Validation specialization | ✅ Complete through PR16G. Native task contracts, payload contracts, team-loop specialization, cognitive scheduling, manager-mediated parking, artifact expectations, delegation patterns, and CI/docs closeout exist. |
 | PR17 | External collaboration adapters | ✅ Complete through PR17G. Slack/email are hardened collaboration adapters; Jira-like systems are design-only projection adapters; PR17 CI guards routing, mapping, inbound correlation, idempotency, policy, skipped delivery, placeholder recipients, and adapter state ownership. |
-| PR18 | HR / staffing system | 🟡 PR18A inventory complete. Employee lifecycle, persona, and reviews exist; staffing contracts, gap detection, hiring requests, and hiring-to-employee linkage are not implemented. |
+| PR18 | HR / staffing system | 🟡 PR18B complete. Staffing contracts are code-owned; gap detection, hiring request runtime flow, hiring-to-employee linkage, dashboard, and CI expansion remain. |
 | PR19 | Productization / marketing website | ❌ Not implemented. Internal dashboard exists, but no AEP-produced customer-facing product. |
 | PR20 | Super-admin cognition debug layer | ❌ Not implemented. Cognition boundary is strict; no debug surface exists. |
 
@@ -176,6 +176,11 @@ PR18 will add staffing as native organization-runtime behavior:
 
 Staffing must remain inside canonical AEP primitives. It must not become a
 recruiting CRM, candidate pipeline, or parallel HR database.
+
+PR18B establishes the code-owned contract boundary. Staffing records must carry
+canonical IDs, source linkage, ownership, lifecycle state, and approval
+boundaries. Fulfillment must use canonical employee creation and lifecycle
+routes rather than direct employee mutation.
 
 ## External collaboration adapters
 
