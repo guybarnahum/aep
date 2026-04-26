@@ -143,11 +143,12 @@ export async function handlePurgeCiArtifacts(
     let deletedCount = 0;
 
     if (table === "intake_requests") {
-      // No JSON payload column; match on requested_by ci-actor prefix only
+      // Match CI-created intakes: ci-actor prefix in requested_by or CI source
       const result = await db
         .prepare(
           `DELETE FROM ${table}
-           WHERE requested_by LIKE ?`,
+           WHERE requested_by LIKE ?
+              OR source = 'ci'`,
         )
         .bind(ciActorPrefix)
         .run();
