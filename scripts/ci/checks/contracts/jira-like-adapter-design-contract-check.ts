@@ -4,7 +4,7 @@ import {
   EXTERNAL_ADAPTER_CONTRACTS,
   JIRA_LIKE_STATUS_RECONCILIATION_RULES,
   getExternalAdapterContract,
-} from "../../../../core/operator-agent/src/adapters/external-collaboration-contract";
+} from "@aep/operator-agent/src/adapters/external-collaboration-contract";
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) {
