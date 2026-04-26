@@ -344,6 +344,74 @@ npm run ci:external-adapter-state-ownership-contract-check
 PR17F does not add runtime adapter behavior. It makes the existing PR17
 boundaries harder to regress.
 
+### PR17G - External Collaboration Docs Closeout
+
+PR17 is complete through PR17G.
+
+PR17 final state:
+
+- PR17A - adapter inventory and documentation alignment
+- PR17B - canonical external collaboration contract
+- PR17C - Slack adapter hardening
+- PR17D - email adapter hardening
+- PR17E - Jira-like ticket adapter design
+- PR17F - external collaboration CI coverage
+- PR17G - docs closeout
+
+AEP now treats Slack, email, and Jira-like systems as external collaboration
+adapters only.
+
+Implemented adapters:
+
+- Slack
+- email
+
+Design-only adapter:
+
+- Jira-like ticket systems
+
+Canonical state remains in:
+
+- tasks
+- dependencies
+- artifacts
+- threads/messages
+- approvals
+- escalations
+- intake requests
+- projects
+- mapping/audit tables
+
+External systems may:
+
+- mirror canonical threads/messages
+- receive replies/actions
+- project task/project/thread visibility
+- map external IDs back to canonical AEP IDs
+
+External systems must not:
+
+- own task state
+- own project state
+- own approvals/escalations
+- bypass canonical AEP APIs
+- expose private cognition
+- directly set canonical status
+
+PR17 CI guardrails:
+
+```bash
+npm run ci:pr17-external-collaboration-contract-check
+npm run ci:slack-adapter-contract-check
+npm run ci:email-adapter-contract-check
+npm run ci:jira-like-adapter-design-contract-check
+npm run ci:external-adapter-state-ownership-contract-check
+```
+
+PR17 does not turn AEP into a Slack bot, email bot, Jira clone, or workflow
+engine. It adds external collaboration surfaces for an organization runtime
+whose canonical state remains AEP.
+
 ### PR16D - Cognitive Prioritization And Manager-Mediated Parking
 
 PR16D makes prioritization a cognitive decision rather than a fixed code rule.

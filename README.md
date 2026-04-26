@@ -45,7 +45,7 @@ The company must also support:
 | PR14 | Team operating loops / heartbeat | ✅ Complete. Team loop routes, persisted cadence, dashboard visibility, canonical heartbeat publication, and CI coverage exist. |
 | PR15 | Project + intake model | ✅ PR15A-F complete. Intake, projects, intake conversion, project task graphs, dashboard UI, and CI scenario coverage exist. |
 | PR16 | Real Web / Infra / Validation specialization | ✅ Complete through PR16G. Native task contracts, payload contracts, team-loop specialization, cognitive scheduling, manager-mediated parking, artifact expectations, delegation patterns, and CI/docs closeout exist. |
-| PR17 | External collaboration adapters | 🟡 PR17B contract foundation. Slack/email mirroring, routing, projections, inbound replies, external actions, and policy checks exist. Jira-like systems are design-only projection adapters. |
+| PR17 | External collaboration adapters | ✅ Complete through PR17G. Slack/email are hardened collaboration adapters; Jira-like systems are design-only projection adapters; PR17 CI guards routing, mapping, inbound correlation, idempotency, policy, skipped delivery, placeholder recipients, and adapter state ownership. |
 | PR18 | HR / staffing system | 🟡 Partially implemented. Employee lifecycle, persona, and reviews exist; HR workflows (JD, hiring, staffing) not implemented. |
 | PR19 | Productization / marketing website | ❌ Not implemented. Internal dashboard exists, but no AEP-produced customer-facing product. |
 | PR20 | Super-admin cognition debug layer | ❌ Not implemented. Cognition boundary is strict; no debug surface exists. |
@@ -256,6 +256,30 @@ Run the umbrella check:
 ```bash
 npm run ci:pr17-external-collaboration-contract-check
 ```
+
+### PR17 final state
+
+PR17 completes the external collaboration adapter layer.
+
+Slack and email are implemented collaboration adapters. Jira-like systems are
+design-only projection adapters.
+
+AEP remains canonical for:
+
+- tasks
+- projects
+- threads/messages
+- approvals
+- escalations
+- artifacts
+- audit/mapping records
+
+External systems can make work visible and collect human collaboration, but they
+do not own work state.
+
+This preserves the core architecture:
+
+> AEP is an organization runtime. External tools are adapters.
 
 ### Runtime literal guardrail
 

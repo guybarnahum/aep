@@ -173,6 +173,35 @@ The coverage includes:
 - placeholder-recipient guardrails
 - no adapter ownership of canonical AEP work state
 
+### PR17 final adapter contract
+
+PR17 external collaboration is complete through docs closeout.
+
+Adapter status:
+
+- Slack: implemented and hardened
+- email: implemented and hardened, with provider transport disabled until configured
+- Jira-like systems: design-only ticket projection adapter
+
+Canonical ownership:
+
+- AEP owns task state
+- AEP owns project state
+- AEP owns approval/escalation state
+- AEP owns private cognition boundaries
+- external systems own only their external IDs, surfaces, and delivery context
+
+Mapping/audit surfaces:
+
+- message mirror delivery records
+- external thread projection maps
+- external message projection maps
+- external action records
+- external interaction policy/audit records
+
+Allowed external actions must reconcile through canonical AEP routes. Denied or
+unsupported actions are policy/audit events, not direct state mutations.
+
 ## Hardcoded runtime identifier guardrail
 
 Active runtime, deployed config, and live CI checks must not depend on:
