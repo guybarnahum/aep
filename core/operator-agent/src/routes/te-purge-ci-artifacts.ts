@@ -142,14 +142,13 @@ export async function handlePurgeCiArtifacts(
         .run();
       deletedCount = result.meta?.changes ?? 0;
     } else if (table === "employee_review_cycles") {
-      // review_cycles uses created_by
+      // review_cycles uses created_by; no JSON payload column exists
       const result = await db
         .prepare(
           `DELETE FROM ${table}
-           WHERE (created_by LIKE ? OR created_by LIKE 'ci:%')
-             AND (json_extract(metadata, '$.__ci.runId') = ? OR created_by LIKE ?)`,
+           WHERE created_by LIKE ? OR created_by LIKE 'ci:%:${runId}'`,
         )
-        .bind(ciActorPrefix, runId, `ci:%:${runId}`)
+        .bind(ciActorPrefix)
         .run();
       deletedCount = result.meta?.changes ?? 0;
     } else if (
