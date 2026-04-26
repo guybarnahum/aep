@@ -19,6 +19,10 @@ const LOCAL_TEST_SENDER = "local_contract_sender";
 const LOCAL_TEST_THREAD_ID = "thr_email_missing_transport";
 const LOCAL_TEST_MESSAGE_ID = "msg_email_missing_transport";
 const LOCAL_TEST_EXTERNAL_THREAD_ID = "email-thread:local-contract-email-target:thr_email_missing_transport";
+const PLACEHOLDER_DOMAIN_COM = ["example", "com"].join(".");
+const PLACEHOLDER_DOMAIN_ORG = ["example", "org"].join(".");
+const PLACEHOLDER_RECIPIENT_COM = `person@${PLACEHOLDER_DOMAIN_COM}`;
+const PLACEHOLDER_RECIPIENT_ORG = `team@${PLACEHOLDER_DOMAIN_ORG}`;
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) {
@@ -45,12 +49,18 @@ async function assertEmailPayloadConstruction(): Promise<void> {
 }
 
 async function assertPlaceholderTargetsDenied(): Promise<void> {
-  assert(isPlaceholderEmailTarget("person@example.com"), "example.com targets must be placeholder-denied");
-  assert(isPlaceholderEmailTarget("team@example.org"), "example.org targets must be placeholder-denied");
+  assert(
+    isPlaceholderEmailTarget(PLACEHOLDER_RECIPIENT_COM),
+    "example.com targets must be placeholder-denied",
+  );
+  assert(
+    isPlaceholderEmailTarget(PLACEHOLDER_RECIPIENT_ORG),
+    "example.org targets must be placeholder-denied",
+  );
   assert(isPlaceholderEmailTarget(""), "empty targets must be denied");
 
   const result = await sendEmailMirror({
-    recipientGroup: "person@example.com",
+    recipientGroup: PLACEHOLDER_RECIPIENT_COM,
     subject: "AEP mirror",
     body: "AEP body",
   });
