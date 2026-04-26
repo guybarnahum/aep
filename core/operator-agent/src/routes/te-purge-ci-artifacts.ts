@@ -5,9 +5,13 @@ const PURGE_TABLE_ORDER = [
   "employee_review_evidence_links",
   "employee_performance_reviews",
   "employee_review_cycles",
+  "employee_scope_bindings",
+  "employee_public_links",
   "employee_visual_identity",
   "employee_prompt_profiles",
   "employee_personas",
+  "employee_employment_events",
+  "task_reassignments",
   "employees_catalog",
   "message_mirror_deliveries",
   "external_message_projections",
@@ -163,9 +167,14 @@ export async function handlePurgeCiArtifacts(
              SELECT review_id
              FROM employee_performance_reviews
              WHERE created_by LIKE ?
+                OR employee_id IN (
+                  SELECT id FROM employees_catalog
+                  WHERE created_by_employee_id LIKE ?
+                     OR is_synthetic = 1
+                )
            )`,
         )
-        .bind(ciActorPrefix)
+        .bind(ciActorPrefix, ciActorPrefix)
         .run();
       deletedCount = result.meta?.changes ?? 0;
     } else if (table === "employee_performance_reviews") {
@@ -178,9 +187,40 @@ export async function handlePurgeCiArtifacts(
                 SELECT review_cycle_id
                 FROM employee_review_cycles
                 WHERE created_by LIKE ?
+              )
+              OR employee_id IN (
+                SELECT id FROM employees_catalog
+                WHERE created_by_employee_id LIKE ?
+                   OR is_synthetic = 1
               )`,
         )
-        .bind(ciActorPrefix, ciActorPrefix)
+        .bind(ciActorPrefix, ciActorPrefix, ciActorPrefix)
+        .run();
+      deletedCount = result.meta?.changes ?? 0;
+    } else if (table === "employee_scope_bindings") {
+      const result = await db
+        .prepare(
+          `DELETE FROM employee_scope_bindings
+           WHERE employee_id IN (
+             SELECT id FROM employees_catalog
+             WHERE created_by_employee_id LIKE ?
+                OR is_synthetic = 1
+           )`,
+        )
+        .bind(ciActorPrefix)
+        .run();
+      deletedCount = result.meta?.changes ?? 0;
+    } else if (table === "employee_public_links") {
+      const result = await db
+        .prepare(
+          `DELETE FROM employee_public_links
+           WHERE employee_id IN (
+             SELECT id FROM employees_catalog
+             WHERE created_by_employee_id LIKE ?
+                OR is_synthetic = 1
+           )`,
+        )
+        .bind(ciActorPrefix)
         .run();
       deletedCount = result.meta?.changes ?? 0;
     } else if (table === "employee_personas") {
@@ -195,6 +235,43 @@ export async function handlePurgeCiArtifacts(
            )`,
         )
         .bind(ciActorPrefix)
+        .run();
+      deletedCount = result.meta?.changes ?? 0;
+    } else if (table === "employee_employment_events") {
+      const result = await db
+        .prepare(
+          `DELETE FROM employee_employment_events
+           WHERE approved_by LIKE ?
+              OR employee_id IN (
+                SELECT id FROM employees_catalog
+                WHERE created_by_employee_id LIKE ?
+                   OR is_synthetic = 1
+              )`,
+        )
+        .bind(ciActorPrefix, ciActorPrefix)
+        .run();
+      deletedCount = result.meta?.changes ?? 0;
+    } else if (table === "task_reassignments") {
+      const result = await db
+        .prepare(
+          `DELETE FROM task_reassignments
+           WHERE task_id IN (
+             SELECT id FROM tasks
+             WHERE created_by_employee_id LIKE ?
+                OR json_extract(payload, '$.__ci.runId') = ?
+           )
+              OR from_employee_id IN (
+                SELECT id FROM employees_catalog
+                WHERE created_by_employee_id LIKE ?
+                   OR is_synthetic = 1
+              )
+              OR to_employee_id IN (
+                SELECT id FROM employees_catalog
+                WHERE created_by_employee_id LIKE ?
+                   OR is_synthetic = 1
+              )`,
+        )
+        .bind(ciActorPrefix, runId, ciActorPrefix, ciActorPrefix)
         .run();
       deletedCount = result.meta?.changes ?? 0;
     } else if (table === "employee_prompt_profiles") {
