@@ -208,6 +208,38 @@ contracts, that all adapters deny canonical state ownership, that Jira remains
 design-only, and that existing mirror/inbound/action/policy wiring remains in
 place.
 
+### PR17C - Slack Adapter Hardening
+
+PR17C hardens Slack as a production-shaped collaboration adapter while
+preserving AEP as the source of truth.
+
+Slack behavior remains adapter-only:
+
+- outbound Slack messages mirror canonical AEP messages
+- Slack thread continuity is represented through external thread projection maps
+- Slack message continuity is represented through external message projection maps
+- inbound Slack replies correlate back to canonical AEP threads
+- Slack approval/escalation actions reconcile through canonical action routes
+- missing Slack delivery configuration records skipped delivery, not hidden failure
+- Slack never owns task, project, approval, escalation, or cognition state
+
+Slack transport hardening:
+
+- Slack webhook payload construction is explicit and testable
+- valid Slack timestamps may be sent as `thread_ts`
+- synthetic AEP external thread ids are never sent as Slack `thread_ts`
+- missing `SLACK_MIRROR_WEBHOOK_URL` produces an observable skipped delivery
+
+PR17C adds the CI guard:
+
+```bash
+npm run ci:slack-adapter-contract-check
+```
+
+This check verifies Slack payload construction, missing-webhook skip behavior,
+and the invariant that skipped Slack delivery does not create external
+projection records.
+
 ### PR16D - Cognitive Prioritization And Manager-Mediated Parking
 
 PR16D makes prioritization a cognitive decision rather than a fixed code rule.

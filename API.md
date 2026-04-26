@@ -72,6 +72,31 @@ Jira-like ticket systems must follow the same adapter model:
 
 AEP remains the source of truth for work state.
 
+### Slack adapter
+
+Slack is an implemented external collaboration adapter.
+
+Slack may:
+
+- receive mirrored canonical thread/message visibility
+- preserve thread continuity through external thread projection maps
+- preserve message continuity through external message projection maps
+- send inbound replies through `/agent/messages/inbound`
+- send allowed approval/escalation actions through `/agent/messages/external-action`
+
+Slack must not:
+
+- own task state
+- own project state
+- directly mutate approval or escalation state
+- bypass canonical AEP action routes
+- expose private cognition
+
+Missing Slack configuration is explicit:
+
+- missing routing target config records skipped delivery with `missing_target_config`
+- missing `SLACK_MIRROR_WEBHOOK_URL` records skipped delivery with `slack_adapter_not_configured`
+
 ## Hardcoded runtime identifier guardrail
 
 Active runtime, deployed config, and live CI checks must not depend on:

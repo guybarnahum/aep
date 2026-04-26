@@ -1,6 +1,50 @@
 import type { MirrorTransportFailure, MirrorTransportSuccess } from "./types";
 import { newToken } from "@aep/shared";
 
+export type SlackMirrorPayload = {
+  channel: string;
+  text: string;
+  thread_ts?: string;
+};
+
+function isSlackTimestamp(value: string): boolean {
+  return /^\d{10}\.\d{6}$/.test(value);
+}
+
+function resolveSlackThreadTs(externalThreadId?: string): string | undefined {
+  if (!externalThreadId) {
+    return undefined;
+  }
+
+  if (externalThreadId.startsWith("slack-ts:")) {
+    const candidate = externalThreadId.slice("slack-ts:".length);
+    return isSlackTimestamp(candidate) ? candidate : undefined;
+  }
+
+  return isSlackTimestamp(externalThreadId) ? externalThreadId : undefined;
+}
+
+export function buildSlackMirrorPayload(args: {
+  channelId: string;
+  text: string;
+  externalThreadId?: string;
+}): SlackMirrorPayload {
+  const channel = args.channelId.trim();
+  const text = args.text.trim();
+
+  const payload: SlackMirrorPayload = {
+    channel,
+    text,
+  };
+
+  const threadTs = resolveSlackThreadTs(args.externalThreadId);
+  if (threadTs) {
+    payload.thread_ts = threadTs;
+  }
+
+  return payload;
+}
+
 export async function sendSlackMirror(args: {
   webhookUrl: string;
   channelId: string;
@@ -21,10 +65,13 @@ export async function sendSlackMirror(args: {
       headers: {
         "content-type": "application/json",
       },
-      body: JSON.stringify({
-        channel: args.channelId,
-        text: args.text,
-      }),
+      body: JSON.stringify(
+        buildSlackMirrorPayload({
+          channelId: args.channelId,
+          text: args.text,
+          externalThreadId: args.externalThreadId,
+        }),
+      ),
     });
 
     if (!response.ok) {

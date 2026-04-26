@@ -142,6 +142,11 @@ assert(
   "package.json must expose PR17 external collaboration contract check",
 );
 
+assert(
+  packageSource.includes("ci:slack-adapter-contract-check"),
+  "package.json must expose Slack adapter hardening contract check",
+);
+
 console.log("pr17-external-collaboration-contract-check passed", {
   adapterCount: EXTERNAL_ADAPTER_CONTRACTS.length,
 });

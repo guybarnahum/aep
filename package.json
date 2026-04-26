@@ -57,6 +57,7 @@
     "ci:task-delegation-live-check": "tsx scripts/ci/checks/scenarios/task-delegation-live-check.ts",
     "ci:pr16-role-realism-contract-check": "tsx scripts/ci/checks/contracts/pr16-role-realism-contract-check.ts",
     "ci:pr17-external-collaboration-contract-check": "tsx scripts/ci/checks/contracts/pr17-external-collaboration-contract-check.ts",
+    "ci:slack-adapter-contract-check": "tsx scripts/ci/checks/contracts/slack-adapter-contract-check.ts",
     "ci:no-hardcoded-runtime-identifiers": "tsx scripts/ci/checks/contracts/no-hardcoded-runtime-identifiers-check.ts",
     "ci:task-dependency-integrity-check": "tsx scripts/ci/checks/contracts/task-dependency-integrity-check.ts",
     "ci:task-artifact-contract-check": "tsx scripts/ci/checks/contracts/task-artifact-contract-check.ts",

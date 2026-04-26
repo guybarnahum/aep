@@ -165,6 +165,22 @@ async function dispatchToTarget(args: {
       };
     }
 
+    if (result.code === "slack_webhook_missing") {
+      return {
+        ok: false,
+        delivery: buildDeliveryRecord({
+          messageId: args.input.messageId,
+          threadId: args.input.threadId,
+          channel: "slack",
+          target: args.target.channelId,
+          status: "skipped",
+          failureCode: "slack_adapter_not_configured",
+          failureReason: result.reason,
+          createdAt,
+        }),
+      };
+    }
+
     return {
       ok: false,
       delivery: buildDeliveryRecord({

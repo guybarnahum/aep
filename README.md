@@ -183,6 +183,28 @@ adapter boundary explicit:
 This keeps Slack, email, and future Jira-like systems as collaboration surfaces,
 not work stores.
 
+### Slack adapter hardening
+
+Slack is now treated as a production-shaped collaboration adapter, not a bot
+state store.
+
+Slack mirrors canonical AEP messages and actions while AEP retains ownership of
+threads, tasks, projects, approvals, escalations, artifacts, and audit records.
+
+PR17C hardens Slack behavior around:
+
+- explicit Slack payload construction
+- thread continuity through projection maps
+- skipped delivery when Slack config is missing
+- inbound reply correlation
+- external action reconciliation through canonical routes
+
+Run the Slack adapter contract check:
+
+```bash
+npm run ci:slack-adapter-contract-check
+```
+
 ### Runtime literal guardrail
 
 The repo includes a CI guardrail that prevents active runtime/config/CI code from
