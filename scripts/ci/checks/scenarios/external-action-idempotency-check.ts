@@ -13,6 +13,7 @@ import {
   hasOptionalPostRoute,
 } from "../../shared/operator-agent-surface";
 import { handleOperatorAgentSoftSkip } from "../../shared/soft-skip";
+import { ciActor, ciArtifactMarker } from "../../shared/ci-artifacts";
 import { newToken } from "@aep/shared";
 
 export {};
@@ -86,11 +87,14 @@ async function main(): Promise<void> {
   warnIfNoAdapters(adapters);
 
   const seeded = await client.seedApproval({
-    requestedByEmployeeId: infraOpsManagerEmployeeId,
+    requestedByEmployeeId: ciActor(CHECK_NAME),
     requestedByRoleId: "infra-ops-manager",
     actionType: "deploy-change",
     reason: "PR10D external action idempotency",
     message: "Seed approval thread for external action idempotency.",
+    payload: {
+      ...ciArtifactMarker(CHECK_NAME),
+    },
     createThread: true,
     threadTopic: "PR10D external action idempotency",
     threadReceiverEmployeeId: reliabilityEngineerEmployeeId,
@@ -112,6 +116,9 @@ async function main(): Promise<void> {
     source: "internal",
     subject: "PR10D idempotency anchor",
     body: "Create an external thread projection for external action idempotency.",
+    payload: {
+      ...ciArtifactMarker(CHECK_NAME),
+    },
     relatedApprovalId: approvalId,
   });
 

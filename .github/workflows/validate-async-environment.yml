@@ -190,6 +190,23 @@ jobs:
       node_version: "20"
     secrets: inherit
 
+  validate-async-scenarios:
+    needs:
+      - deploy-async-environment
+      - validate-async-contracts
+      - validate-paperclip-handoff
+    if: ${{ always() && needs.deploy-async-environment.result == 'success' && (needs.validate-async-contracts.result == 'success' || needs.validate-async-contracts.result == 'skipped') && (needs.validate-paperclip-handoff.result == 'success' || needs.validate-paperclip-handoff.result == 'skipped') }}
+    uses: ./.github/workflows/_validate_post_deploy.yml
+    with:
+      environment_name: async-validation
+      control_plane_base_url: ${{ needs.deploy-async-environment.outputs.control_plane_base_url }}
+      operator_agent_base_url: ${{ needs.deploy-async-environment.outputs.operator_agent_url }}
+      cf_env: ${{ needs.deploy-async-environment.outputs.cf_env }}
+      git_sha: ${{ needs.deploy-async-environment.outputs.git_sha }}
+      node_version: "20"
+      validation_level: destructive
+    secrets: inherit
+
   final-summary:
     needs:
       - preflight
@@ -200,6 +217,7 @@ jobs:
       - validate-operator-governance
       - validate-async-contracts
       - validate-paperclip-handoff
+      - validate-async-scenarios
     if: always()
     runs-on: ubuntu-latest
     steps:

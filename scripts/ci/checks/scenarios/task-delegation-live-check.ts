@@ -2,6 +2,7 @@
 
 import { createOperatorAgentClient } from "../../clients/operator-agent-client";
 import { handleOperatorAgentSoftSkip } from "../../shared/soft-skip";
+import { ciActor, ciArtifactMarker } from "../../shared/ci-artifacts";
 
 const CHECK_NAME = "task-delegation-live-check";
 
@@ -21,10 +22,11 @@ async function main(): Promise<void> {
     companyId: "company_internal_aep",
     originatingTeamId: "team_web_product",
     assignedTeamId: "team_web_product",
-    createdByEmployeeId: CHECK_NAME,
+    createdByEmployeeId: ciActor(CHECK_NAME),
     taskType: "web_implementation",
     title: "PR16F delegation source fixture",
     payload: {
+      ...ciArtifactMarker(CHECK_NAME),
       targetUrl: "https://example.invalid",
       requirementsRef: "task_requirements_fixture",
       projectId: "project_pr16f_fixture",
@@ -69,6 +71,7 @@ async function main(): Promise<void> {
         taskType: "deployment",
         title: "PR16F delegated deployment fixture",
         payload: {
+          ...ciArtifactMarker(CHECK_NAME),
           environment: "staging",
           artifactRef: source.taskId,
         },

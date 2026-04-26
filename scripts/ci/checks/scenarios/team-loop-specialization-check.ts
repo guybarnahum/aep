@@ -3,6 +3,7 @@
 import { createOperatorAgentClient } from "../../clients/operator-agent-client";
 import { postJson } from "../../shared/http";
 import { handleOperatorAgentSoftSkip } from "../../shared/soft-skip";
+import { ciActor, ciArtifactMarker } from "../../shared/ci-artifacts";
 
 type TeamLoopResult = {
   ok: true;
@@ -68,10 +69,11 @@ async function main(): Promise<void> {
     companyId: COMPANY_ID,
     originatingTeamId: "team_web_product",
     assignedTeamId: "team_web_product",
-    createdByEmployeeId: CHECK_NAME,
+    createdByEmployeeId: ciActor(CHECK_NAME),
     taskType: "web_design",
     title: `PR16C specialization design ${Date.now()}`,
     payload: {
+      ...ciArtifactMarker(CHECK_NAME),
       targetUrl: "https://example.invalid/pr16c/design",
       objectiveTitle: "PR16C specialization ordering",
     },
@@ -85,10 +87,11 @@ async function main(): Promise<void> {
     companyId: COMPANY_ID,
     originatingTeamId: "team_web_product",
     assignedTeamId: "team_web_product",
-    createdByEmployeeId: CHECK_NAME,
+    createdByEmployeeId: ciActor(CHECK_NAME),
     taskType: "web_implementation",
     title: `PR16C specialization implementation ${Date.now()}`,
     payload: {
+      ...ciArtifactMarker(CHECK_NAME),
       targetUrl: "https://example.invalid/pr16c/implementation",
       requirementsRef: designTask.taskId,
     },

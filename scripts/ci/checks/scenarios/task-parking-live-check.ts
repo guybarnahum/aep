@@ -2,6 +2,7 @@
 
 import { createOperatorAgentClient } from "../../clients/operator-agent-client";
 import { handleOperatorAgentSoftSkip } from "../../shared/soft-skip";
+import { ciActor, ciArtifactMarker } from "../../shared/ci-artifacts";
 
 const CHECK_NAME = "task-parking-live-check";
 
@@ -21,10 +22,11 @@ async function main(): Promise<void> {
     companyId: "company_internal_aep",
     originatingTeamId: "team_web_product",
     assignedTeamId: "team_web_product",
-    createdByEmployeeId: CHECK_NAME,
+    createdByEmployeeId: ciActor(CHECK_NAME),
     taskType: "analysis",
     title: "PR16D live parking fixture",
     payload: {
+      ...ciArtifactMarker(CHECK_NAME),
       question: "Validate manager-mediated task parking.",
     },
   });

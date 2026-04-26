@@ -4,8 +4,11 @@ import { createOperatorAgentClient } from "../../clients/operator-agent-client";
 import { resolveServiceBaseUrl } from "../../../lib/service-map";
 import { resolveEmployeeIdsByKey } from "../../lib/employee-resolution";
 import { handleOperatorAgentSoftSkip } from "../../shared/soft-skip";
+import { ciActor, ciArtifactMarker } from "../../shared/ci-artifacts";
 
 export {};
+
+const CHECK_NAME = "approval-thread-delegation-check";
 
 async function main(): Promise<void> {
   const client = createOperatorAgentClient();
@@ -105,10 +108,10 @@ async function main(): Promise<void> {
     originatingTeamId: "team_infra",
     assignedTeamId: "team_validation",
     assignedEmployeeId: reliabilityEngineerEmployeeId,
-    createdByEmployeeId: "scenario_operator",
+    createdByEmployeeId: ciActor(CHECK_NAME),
     taskType: "followup_validation",
     title: "Validate approved remediation outcome",
-    payload: { reason: "approval_outcome_followup" },
+    payload: { ...ciArtifactMarker(CHECK_NAME), reason: "approval_outcome_followup" },
     sourceMessageId: actionMessage.id,
   });
 

@@ -10,6 +10,7 @@ import {
 import { hasOnlyNonDeliveredMirrorOutcomes } from "../../shared/operator-agent-check-helpers";
 import { assertRequiredPostRoute } from "../../shared/operator-agent-surface";
 import { handleOperatorAgentSoftSkip } from "../../shared/soft-skip";
+import { ciArtifactMarker } from "../../shared/ci-artifacts";
 import { newToken } from "@aep/shared";
 
 export {};
@@ -111,6 +112,9 @@ async function main(): Promise<void> {
     source: "internal",
     subject: "PR10D escalation anchor",
     body: "Create an external thread projection for escalation actions.",
+    payload: {
+      ...ciArtifactMarker(CHECK_NAME),
+    },
     relatedEscalationId: escalationId,
   });
 

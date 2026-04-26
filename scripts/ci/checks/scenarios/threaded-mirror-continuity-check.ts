@@ -5,6 +5,7 @@ import { resolveServiceBaseUrl } from "../../../lib/service-map";
 import { resolveEmployeeIdsByKey } from "../../lib/employee-resolution";
 import { hasOnlyNonDeliveredMirrorOutcomes } from "../../shared/operator-agent-check-helpers";
 import { handleOperatorAgentSoftSkip } from "../../shared/soft-skip";
+import { ciActor, ciArtifactMarker } from "../../shared/ci-artifacts";
 
 export {};
 
@@ -61,7 +62,7 @@ async function main(): Promise<void> {
   const thread = await client.createMessageThread({
     companyId: "company_internal_aep",
     topic: "PR10B threaded mirror continuity check",
-    createdByEmployeeId: infraOpsManagerEmployeeId,
+    createdByEmployeeId: ciActor(CHECK_NAME),
     relatedTaskId: "task_pr10b_threaded_mirroring",
     visibility: "internal",
   });
@@ -79,6 +80,9 @@ async function main(): Promise<void> {
     source: "internal",
     subject: "PR10B continuity message one",
     body: "The first mirrored message should establish an external thread projection.",
+    payload: {
+      ...ciArtifactMarker(CHECK_NAME),
+    },
     relatedTaskId: "task_pr10b_threaded_mirroring",
   });
 
@@ -91,6 +95,9 @@ async function main(): Promise<void> {
     source: "internal",
     subject: "PR10B continuity message two",
     body: "The second mirrored message should reuse the same external thread projection.",
+    payload: {
+      ...ciArtifactMarker(CHECK_NAME),
+    },
     relatedTaskId: "task_pr10b_threaded_mirroring",
   });
 

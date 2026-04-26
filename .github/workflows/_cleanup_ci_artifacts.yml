@@ -1,0 +1,44 @@
+name: _cleanup_ci_artifacts
+
+on:
+  workflow_call:
+    inputs:
+      environment_name:
+        required: true
+        type: string
+      operator_agent_base_url:
+        required: false
+        type: string
+      ci_run_id:
+        required: true
+        type: string
+      cleanup_mode:
+        required: false
+        type: string
+        default: current-run
+
+jobs:
+  cleanup-ci-artifacts:
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ inputs.environment_name }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Cleanup canonical CI artifacts
+        env:
+          OPERATOR_AGENT_BASE_URL: ${{ inputs.operator_agent_base_url || vars.OPERATOR_AGENT_BASE_URL }}
+          CI_CLEANUP_TOKEN: ${{ secrets.CI_CLEANUP_TOKEN }}
+          CI_RUN_ID: ${{ inputs.ci_run_id }}
+          CLEANUP_MODE: ${{ inputs.cleanup_mode }}
+        run: |
+          npm run ci:cleanup-canonical-artifacts -- \
+            --run-id "$CI_RUN_ID" \
+            --mode "$CLEANUP_MODE" | tee cleanup-ci-artifacts.log

@@ -1,6 +1,9 @@
 /* eslint-disable no-console */
 
 import { getJson, postJson, readJson } from "../../shared/http";
+import { ciActor, ciArtifactMarker } from "../../shared/ci-artifacts";
+
+const CHECK_NAME = "intake-project-flow-check";
 
 type IntakeStatus = "submitted" | "triaged" | "converted" | "rejected";
 
@@ -141,7 +144,7 @@ async function main(): Promise<void> {
     companyId: "company_internal_aep",
     title,
     description: "CI-created intake for PR15F canonical flow validation.",
-    requestedBy: "post_deploy_validation",
+    requestedBy: ciActor(CHECK_NAME),
     source: "ci",
   });
 
@@ -236,6 +239,7 @@ async function main(): Promise<void> {
         taskType: "requirements_definition",
         assignedTeamId: "team_web_product",
         payload: {
+          ...ciArtifactMarker(CHECK_NAME),
           objectiveTitle: `PR15F requirements objective ${unique}`,
           sourceRef: `intake:${intake.id}`,
         },
@@ -247,6 +251,7 @@ async function main(): Promise<void> {
         assignedTeamId: "team_web_product",
         dependsOnClientTaskIds: ["requirements"],
         payload: {
+          ...ciArtifactMarker(CHECK_NAME),
           targetUrl: "https://example.invalid/pr15f/implementation",
           requirementsRef: "requirements",
         },
@@ -258,6 +263,7 @@ async function main(): Promise<void> {
         assignedTeamId: "team_infra",
         dependsOnClientTaskIds: ["implementation"],
         payload: {
+          ...ciArtifactMarker(CHECK_NAME),
           environment: "staging",
           artifactRef: "build_pr15f_fixture",
         },
@@ -269,6 +275,7 @@ async function main(): Promise<void> {
         assignedTeamId: "team_validation",
         dependsOnClientTaskIds: ["deploy"],
         payload: {
+          ...ciArtifactMarker(CHECK_NAME),
           targetUrl: "https://example.invalid/pr15f/verification",
           subjectRef: "deploy",
         },

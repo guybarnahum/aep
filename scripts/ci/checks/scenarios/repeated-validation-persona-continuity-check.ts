@@ -4,6 +4,7 @@ import { createOperatorAgentClient } from "../../clients/operator-agent-client";
 import { resolveServiceBaseUrl } from "../../../lib/service-map";
 import { resolveEmployeeIdsByKey } from "../../lib/employee-resolution";
 import { handleOperatorAgentSoftSkip } from "../../shared/soft-skip";
+import { ciActor, ciArtifactMarker } from "../../shared/ci-artifacts";
 
 export {};
 
@@ -136,6 +137,7 @@ async function createFreshValidationTask(
     taskType: TARGET_TASK_TYPE,
     title: `Repeated validation persona continuity ${suffix}`,
     payload: {
+      ...ciArtifactMarker(CHECK_NAME),
       targetUrl: getTargetUrl(),
       subjectRef: `ci:${CHECK_NAME}:${suffix}`,
       source: CHECK_NAME,

@@ -141,6 +141,7 @@ jobs:
       git_sha: ${{ needs.deploy-production-env.outputs.git_sha }}
       node_version: "20"
       execute_work_order_immediately: true
+      validation_level: smoke
     secrets: inherit
 
   deploy-dashboard-pages:

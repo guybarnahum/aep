@@ -26,6 +26,10 @@ on:
         required: false
         type: boolean
         default: false
+      validation_level:
+        required: false
+        type: string
+        default: smoke
     outputs:
       enabled:
         description: "Whether post-deploy validation was enabled"
@@ -81,6 +85,37 @@ jobs:
           echo "OPERATOR_AGENT_BASE_URL=$RESOLVED_OPERATOR_AGENT_BASE_URL" >> "$GITHUB_ENV"
           echo "OPERATOR_AGENT_BASE_URL_SOURCE=$RESOLVED_OPERATOR_AGENT_BASE_URL_SOURCE" >> "$GITHUB_ENV"
 
+      - name: Resolve validation level
+        id: level
+        run: |
+          case "${{ inputs.validation_level }}" in
+            smoke)
+              echo "value=0" >> "$GITHUB_OUTPUT"
+              echo "name=smoke" >> "$GITHUB_OUTPUT"
+              ;;
+            mutating)
+              echo "value=1" >> "$GITHUB_OUTPUT"
+              echo "name=mutating" >> "$GITHUB_OUTPUT"
+              ;;
+            full)
+              echo "value=2" >> "$GITHUB_OUTPUT"
+              echo "name=full" >> "$GITHUB_OUTPUT"
+              ;;
+            destructive)
+              echo "value=3" >> "$GITHUB_OUTPUT"
+              echo "name=destructive" >> "$GITHUB_OUTPUT"
+              ;;
+            *)
+              echo "Unknown validation_level: ${{ inputs.validation_level }}" >&2
+              exit 1
+              ;;
+          esac
+
+          echo "LEVEL_SMOKE=0" >> "$GITHUB_ENV"
+          echo "LEVEL_MUTATING=1" >> "$GITHUB_ENV"
+          echo "LEVEL_FULL=2" >> "$GITHUB_ENV"
+          echo "LEVEL_DESTRUCTIVE=3" >> "$GITHUB_ENV"
+
       - name: Check validation configuration
         id: config
         run: |
@@ -118,7 +153,7 @@ jobs:
 
       - name: Paperclip first execution check
         id: paperclip_first_execution_check
-        if: steps.config.outputs.enabled == 'true' && steps.scheduled_routing_check.outcome == 'success'
+        if: steps.config.outputs.enabled == 'true' && steps.level.outputs.value >= env.LEVEL_MUTATING && steps.scheduled_routing_check.outcome == 'success'
         run: |
           npx tsx scripts/ci/checks/scenarios/paperclip-first-execution-check.ts 2>&1 | tee -a post-deploy-validation.log
 
@@ -249,97 +284,97 @@ jobs:
 
       - name: External-style message idempotency check
         id: external_style_message_idempotency
-        if: steps.config.outputs.enabled == 'true' && steps.validation_policy_check.outcome == 'success'
+        if: steps.config.outputs.enabled == 'true' && steps.level.outputs.value >= env.LEVEL_FULL && steps.validation_policy_check.outcome == 'success'
         run: |
           npx tsx scripts/ci/checks/scenarios/external-style-message-idempotency-check.ts 2>&1 | tee -a post-deploy-validation.log
 
       - name: External-style message order tolerance check
         id: external_style_message_order_tolerance
-        if: steps.config.outputs.enabled == 'true' && steps.validation_policy_check.outcome == 'success'
+        if: steps.config.outputs.enabled == 'true' && steps.level.outputs.value >= env.LEVEL_FULL && steps.validation_policy_check.outcome == 'success'
         run: |
           npx tsx scripts/ci/checks/scenarios/external-style-message-order-tolerance-check.ts 2>&1 | tee -a post-deploy-validation.log
 
       - name: Mirror routing contract check
         id: mirror_routing_contract
-        if: steps.config.outputs.enabled == 'true' && steps.validation_policy_check.outcome == 'success'
+        if: steps.config.outputs.enabled == 'true' && steps.level.outputs.value >= env.LEVEL_FULL && steps.validation_policy_check.outcome == 'success'
         run: |
           npx tsx scripts/ci/checks/contracts/mirror-routing-contract-check.ts 2>&1 | tee -a post-deploy-validation.log
 
       - name: Agent message mirroring check
         id: agent_message_mirroring
-        if: steps.config.outputs.enabled == 'true' && steps.validation_policy_check.outcome == 'success'
+        if: steps.config.outputs.enabled == 'true' && steps.level.outputs.value >= env.LEVEL_FULL && steps.validation_policy_check.outcome == 'success'
         run: |
           npx tsx scripts/ci/checks/scenarios/agent-message-mirroring-check.ts 2>&1 | tee -a post-deploy-validation.log
 
       - name: External thread mapping contract check
         id: external_thread_mapping_contract
-        if: steps.config.outputs.enabled == 'true' && steps.validation_policy_check.outcome == 'success'
+        if: steps.config.outputs.enabled == 'true' && steps.level.outputs.value >= env.LEVEL_FULL && steps.validation_policy_check.outcome == 'success'
         run: |
           npx tsx scripts/ci/checks/contracts/external-thread-mapping-contract-check.ts 2>&1 | tee -a post-deploy-validation.log
 
       - name: Threaded mirror continuity check
         id: threaded_mirror_continuity
-        if: steps.config.outputs.enabled == 'true' && steps.validation_policy_check.outcome == 'success'
+        if: steps.config.outputs.enabled == 'true' && steps.level.outputs.value >= env.LEVEL_FULL && steps.validation_policy_check.outcome == 'success'
         run: |
           npx tsx scripts/ci/checks/scenarios/threaded-mirror-continuity-check.ts 2>&1 | tee -a post-deploy-validation.log
 
       - name: Inbound reply correlation contract check
         id: inbound_reply_correlation_contract
-        if: steps.config.outputs.enabled == 'true' && steps.validation_policy_check.outcome == 'success'
+        if: steps.config.outputs.enabled == 'true' && steps.level.outputs.value >= env.LEVEL_FULL && steps.validation_policy_check.outcome == 'success'
         run: |
           npx tsx scripts/ci/checks/contracts/inbound-reply-correlation-contract-check.ts 2>&1 | tee -a post-deploy-validation.log
 
       - name: Inbound reply ingestion check
         id: inbound_reply_ingestion
-        if: steps.config.outputs.enabled == 'true' && steps.validation_policy_check.outcome == 'success'
+        if: steps.config.outputs.enabled == 'true' && steps.level.outputs.value >= env.LEVEL_FULL && steps.validation_policy_check.outcome == 'success'
         run: |
           npx tsx scripts/ci/checks/scenarios/inbound-reply-ingestion-check.ts 2>&1 | tee -a post-deploy-validation.log
 
       - name: Inbound duplicate delivery check
         id: inbound_duplicate_delivery
-        if: steps.config.outputs.enabled == 'true' && steps.validation_policy_check.outcome == 'success'
+        if: steps.config.outputs.enabled == 'true' && steps.level.outputs.value >= env.LEVEL_FULL && steps.validation_policy_check.outcome == 'success'
         run: |
           npx tsx scripts/ci/checks/scenarios/inbound-duplicate-delivery-check.ts 2>&1 | tee -a post-deploy-validation.log
 
       - name: External action contract check
         id: external_action_contract
-        if: steps.config.outputs.enabled == 'true' && steps.validation_policy_check.outcome == 'success'
+        if: steps.config.outputs.enabled == 'true' && steps.level.outputs.value >= env.LEVEL_FULL && steps.validation_policy_check.outcome == 'success'
         run: |
           npx tsx scripts/ci/checks/contracts/external-action-contract-check.ts 2>&1 | tee -a post-deploy-validation.log
 
       - name: External approval action check
         id: external_approval_action
-        if: steps.config.outputs.enabled == 'true' && steps.validation_policy_check.outcome == 'success'
+        if: steps.config.outputs.enabled == 'true' && steps.level.outputs.value >= env.LEVEL_FULL && steps.validation_policy_check.outcome == 'success'
         run: |
           npx tsx scripts/ci/checks/scenarios/external-approval-action-check.ts 2>&1 | tee -a post-deploy-validation.log
 
       - name: External escalation action check
         id: external_escalation_action
-        if: steps.config.outputs.enabled == 'true' && steps.validation_policy_check.outcome == 'success'
+        if: steps.config.outputs.enabled == 'true' && steps.level.outputs.value >= env.LEVEL_FULL && steps.validation_policy_check.outcome == 'success'
         run: |
           npx tsx scripts/ci/checks/scenarios/external-escalation-action-check.ts 2>&1 | tee -a post-deploy-validation.log
 
       - name: External action idempotency check
         id: external_action_idempotency
-        if: steps.config.outputs.enabled == 'true' && steps.validation_policy_check.outcome == 'success'
+        if: steps.config.outputs.enabled == 'true' && steps.level.outputs.value >= env.LEVEL_FULL && steps.validation_policy_check.outcome == 'success'
         run: |
           npx tsx scripts/ci/checks/scenarios/external-action-idempotency-check.ts 2>&1 | tee -a post-deploy-validation.log
 
       - name: External interaction policy contract check
         id: external_interaction_policy_contract
-        if: steps.config.outputs.enabled == 'true' && steps.validation_policy_check.outcome == 'success'
+        if: steps.config.outputs.enabled == 'true' && steps.level.outputs.value >= env.LEVEL_FULL && steps.validation_policy_check.outcome == 'success'
         run: |
           npx tsx scripts/ci/checks/contracts/external-interaction-policy-contract-check.ts 2>&1 | tee -a post-deploy-validation.log
 
       - name: External reply policy enforcement check
         id: external_reply_policy_enforcement
-        if: steps.config.outputs.enabled == 'true' && steps.validation_policy_check.outcome == 'success'
+        if: steps.config.outputs.enabled == 'true' && steps.level.outputs.value >= env.LEVEL_FULL && steps.validation_policy_check.outcome == 'success'
         run: |
           npx tsx scripts/ci/checks/scenarios/external-reply-policy-enforcement-check.ts 2>&1 | tee -a post-deploy-validation.log
 
       - name: External action policy enforcement check
         id: external_action_policy_enforcement
-        if: steps.config.outputs.enabled == 'true' && steps.validation_policy_check.outcome == 'success'
+        if: steps.config.outputs.enabled == 'true' && steps.level.outputs.value >= env.LEVEL_FULL && steps.validation_policy_check.outcome == 'success'
         run: |
           npx tsx scripts/ci/checks/scenarios/external-action-policy-enforcement-check.ts 2>&1 | tee -a post-deploy-validation.log
 
@@ -348,47 +383,54 @@ jobs:
         if: always()
         run: |
           ENABLED="${{ steps.config.outputs.enabled }}"
+          LEVEL_VALUE="${{ steps.level.outputs.value }}"
           OUTCOME="skipped"
           ATTENTION="false"
 
           if [[ "$ENABLED" == "true" ]]; then
-            if [[ \
-              "${{ steps.operator_surface_check.outcome }}" == "success" && \
-              "${{ steps.scheduled_routing_check.outcome }}" == "success" && \
-              "${{ steps.paperclip_first_execution_check.outcome }}" == "success" && \
-              "${{ steps.team_work_loop_check.outcome }}" == "success" && \
-              "${{ steps.team_loop_specialization_check.outcome }}" == "success" && \
-              "${{ steps.intake_project_flow.outcome }}" == "success" && \
-              "${{ steps.dispatch_validation_runs.outcome }}" == "success" && \
-              "${{ steps.post_deploy_validation.outcome }}" == "success" && \
-              "${{ steps.validation_verdict_check.outcome }}" == "success" && \
-              "${{ steps.validation_policy_check.outcome }}" == "success" && \
-              ( "${{ steps.thread_delegation_scenarios.outcome }}" == "success" || "${{ steps.thread_delegation_scenarios.outcome }}" == "skipped" ) && \
-              ( "${{ steps.repeated_validation_persona_continuity.outcome }}" == "success" || "${{ steps.repeated_validation_persona_continuity.outcome }}" == "skipped" ) && \
-              ( "${{ steps.validation_loop_feedback.outcome }}" == "success" || "${{ steps.validation_loop_feedback.outcome }}" == "skipped" ) && \
-              ( "${{ steps.human_visibility_summary.outcome }}" == "success" || "${{ steps.human_visibility_summary.outcome }}" == "skipped" ) && \
-              ( "${{ steps.repeated_pm_persona_continuity.outcome }}" == "success" || "${{ steps.repeated_pm_persona_continuity.outcome }}" == "skipped" ) && \
-              ( "${{ steps.org_resolver_planning_defaults.outcome }}" == "success" || "${{ steps.org_resolver_planning_defaults.outcome }}" == "skipped" ) && \
-              ( "${{ steps.external_style_message_idempotency.outcome }}" == "success" || "${{ steps.external_style_message_idempotency.outcome }}" == "skipped" ) && \
-              ( "${{ steps.external_style_message_order_tolerance.outcome }}" == "success" || "${{ steps.external_style_message_order_tolerance.outcome }}" == "skipped" ) && \
-              ( "${{ steps.mirror_routing_contract.outcome }}" == "success" || "${{ steps.mirror_routing_contract.outcome }}" == "skipped" ) && \
-              ( "${{ steps.agent_message_mirroring.outcome }}" == "success" || "${{ steps.agent_message_mirroring.outcome }}" == "skipped" ) && \
-              ( "${{ steps.external_thread_mapping_contract.outcome }}" == "success" || "${{ steps.external_thread_mapping_contract.outcome }}" == "skipped" ) && \
-              ( "${{ steps.threaded_mirror_continuity.outcome }}" == "success" || "${{ steps.threaded_mirror_continuity.outcome }}" == "skipped" ) && \
-              ( "${{ steps.inbound_reply_correlation_contract.outcome }}" == "success" || "${{ steps.inbound_reply_correlation_contract.outcome }}" == "skipped" ) && \
-              ( "${{ steps.inbound_reply_ingestion.outcome }}" == "success" || "${{ steps.inbound_reply_ingestion.outcome }}" == "skipped" ) && \
-              ( "${{ steps.inbound_duplicate_delivery.outcome }}" == "success" || "${{ steps.inbound_duplicate_delivery.outcome }}" == "skipped" ) && \
-              ( "${{ steps.external_action_contract.outcome }}" == "success" || "${{ steps.external_action_contract.outcome }}" == "skipped" ) && \
-              ( "${{ steps.external_approval_action.outcome }}" == "success" || "${{ steps.external_approval_action.outcome }}" == "skipped" ) && \
-              ( "${{ steps.external_escalation_action.outcome }}" == "success" || "${{ steps.external_escalation_action.outcome }}" == "skipped" ) && \
-              ( "${{ steps.external_action_idempotency.outcome }}" == "success" || "${{ steps.external_action_idempotency.outcome }}" == "skipped" ) && \
-              ( "${{ steps.external_interaction_policy_contract.outcome }}" == "success" || "${{ steps.external_interaction_policy_contract.outcome }}" == "skipped" ) && \
-              ( "${{ steps.external_reply_policy_enforcement.outcome }}" == "success" || "${{ steps.external_reply_policy_enforcement.outcome }}" == "skipped" ) && \
-              ( "${{ steps.external_action_policy_enforcement.outcome }}" == "success" || "${{ steps.external_action_policy_enforcement.outcome }}" == "skipped" ) \
-            ]]; then
-              OUTCOME="success"
-            else
-              OUTCOME="failure"
+            OUTCOME="success"
+
+            # Smoke-level checks (always required when enabled)
+            [[ "${{ steps.operator_surface_check.outcome }}" == "success" ]] || OUTCOME="failure"
+            [[ "${{ steps.scheduled_routing_check.outcome }}" == "success" ]] || OUTCOME="failure"
+
+            # Mutating-level checks (required when level >= 1)
+            if [[ "$LEVEL_VALUE" -ge 1 ]]; then
+              [[ "${{ steps.paperclip_first_execution_check.outcome }}" == "success" ]] || OUTCOME="failure"
+              [[ "${{ steps.team_work_loop_check.outcome }}" == "success" ]] || OUTCOME="failure"
+              [[ "${{ steps.team_loop_specialization_check.outcome }}" == "success" ]] || OUTCOME="failure"
+              [[ "${{ steps.intake_project_flow.outcome }}" == "success" ]] || OUTCOME="failure"
+              [[ "${{ steps.dispatch_validation_runs.outcome }}" == "success" ]] || OUTCOME="failure"
+              [[ "${{ steps.post_deploy_validation.outcome }}" == "success" ]] || OUTCOME="failure"
+              [[ "${{ steps.validation_verdict_check.outcome }}" == "success" ]] || OUTCOME="failure"
+              [[ "${{ steps.validation_policy_check.outcome }}" == "success" ]] || OUTCOME="failure"
+              [[ "${{ steps.thread_delegation_scenarios.outcome }}" =~ ^(success|skipped)$ ]] || OUTCOME="failure"
+              [[ "${{ steps.repeated_validation_persona_continuity.outcome }}" =~ ^(success|skipped)$ ]] || OUTCOME="failure"
+              [[ "${{ steps.task_reassignment_continuity.outcome }}" =~ ^(success|skipped)$ ]] || OUTCOME="failure"
+              [[ "${{ steps.validation_loop_feedback.outcome }}" =~ ^(success|skipped)$ ]] || OUTCOME="failure"
+              [[ "${{ steps.human_visibility_summary.outcome }}" =~ ^(success|skipped)$ ]] || OUTCOME="failure"
+              [[ "${{ steps.repeated_pm_persona_continuity.outcome }}" =~ ^(success|skipped)$ ]] || OUTCOME="failure"
+              [[ "${{ steps.org_resolver_planning_defaults.outcome }}" =~ ^(success|skipped)$ ]] || OUTCOME="failure"
+            fi
+
+            # Full-level checks (required when level >= 2)
+            if [[ "$LEVEL_VALUE" -ge 2 ]]; then
+              [[ "${{ steps.external_style_message_idempotency.outcome }}" =~ ^(success|skipped)$ ]] || OUTCOME="failure"
+              [[ "${{ steps.external_style_message_order_tolerance.outcome }}" =~ ^(success|skipped)$ ]] || OUTCOME="failure"
+              [[ "${{ steps.mirror_routing_contract.outcome }}" =~ ^(success|skipped)$ ]] || OUTCOME="failure"
+              [[ "${{ steps.agent_message_mirroring.outcome }}" =~ ^(success|skipped)$ ]] || OUTCOME="failure"
+              [[ "${{ steps.external_thread_mapping_contract.outcome }}" =~ ^(success|skipped)$ ]] || OUTCOME="failure"
+              [[ "${{ steps.threaded_mirror_continuity.outcome }}" =~ ^(success|skipped)$ ]] || OUTCOME="failure"
+              [[ "${{ steps.inbound_reply_correlation_contract.outcome }}" =~ ^(success|skipped)$ ]] || OUTCOME="failure"
+              [[ "${{ steps.inbound_reply_ingestion.outcome }}" =~ ^(success|skipped)$ ]] || OUTCOME="failure"
+              [[ "${{ steps.inbound_duplicate_delivery.outcome }}" =~ ^(success|skipped)$ ]] || OUTCOME="failure"
+              [[ "${{ steps.external_action_contract.outcome }}" =~ ^(success|skipped)$ ]] || OUTCOME="failure"
+              [[ "${{ steps.external_approval_action.outcome }}" =~ ^(success|skipped)$ ]] || OUTCOME="failure"
+              [[ "${{ steps.external_escalation_action.outcome }}" =~ ^(success|skipped)$ ]] || OUTCOME="failure"
+              [[ "${{ steps.external_action_idempotency.outcome }}" =~ ^(success|skipped)$ ]] || OUTCOME="failure"
+              [[ "${{ steps.external_interaction_policy_contract.outcome }}" =~ ^(success|skipped)$ ]] || OUTCOME="failure"
+              [[ "${{ steps.external_reply_policy_enforcement.outcome }}" =~ ^(success|skipped)$ ]] || OUTCOME="failure"
+              [[ "${{ steps.external_action_policy_enforcement.outcome }}" =~ ^(success|skipped)$ ]] || OUTCOME="failure"
             fi
 
             if [[ -f post-deploy-validation.log ]] && grep -Eq '^- (WARN|SKIP): ' post-deploy-validation.log; then
@@ -426,6 +468,7 @@ jobs:
           echo "## Post-deploy validation" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "- Environment: $CF_ENV" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Validation level: ${{ steps.level.outputs.name }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- Layer: scenarios" >> "$GITHUB_STEP_SUMMARY"
           echo "- Control-plane URL: $CONTROL_PLANE_BASE_URL" >> "$GITHUB_STEP_SUMMARY"
           echo "- Control-planeURL source: $CONTROL_PLANE_BASE_URL_SOURCE" >> "$GITHUB_STEP_SUMMARY"

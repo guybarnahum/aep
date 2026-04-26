@@ -77,7 +77,9 @@ Purpose:
 - PR-scoped ephemeral preview environment creation
 - fast validation of deploy correctness
 - basic control-plane validation
-- lightweight post-deploy validation
+- **full-level** post-deploy validation (includes messaging/mirror/external-action checks)
+
+Validation level: `full`. CI artifact cleanup is handled by preview teardown (`destroy-preview.yml`), not by `_cleanup_ci_artifacts.yml`.
 
 Preview is dynamic:
 
@@ -107,7 +109,9 @@ Purpose:
 - representative system validation
 - deploy correctness
 - environment-layer validation (readiness, health)
-- lightweight post-deploy validation
+- **mutating-level** post-deploy validation (creates CI-marked task/intake records, cleans up after)
+
+Validation level: `mutating`. CI artifact cleanup runs after scenario validation via `_cleanup_ci_artifacts.yml`.
 
 This lane should stay stricter than preview, but still avoid deep long-running scenario suites.
 
@@ -120,10 +124,9 @@ Purpose:
 - production deployment lane
 - narrowest and strictest validation
 - strict health/version verification
-- minimal validation
-- lightweight post-deploy checks only
+- **smoke-level** post-deploy checks only (read-only, no record creation)
 
-This lane should avoid deep mutation-heavy validation.
+Validation level: `smoke`. No CI artifact cleanup needed.
 
 ### Async validation
 
@@ -135,7 +138,10 @@ Purpose:
 - operator surface validation
 - operator governance validation
 - Paperclip handoff validation
+- **destructive-level** post-deploy validation (full suite including messaging/mirror/external-action)
 - future resilience / timeout / retry / soak suites
+
+Validation level: `destructive`. This is the only lane that runs all checks including those restricted to async-validation environments.
 
 This is the right place for deeper stateful validation.
 
@@ -323,3 +329,46 @@ scripts/ci/<file>.ts
 All validation must use:
 
 scripts/ci/checks/<layer>/
+
+## Validation level model
+
+`_validate_post_deploy.yml` accepts a `validation_level` input that gates which
+scenario checks run. Levels are strictly ordered — each level includes all checks
+from lower levels.
+
+| Level | Value | Used by | Creates records |
+|-------|-------|---------|-----------------|
+| `smoke` | 0 | production | No — read-only checks only |
+| `mutating` | 1 | staging | Yes — creates CI-marked tasks/intakes, cleaned up after |
+| `full` | 2 | preview | Yes — messaging/mirror/external-action checks; cleaned by preview teardown |
+| `destructive` | 3 | async-validation | Yes — full suite including staging; purge runs at end |
+
+The level resolver step emits `steps.level.outputs.value` (0–3) and
+`steps.level.outputs.name` (smoke/mutating/full/destructive). Subsequent `if:`
+conditions gate steps with `steps.level.outputs.value >= env.LEVEL_MUTATING` etc.
+
+## CI artifact lifecycle
+
+Scenario checks that create canonical records must:
+
+1. Set `createdByEmployeeId: ciActor(CHECK_NAME)` on tasks/threads.
+2. Spread `...ciArtifactMarker(CHECK_NAME)` into the record payload.
+3. Import both from `scripts/ci/shared/ci-artifacts.ts`.
+
+After staging runs, `_cleanup_ci_artifacts.yml` calls
+`POST /agent/te/purge-ci-artifacts` to delete all records whose
+`created_by_employee_id` starts with `ci:` and matches the run ID, or whose
+`payload.__ci.runId` matches. The purge token is a Cloudflare secret
+(`CI_CLEANUP_TOKEN`); the placeholder in `wrangler.jsonc` must not be committed
+with a real value.
+
+### `_cleanup_ci_artifacts.yml`
+
+Reusable cleanup workflow called by `deploy-staging.yml` (and optionally other
+lanes) after the scenario validation job finishes.
+
+Inputs:
+- `environment_name` (required)
+- `operator_agent_base_url` (optional, falls back to env var)
+- `ci_run_id` (required)
+- `cleanup_mode` (default: `current-run`)

@@ -6,6 +6,7 @@ import { resolveEmployeeIdsByKey } from "../../lib/employee-resolution";
 import { hasOnlyNonDeliveredMirrorOutcomes } from "../../shared/operator-agent-check-helpers";
 import { handleOperatorAgentSoftSkip } from "../../shared/soft-skip";
 import { newToken } from "@aep/shared";
+import { ciActor, ciArtifactMarker } from "../../shared/ci-artifacts";
 
 export {};
 
@@ -62,7 +63,7 @@ async function main(): Promise<void> {
   const thread = await client.createMessageThread({
     companyId: "company_internal_aep",
     topic: "PR10C inbound reply ingestion check",
-    createdByEmployeeId: infraOpsManagerEmployeeId,
+    createdByEmployeeId: ciActor(CHECK_NAME),
     relatedTaskId: "task_pr10c_inbound_ingestion",
     visibility: "internal",
   });
@@ -80,6 +81,9 @@ async function main(): Promise<void> {
     source: "internal",
     subject: "PR10C outbound anchor",
     body: "This outbound mirrored message should create an external thread anchor for inbound replies.",
+    payload: {
+      ...ciArtifactMarker(CHECK_NAME),
+    },
     relatedTaskId: "task_pr10c_inbound_ingestion",
   });
 

@@ -466,6 +466,7 @@ export function createOperatorAgentClient(
       actionType: string;
       reason: string;
       message: string;
+      payload?: Record<string, unknown>;
       requestedByEmployeeName?: string;
       companyId?: string;
       taskId?: string;

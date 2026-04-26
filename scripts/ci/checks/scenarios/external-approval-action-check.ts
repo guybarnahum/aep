@@ -13,6 +13,7 @@ import {
   hasOptionalPostRoute,
 } from "../../shared/operator-agent-surface";
 import { handleOperatorAgentSoftSkip } from "../../shared/soft-skip";
+import { ciActor, ciArtifactMarker } from "../../shared/ci-artifacts";
 import { newToken } from "@aep/shared";
 
 export {};
@@ -87,11 +88,14 @@ async function main(): Promise<void> {
   warnIfNoAdapters(adapters);
 
   const seeded = await client.seedApproval({
-    requestedByEmployeeId: infraOpsManagerEmployeeId,
+    requestedByEmployeeId: ciActor(CHECK_NAME),
     requestedByRoleId: "infra-ops-manager",
     actionType: "deploy-change",
     reason: "PR10D external approval scenario",
     message: "Seed approval thread for external approval action.",
+    payload: {
+      ...ciArtifactMarker(CHECK_NAME),
+    },
     createThread: true,
     threadTopic: "PR10D external approval action",
     threadReceiverEmployeeId: reliabilityEngineerEmployeeId,
@@ -113,6 +117,9 @@ async function main(): Promise<void> {
     source: "internal",
     subject: "PR10D approval anchor",
     body: "Create an external thread projection for approval actions.",
+    payload: {
+      ...ciArtifactMarker(CHECK_NAME),
+    },
     relatedApprovalId: approvalId,
   });
 

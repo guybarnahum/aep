@@ -106,7 +106,10 @@
         "OPERATOR_AGENT_STORE_BACKEND": "d1",
         "ENABLE_TEST_ENDPOINTS": "false",
         "PAPERCLIP_SHARED_SECRET": "",
-        "PAPERCLIP_AUTH_REQUIRED": "false"
+        "PAPERCLIP_AUTH_REQUIRED": "false",
+        // CI_CLEANUP_TOKEN must be configured as a Cloudflare secret for the staging environment;
+        // do not commit a real value here.
+        "CI_CLEANUP_TOKEN": ""
       },
       "services": [
         {

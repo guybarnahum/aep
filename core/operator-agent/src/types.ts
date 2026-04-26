@@ -1052,4 +1052,5 @@ export interface OperatorAgentEnv extends Record<string, unknown> {
   MIRROR_ESCALATIONS_SLACK_CHANNEL?: string;
   MIRROR_ESCALATIONS_EMAIL_GROUP?: string;
   SLACK_MIRROR_WEBHOOK_URL?: string;
+  CI_CLEANUP_TOKEN?: string;
 }

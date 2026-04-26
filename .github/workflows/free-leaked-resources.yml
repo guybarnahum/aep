@@ -1,0 +1,96 @@
+name: Free Leaked Resources
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_environment:
+        description: "GitHub Actions environment to use for this cleanup run"
+        required: true
+        default: "async-validation"
+        type: choice
+        options:
+          - async-validation
+          - staging
+          - production
+  schedule:
+    - cron: "17 9 * * *"
+
+concurrency:
+  group: free-leaked-resources
+  cancel-in-progress: false
+
+jobs:
+  free-leaked-resources:
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ github.event_name == 'workflow_dispatch' && inputs.target_environment || 'async-validation' }}
+    defaults:
+      run:
+        shell: bash -eo pipefail {0}
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Resolve target environment
+        id: target_environment
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            TARGET_ENV="${{ inputs.target_environment }}"
+          else
+            TARGET_ENV="async-validation"
+          fi
+          echo "target_environment=$TARGET_ENV" >> "$GITHUB_OUTPUT"
+
+      - name: Free orphaned preview and test resources
+        id: free_leaked_resources
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: |
+          bash ./scripts/ci/free-leaked-resources.sh | tee free-leaked-resources.log
+
+      - name: Write summary
+        if: always()
+        run: |
+          echo "## Free leaked resources summary" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Target environment: ${{ steps.target_environment.outputs.target_environment }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+
+          if [[ -f free-leaked-resources.log ]]; then
+            cat free-leaked-resources.log >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "- No reaper log found." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Cleanup synthetic CI employees
+        if: always()
+        env:
+          OPERATOR_AGENT_BASE_URL: ${{ vars.OPERATOR_AGENT_BASE_URL }}
+        run: |
+          npm run ci:purge-synthetic-employees -- post
+
+      - name: Cleanup canonical CI artifacts (manual purge)
+        if: always() && vars.OPERATOR_AGENT_BASE_URL != ''
+        env:
+          OPERATOR_AGENT_BASE_URL: ${{ vars.OPERATOR_AGENT_BASE_URL }}
+          CI_CLEANUP_TOKEN: ${{ secrets.CI_CLEANUP_TOKEN }}
+          CI_RUN_ID: manual-cleanup
+        run: |
+          # Manual reaper run: purge any stale ci: prefixed artifacts from the
+          # target environment.  Errors are non-fatal so the job does not fail
+          # if the endpoint is not yet deployed or the token is absent.
+          npm run ci:cleanup-canonical-artifacts -- \
+            --run-id "manual-cleanup-$(date +%s)" \
+            --mode current-run || true
