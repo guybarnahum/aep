@@ -625,6 +625,32 @@ CI guard:
 npm run ci:pr18-staffing-dashboard-contract-check
 ```
 
+### PR18G - Staffing CI Coverage
+
+PR18G finalizes staffing system hardening through CI.
+
+Added:
+
+- umbrella staffing system contract check
+- lifecycle correctness enforcement
+- gap detection advisory enforcement
+- hiring request -> employee linkage enforcement
+- dashboard non-ownership enforcement
+- CI artifact marker and purge-path enforcement
+
+System guarantee:
+
+> Staffing is now a first-class, enforced, non-bypassable part of the organization runtime.
+
+Any violation of:
+
+- lifecycle rules
+- employee creation boundaries
+- advisory-only gap detection
+- canonical ownership
+
+will fail CI.
+
 ### PR16D - Cognitive Prioritization And Manager-Mediated Parking
 
 PR16D makes prioritization a cognitive decision rather than a fixed code rule.

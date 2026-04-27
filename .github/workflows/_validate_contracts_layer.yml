@@ -182,6 +182,10 @@ jobs:
         id: pr16_role_realism_contract
         run: npx tsx scripts/ci/checks/contracts/pr16-role-realism-contract-check.ts | tee pr16-role-realism-contract-check.log
 
+      - name: PR18 staffing system contract check
+        id: pr18_staffing_system_contract
+        run: npm run ci:pr18-staffing-system-contract-check | tee pr18-staffing-system-contract-check.log
+
       - name: Capture outcome
         id: capture_outcome
         if: always()
@@ -207,7 +211,8 @@ jobs:
             "${{ steps.thread_rationale_publication.outcome }}" == "success" && \
             "${{ steps.public_rationale_artifact.outcome }}" == "success" && \
             "${{ steps.thread_task_delegation_contract.outcome }}" == "success" && \
-            "${{ steps.pr16_role_realism_contract.outcome }}" == "success" \
+            "${{ steps.pr16_role_realism_contract.outcome }}" == "success" && \
+            "${{ steps.pr18_staffing_system_contract.outcome }}" == "success" \
           ]]; then
             echo "value=success" >> "$GITHUB_OUTPUT"
           else
@@ -260,6 +265,7 @@ jobs:
           echo "- $(status_emoji \"${{ steps.public_rationale_artifact.outcome }}\") public-rationale-artifact-check: ${{ steps.public_rationale_artifact.outcome }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- $(status_emoji \"${{ steps.thread_task_delegation_contract.outcome }}\") thread-task-delegation-contract-check: ${{ steps.thread_task_delegation_contract.outcome }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- $(status_emoji \"${{ steps.pr16_role_realism_contract.outcome }}\") pr16-role-realism-contract-check: ${{ steps.pr16_role_realism_contract.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- $(status_emoji \"${{ steps.pr18_staffing_system_contract.outcome }}\") pr18-staffing-system-contract-check: ${{ steps.pr18_staffing_system_contract.outcome }}" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "### Layer verdict" >> "$GITHUB_STEP_SUMMARY"
           echo "- $(status_emoji "$LAYER_OUTCOME") Contracts layer: $LAYER_OUTCOME" >> "$GITHUB_STEP_SUMMARY"
