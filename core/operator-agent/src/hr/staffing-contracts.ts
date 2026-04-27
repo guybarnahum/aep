@@ -193,6 +193,11 @@ export const STAFFING_CONTRACTS = [
   },
 ] as const;
 
-export function getStaffingContract(kind: StaffingContractKind) {
-  return STAFFING_CONTRACTS.find((contract) => contract.kind === kind);
+export function getStaffingContract<TKind extends StaffingContractKind>(
+  kind: TKind,
+): Extract<(typeof STAFFING_CONTRACTS)[number], { kind: TKind }> | undefined {
+  return STAFFING_CONTRACTS.find(
+    (contract): contract is Extract<(typeof STAFFING_CONTRACTS)[number], { kind: TKind }> =>
+      contract.kind === kind,
+  );
 }

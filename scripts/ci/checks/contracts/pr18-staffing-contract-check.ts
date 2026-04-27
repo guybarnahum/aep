@@ -41,8 +41,12 @@ assert(
 );
 
 assert(
-  getStaffingContract("staffing_request")?.approvalBoundary.employeeCreationRoute ===
-    "POST /agent/employees",
+  (() => {
+    const staffingRequest = getStaffingContract("staffing_request");
+    if (!staffingRequest) return false;
+    if (!("employeeCreationRoute" in staffingRequest.approvalBoundary)) return false;
+    return staffingRequest.approvalBoundary.employeeCreationRoute === "POST /agent/employees";
+  })(),
   "StaffingRequest fulfillment must use canonical employee creation route",
 );
 
