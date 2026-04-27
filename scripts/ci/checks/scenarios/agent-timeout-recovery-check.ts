@@ -655,9 +655,10 @@ async function main(): Promise<void> {
     assignedTeamId: TEAM_ID,
     createdByEmployeeId: managerEmployeeId,
     assignedEmployeeId: timeoutRecoveryEmployeeId,
-    taskType: "agent-timeout-recovery-check",
-    title: "agent timeout recovery check",
+    taskType: "analysis",
+    title: "Analyze agent timeout recovery",
     payload: {
+      question: "Analyze timeout recovery behavior",
       scenario: "agent-timeout-recovery-check",
       employeeId: timeoutRecoveryEmployeeId,
     },
