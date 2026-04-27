@@ -384,7 +384,18 @@ function alignScheduledTimeForMinuteInterval(
 
   const date = new Date(referenceMs);
   const minute = date.getUTCMinutes();
-  const minuteOffset = (safeInterval - (minute % safeInterval)) % safeInterval;
+  let minuteOffset = 0;
+
+  // Match trigger/scheduled.ts minute-gate semantics exactly: run when
+  // getUTCMinutes() % intervalMinutes === 0. This loop is robust for
+  // intervals like 24 that do not divide 60.
+  for (let offset = 0; offset <= 60; offset += 1) {
+    const candidateMinute = (minute + offset) % 60;
+    if (candidateMinute % safeInterval === 0) {
+      minuteOffset = offset;
+      break;
+    }
+  }
 
   date.setUTCMinutes(minute + minuteOffset, 0, 0);
 
@@ -752,6 +763,19 @@ async function main(): Promise<void> {
   const alignedScheduledTimeMs = alignScheduledTimeForMinuteInterval(
     managerTickIntervalMinutes,
   );
+  const alignedScheduledMinute = new Date(alignedScheduledTimeMs).getUTCMinutes();
+
+  console.log("[paperclip-first-execution-check] cron fallback scheduling debug", {
+    managerTickIntervalMinutes,
+    alignedScheduledTimeMs,
+    alignedScheduledAt: new Date(alignedScheduledTimeMs).toISOString(),
+    alignedScheduledMinute,
+    minuteModuloInterval:
+      Number.isFinite(managerTickIntervalMinutes) && managerTickIntervalMinutes > 0
+        ? alignedScheduledMinute % Math.trunc(managerTickIntervalMinutes)
+        : null,
+    expectedCron: WORKER_CRON,
+  });
 
   // Trigger the worker cron and rely on interval gating to drive any nested loops.
   // The seeded work-log entry ensures the cron run also emits a decision.
