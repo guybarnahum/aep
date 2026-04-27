@@ -5,7 +5,7 @@ import { resolve } from "node:path";
 import {
   STAFFING_CONTRACTS,
   getStaffingContract,
-} from "@aep/operator-agent/src/hr/staffing-contracts";
+} from "@aep/operator-agent/hr/staffing-contracts";
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message);

@@ -2,7 +2,7 @@ import { getTaskStore } from "@aep/operator-agent/lib/store-factory";
 import { getDefaultRoleIdForTaskType } from "@aep/operator-agent/lib/task-contracts";
 import { listEmployeeCatalog } from "@aep/operator-agent/persistence/d1/employee-catalog-store-d1";
 import { listRoleCatalog } from "@aep/operator-agent/persistence/d1/role-catalog-store-d1";
-import type { RoleGapContract } from "@aep/operator-agent/src/hr/staffing-contracts";
+import type { RoleGapContract } from "@aep/operator-agent/hr/staffing-contracts";
 import type { OperatorAgentEnv } from "@aep/operator-agent/types";
 
 export type StaffingGapDetectionResult = {
