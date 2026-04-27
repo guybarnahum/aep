@@ -459,9 +459,30 @@ Implemented staffing routes:
 
 Missing staffing routes:
 
-- no `GET /agent/staffing/requests`
-- no `POST /agent/staffing/requests`
-- no hiring request approval/fulfillment route
+`GET /agent/staffing/requests`
+
+- Lists canonical staffing requests.
+- Optional filters: `companyId`, `teamId`, `status`, `limit`.
+
+`POST /agent/staffing/requests`
+
+- Creates a canonical staffing request.
+- Required: `roleId`, `teamId`, `reason`, `requestedByEmployeeId`, `source`.
+- Optional: `companyId`, `urgency`, `status`, `threadId`.
+- Initial status is `draft` unless explicitly submitted.
+- Does not create employees.
+
+`GET /agent/staffing/requests/:id`
+
+- Fetches one staffing request.
+
+`POST /agent/staffing/requests/:id/status`
+
+- Advances the staffing request lifecycle.
+- Allowed lifecycle:
+	`draft -> submitted -> approved -> fulfilled / rejected / canceled`
+- `approvedByEmployeeId` is required for approval.
+- Fulfillment records canonical state only in PR18D; employee creation is handled in PR18E.
 - no hiring recommendation route
 
 Missing staffing contracts:

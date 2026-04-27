@@ -534,6 +534,42 @@ CI guard:
 npm run ci:pr18-staffing-gap-detection-contract-check
 ```
 
+### PR18D - Hiring Request Flow
+
+PR18D introduces canonical staffing requests.
+
+Lifecycle:
+
+```text
+draft -> submitted -> approved -> fulfilled / rejected / canceled
+```
+
+Implemented:
+
+- `staffing_requests` D1 table
+- canonical staffing request store
+- `GET /agent/staffing/requests`
+- `POST /agent/staffing/requests`
+- `GET /agent/staffing/requests/:id`
+- `POST /agent/staffing/requests/:id/status`
+- PR18D CI guard
+
+Boundaries:
+
+- no auto-hiring
+- no employee creation in PR18D
+- no direct employee mutation
+- approval requires approver identity
+- role/team compatibility is validated against the role catalog
+- staffing request state remains canonical AEP state
+- UI/adapters may trigger routes later but must not own state
+
+CI guard:
+
+```bash
+npm run ci:pr18-hiring-request-flow-contract-check
+```
+
 ### PR16D - Cognitive Prioritization And Manager-Mediated Parking
 
 PR16D makes prioritization a cognitive decision rather than a fixed code rule.

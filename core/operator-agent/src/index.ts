@@ -20,6 +20,11 @@ import { handleEmployees } from "./routes/employees";
 import { handleEmployeeScope } from "./routes/employee-scope";
 import { handleUpdateEmployee } from "./routes/employee-update";
 import { handleRoles } from "./routes/roles";
+import {
+  handleStaffingRequestDetail,
+  handleStaffingRequestStatus,
+  handleStaffingRequests,
+} from "./routes/staffing-requests";
 import { handleStaffingRoleGaps } from "./routes/staffing-role-gaps";
 import { handleMirrorRoutingRules } from "./routes/mirror-routing-rules";
 import {
@@ -122,6 +127,7 @@ async function dispatch(request: Request, env: OperatorAgentEnv): Promise<Respon
         intake: "/agent/intake",
         projects: "/agent/projects",
         staffingRoleGaps: "/agent/staffing/role-gaps",
+        staffingRequests: "/agent/staffing/requests",
       },
     });
   }
@@ -179,6 +185,32 @@ async function dispatch(request: Request, env: OperatorAgentEnv): Promise<Respon
 
   if (url.pathname === "/agent/roles") {
     return handleRoles(request, env);
+  }
+
+  if (url.pathname === "/agent/staffing/requests") {
+    return handleStaffingRequests(request, env);
+  }
+
+  const staffingRequestStatusMatch = url.pathname.match(
+    /^\/agent\/staffing\/requests\/([^/]+)\/status$/,
+  );
+  if (staffingRequestStatusMatch) {
+    return handleStaffingRequestStatus(
+      request,
+      env,
+      decodeURIComponent(staffingRequestStatusMatch[1]),
+    );
+  }
+
+  const staffingRequestMatch = url.pathname.match(
+    /^\/agent\/staffing\/requests\/([^/]+)$/,
+  );
+  if (staffingRequestMatch) {
+    return handleStaffingRequestDetail(
+      request,
+      env,
+      decodeURIComponent(staffingRequestMatch[1]),
+    );
   }
 
   if (url.pathname === "/agent/staffing/role-gaps") {
