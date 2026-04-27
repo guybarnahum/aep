@@ -3,6 +3,7 @@
 import { handleOperatorAgentSoftSkip } from "../../../lib/operator-agent-skip";
 import { resolveServiceBaseUrl } from "../../../lib/service-map";
 import { resolveEmployeeIdsByKey } from "../../lib/employee-resolution";
+import { ciActor, ciArtifactMarker } from "../../shared/ci-artifacts";
 
 export {};
 
@@ -12,6 +13,7 @@ type CreateTaskResponse = {
   error?: string;
 };
 
+const CHECK_NAME = "agent-timeout-recovery-check";
 const STAGE6_POLICY_VERSION = "commit9-stage6";
 const COMPANY_ID = "company_internal_aep";
 const TEAM_ID = "team_infra";
@@ -653,7 +655,7 @@ async function main(): Promise<void> {
     companyId: COMPANY_ID,
     originatingTeamId: TEAM_ID,
     assignedTeamId: TEAM_ID,
-    createdByEmployeeId: managerEmployeeId,
+    createdByEmployeeId: ciActor(CHECK_NAME),
     assignedEmployeeId: timeoutRecoveryEmployeeId,
     taskType: "analysis",
     title: "Analyze agent timeout recovery",
@@ -661,6 +663,7 @@ async function main(): Promise<void> {
       question: "Analyze timeout recovery behavior",
       scenario: "agent-timeout-recovery-check",
       employeeId: timeoutRecoveryEmployeeId,
+      ...ciArtifactMarker(CHECK_NAME),
     },
   });
 
