@@ -651,6 +651,103 @@ Any violation of:
 
 will fail CI.
 
+### PR19 Direction - Agentic Product Construction
+
+PR19 is not a conventional website implementation.
+
+PR19's purpose is to prove that AEP can act as an organization that builds a
+real external product through its own runtime.
+
+Core rule:
+
+> Do not build the website directly. Enable the organization to build it.
+
+All product work must flow through canonical AEP primitives:
+
+- intake
+- projects
+- tasks
+- employees
+- staffing
+- artifacts
+- approvals
+- threads/messages
+- validation
+- deployment records
+
+The customer-facing website is an artifact produced by AEP's own teams. It is
+not manually added as an ordinary app outside the organization lifecycle.
+
+PR19 target:
+
+> AEP defines, staffs, builds, validates, deploys, and evolves its own external
+> marketing/product surface.
+
+The website should:
+
+- present AEP to external customers
+- be a polished marketing surface
+- invite prospective customers to connect with the PM
+- let customers define prospective projects
+- route those interactions into canonical intake
+- eventually turn customers into tenants
+
+The website must not:
+
+- own runtime state
+- directly mutate tasks, projects, employees, or staffing
+- expose private cognition
+- expose prompt internals
+- bypass approvals
+- bypass staffing
+- become a CRM
+
+Agentic work model:
+
+```text
+customer/product goal
+  -> intake / product initiative
+  -> project
+  -> task graph
+  -> staffed teams
+  -> artifacts
+  -> validation
+  -> deployment
+  -> external surface
+```
+
+PR19 should use the existing organizational runtime rather than bypass it.
+
+If teams are missing capacity, PR19 should use PR18 staffing:
+
+```text
+role gap
+  -> staffing request
+  -> approval
+  -> employee creation
+  -> assigned work
+```
+
+Recommended PR19 stages:
+
+- PR19A - Product initiative model
+- PR19B - Deployable artifact contract
+- PR19C - Deployment system
+- PR19D - External surface contract
+- PR19E - Customer-to-intake flow
+- PR19F - Agentic work execution
+- PR19G - Product-work observability
+- PR19H - CI and safety guards
+- PR19I - Docs closeout
+
+PR19A should begin by defining how AEP represents a product initiative without
+inventing a parallel workflow system. Prefer extending or specializing the
+existing project/intake/task/artifact model before adding new primitives.
+
+Important invariant:
+
+> The product surface is the output. The organization runtime is the builder.
+
 ### PR16D - Cognitive Prioritization And Manager-Mediated Parking
 
 PR16D makes prioritization a cognitive decision rather than a fixed code rule.
