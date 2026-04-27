@@ -71,7 +71,9 @@ import {
   createEmployeeReview,
   createCanonicalThreadMessage,
   createReviewCycle,
+  createStaffingRequest,
   delegateTaskFromThread,
+  fulfillStaffingRequest,
   getApiBaseUrl,
   getEmployeeContinuityOverview,
   getEmployeeControlOverview,
@@ -105,6 +107,7 @@ import {
   runAllTeams,
   runTeamOnce,
   updateSchedulerCadence,
+  updateStaffingRequestStatus,
   runValidationNow,
   runEmployeeLifecycleAction,
   updateIntakeStatus,
@@ -794,6 +797,54 @@ function attachDepartmentActionHandlers(): void {
     });
   });
 
+  document
+    .querySelectorAll<HTMLButtonElement>("[data-action='create-staffing-request-from-gap']")
+    .forEach((button) => {
+      button.addEventListener("click", async () => {
+        await handleCreateStaffingRequestFromGap(button);
+      });
+    });
+
+  document
+    .querySelectorAll<HTMLButtonElement>("[data-action='submit-staffing-request']")
+    .forEach((button) => {
+      button.addEventListener("click", async () => {
+        await handleStaffingRequestStatus(button, "submitted");
+      });
+    });
+
+  document
+    .querySelectorAll<HTMLButtonElement>("[data-action='approve-staffing-request']")
+    .forEach((button) => {
+      button.addEventListener("click", async () => {
+        await handleStaffingRequestStatus(button, "approved");
+      });
+    });
+
+  document
+    .querySelectorAll<HTMLButtonElement>("[data-action='reject-staffing-request']")
+    .forEach((button) => {
+      button.addEventListener("click", async () => {
+        await handleStaffingRequestStatus(button, "rejected");
+      });
+    });
+
+  document
+    .querySelectorAll<HTMLButtonElement>("[data-action='cancel-staffing-request']")
+    .forEach((button) => {
+      button.addEventListener("click", async () => {
+        await handleStaffingRequestStatus(button, "canceled");
+      });
+    });
+
+  document
+    .querySelectorAll<HTMLButtonElement>("[data-action='fulfill-staffing-request']")
+    .forEach((button) => {
+      button.addEventListener("click", async () => {
+        await handleFulfillStaffingRequest(button);
+      });
+    });
+
   document.querySelectorAll<HTMLButtonElement>("[data-action='page-prev']").forEach((button) => {
     button.addEventListener("click", () => {
       const section = button.dataset.section as keyof DepartmentPaginationState | undefined;
@@ -835,6 +886,96 @@ function attachDepartmentActionHandlers(): void {
       void updateDepartmentPaginationView();
     });
   });
+}
+
+async function handleCreateStaffingRequestFromGap(target: HTMLElement): Promise<void> {
+  const roleId = target.dataset.roleId ?? "";
+  const teamId = target.dataset.teamId ?? "";
+  const reason = target.dataset.reason ?? "role gap";
+  const requestedByEmployeeId = window.prompt("Requested by employee ID?")?.trim() ?? "";
+  if (!roleId || !teamId || !requestedByEmployeeId) return;
+
+  try {
+    setMutationStatus(`Creating staffing request for ${roleId}...`);
+    void renderRoute();
+    await createStaffingRequest({
+      roleId,
+      teamId,
+      reason: `Staffing gap: ${reason}`,
+      urgency: "normal",
+      requestedByEmployeeId,
+      source: { kind: "role", roleId },
+      status: "submitted",
+    });
+    setMutationStatus(`Created staffing request for ${roleId}`);
+  } catch (error) {
+    setMutationStatus(
+      error instanceof Error ? error.message : "Failed to create staffing request",
+    );
+  }
+  void renderRoute();
+}
+
+async function handleStaffingRequestStatus(
+  target: HTMLElement,
+  status: "submitted" | "approved" | "rejected" | "canceled",
+): Promise<void> {
+  const staffingRequestId = target.dataset.staffingRequestId ?? "";
+  if (!staffingRequestId) return;
+
+  const approvedByEmployeeId =
+    status === "approved"
+      ? window.prompt("Approved by employee ID?")?.trim() ?? ""
+      : undefined;
+  if (status === "approved" && !approvedByEmployeeId) return;
+
+  const reason =
+    status === "rejected" || status === "canceled"
+      ? window.prompt("Reason?")?.trim() ?? undefined
+      : undefined;
+
+  try {
+    setMutationStatus(`Updating staffing request ${staffingRequestId} to ${status}...`);
+    void renderRoute();
+    await updateStaffingRequestStatus(staffingRequestId, {
+      status,
+      approvedByEmployeeId,
+      reason,
+    });
+    setMutationStatus(`Updated staffing request ${staffingRequestId} to ${status}`);
+  } catch (error) {
+    setMutationStatus(
+      error instanceof Error ? error.message : "Failed to update staffing request",
+    );
+  }
+  void renderRoute();
+}
+
+async function handleFulfillStaffingRequest(target: HTMLElement): Promise<void> {
+  const staffingRequestId = target.dataset.staffingRequestId ?? "";
+  if (!staffingRequestId) return;
+
+  const employeeName = window.prompt("New employee display name?")?.trim() ?? "";
+  const fulfilledByEmployeeId = window.prompt("Fulfilled by employee ID?")?.trim() ?? "";
+  if (!employeeName || !fulfilledByEmployeeId) return;
+
+  try {
+    setMutationStatus(`Fulfilling staffing request ${staffingRequestId}...`);
+    void renderRoute();
+    await fulfillStaffingRequest(staffingRequestId, {
+      employeeName,
+      fulfilledByEmployeeId,
+      runtimeStatus: "planned",
+      employmentStatus: "draft",
+      schedulerMode: "manual_only",
+    });
+    setMutationStatus(`Fulfilled staffing request ${staffingRequestId}`);
+  } catch (error) {
+    setMutationStatus(
+      error instanceof Error ? error.message : "Failed to fulfill staffing request",
+    );
+  }
+  void renderRoute();
 }
 
 async function resolveDashboardRuntimeEmployees(): Promise<{

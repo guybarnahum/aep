@@ -23,6 +23,7 @@ import type {
   OrgPresenceOverview,
   RoleJobDescriptionProjection,
   StaffingGapOverview,
+  StaffingRequestRecord,
   RuntimeRolePolicyInput,
   RuntimeRolePolicyRecord,
   ProjectRecord,
@@ -434,6 +435,68 @@ export async function getStaffingGapOverview(): Promise<StaffingGapOverview> {
   );
 }
 
+export async function getStaffingRequests(): Promise<StaffingRequestRecord[]> {
+  const payload = await getJson<{
+    ok: boolean;
+    count: number;
+    requests: StaffingRequestRecord[];
+  }>(getOperatorAgentBaseUrl(), "/agent/staffing/requests?limit=100");
+  return payload.requests ?? [];
+}
+
+export async function createStaffingRequest(input: {
+  roleId: string;
+  teamId: string;
+  reason: string;
+  urgency?: "low" | "normal" | "high" | "critical";
+  requestedByEmployeeId: string;
+  source: Record<string, string>;
+  status?: "draft" | "submitted";
+}): Promise<StaffingRequestRecord> {
+  const payload = await postJson<{
+    ok: boolean;
+    staffingRequest: StaffingRequestRecord;
+  }>(getOperatorAgentBaseUrl(), "/agent/staffing/requests", input);
+  return payload.staffingRequest;
+}
+
+export async function updateStaffingRequestStatus(
+  staffingRequestId: string,
+  input: {
+    status: "submitted" | "approved" | "fulfilled" | "rejected" | "canceled";
+    approvedByEmployeeId?: string;
+    approvalId?: string;
+    reason?: string;
+  },
+): Promise<StaffingRequestRecord> {
+  const payload = await postJson<{
+    ok: boolean;
+    staffingRequest: StaffingRequestRecord;
+  }>(
+    getOperatorAgentBaseUrl(),
+    `/agent/staffing/requests/${encodeURIComponent(staffingRequestId)}/status`,
+    input,
+  );
+  return payload.staffingRequest;
+}
+
+export async function fulfillStaffingRequest(
+  staffingRequestId: string,
+  input: {
+    employeeName: string;
+    fulfilledByEmployeeId: string;
+    runtimeStatus?: "planned" | "active" | "disabled";
+    employmentStatus?: EmployeeEmploymentStatus;
+    schedulerMode?: string;
+  },
+): Promise<{ ok: true; staffingRequestId: string; employeeId: string }> {
+  return postJson(
+    getOperatorAgentBaseUrl(),
+    `/agent/staffing/requests/${encodeURIComponent(staffingRequestId)}/fulfill`,
+    input,
+  );
+}
+
 export async function getDepartmentOverview(): Promise<DepartmentOverview> {
   const agentBaseUrl = getOperatorAgentBaseUrl();
   const resolvedEmployees = await resolveLiveEmployeeIdsByRole([
@@ -462,6 +525,7 @@ export async function getDepartmentOverview(): Promise<DepartmentOverview> {
     roadmapsPayload,
     schedulerStatus,
     staffingGaps,
+    staffingRequests,
   ] = await Promise.all([
     getJson<{ employees: OperatorEmployeeRecord[] }>(
       agentBaseUrl,
@@ -486,11 +550,13 @@ export async function getDepartmentOverview(): Promise<DepartmentOverview> {
     getJson<{ entries: TeamRoadmap[] }>(agentBaseUrl, "/agent/roadmaps"),
     getJson<SchedulerStatus>(agentBaseUrl, "/agent/scheduler-status"),
     getJson<StaffingGapOverview>(agentBaseUrl, "/agent/staffing/role-gaps"),
+    getStaffingRequests(),
   ]);
 
   return {
     employees: (employeesPayload.employees ?? []).map(normalizeEmployeeRecord),
     staffingGaps,
+    staffingRequests,
     escalations: escalationsPayload.entries ?? [],
     controlHistory: controlHistoryPayload.entries ?? [],
     managerLog: managerLogPayload.entries ?? [],

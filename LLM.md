@@ -598,6 +598,33 @@ CI guard:
 npm run ci:pr18-hiring-employee-linkage-contract-check
 ```
 
+### PR18F - Staffing Dashboard
+
+PR18F exposes staffing in the dashboard.
+
+Implemented:
+
+- role gap visibility
+- hiring request visibility
+- request-from-gap action trigger
+- submit / approve / reject / cancel request action triggers
+- fulfill approved request action trigger
+- staffing dashboard CI guard
+
+Boundaries:
+
+- UI reads canonical staffing state only
+- UI triggers canonical routes only
+- UI does not own staffing state
+- UI does not directly create employees
+- employee creation still flows through staffing fulfillment and employee lifecycle creation
+
+CI guard:
+
+```bash
+npm run ci:pr18-staffing-dashboard-contract-check
+```
+
 ### PR16D - Cognitive Prioritization And Manager-Mediated Parking
 
 PR16D makes prioritization a cognitive decision rather than a fixed code rule.

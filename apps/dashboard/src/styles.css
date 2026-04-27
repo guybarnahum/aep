@@ -737,6 +737,13 @@ button:disabled {
   flex-wrap: wrap;
 }
 
+.inline-json {
+  display: inline;
+  margin: 0;
+  white-space: pre-wrap;
+  font-size: 0.78rem;
+}
+
 .inline-chip-row {
   display: inline-flex;
   gap: 6px;

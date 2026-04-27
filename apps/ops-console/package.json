@@ -4,9 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview"
+    "dev": "node ../../scripts/ci/tasks/run-vite-with-preferred-node.cjs",
+    "build": "node ../../scripts/ci/tasks/run-vite-with-preferred-node.cjs build",
+    "preview": "node ../../scripts/ci/tasks/run-vite-with-preferred-node.cjs preview"
   },
   "devDependencies": {
     "typescript": "^5.8.0",

@@ -124,6 +124,130 @@ function renderRoadmapsTable(roadmaps: TeamRoadmap[]): string {
     </table>
   `;
 }
+
+function renderStaffingGapsTable(gaps: RoleGapRecord[]): string {
+  if (gaps.length === 0) {
+    return `<div class="empty-state small-empty">No role gaps detected.</div>`;
+  }
+
+  return `
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>State</th>
+          <th>Reason</th>
+          <th>Role</th>
+          <th>Team</th>
+          <th>Source</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${gaps
+          .map(
+            (gap) => `
+              <tr>
+                <td><span class="${statusClass(gap.state)}">${escapeHtml(gap.state)}</span></td>
+                <td>${escapeHtml(gap.reason)}</td>
+                <td>${escapeHtml(gap.roleId)}</td>
+                <td>${escapeHtml(gap.teamId)}</td>
+                <td><pre class="inline-json">${escapeHtml(JSON.stringify(gap.source))}</pre></td>
+                <td>
+                  <button
+                    type="button"
+                    class="button button-small"
+                    data-action="create-staffing-request-from-gap"
+                    data-role-id="${escapeHtml(gap.roleId)}"
+                    data-team-id="${escapeHtml(gap.teamId)}"
+                    data-reason="${escapeHtml(gap.reason)}"
+                  >
+                    Request hire
+                  </button>
+                </td>
+              </tr>
+            `,
+          )
+          .join("")}
+      </tbody>
+    </table>
+  `;
+}
+
+function renderStaffingRequestsTable(requests: StaffingRequestRecord[]): string {
+  if (requests.length === 0) {
+    return `<div class="empty-state small-empty">No staffing requests recorded.</div>`;
+  }
+
+  return `
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Status</th>
+          <th>Urgency</th>
+          <th>Role</th>
+          <th>Team</th>
+          <th>Reason</th>
+          <th>Requested by</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${requests
+          .map(
+            (request) => `
+              <tr>
+                <td><span class="${statusClass(request.state)}">${escapeHtml(request.state)}</span></td>
+                <td>${escapeHtml(request.urgency)}</td>
+                <td>${escapeHtml(request.roleId)}</td>
+                <td>${escapeHtml(request.teamId)}</td>
+                <td>${escapeHtml(request.reason)}</td>
+                <td>${escapeHtml(request.requestedByEmployeeId)}</td>
+                <td>
+                  <div class="table-actions">
+                    ${request.state === "draft" ? `
+                      <button class="button button-small" data-action="submit-staffing-request" data-staffing-request-id="${escapeHtml(request.staffingRequestId)}">Submit</button>
+                      <button class="button button-small button-secondary" data-action="cancel-staffing-request" data-staffing-request-id="${escapeHtml(request.staffingRequestId)}">Cancel</button>
+                    ` : ""}
+                    ${request.state === "submitted" ? `
+                      <button class="button button-small" data-action="approve-staffing-request" data-staffing-request-id="${escapeHtml(request.staffingRequestId)}">Approve</button>
+                      <button class="button button-small button-secondary" data-action="reject-staffing-request" data-staffing-request-id="${escapeHtml(request.staffingRequestId)}">Reject</button>
+                      <button class="button button-small button-secondary" data-action="cancel-staffing-request" data-staffing-request-id="${escapeHtml(request.staffingRequestId)}">Cancel</button>
+                    ` : ""}
+                    ${request.state === "approved" ? `
+                      <button class="button button-small" data-action="fulfill-staffing-request" data-staffing-request-id="${escapeHtml(request.staffingRequestId)}">Fulfill</button>
+                    ` : ""}
+                  </div>
+                </td>
+              </tr>
+            `,
+          )
+          .join("")}
+      </tbody>
+    </table>
+  `;
+}
+
+function renderStaffingDashboard(department: DepartmentOverview): string {
+  return `
+    <section class="panel">
+      <div class="panel-header">
+        <div>
+          <h2>Staffing</h2>
+          <p class="muted small">Advisory gaps and canonical hiring requests. UI triggers AEP routes only.</p>
+        </div>
+      </div>
+      <div class="summary-grid">
+        ${renderSummaryCard("Role gaps", department.staffingGaps.summary.roleGaps, "Roles with no active employees")}
+        ${renderSummaryCard("Task impacts", department.staffingGaps.summary.taskBlockedByMissingRole, "Tasks affected by missing capacity")}
+        ${renderSummaryCard("Requests", department.staffingRequests.length, "Canonical hiring requests")}
+      </div>
+      <h3>Role gaps</h3>
+      ${renderStaffingGapsTable(department.staffingGaps.gaps)}
+      <h3>Hiring requests</h3>
+      ${renderStaffingRequestsTable(department.staffingRequests)}
+    </section>
+  `;
+}
 import type {
   CompanyWorkIntakeOverview,
   ApprovalActionFilter,
@@ -156,8 +280,10 @@ import type {
   OperatorEmployeeRecord,
   OrgPresenceOverview,
   RoleJobDescriptionProjection,
+  RoleGapRecord,
   RuntimeRolePolicyRecord,
   ProjectRecord,
+  StaffingRequestRecord,
   TaskArtifactRecord,
   TaskDependency,
   TaskDetail,
@@ -4266,6 +4392,8 @@ export function renderDepartmentOverview(args: {
           )}
         </div>
       </section>
+
+      ${renderStaffingDashboard(overview)}
 
       ${renderDepartmentFilters({ filters, employees: overview.employees })}
 

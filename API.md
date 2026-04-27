@@ -512,6 +512,25 @@ Canonical boundary:
 
 ### Runtime Role Policies
 
+### Staffing dashboard
+
+PR18F exposes staffing state in the dashboard through canonical routes only.
+
+The dashboard reads:
+
+- `GET /agent/staffing/role-gaps`
+- `GET /agent/staffing/requests`
+
+The dashboard may trigger:
+
+- `POST /agent/staffing/requests`
+- `POST /agent/staffing/requests/:id/status`
+- `POST /agent/staffing/requests/:id/fulfill`
+
+Dashboard actions include submit, approve, reject, cancel, and fulfill using canonical staffing routes.
+
+The dashboard must not own staffing state and must not directly mutate employees.
+
 `GET /agent/runtime-role-policies`
 
 - Lists runtime authority, budget, and escalation policy by role.

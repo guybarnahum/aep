@@ -744,9 +744,36 @@ export type StaffingGapOverview = {
   };
 };
 
+export type StaffingRequestState =
+  | "draft"
+  | "submitted"
+  | "approved"
+  | "fulfilled"
+  | "rejected"
+  | "canceled";
+
+export type StaffingRequestRecord = {
+  kind: "staffing_request";
+  staffingRequestId: string;
+  companyId: string;
+  roleId: string;
+  teamId: string;
+  reason: string;
+  urgency: "low" | "normal" | "high" | "critical";
+  requestedByEmployeeId: string;
+  source: Record<string, string>;
+  state: StaffingRequestState;
+};
+
+export type StaffingOverview = {
+  gaps: StaffingGapOverview;
+  requests: StaffingRequestRecord[];
+};
+
 export type DepartmentOverview = {
   employees: OperatorEmployeeRecord[];
   staffingGaps: StaffingGapOverview;
+  staffingRequests: StaffingRequestRecord[];
   escalations: EscalationRecord[];
   controlHistory: ControlHistoryRecord[];
   managerLog: ManagerDecisionRecord[];
