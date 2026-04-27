@@ -59,7 +59,14 @@ export async function handleScheduledCron(
 
       const minute = new Date(scheduledTimeMs).getUTCMinutes();
 
-      if (shouldRunMinuteInterval(scheduledTimeMs, cadence.teamTickIntervalMinutes)) {
+      const teamIntervalGate = shouldRunMinuteInterval(scheduledTimeMs, cadence.teamTickIntervalMinutes);
+      console.log("[operator-agent] team interval gate evaluation", {
+        minute,
+        interval: cadence.teamTickIntervalMinutes,
+        pass: teamIntervalGate,
+        modulo: minute % cadence.teamTickIntervalMinutes,
+      });
+      if (teamIntervalGate) {
         console.log("[operator-agent] invoking team cron via interval gate", {
           minute,
           interval: cadence.teamTickIntervalMinutes,
@@ -68,13 +75,29 @@ export async function handleScheduledCron(
         await handleTeamCron(env);
       }
 
-      if (shouldRunMinuteInterval(scheduledTimeMs, cadence.managerTickIntervalMinutes)) {
+      const managerIntervalGate = shouldRunMinuteInterval(scheduledTimeMs, cadence.managerTickIntervalMinutes);
+      console.log("[operator-agent] manager interval gate evaluation", {
+        minute,
+        interval: cadence.managerTickIntervalMinutes,
+        pass: managerIntervalGate,
+        modulo: minute % cadence.managerTickIntervalMinutes,
+      });
+      if (managerIntervalGate) {
         console.log("[operator-agent] invoking manager cron via interval gate", {
           minute,
           interval: cadence.managerTickIntervalMinutes,
           source: cadence.source,
         });
-        await handleManagerCron(env);
+        try {
+          await handleManagerCron(env);
+          console.log("[operator-agent] manager cron completed successfully");
+        } catch (managerError) {
+          console.error("[operator-agent] manager cron failed", {
+            error: managerError instanceof Error ? managerError.message : String(managerError),
+            stack: managerError instanceof Error ? managerError.stack : undefined,
+          });
+          throw managerError;
+        }
       }
 
       return;

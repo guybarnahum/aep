@@ -143,16 +143,32 @@ async function dispatch(request: Request, env: OperatorAgentEnv): Promise<Respon
       url.searchParams.get("scheduledTime") ?? `${Date.now()}`,
       10,
     );
-    await handleScheduledCron(
-      cron,
-      env,
-      Number.isFinite(scheduledTimeMs) ? scheduledTimeMs : Date.now(),
-    );
-    return Response.json({
-      ok: true,
-      trigger: "scheduled_test",
-      cron,
-    });
+    try {
+      await handleScheduledCron(
+        cron,
+        env,
+        Number.isFinite(scheduledTimeMs) ? scheduledTimeMs : Date.now(),
+      );
+      return Response.json({
+        ok: true,
+        trigger: "scheduled_test",
+        cron,
+      });
+    } catch (error) {
+      console.error("[operator-agent] /__scheduled route error", {
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+      });
+      return Response.json(
+        {
+          ok: false,
+          error: error instanceof Error ? error.message : String(error),
+          trigger: "scheduled_test",
+          cron,
+        },
+        { status: 500 },
+      );
+    }
   }
 
   if (request.method === "GET" && url.pathname === "/healthz") {
