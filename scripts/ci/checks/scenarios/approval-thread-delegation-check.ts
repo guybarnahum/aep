@@ -109,9 +109,14 @@ async function main(): Promise<void> {
     assignedTeamId: "team_validation",
     assignedEmployeeId: reliabilityEngineerEmployeeId,
     createdByEmployeeId: ciActor(CHECK_NAME),
-    taskType: "followup_validation",
+    taskType: "verification",
     title: "Validate approved remediation outcome",
-    payload: { ...ciArtifactMarker(CHECK_NAME), reason: "approval_outcome_followup" },
+    payload: {
+      ...ciArtifactMarker(CHECK_NAME),
+      reason: "approval_outcome_followup",
+      targetUrl: agentBaseUrl,
+      subjectRef: approvalId,
+    },
     sourceMessageId: actionMessage.id,
   });
 

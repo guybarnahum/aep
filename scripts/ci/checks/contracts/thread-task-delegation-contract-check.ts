@@ -140,9 +140,13 @@ async function main(): Promise<void> {
         originatingTeamId: "team_infra",
         assignedTeamId: "team_validation",
         createdByEmployeeId: "operator",
-        taskType: "followup_validation",
+        taskType: "verification",
         title: "This should fail due to thread/message mismatch",
-        payload: { reason: "mismatch_check" },
+        payload: {
+          reason: "mismatch_check",
+          targetUrl: agentBaseUrl,
+          subjectRef: primaryApprovalId,
+        },
         sourceMessageId: actionMessage.id,
       });
     } catch (error) {
@@ -169,9 +173,13 @@ async function main(): Promise<void> {
     ownerEmployeeId: infraOpsManagerEmployeeId,
     assignedEmployeeId: reliabilityEngineerEmployeeId,
     createdByEmployeeId: "operator",
-    taskType: "followup_validation",
+    taskType: "verification",
     title: "Validate approved remediation outcome",
-    payload: { reason: "approval_outcome_followup" },
+    payload: {
+      reason: "approval_outcome_followup",
+      targetUrl: agentBaseUrl,
+      subjectRef: primaryApprovalId,
+    },
     sourceMessageId: actionMessage.id,
   });
 

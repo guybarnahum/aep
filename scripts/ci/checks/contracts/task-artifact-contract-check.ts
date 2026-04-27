@@ -40,10 +40,10 @@ async function main(): Promise<void> {
     originatingTeamId: "team_infra",
     assignedTeamId: "team_validation",
     createdByEmployeeId: infraOpsManagerEmployeeId,
-    taskType: "stage2-artifact-base",
-    title: "Stage 2 artifact base task",
+    taskType: "analysis",
+    title: "Artifact contract analysis",
     payload: {
-      source: "task-artifact-contract-check",
+      question: "Analyze task artifacts",
     },
   });
 

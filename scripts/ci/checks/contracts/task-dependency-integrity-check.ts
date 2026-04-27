@@ -71,10 +71,10 @@ async function main(): Promise<void> {
     originatingTeamId: "team_infra",
     assignedTeamId: "team_validation",
     createdByEmployeeId: infraOpsManagerEmployeeId,
-    taskType: "stage1-dependency-base",
-    title: "Stage 1 dependency base task",
+    taskType: "analysis",
+    title: "Dependency structure analysis base",
     payload: {
-      source: "task-dependency-integrity-check",
+      question: "Analyze dependency task structure",
     },
   });
 
@@ -87,11 +87,11 @@ async function main(): Promise<void> {
     originatingTeamId: "team_infra",
     assignedTeamId: "team_validation",
     createdByEmployeeId: infraOpsManagerEmployeeId,
-    taskType: "stage1-dependent",
-    title: "Stage 1 dependent task",
+    taskType: "analysis",
+    title: "Dependency structure analysis dependent",
     dependsOnTaskIds: [baseTask.taskId],
     payload: {
-      source: "task-dependency-integrity-check",
+      question: "Analyze task dependencies",
     },
   });
 
@@ -134,11 +134,11 @@ async function main(): Promise<void> {
         originatingTeamId: "team_infra",
         assignedTeamId: "team_validation",
         createdByEmployeeId: infraOpsManagerEmployeeId,
-        taskType: "stage1-duplicate-dependency",
-        title: "Stage 1 duplicate dependency task",
+        taskType: "analysis",
+        title: "Dependency duplicate test",
         dependsOnTaskIds: [baseTask.taskId, baseTask.taskId],
         payload: {
-          source: "task-dependency-integrity-check",
+          question: "Test duplicate dependencies",
         },
       }),
     "duplicate_dependency",
@@ -151,11 +151,11 @@ async function main(): Promise<void> {
         originatingTeamId: "team_infra",
         assignedTeamId: "team_validation",
         createdByEmployeeId: infraOpsManagerEmployeeId,
-        taskType: "stage1-missing-dependency",
-        title: "Stage 1 missing dependency task",
+        taskType: "analysis",
+        title: "Dependency missing test",
         dependsOnTaskIds: ["task_missing_dependency_01"],
         payload: {
-          source: "task-dependency-integrity-check",
+          question: "Test missing dependencies",
         },
       }),
     "dependency_not_found",

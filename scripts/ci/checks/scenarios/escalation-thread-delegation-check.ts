@@ -93,9 +93,14 @@ async function main(): Promise<void> {
     assignedTeamId: "team_validation",
     assignedEmployeeId: reliabilityEngineerEmployeeId,
     createdByEmployeeId: ciActor(CHECK_NAME),
-    taskType: "escalation_followup",
+    taskType: "verification",
     title: "Validate escalation resolution outcome",
-    payload: { ...ciArtifactMarker(CHECK_NAME), reason: "escalation_outcome_followup" },
+    payload: {
+      ...ciArtifactMarker(CHECK_NAME),
+      reason: "escalation_outcome_followup",
+      targetUrl: agentBaseUrl,
+      subjectRef: escalationId,
+    },
     sourceMessageId: actionMessage.id,
   });
 
