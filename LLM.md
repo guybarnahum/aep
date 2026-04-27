@@ -570,6 +570,34 @@ CI guard:
 npm run ci:pr18-hiring-request-flow-contract-check
 ```
 
+### PR18E - Hiring To Employee Creation
+
+PR18E connects approved staffing requests to canonical employee creation.
+
+Implemented:
+
+- `POST /agent/staffing/requests/:id/fulfill`
+- fulfillment requires an approved staffing request
+- fulfillment calls the canonical employee lifecycle creation path
+- employee ID generation remains role-code based
+- created employee is linked back to the staffing request
+- canonical thread message is published when the request source is a thread
+- PR18E CI guard
+
+Boundaries:
+
+- no auto-hiring from role gaps
+- no employee creation from unapproved staffing requests
+- no direct employee table mutation outside the lifecycle store
+- no hidden cognition
+- no external adapter ownership of staffing state
+
+CI guard:
+
+```bash
+npm run ci:pr18-hiring-employee-linkage-contract-check
+```
+
 ### PR16D - Cognitive Prioritization And Manager-Mediated Parking
 
 PR16D makes prioritization a cognitive decision rather than a fixed code rule.

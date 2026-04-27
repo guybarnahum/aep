@@ -482,7 +482,17 @@ Missing staffing routes:
 - Allowed lifecycle:
 	`draft -> submitted -> approved -> fulfilled / rejected / canceled`
 - `approvedByEmployeeId` is required for approval.
-- Fulfillment records canonical state only in PR18D; employee creation is handled in PR18E.
+- Approval records canonical request state only.
+
+`POST /agent/staffing/requests/:id/fulfill`
+
+- Fulfills an approved staffing request by creating an employee through the canonical employee lifecycle creation path.
+- Required: `employeeName`, `fulfilledByEmployeeId`.
+- Optional: `runtimeStatus`, `employmentStatus`, `schedulerMode`, public profile fields.
+- Generates the employee ID through the role-based employee ID allocator.
+- Links the created employee back to the staffing request.
+- Publishes a canonical thread message when the staffing request source is a thread.
+- Only approved staffing requests can be fulfilled.
 - no hiring recommendation route
 
 Missing staffing contracts:

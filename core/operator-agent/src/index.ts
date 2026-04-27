@@ -25,6 +25,7 @@ import {
   handleStaffingRequestStatus,
   handleStaffingRequests,
 } from "./routes/staffing-requests";
+import { handleFulfillStaffingRequest } from "./routes/staffing-request-fulfill";
 import { handleStaffingRoleGaps } from "./routes/staffing-role-gaps";
 import { handleMirrorRoutingRules } from "./routes/mirror-routing-rules";
 import {
@@ -189,6 +190,17 @@ async function dispatch(request: Request, env: OperatorAgentEnv): Promise<Respon
 
   if (url.pathname === "/agent/staffing/requests") {
     return handleStaffingRequests(request, env);
+  }
+
+  const staffingRequestFulfillMatch = url.pathname.match(
+    /^\/agent\/staffing\/requests\/([^/]+)\/fulfill$/,
+  );
+  if (staffingRequestFulfillMatch) {
+    return handleFulfillStaffingRequest(
+      request,
+      env,
+      decodeURIComponent(staffingRequestFulfillMatch[1]),
+    );
   }
 
   const staffingRequestStatusMatch = url.pathname.match(

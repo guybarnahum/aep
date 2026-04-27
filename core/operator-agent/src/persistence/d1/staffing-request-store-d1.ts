@@ -30,6 +30,14 @@ type StaffingRequestRow = {
   canceled_at?: string | null;
   rejection_reason?: string | null;
   cancellation_reason?: string | null;
+  fulfillment_message_id?: string | null;
+  fulfilled_employee_id?: string | null;
+};
+
+export type StaffingRequestFulfillmentLink = {
+  staffingRequestId: string;
+  employeeId?: string;
+  messageId?: string;
 };
 
 export type CreateStaffingRequestInput = {
@@ -197,6 +205,39 @@ export async function getStaffingRequest(
     .bind(id)
     .first<StaffingRequestRow>();
   return row ? rowToContract(row) : null;
+}
+
+export async function linkStaffingRequestFulfillment(
+  env: OperatorAgentEnv,
+  args: {
+    id: string;
+    employeeId: string;
+    messageId?: string;
+  },
+): Promise<StaffingRequestContract> {
+  const existing = await getStaffingRequest(env, args.id);
+  if (!existing) throw new Error(`Staffing request not found: ${args.id}`);
+  if (existing.state !== "approved") {
+    throw new Error(`Only approved staffing requests can be fulfilled; got ${existing.state}`);
+  }
+
+  const now = new Date().toISOString();
+  await requireDb(env)
+    .prepare(
+      `UPDATE staffing_requests
+       SET status = 'fulfilled',
+           fulfilled_at = ?,
+           updated_at = ?,
+           fulfilled_employee_id = ?,
+           fulfillment_message_id = COALESCE(?, fulfillment_message_id)
+       WHERE id = ?`,
+    )
+    .bind(now, now, args.employeeId, args.messageId ?? null, args.id)
+    .run();
+
+  const updated = await getStaffingRequest(env, args.id);
+  if (!updated) throw new Error(`Staffing request disappeared: ${args.id}`);
+  return updated;
 }
 
 export async function updateStaffingRequestStatus(
