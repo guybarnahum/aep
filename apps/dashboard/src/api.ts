@@ -22,6 +22,7 @@ import type {
   NarrativeTimelineItem,
   OrgPresenceOverview,
   RoleJobDescriptionProjection,
+  StaffingGapOverview,
   RuntimeRolePolicyInput,
   RuntimeRolePolicyRecord,
   ProjectRecord,
@@ -426,6 +427,13 @@ export async function getServiceOverview(
   );
 }
 
+export async function getStaffingGapOverview(): Promise<StaffingGapOverview> {
+  return getJson<StaffingGapOverview>(
+    getOperatorAgentBaseUrl(),
+    "/agent/staffing/role-gaps",
+  );
+}
+
 export async function getDepartmentOverview(): Promise<DepartmentOverview> {
   const agentBaseUrl = getOperatorAgentBaseUrl();
   const resolvedEmployees = await resolveLiveEmployeeIdsByRole([
@@ -453,6 +461,7 @@ export async function getDepartmentOverview(): Promise<DepartmentOverview> {
     approvalsPayload,
     roadmapsPayload,
     schedulerStatus,
+    staffingGaps,
   ] = await Promise.all([
     getJson<{ employees: OperatorEmployeeRecord[] }>(
       agentBaseUrl,
@@ -476,10 +485,12 @@ export async function getDepartmentOverview(): Promise<DepartmentOverview> {
     ),
     getJson<{ entries: TeamRoadmap[] }>(agentBaseUrl, "/agent/roadmaps"),
     getJson<SchedulerStatus>(agentBaseUrl, "/agent/scheduler-status"),
+    getJson<StaffingGapOverview>(agentBaseUrl, "/agent/staffing/role-gaps"),
   ]);
 
   return {
     employees: (employeesPayload.employees ?? []).map(normalizeEmployeeRecord),
+    staffingGaps,
     escalations: escalationsPayload.entries ?? [],
     controlHistory: controlHistoryPayload.entries ?? [],
     managerLog: managerLogPayload.entries ?? [],

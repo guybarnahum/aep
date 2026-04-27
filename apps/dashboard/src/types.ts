@@ -714,8 +714,39 @@ export type ValidationOverview = {
   recent_results: ValidationResultRecord[];
 };
 
+export type RoleGapReason =
+  | "no_active_employee"
+  | "required_role_missing"
+  | "task_blocked_by_missing_role"
+  | "employee_on_leave"
+  | "employee_overloaded";
+
+export type RoleGapRecord = {
+  kind: "role_gap";
+  roleGapId: string;
+  companyId: string;
+  roleId: string;
+  teamId: string;
+  reason: RoleGapReason;
+  source: Record<string, string>;
+  state: "detected" | "acknowledged" | "request_created" | "resolved" | "dismissed";
+};
+
+export type StaffingGapOverview = {
+  ok: true;
+  advisoryOnly: true;
+  gaps: RoleGapRecord[];
+  summary: {
+    roleGaps: number;
+    teamMissingRequiredRoles: number;
+    taskBlockedByMissingRole: number;
+    inactiveOrOnLeaveImpacts: number;
+  };
+};
+
 export type DepartmentOverview = {
   employees: OperatorEmployeeRecord[];
+  staffingGaps: StaffingGapOverview;
   escalations: EscalationRecord[];
   controlHistory: ControlHistoryRecord[];
   managerLog: ManagerDecisionRecord[];

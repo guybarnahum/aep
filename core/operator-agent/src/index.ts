@@ -20,6 +20,7 @@ import { handleEmployees } from "./routes/employees";
 import { handleEmployeeScope } from "./routes/employee-scope";
 import { handleUpdateEmployee } from "./routes/employee-update";
 import { handleRoles } from "./routes/roles";
+import { handleStaffingRoleGaps } from "./routes/staffing-role-gaps";
 import { handleMirrorRoutingRules } from "./routes/mirror-routing-rules";
 import {
   handleRuntimeRolePolicies,
@@ -120,6 +121,7 @@ async function dispatch(request: Request, env: OperatorAgentEnv): Promise<Respon
         teamsRun: "/agent/teams/run",
         intake: "/agent/intake",
         projects: "/agent/projects",
+        staffingRoleGaps: "/agent/staffing/role-gaps",
       },
     });
   }
@@ -177,6 +179,10 @@ async function dispatch(request: Request, env: OperatorAgentEnv): Promise<Respon
 
   if (url.pathname === "/agent/roles") {
     return handleRoles(request, env);
+  }
+
+  if (url.pathname === "/agent/staffing/role-gaps") {
+    return handleStaffingRoleGaps(request, env);
   }
 
   if (url.pathname === "/agent/runtime-role-policies") {

@@ -449,9 +449,16 @@ PR18A inventory status:
 - Review cycles and employee reviews already exist as canonical governance/evidence surfaces.
 - Staffing-specific contracts are not implemented yet.
 
+Implemented staffing routes:
+
+- `GET /agent/staffing/role-gaps`
+	- Computes advisory role gaps.
+	- Does not mutate employee, task, project, approval, or staffing state.
+	- Returns `advisoryOnly: true`.
+	- Detects roles with no active employees, task impact from missing role capacity, and inactive/on-leave impact.
+
 Missing staffing routes:
 
-- no `GET /agent/staffing/role-gaps`
 - no `GET /agent/staffing/requests`
 - no `POST /agent/staffing/requests`
 - no hiring request approval/fulfillment route

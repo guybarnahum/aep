@@ -506,6 +506,34 @@ PR18B does not add:
 - auto-hiring
 - direct employee table mutation outside canonical routes
 
+### PR18C - Staffing Gap Detection
+
+PR18C adds advisory-only staffing gap detection.
+
+Implemented:
+
+- `GET /agent/staffing/role-gaps`
+- role gaps for roles with no active employees
+- task impact detection for ready/blocked/queued tasks without active role/team capacity
+- inactive/on-leave impact visibility
+- dashboard API inclusion through department overview
+- CI guard for advisory-only behavior
+
+Important invariants:
+
+- no employee creation
+- no lifecycle mutation
+- no approval mutation
+- no task mutation
+- no parallel HR state
+- role gaps are advisory signals only
+
+CI guard:
+
+```bash
+npm run ci:pr18-staffing-gap-detection-contract-check
+```
+
 ### PR16D - Cognitive Prioritization And Manager-Mediated Parking
 
 PR16D makes prioritization a cognitive decision rather than a fixed code rule.
