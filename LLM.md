@@ -1000,6 +1000,41 @@ CI guard:
 npm run ci:pr23-signal-ingest-contract-check
 ```
 
+### PR24 - Product Lifecycle
+
+PR24 introduces lifecycle request handling for product initiatives.
+
+Implemented:
+
+- `POST /agent/projects/:id/lifecycle-actions`
+- lifecycle actions: `pause`, `resume`, `retire`, `transition`
+- approval creation for lifecycle requests
+- org-visible lifecycle discussion thread/message
+- lifecycle coordination task
+- audit payloads that explicitly forbid direct status mutation
+
+Required flow:
+
+```text
+request
+  -> approval + task
+  -> decision
+  -> state change
+```
+
+Forbidden:
+
+- direct `project.status = "paused"`
+- direct project status updates from lifecycle request route
+- lifecycle transition without approval provenance
+- lifecycle transition without task/thread audit trail
+
+CI guard:
+
+```bash
+npm run ci:pr24-lifecycle-contract-check
+```
+
 PR19A should begin by defining how AEP represents a product initiative without
 inventing a parallel workflow system. Prefer extending or specializing the
 existing project/intake/task/artifact model before adding new primitives.

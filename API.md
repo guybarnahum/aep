@@ -705,6 +705,46 @@ signal
   -> AEP decides task/approval/product action
 ```
 
+### Product lifecycle
+
+`POST /agent/projects/:id/lifecycle-actions`
+
+Requests a product lifecycle action.
+
+Supported actions:
+
+- `pause`
+- `resume`
+- `retire`
+- `transition`
+
+Required body:
+
+- `action`
+- `requestedByEmployeeId`
+- `reason`
+
+Optional body:
+
+- `targetState`
+
+Contract:
+
+- lifecycle requests create an approval
+- lifecycle requests create an org-visible thread/message
+- lifecycle requests create a lifecycle coordination task
+- lifecycle requests do not mutate project status directly
+- the response includes `stateChanged: false`
+
+Required flow:
+
+```text
+request
+	-> approval + lifecycle task
+	-> decision
+	-> state change
+```
+
 ### Dashboard product initiative UI
 
 PR21A exposes a minimal dashboard surface for product initiatives.

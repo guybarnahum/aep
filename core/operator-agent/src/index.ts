@@ -90,6 +90,7 @@ import {
   handleJiraStatusSignal,
 } from "./routes/jira";
 import { handleIngestProductSignal } from "./routes/product-signals";
+import { handleRequestProductLifecycleAction } from "./routes/product-lifecycle";
 import {
   handleApproveFromThread,
   handleRejectFromThread,
@@ -569,6 +570,17 @@ async function dispatch(request: Request, env: OperatorAgentEnv): Promise<Respon
       decodeURIComponent(productInterventionMatch[1]),
     );
   }
+
+    const productLifecycleMatch = url.pathname.match(
+      /^\/agent\/projects\/([^/]+)\/lifecycle-actions$/,
+    );
+    if (productLifecycleMatch) {
+      return handleRequestProductLifecycleAction(
+        request,
+        env,
+        decodeURIComponent(productLifecycleMatch[1]),
+      );
+    }
 
   const projectMatch = url.pathname.match(/^\/agent\/projects\/([^/]+)$/);
   if (projectMatch) {
