@@ -1,3 +1,20 @@
+# AEP Product Initiative Tutorial
+
+For human project initiators, see [`TUTORIAL.md`](./TUTORIAL.md).
+
+The tutorial describes the target PR19 user experience: defining, staffing,
+building, validating, deploying, observing, and continuously steering a product
+through AEP itself.
+
+This is a core product goal:
+
+> AEP should make the tutorial real, not merely document it.
+
+The product surface may eventually produce a separate GitHub repository and live
+customer-facing deployment, but AEP remains the source of truth for intake,
+projects, tasks, staffing, artifacts, approvals, validation, deployment records,
+human intervention, and external mirroring.
+
 # AEP — Agentic Engineering Platform
 
 AEP is the **infra department of a zero-employee company**.

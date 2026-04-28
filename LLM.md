@@ -718,6 +718,72 @@ customer/product goal
 
 PR19 should use the existing organizational runtime rather than bypass it.
 
+### PR19 Product Initiator Tutorial
+
+The repository now includes:
+
+```text
+TUTORIAL.md
+```
+
+This file is the human-facing tutorial for initiating and steering AEP-built
+products.
+
+It defines the target PR19 user experience:
+
+```text
+human intent
+  -> intake
+  -> product initiative project
+  -> task graph
+  -> staffing
+  -> artifacts
+  -> approvals
+  -> deployment
+  -> validation
+  -> feedback
+  -> redesign / new tasks
+  -> redeployment
+  -> monitoring
+  -> continued operation until retirement or transition
+```
+
+Important interpretation:
+
+> `TUTORIAL.md` is not just documentation. It is the product experience PR19
+> should make real.
+
+The tutorial emphasizes that product construction is a loop, not a pipeline.
+Validation, QA, human feedback, deployment evidence, and external signals may
+change requirements, design, task graphs, staffing, and deployment plans for
+the full life of the product.
+
+Human visibility and intervention are first-class requirements.
+
+PR19 should provide or prepare:
+
+- initiative creation / update UI
+- initiative dashboard
+- task graph visibility
+- public decision timeline
+- validation feedback panel
+- deployment visibility
+- explicit intervention controls
+- Jira / external mirroring for visibility and steering
+
+Human intervention must route through canonical AEP primitives:
+
+- tasks
+- approvals
+- threads/messages
+- artifacts
+- staffing requests
+
+External systems such as Jira may mirror and collaborate, but must not own
+canonical project, task, deployment, approval, or staffing state.
+
+The goal of PR19 is to make the tutorial true.
+
 If teams are missing capacity, PR19 should use PR18 staffing:
 
 ```text
