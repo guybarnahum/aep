@@ -7,6 +7,7 @@ import type {
   TaskArtifact,
   TaskStore,
 } from "../lib/store-types";
+import { isProductDecisionMessage } from "./product-decision-contracts";
 
 export type ProductVisibilitySummary = {
   project: Project;
@@ -53,18 +54,6 @@ function taskBelongsToProject(task: Task, projectId: string): boolean {
 
 function artifactIsDeployable(artifact: TaskArtifact): boolean {
   return typeof artifact.content?.deployableArtifactKind === "string";
-}
-
-function messageLooksLikeDecision(message: EmployeeMessage): boolean {
-  const kind = typeof message.payload?.kind === "string" ? message.payload.kind : "";
-  return (
-    kind.includes("decision") ||
-    kind.includes("rationale") ||
-    kind.includes("conversion") ||
-    kind.includes("product_") ||
-    message.subject?.toLowerCase().includes("decision") === true ||
-    message.subject?.toLowerCase().includes("rationale") === true
-  );
 }
 
 function buildSuggestedActions(args: {
@@ -140,14 +129,11 @@ export async function buildProductVisibilitySummary(args: {
     increment(byType, task.taskType);
   }
 
-  const artifacts: TaskArtifact[] = [];
-  for (const task of tasks.slice(0, limit)) {
-    const taskArtifacts = await args.store.listArtifacts({
-      taskId: task.id,
-      limit: 20,
-    });
-    artifacts.push(...taskArtifacts);
-  }
+  const artifacts = await args.store.listArtifactsForProject({
+    companyId: project.companyId,
+    projectId: project.id,
+    limit: Math.max(limit, 200),
+  });
 
   const deployments = await args.store.listProductDeployments({
     projectId: project.id,
@@ -158,27 +144,12 @@ export async function buildProductVisibilitySummary(args: {
     increment(deploymentsByStatus, deployment.status);
   }
 
-  const threads = await args.store.listMessageThreads({
+  const messages = await args.store.listMessagesForProject({
     companyId: project.companyId,
+    projectId: project.id,
     limit,
   });
-  const messages: EmployeeMessage[] = [];
-  for (const thread of threads.slice(0, limit)) {
-    const threadMessages = await args.store.listMessages({
-      threadId: thread.id,
-      limit: 20,
-    });
-    messages.push(
-      ...threadMessages.filter(
-        (message) =>
-          message.payload?.projectId === project.id ||
-          (message.relatedTaskId &&
-            tasks.some((task) => task.id === message.relatedTaskId)),
-      ),
-    );
-  }
-
-  const decisionMessages = messages.filter(messageLooksLikeDecision);
+  const decisionMessages = messages.filter(isProductDecisionMessage);
 
   return {
     project,

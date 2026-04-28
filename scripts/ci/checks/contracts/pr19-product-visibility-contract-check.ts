@@ -31,12 +31,32 @@ for (const method of [
   "getIntakeRequest",
   "listIntakeRequests",
   "listTasks",
-  "listArtifacts",
+  "listArtifactsForProject",
   "listProductDeployments",
-  "listMessageThreads",
-  "listMessages",
+  "listMessagesForProject",
 ]) {
   assert(summary.includes(method), `Visibility summary must use ${method}`);
+}
+
+for (const required of [
+  "isProductDecisionMessage",
+]) {
+  assert(summary.includes(required), `Visibility summary missing contract usage: ${required}`);
+}
+
+const decisionContracts = readFileSync(
+  resolve(process.cwd(), "core/operator-agent/src/product/product-decision-contracts.ts"),
+  "utf8",
+);
+for (const required of [
+  "PRODUCT_DECISION_MESSAGE_KINDS",
+  "product_human_intervention",
+  "product_rationale_published",
+]) {
+  assert(
+    decisionContracts.includes(required),
+    `Decision contracts missing invariant: ${required}`,
+  );
 }
 
 const visibilityRoute = readFileSync(

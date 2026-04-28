@@ -1328,6 +1328,43 @@ export class D1TaskStore implements TaskStore {
     return (rows.results ?? []).map(rowToArtifact);
   }
 
+  async listArtifactsForProject(query: {
+    companyId: string;
+    projectId: string;
+    artifactType?: TaskArtifact["artifactType"];
+    limit: number;
+  }): Promise<TaskArtifact[]> {
+    const clauses: string[] = [
+      `a.company_id = ?`,
+      `t.company_id = ?`,
+      `json_extract(t.payload, '$.projectId') = ?`,
+    ];
+    const binds: Array<string | number> = [
+      query.companyId,
+      query.companyId,
+      query.projectId,
+    ];
+
+    if (query.artifactType) {
+      clauses.push(`a.artifact_type = ?`);
+      binds.push(query.artifactType);
+    }
+
+    const rows = await this.db
+      .prepare(
+        `SELECT a.*
+         FROM task_artifacts a
+         JOIN tasks t ON t.id = a.task_id
+         WHERE ${clauses.join(" AND ")}
+         ORDER BY a.created_at DESC
+         LIMIT ?`,
+      )
+      .bind(...binds, query.limit)
+      .all<TaskArtifactRow>();
+
+    return (rows.results ?? []).map(rowToArtifact);
+  }
+
   async createProductDeployment(record: ProductDeploymentRecord): Promise<void> {
     await this.db
       .prepare(
@@ -2201,6 +2238,40 @@ export class D1TaskStore implements TaskStore {
          LIMIT ?`,
       )
       .bind(...binds, query.limit)
+      .all<EmployeeMessageRow>();
+
+    return (rows.results ?? []).map(rowToMessage);
+  }
+
+  async listMessagesForProject(query: {
+    companyId: string;
+    projectId: string;
+    limit: number;
+  }): Promise<EmployeeMessage[]> {
+    const rows = await this.db
+      .prepare(
+        `SELECT m.*
+         FROM employee_messages m
+         WHERE m.company_id = ?
+           AND (
+             json_extract(m.payload_json, '$.projectId') = ?
+             OR m.related_task_id IN (
+               SELECT t.id
+               FROM tasks t
+               WHERE t.company_id = ?
+                 AND json_extract(t.payload, '$.projectId') = ?
+             )
+           )
+         ORDER BY m.created_at DESC
+         LIMIT ?`,
+      )
+      .bind(
+        query.companyId,
+        query.projectId,
+        query.companyId,
+        query.projectId,
+        query.limit,
+      )
       .all<EmployeeMessageRow>();
 
     return (rows.results ?? []).map(rowToMessage);

@@ -480,6 +480,12 @@ export interface TaskStore {
   getArtifact(artifactId: string): Promise<TaskArtifact | null>;
 
   listArtifacts(query: TaskArtifactListQuery): Promise<TaskArtifact[]>;
+  listArtifactsForProject(query: {
+    companyId: string;
+    projectId: string;
+    artifactType?: TaskArtifact["artifactType"];
+    limit: number;
+  }): Promise<TaskArtifact[]>;
 
   createProductDeployment(record: ProductDeploymentRecord): Promise<void>;
   getProductDeployment(deploymentId: string): Promise<ProductDeploymentRecord | null>;
@@ -543,4 +549,9 @@ export interface TaskStore {
 
   createMessage(message: Omit<EmployeeMessage, "createdAt" | "updatedAt">): Promise<EmployeeMessage>;
   listMessages(query: MessageListQuery): Promise<EmployeeMessage[]>;
+  listMessagesForProject(query: {
+    companyId: string;
+    projectId: string;
+    limit: number;
+  }): Promise<EmployeeMessage[]>;
 }
