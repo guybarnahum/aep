@@ -117,6 +117,10 @@ import {
   updateIntakeStatus,
   updateEmployeeProfile,
   updateRuntimeRolePolicy,
+  executeProductDeployment,
+  executeProductLifecycleAction,
+  ingestProductSignal,
+  requestProductLifecycleAction,
 } from "./api";
 import type {
   CompanyWorkIntakeOverview,
@@ -125,6 +129,7 @@ import type {
   EmployeePublicLink,
   OrgPresenceOverview,
   PageSize,
+  ProductLifecycleAction,
   TeamLoopResult,
   TenantSummary,
   ValidationRunMode,
@@ -1407,6 +1412,120 @@ function attachProductInterventionHandlers(): void {
   });
 }
 
+function attachTutorialIntakeHandlers(): void {
+  const form = document.querySelector<HTMLFormElement>("#create-tutorial-intake-form");
+  form?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const formData = new FormData(form);
+    try {
+      setMutationStatus("Creating intake…");
+      const intake = await createIntakeRequest({
+        companyId: "company_internal_aep",
+        title: String(formData.get("title") ?? "").trim(),
+        description: String(formData.get("description") ?? "").trim(),
+        requestedBy: String(formData.get("requestedBy") ?? "").trim(),
+        source: "dashboard_tutorial",
+      });
+      setMutationStatus(`Created intake ${intake.id}. Convert it from Intake & Projects.`);
+      window.location.hash = "intake-projects";
+    } catch (error) {
+      setMutationStatus(error instanceof Error ? error.message : "Failed to create tutorial intake");
+    }
+  });
+}
+
+function attachManualTutorialControlHandlers(): void {
+  document.querySelectorAll<HTMLFormElement>("[data-form='approve-deployment']").forEach((form) => {
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const formData = new FormData(form);
+      await runManualAction(async () => {
+        await approveApproval(
+          String(formData.get("approvalId") ?? "").trim(),
+          String(formData.get("decidedBy") ?? "").trim() || "dashboard-operator",
+          String(formData.get("decisionNote") ?? "").trim() || undefined,
+        );
+        return "Approval approved";
+      });
+    });
+  });
+
+  document.querySelectorAll<HTMLFormElement>("[data-form='execute-deployment']").forEach((form) => {
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const formData = new FormData(form);
+      await runManualAction(async () => {
+        const result = await executeProductDeployment({
+          deploymentId: String(formData.get("deploymentId") ?? "").trim(),
+          executedByEmployeeId: String(formData.get("executedByEmployeeId") ?? "").trim(),
+        });
+        return `Deployment executed${result.provider.targetUrl ? `: ${result.provider.targetUrl}` : ""}`;
+      });
+    });
+  });
+
+  document.querySelectorAll<HTMLFormElement>("[data-form='request-lifecycle']").forEach((form) => {
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const formData = new FormData(form);
+      await runManualAction(async () => {
+        const result = await requestProductLifecycleAction({
+          projectId: form.dataset.projectId ?? "",
+          action: formData.get("action") as ProductLifecycleAction,
+          requestedByEmployeeId: String(formData.get("requestedByEmployeeId") ?? "").trim(),
+          reason: String(formData.get("reason") ?? "").trim(),
+        });
+        return `Lifecycle approval requested: ${result.approvalId}`;
+      });
+    });
+  });
+
+  document.querySelectorAll<HTMLFormElement>("[data-form='execute-lifecycle']").forEach((form) => {
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const formData = new FormData(form);
+      await runManualAction(async () => {
+        const result = await executeProductLifecycleAction({
+          projectId: form.dataset.projectId ?? "",
+          approvalId: String(formData.get("approvalId") ?? "").trim(),
+          executedByEmployeeId: String(formData.get("executedByEmployeeId") ?? "").trim(),
+        });
+        return `Lifecycle executed: ${result.project.status}`;
+      });
+    });
+  });
+
+  document.querySelectorAll<HTMLFormElement>("[data-form='ingest-product-signal']").forEach((form) => {
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const formData = new FormData(form);
+      await runManualAction(async () => {
+        const result = await ingestProductSignal({
+          companyId: "company_internal_aep",
+          projectId: form.dataset.projectId,
+          source: formData.get("source") as "validation" | "monitoring" | "customer_intake",
+          severity: formData.get("severity") as "info" | "warning" | "failed" | "critical",
+          title: String(formData.get("title") ?? "").trim(),
+          body: String(formData.get("body") ?? "").trim(),
+          receivedAt: new Date().toISOString(),
+        });
+        return `Signal routed to ${result.route}${result.intakeId ? ` ${result.intakeId}` : ""}`;
+      });
+    });
+  });
+}
+
+async function runManualAction(action: () => Promise<string>): Promise<void> {
+  try {
+    setMutationStatus("Running manual tutorial action…");
+    const message = await action();
+    setMutationStatus(message);
+    await renderRoute();
+  } catch (error) {
+    setMutationStatus(error instanceof Error ? error.message : "Manual tutorial action failed");
+  }
+}
+
 function resolveThreadMessageRecipient(detail: Awaited<ReturnType<typeof getMessageThreadDetail>>): {
   receiverEmployeeId?: string;
   receiverTeamId?: string;
@@ -2237,10 +2356,14 @@ async function renderRoute(): Promise<void> {
 
     if (route.kind === "productInitiatives") {
       attachProductInitiativeHandlers();
+      attachTutorialIntakeHandlers();
+      return;
     }
 
     if (route.kind === "productInitiative") {
       attachProductInterventionHandlers();
+      attachManualTutorialControlHandlers();
+      return;
     }
 
     if (route.kind === "thread") {

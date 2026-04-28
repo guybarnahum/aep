@@ -804,6 +804,18 @@ PR21B still must not:
 - mutate task status directly
 - edit GitHub or Cloudflare state
 
+PR26 manual tutorial readiness extends the dashboard with operator controls for:
+
+- creating tutorial intake
+- approving deployment approvals
+- executing canonical deployment records
+- requesting lifecycle actions
+- executing approved lifecycle actions
+- ingesting product signals
+
+These controls call existing canonical AEP routes only. They are allowed UI
+entry points for manual QA, not alternate state owners.
+
 ### PR19 enforcement
 
 PR19H adds enforcement checks for the product-construction model.

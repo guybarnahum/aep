@@ -261,6 +261,11 @@ jobs:
         continue-on-error: true
         run: npm run ci:lifecycle-execution-contract-check | tee lifecycle-execution-contract-check.log
 
+      - name: Run manual tutorial readiness contract check
+        id: manual_tutorial_readiness_contract
+        continue-on-error: true
+        run: npm run ci:manual-tutorial-readiness-contract-check | tee manual-tutorial-readiness-contract-check.log
+
       - name: Run boundary enforcement check
         id: boundary_enforcement
         continue-on-error: true
@@ -313,6 +318,7 @@ jobs:
             "${{ steps.signal_ingest_contract.outcome }}" == "success" && \
             "${{ steps.lifecycle_contract.outcome }}" == "success" && \
             "${{ steps.lifecycle_execution_contract.outcome }}" == "success" && \
+            "${{ steps.manual_tutorial_readiness_contract.outcome }}" == "success" && \
             "${{ steps.boundary_enforcement.outcome }}" == "success" && \
             "${{ steps.tutorial_alignment.outcome }}" == "success" \
           ]]; then
@@ -383,6 +389,7 @@ jobs:
           echo "- $(status_emoji \"${{ steps.signal_ingest_contract.outcome }}\") signal-ingest-contract-check: ${{ steps.signal_ingest_contract.outcome }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- $(status_emoji \"${{ steps.lifecycle_contract.outcome }}\") lifecycle-contract-check: ${{ steps.lifecycle_contract.outcome }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- $(status_emoji \"${{ steps.lifecycle_execution_contract.outcome }}\") lifecycle-execution-contract-check: ${{ steps.lifecycle_execution_contract.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- $(status_emoji \"${{ steps.manual_tutorial_readiness_contract.outcome }}\") manual-tutorial-readiness-contract-check: ${{ steps.manual_tutorial_readiness_contract.outcome }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- $(status_emoji \"${{ steps.boundary_enforcement.outcome }}\") boundary-enforcement-check: ${{ steps.boundary_enforcement.outcome }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- $(status_emoji \"${{ steps.tutorial_alignment.outcome }}\") tutorial-alignment-check: ${{ steps.tutorial_alignment.outcome }}" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"

@@ -8,6 +8,9 @@ runtime, not by implementing it directly.
 
 The goal of PR19 is to make this user experience real.
 
+The post-PR25 system implements the underlying organization runtime for this
+flow. PR26 makes the flow manually operable from the dashboard for QA.
+
 ## Core idea
 
 AEP product construction is not a pipeline.
@@ -64,6 +67,19 @@ It must not bypass AEP by directly mutating code, deployment state, Jira state,
 or product state.
 
 ## Product initiator flow
+
+Manual dashboard QA path:
+
+```text
+Product initiatives
+→ Tutorial intake flow
+→ Intake & Projects conversion
+→ Product initiative detail
+→ Manual tutorial controls
+→ deployment approval / execution
+→ lifecycle request / execution
+→ signal simulation
+```
 
 ### 1. Define intent
 
@@ -210,6 +226,9 @@ Important controls:
 - retire / transition initiative
 
 Every control must map to canonical tasks, approvals, or threads/messages.
+
+PR26 manual readiness means the dashboard exposes these controls without
+creating a parallel state owner.
 
 ## Jira / external mirroring
 

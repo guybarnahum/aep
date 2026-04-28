@@ -355,6 +355,60 @@ export type ProductInterventionResponse = {
   taskId: string;
 };
 
+export type ApprovalMutationResponse = {
+  ok: boolean;
+  approval?: ApprovalRecord;
+  threadId?: string;
+};
+
+export type ProductDeploymentExecutionResponse = {
+  ok: boolean;
+  deployment: ProductDeploymentRecord;
+  provider: {
+    ok: true;
+    provider: "github" | "cloudflare";
+    targetUrl?: string | null;
+    externalIds: Record<string, string>;
+    evidence: Record<string, unknown>;
+  };
+  threadId: string;
+  messageId: string;
+};
+
+export type ProductLifecycleAction = "pause" | "resume" | "retire" | "transition";
+
+export type ProductLifecycleRequestResponse = {
+  ok: boolean;
+  projectId: string;
+  action: ProductLifecycleAction;
+  targetStatus: string;
+  approvalId: string;
+  taskId: string;
+  threadId: string;
+  messageId: string;
+  stateChanged: false;
+};
+
+export type ProductLifecycleExecutionResponse = {
+  ok: boolean;
+  project: ProjectRecord;
+  approvalId: string;
+  threadId: string;
+  messageId: string;
+  stateChanged: true;
+};
+
+export type ProductSignalRoute = "intake" | "thread";
+
+export type ProductSignalResponse = {
+  ok: boolean;
+  route: ProductSignalRoute;
+  reason: string;
+  intakeId?: string;
+  threadId?: string;
+  messageId?: string;
+};
+
 export type ProjectTaskGraphTaskInput = {
   clientTaskId: string;
   title: string;

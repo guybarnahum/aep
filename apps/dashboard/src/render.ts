@@ -2219,6 +2219,17 @@ export function renderProductInitiativesOverview(projects: ProjectRecord[]): str
       </section>
 
       <section class="panel">
+        <h3>Tutorial intake flow</h3>
+        <p class="muted small">Manual path for TUTORIAL.md: create intake, then convert it to a product initiative.</p>
+        <form class="form-grid" id="create-tutorial-intake-form">
+          <input name="title" placeholder="Intake title" value="AEP Marketing Website" required />
+          <input name="requestedBy" placeholder="Requested by employee ID" required />
+          <textarea name="description" placeholder="Goal, audience, constraints" required></textarea>
+          <button class="button" type="submit">Create intake</button>
+        </form>
+      </section>
+
+      <section class="panel">
         <h3>Initiatives</h3>
         ${projects.length === 0
           ? `<div class="empty-state">No product initiatives yet.</div>`
@@ -2267,6 +2278,16 @@ export function renderProductInitiativeDetail(summary: ProductVisibilitySummary)
           ${renderSummaryCard("Blocked tasks", summary.tasks.blocked.length, "Needs attention")}
           ${renderSummaryCard("Artifacts", summary.artifacts.deployable.length, "Read-only deployable outputs")}
           ${renderSummaryCard("Deployments", summary.deployments.latest.length, "Read-only canonical records")}
+        </div>
+      </section>
+
+      <section class="panel">
+        <h3>Manual tutorial controls</h3>
+        <p class="muted small">These controls call canonical AEP routes only. They do not mutate dashboard-owned state.</p>
+        <div class="product-control-grid">
+          ${renderDeploymentControls(summary)}
+          ${renderLifecycleControls(summary)}
+          ${renderSignalControls(summary)}
         </div>
       </section>
 
@@ -2350,6 +2371,86 @@ export function renderProductInitiativeDetail(summary: ProductVisibilitySummary)
         `}
       </section>
     </main>
+  `;
+}
+
+function renderDeploymentControls(summary: ProductVisibilitySummary): string {
+  const deployments = summary.deployments.latest;
+  const pendingApprovals = summary.decisions.recent.filter(
+    (message) => message.relatedApprovalId,
+  );
+
+  return `
+    <article class="control-card">
+      <h4>Deployment controls</h4>
+      <p class="muted small">Approve through canonical approvals, then execute through canonical deployment route.</p>
+      <form class="compact-form" data-form="approve-deployment">
+        <input name="approvalId" placeholder="Approval ID" />
+        <input name="decidedBy" placeholder="Decided by employee ID" />
+        <input name="decisionNote" placeholder="Decision note" />
+        <button class="button button-small" type="submit">Approve</button>
+      </form>
+      <form class="compact-form" data-form="execute-deployment">
+        <select name="deploymentId">
+          ${deployments.map((deployment) => `
+            <option value="${escapeHtml(deployment.id)}">${escapeHtml(deployment.id)} · ${escapeHtml(deployment.status)}</option>
+          `).join("")}
+        </select>
+        <input name="executedByEmployeeId" placeholder="Executed by employee ID" />
+        <button class="button button-small" type="submit">Execute deployment</button>
+      </form>
+      <div class="muted small">Recent approval refs: ${escapeHtml(pendingApprovals.map((m) => m.relatedApprovalId).filter(Boolean).join(", ") || "—")}</div>
+    </article>
+  `;
+}
+
+function renderLifecycleControls(summary: ProductVisibilitySummary): string {
+  return `
+    <article class="control-card">
+      <h4>Lifecycle controls</h4>
+      <p class="muted small">Request first; execute only after approval is approved.</p>
+      <form class="compact-form" data-form="request-lifecycle" data-project-id="${escapeHtml(summary.project.id)}">
+        <select name="action">
+          <option value="pause">Pause</option>
+          <option value="resume">Resume</option>
+          <option value="retire">Retire</option>
+          <option value="transition">Transition</option>
+        </select>
+        <input name="requestedByEmployeeId" placeholder="Requested by employee ID" />
+        <input name="reason" placeholder="Reason" />
+        <button class="button button-small" type="submit">Request lifecycle action</button>
+      </form>
+      <form class="compact-form" data-form="execute-lifecycle" data-project-id="${escapeHtml(summary.project.id)}">
+        <input name="approvalId" placeholder="Approved lifecycle approval ID" />
+        <input name="executedByEmployeeId" placeholder="Executed by employee ID" />
+        <button class="button button-small" type="submit">Execute lifecycle action</button>
+      </form>
+    </article>
+  `;
+}
+
+function renderSignalControls(summary: ProductVisibilitySummary): string {
+  return `
+    <article class="control-card">
+      <h4>Signal simulation</h4>
+      <p class="muted small">Send validation, monitoring, or customer feedback signals into AEP.</p>
+      <form class="compact-form" data-form="ingest-product-signal" data-project-id="${escapeHtml(summary.project.id)}">
+        <select name="source">
+          <option value="validation">Validation</option>
+          <option value="monitoring">Monitoring</option>
+          <option value="customer_intake">Customer intake</option>
+        </select>
+        <select name="severity">
+          <option value="info">Info</option>
+          <option value="warning">Warning</option>
+          <option value="failed">Failed</option>
+          <option value="critical">Critical</option>
+        </select>
+        <input name="title" placeholder="Signal title" required />
+        <textarea name="body" placeholder="Signal details" required></textarea>
+        <button class="button button-small" type="submit">Send signal</button>
+      </form>
+    </article>
   `;
 }
 

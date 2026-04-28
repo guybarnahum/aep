@@ -30,6 +30,11 @@ import type {
   ProductInterventionAction,
   ProductInterventionResponse,
   ProductVisibilitySummary,
+  ProductDeploymentExecutionResponse,
+  ProductLifecycleAction,
+  ProductLifecycleExecutionResponse,
+  ProductLifecycleRequestResponse,
+  ProductSignalResponse,
   ProjectTaskGraphTaskInput,
   TaskDetail,
   TaskRecord,
@@ -724,6 +729,75 @@ export async function createProductIntervention(input: {
       targetArtifactId: input.targetArtifactId,
       targetDeploymentId: input.targetDeploymentId,
     },
+  );
+}
+
+export async function executeProductDeployment(input: {
+  deploymentId: string;
+  executedByEmployeeId: string;
+}): Promise<ProductDeploymentExecutionResponse> {
+  return postJson<ProductDeploymentExecutionResponse>(
+    getOperatorAgentBaseUrl(),
+    `/agent/product-deployments/${encodeURIComponent(input.deploymentId)}/execute`,
+    { executedByEmployeeId: input.executedByEmployeeId },
+  );
+}
+
+export async function requestProductLifecycleAction(input: {
+  projectId: string;
+  action: ProductLifecycleAction;
+  requestedByEmployeeId: string;
+  reason: string;
+  targetState?: string;
+}): Promise<ProductLifecycleRequestResponse> {
+  return postJson<ProductLifecycleRequestResponse>(
+    getOperatorAgentBaseUrl(),
+    `/agent/projects/${encodeURIComponent(input.projectId)}/lifecycle-actions`,
+    {
+      action: input.action,
+      requestedByEmployeeId: input.requestedByEmployeeId,
+      reason: input.reason,
+      targetState: input.targetState,
+    },
+  );
+}
+
+export async function executeProductLifecycleAction(input: {
+  projectId: string;
+  approvalId: string;
+  executedByEmployeeId: string;
+}): Promise<ProductLifecycleExecutionResponse> {
+  return postJson<ProductLifecycleExecutionResponse>(
+    getOperatorAgentBaseUrl(),
+    `/agent/projects/${encodeURIComponent(input.projectId)}/lifecycle-actions/execute`,
+    {
+      approvalId: input.approvalId,
+      executedByEmployeeId: input.executedByEmployeeId,
+    },
+  );
+}
+
+export async function ingestProductSignal(input: {
+  companyId?: string;
+  projectId?: string;
+  source: "validation" | "monitoring" | "customer_intake";
+  severity: "info" | "warning" | "failed" | "critical";
+  classification?:
+    | "validation_failure"
+    | "monitoring_alert"
+    | "customer_feedback"
+    | "deployment_regression"
+    | "needs_triage";
+  title: string;
+  body: string;
+  sourceUrl?: string;
+  externalSignalId?: string;
+  receivedAt?: string;
+}): Promise<ProductSignalResponse> {
+  return postJson<ProductSignalResponse>(
+    getOperatorAgentBaseUrl(),
+    "/agent/product-signals",
+    input as unknown as Record<string, unknown>,
   );
 }
 

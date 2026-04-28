@@ -1100,6 +1100,33 @@ CI guard:
 npm run ci:lifecycle-execution-contract-check
 ```
 
+### PR26 - Manual Tutorial Readiness
+
+PR26 makes the TUTORIAL.md flow manually operable from the dashboard without
+adding new backend primitives.
+
+Implemented:
+
+- tutorial intake creation surface
+- product-page deployment approval / execution controls
+- product-page lifecycle request / execution controls
+- product-page signal simulation controls
+- dashboard API helpers for existing canonical routes
+
+Boundaries:
+
+- UI calls canonical AEP routes only
+- UI does not own product state
+- UI does not mutate task/project/deployment state directly
+- deployment execution still goes through `/agent/product-deployments/:id/execute`
+- lifecycle state changes still go through approved lifecycle execution
+
+CI guard:
+
+```bash
+npm run ci:manual-tutorial-readiness-contract-check
+```
+
 PR19A should begin by defining how AEP represents a product initiative without
 inventing a parallel workflow system. Prefer extending or specializing the
 existing project/intake/task/artifact model before adding new primitives.
