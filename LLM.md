@@ -937,6 +937,8 @@ Important invariants:
 - creating a deployment record does not execute external deployment
 - only `deployment_candidate` artifacts in `ready_for_deployment` state can create deployment records
 - `external_safe` deployment records require approval linkage
+- PR19C currently enforces approval id presence, not approval existence/approved-status verification
+- PR19H must enforce: `external_safe` cannot move to `deployed` without a valid approved approval record
 - provider systems may supply URLs/evidence later but must not own canonical deployment state
 - deployment state is visible and human-intervenable
 

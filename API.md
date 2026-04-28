@@ -445,6 +445,10 @@ PR19C introduces canonical deployment records.
 	- `canceled`
 - `external_safe` deployments require an approval id before moving to
   `approved`, `in_progress`, or `deployed`.
+- PR19C caveat: this route currently validates approval id presence, but does
+	not yet verify approval existence or approved status.
+- PR19H target: `external_safe` must not transition to `deployed` without a
+	valid approved approval record.
 
 Important invariants:
 
