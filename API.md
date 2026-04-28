@@ -475,6 +475,10 @@ Important invariants:
 	- `deployed`
 	- or `failed`
 - Provider URLs and external IDs are stored as evidence / metadata only.
+- PR20B performs real provider calls:
+	- GitHub repository creation/update from `repository.files`
+	- Cloudflare Pages deployment from `bundle.files`
+	- Cloudflare Workers script upload from `workerScript`
 
 Important invariant:
 

@@ -79,6 +79,7 @@
     "ci:product-visibility-contract-check": "tsx scripts/ci/checks/contracts/product-visibility-contract-check.ts",
     "ci:product-ui-contract-check": "tsx scripts/ci/checks/contracts/product-ui-contract-check.ts",
     "ci:provider-adapter-contract-check": "tsx scripts/ci/checks/contracts/provider-adapter-contract-check.ts",
+    "ci:provider-real-execution-contract-check": "tsx scripts/ci/checks/contracts/provider-real-execution-contract-check.ts",
     "ci:full-product-ui-contract-check": "tsx scripts/ci/checks/contracts/full-product-ui-contract-check.ts",
     "ci:boundary-enforcement-check": "tsx scripts/ci/checks/contracts/boundary-enforcement-check.ts",
     "ci:tutorial-alignment-check": "tsx scripts/ci/checks/contracts/tutorial-alignment-check.ts",

@@ -916,6 +916,32 @@ CI guard:
 npm run ci:provider-adapter-contract-check
 ```
 
+### PR20B - Real Provider Execution
+
+PR20B replaces the PR20 synthetic provider boundary with real provider calls.
+
+Implemented:
+
+- GitHub repo creation or reuse via GitHub API
+- GitHub file upsert from deployable `repository.files`
+- Cloudflare Pages project creation or reuse
+- Cloudflare Pages deployment from deployable `bundle.files`
+- Cloudflare Worker script upload from deployable `workerScript`
+- provider URLs and provider IDs returned as deployment evidence only
+
+Boundaries:
+
+- execution still starts only from `POST /agent/product-deployments/:id/execute`
+- dashboard still cannot execute deployments
+- provider state is evidence, not canonical state
+- AEP deployment records remain canonical
+
+CI guard:
+
+```bash
+npm run ci:provider-real-execution-contract-check
+```
+
 ### PR21B - Full Product UI
 
 PR21B extends the minimal product UI with richer read-only product visibility.
