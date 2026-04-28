@@ -70,6 +70,7 @@
     "ci:pr19-product-initiative-contract-check": "tsx scripts/ci/checks/contracts/pr19-product-initiative-contract-check.ts",
     "ci:pr19-deployable-artifact-contract-check": "tsx scripts/ci/checks/contracts/pr19-deployable-artifact-contract-check.ts",
     "ci:pr19-deployment-system-contract-check": "tsx scripts/ci/checks/contracts/pr19-deployment-system-contract-check.ts",
+    "ci:pr19-external-surface-contract-check": "tsx scripts/ci/checks/contracts/pr19-external-surface-contract-check.ts",
     "ci:no-hardcoded-runtime-identifiers": "tsx scripts/ci/checks/contracts/no-hardcoded-runtime-identifiers-check.ts",
     "ci:task-dependency-integrity-check": "tsx scripts/ci/checks/contracts/task-dependency-integrity-check.ts",
     "ci:task-artifact-contract-check": "tsx scripts/ci/checks/contracts/task-artifact-contract-check.ts",

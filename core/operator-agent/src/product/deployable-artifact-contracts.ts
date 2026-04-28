@@ -1,5 +1,9 @@
 import type { TaskArtifactType } from "../lib/store-types";
 import type { ProductSurface } from "./product-initiative-contracts";
+import {
+  ExternalSurfaceValidationError,
+  validateExternalSurfaceContent,
+} from "./external-surface-contracts";
 
 export const DEPLOYABLE_ARTIFACT_KINDS = [
   "github_repository",
@@ -111,6 +115,10 @@ export class DeployableArtifactValidationError extends Error {
   }
 }
 
+export type DeployableArtifactContractValidationError =
+  | DeployableArtifactValidationError
+  | ExternalSurfaceValidationError;
+
 export function parseDeployableArtifactKind(
   value: unknown,
 ): DeployableArtifactKind | undefined {
@@ -201,4 +209,8 @@ export function validateDeployableArtifactContent(args: {
       field: "productSurface",
     });
   }
+
+  validateExternalSurfaceContent(args.content);
 }
+
+export { ExternalSurfaceValidationError };

@@ -935,6 +935,42 @@ PR16G closeout note:
 - Deployable artifacts do not deploy anything by themselves.
 - External exposure requires a later canonical deployment record and approval.
 
+PR19D note: deployable artifacts may also describe an external surface by
+including `externalSurfaceKind`.
+
+Supported external surface kinds:
+
+- `marketing_site`
+- `customer_intake`
+- `public_progress`
+
+External surface artifacts must include:
+
+- `externalSurfaceKind`
+- `productSurface`
+- `stateOwnership: "aep"`
+- `allowedActions`
+- `aepRoutes`
+- `publicDataPolicy`
+
+External surfaces may route customer demand into canonical AEP intake through:
+
+```http
+POST /agent/intake
+```
+
+External surfaces must not:
+
+- own canonical state
+- mutate tasks directly
+- mutate approvals directly
+- mutate deployment records directly
+- mutate staffing or employees directly
+- expose private cognition, prompt internals, or hidden reasoning
+
+Any external action must map to a safe canonical route, usually intake or
+read-only public projection routes.
+
 ### Messages And Threads
 
 `GET /agent/messages`

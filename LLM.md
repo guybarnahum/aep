@@ -948,6 +948,50 @@ PR19C CI guard:
 npm run ci:pr19-deployment-system-contract-check
 ```
 
+### PR19D - External Surface Contract
+
+PR19D defines what a customer-facing surface may expose.
+
+External surfaces are not state owners.
+
+Supported external surface kinds:
+
+- `marketing_site`
+- `customer_intake`
+- `public_progress`
+
+External surface invariants:
+
+- canonical owner is AEP
+- state ownership must be `aep`
+- customer requests route into canonical AEP intake
+- external surfaces must not mutate tasks directly
+- external surfaces must not mutate approvals directly
+- external surfaces must not mutate deployment records directly
+- external surfaces must not mutate employees or staffing directly
+- external surfaces must not expose private cognition, prompt internals, hidden reasoning, or employee private thought
+
+External surfaces may expose safe actions such as:
+
+- `submit_intake`
+- `request_contact`
+- `view_public_progress`
+- `view_public_artifact`
+
+External surfaces are validated as part of deployable artifact creation when the
+artifact content includes `externalSurfaceKind`.
+
+Important invariant:
+
+> The website may be public, but the organization remains private and canonical
+> state remains inside AEP.
+
+PR19D CI guard:
+
+```bash
+npm run ci:pr19-external-surface-contract-check
+```
+
 Important invariant:
 
 > The product surface is the output. The organization runtime is the builder.

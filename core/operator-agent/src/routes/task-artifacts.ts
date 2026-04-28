@@ -4,6 +4,7 @@ import { newId } from "@aep/shared";
 import type { OperatorAgentEnv } from "@aep/operator-agent/types";
 import {
   DeployableArtifactValidationError,
+  ExternalSurfaceValidationError,
   validateDeployableArtifactContent,
 } from "../product/deployable-artifact-contracts";
 
@@ -67,13 +68,19 @@ export async function handleCreateTaskArtifact(
       content: body.content ?? {},
     });
   } catch (error) {
-    if (error instanceof DeployableArtifactValidationError) {
+    if (
+      error instanceof DeployableArtifactValidationError ||
+      error instanceof ExternalSurfaceValidationError
+    ) {
+      const validationError = error as
+        | DeployableArtifactValidationError
+        | ExternalSurfaceValidationError;
       return Response.json(
         {
           ok: false,
-          error: error.message,
-          code: error.code,
-          field: error.field ?? null,
+          error: validationError.message,
+          code: validationError.code,
+          field: validationError.field ?? null,
         },
         { status: 400 },
       );
