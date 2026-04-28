@@ -230,6 +230,11 @@ type IntakeRequestRow = {
   description: string | null;
   requested_by: string;
   source: string;
+  external_surface_kind: string | null;
+  product_surface: string | null;
+  source_url: string | null;
+  idempotency_key: string | null;
+  customer_contact_json: string | null;
   status: string;
   created_at: string;
 };
@@ -499,6 +504,12 @@ function rowToIntakeRequest(row: IntakeRequestRow): IntakeRequest {
     description: row.description,
     requestedBy: row.requested_by,
     source: row.source,
+    externalSurfaceKind: row.external_surface_kind as IntakeRequest["externalSurfaceKind"],
+    productSurface: row.product_surface as IntakeRequest["productSurface"],
+    sourceUrl: row.source_url,
+    idempotencyKey: row.idempotency_key,
+    customerContact:
+      fromJson<Record<string, unknown>>(row.customer_contact_json) ?? null,
     status: row.status as IntakeRequest["status"],
     createdAt: row.created_at,
   };
@@ -889,8 +900,10 @@ export class D1TaskStore implements TaskStore {
       .prepare(
         `INSERT INTO intake_requests (
           id, company_id, title, description,
-          requested_by, source, status, created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          requested_by, source, external_surface_kind, product_surface,
+          source_url, idempotency_key, customer_contact_json,
+          status, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .bind(
         args.id,
@@ -899,6 +912,11 @@ export class D1TaskStore implements TaskStore {
         args.description ?? null,
         args.requestedBy,
         args.source,
+        args.externalSurfaceKind ?? null,
+        args.productSurface ?? null,
+        args.sourceUrl ?? null,
+        args.idempotencyKey ?? null,
+        toJson(args.customerContact ?? null),
         args.status,
         args.createdAt,
       )
@@ -919,22 +937,39 @@ export class D1TaskStore implements TaskStore {
   }
 
   async listIntakeRequests(query: IntakeListQuery): Promise<IntakeRequest[]> {
+    const clauses: string[] = [];
+    const binds: Array<string | number> = [];
+
+    if (query.companyId) {
+      clauses.push("company_id = ?");
+      binds.push(query.companyId);
+    }
+
+    if (query.externalSurfaceKind) {
+      clauses.push("external_surface_kind = ?");
+      binds.push(query.externalSurfaceKind);
+    }
+
+    if (query.idempotencyKey) {
+      clauses.push("idempotency_key = ?");
+      binds.push(query.idempotencyKey);
+    }
+
+    const where = clauses.length > 0 ? `WHERE ${clauses.join(" AND ")}` : "";
+
     const rows = await this.db
       .prepare(
         `SELECT * FROM intake_requests
-         WHERE (? IS NULL OR company_id = ?)
+         ${where}
          ORDER BY created_at DESC
          LIMIT ?`,
       )
-      .bind(
-        query.companyId ?? null,
-        query.companyId ?? null,
-        query.limit ?? 50,
-      )
+      .bind(...binds, query.limit ?? 50)
       .all<IntakeRequestRow>();
 
     return (rows.results ?? []).map(rowToIntakeRequest);
   }
+
 
   async updateIntakeRequestStatus(args: IntakeStatusUpdate): Promise<void> {
     await this.db

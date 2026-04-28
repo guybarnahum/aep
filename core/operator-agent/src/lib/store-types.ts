@@ -22,6 +22,7 @@ import type {
   ProductInitiativeKind,
   ProductSurface,
 } from "../product/product-initiative-contracts";
+import type { ExternalSurfaceKind } from "../product/external-surface-contracts";
 
 export interface IApprovalStore {
   write(record: ApprovalRecord): Promise<void>;
@@ -121,12 +122,19 @@ export type IntakeRequest = {
   description?: string | null;
   requestedBy: string;
   source: string;
+  externalSurfaceKind?: ExternalSurfaceKind | null;
+  productSurface?: ProductSurface | null;
+  sourceUrl?: string | null;
+  idempotencyKey?: string | null;
+  customerContact?: Record<string, unknown> | null;
   status: IntakeRequestStatus;
   createdAt: string;
 };
 
 export type IntakeListQuery = {
   companyId?: string;
+  externalSurfaceKind?: ExternalSurfaceKind;
+  idempotencyKey?: string;
   limit?: number;
 };
 

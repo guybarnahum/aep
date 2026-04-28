@@ -43,6 +43,7 @@ import {
   handleListIntake,
   handleUpdateIntakeStatus,
 } from "./routes/intake";
+import { handleCreateCustomerIntake } from "./routes/customer-intake";
 import { handleConvertIntakeToProject } from "./routes/intake-convert";
 import {
   handleCreateProject,
@@ -429,6 +430,10 @@ async function dispatch(request: Request, env: OperatorAgentEnv): Promise<Respon
     if (request.method === "GET") {
       return handleListIntake(request, env);
     }
+  }
+
+  if (url.pathname === "/agent/customer-intake") {
+    return handleCreateCustomerIntake(request, env);
   }
 
   const intakeConvertMatch = url.pathname.match(/^\/agent\/intake\/([^/]+)\/convert-to-project$/);

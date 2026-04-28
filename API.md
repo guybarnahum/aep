@@ -458,6 +458,64 @@ Important invariants:
 - External URLs and provider IDs are evidence attached to the canonical record,
   not ownership of deployment state.
 
+### Customer intake
+
+PR19E introduces a customer-safe intake route for external surfaces.
+
+`POST /agent/customer-intake`
+
+- Creates a canonical AEP intake request from a customer-facing surface.
+- Does not create projects.
+- Does not create tasks.
+- Does not create approvals.
+- Does not create deployments.
+- Does not mutate staffing or employee state.
+
+Required body fields:
+
+- `title`
+- `externalSurfaceKind`
+- `productSurface`
+- `sourceUrl`
+- `publicDataPolicy`
+
+Optional body fields:
+
+- `companyId` - defaults to `company_internal_aep`
+- `description`
+- `requestedBy` - defaults to `external_customer`
+- `customerContact`
+- `idempotencyKey`
+
+Supported external surface kinds are defined by PR19D:
+
+- `marketing_site`
+- `customer_intake`
+- `public_progress`
+
+Only external surfaces whose contract allows `submit_intake` may call this
+route.
+
+The route writes:
+
+- canonical `intake_requests`
+- an org-visible coordination thread
+- an org-visible coordination message
+
+The route preserves external provenance:
+
+- `externalSurfaceKind`
+- `productSurface`
+- `sourceUrl`
+- `idempotencyKey`
+- `customerContact`
+
+Important invariant:
+
+> Customer-facing surfaces submit demand. AEP decides whether and how to turn
+> that demand into projects, tasks, staffing, approvals, artifacts, and
+> deployments.
+
 `GET /agent/projects`
 
 - List canonical projects.

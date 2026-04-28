@@ -992,6 +992,57 @@ PR19D CI guard:
 npm run ci:pr19-external-surface-contract-check
 ```
 
+### PR19E - Customer Intake Flow
+
+PR19E connects external-safe product surfaces to canonical AEP intake.
+
+Flow:
+
+```text
+external surface
+  -> POST /agent/customer-intake
+  -> canonical intake_request
+  -> visible coordination thread/message
+  -> PM triage
+  -> optional conversion to product initiative project
+```
+
+The customer intake route is intentionally narrow.
+
+It may:
+
+- create canonical intake
+- preserve customer/external provenance
+- publish an org-visible coordination trace
+- deduplicate by idempotency key
+
+It must not:
+
+- create projects directly
+- create tasks directly
+- create approvals directly
+- create deployments directly
+- mutate employees or staffing directly
+- expose private cognition or prompt internals
+
+Customer intake records preserve:
+
+- `externalSurfaceKind`
+- `productSurface`
+- `sourceUrl`
+- `idempotencyKey`
+- `customerContact`
+
+Important invariant:
+
+> The website creates demand. The organization decides what work exists.
+
+PR19E CI guard:
+
+```bash
+npm run ci:pr19-customer-intake-flow-contract-check
+```
+
 Important invariant:
 
 > The product surface is the output. The organization runtime is the builder.
