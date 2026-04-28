@@ -241,20 +241,25 @@ jobs:
         continue-on-error: true
         run: npm run ci:full-product-ui-contract-check | tee full-product-ui-contract-check.log
 
-      - name: Run PR22 Jira ingest contract check
-        id: pr22_jira_ingest_contract
+      - name: Run jira ingest contract check
+        id: jira_ingest_contract
         continue-on-error: true
-        run: npm run ci:pr22-jira-ingest-contract-check | tee pr22-jira-ingest-contract-check.log
+        run: npm run ci:jira-ingest-contract-check | tee jira-ingest-contract-check.log
 
-      - name: Run PR23 signal ingest contract check
-        id: pr23_signal_ingest_contract
+      - name: Run signal ingest contract check
+        id: signal_ingest_contract
         continue-on-error: true
-        run: npm run ci:pr23-signal-ingest-contract-check | tee pr23-signal-ingest-contract-check.log
+        run: npm run ci:signal-ingest-contract-check | tee signal-ingest-contract-check.log
 
-      - name: Run PR24 lifecycle contract check
-        id: pr24_lifecycle_contract
+      - name: Run lifecycle contract check
+        id: lifecycle_contract
         continue-on-error: true
-        run: npm run ci:pr24-lifecycle-contract-check | tee pr24-lifecycle-contract-check.log
+        run: npm run ci:lifecycle-contract-check | tee lifecycle-contract-check.log
+
+      - name: Run lifecycle execution contract check
+        id: lifecycle_execution_contract
+        continue-on-error: true
+        run: npm run ci:lifecycle-execution-contract-check | tee lifecycle-execution-contract-check.log
 
       - name: Run boundary enforcement check
         id: boundary_enforcement
@@ -304,9 +309,10 @@ jobs:
             "${{ steps.provider_adapter_contract.outcome }}" == "success" && \
             "${{ steps.provider_real_execution_contract.outcome }}" == "success" && \
             "${{ steps.full_product_ui_contract.outcome }}" == "success" && \
-            "${{ steps.pr22_jira_ingest_contract.outcome }}" == "success" && \
-            "${{ steps.pr23_signal_ingest_contract.outcome }}" == "success" && \
-            "${{ steps.pr24_lifecycle_contract.outcome }}" == "success" && \
+            "${{ steps.jira_ingest_contract.outcome }}" == "success" && \
+            "${{ steps.signal_ingest_contract.outcome }}" == "success" && \
+            "${{ steps.lifecycle_contract.outcome }}" == "success" && \
+            "${{ steps.lifecycle_execution_contract.outcome }}" == "success" && \
             "${{ steps.boundary_enforcement.outcome }}" == "success" && \
             "${{ steps.tutorial_alignment.outcome }}" == "success" \
           ]]; then
@@ -373,9 +379,10 @@ jobs:
           echo "- $(status_emoji \"${{ steps.provider_adapter_contract.outcome }}\") provider-adapter-contract-check: ${{ steps.provider_adapter_contract.outcome }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- $(status_emoji \"${{ steps.provider_real_execution_contract.outcome }}\") provider-real-execution-contract-check: ${{ steps.provider_real_execution_contract.outcome }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- $(status_emoji \"${{ steps.full_product_ui_contract.outcome }}\") full-product-ui-contract-check: ${{ steps.full_product_ui_contract.outcome }}" >> "$GITHUB_STEP_SUMMARY"
-          echo "- $(status_emoji \"${{ steps.pr22_jira_ingest_contract.outcome }}\") pr22-jira-ingest-contract-check: ${{ steps.pr22_jira_ingest_contract.outcome }}" >> "$GITHUB_STEP_SUMMARY"
-          echo "- $(status_emoji \"${{ steps.pr23_signal_ingest_contract.outcome }}\") pr23-signal-ingest-contract-check: ${{ steps.pr23_signal_ingest_contract.outcome }}" >> "$GITHUB_STEP_SUMMARY"
-          echo "- $(status_emoji \"${{ steps.pr24_lifecycle_contract.outcome }}\") pr24-lifecycle-contract-check: ${{ steps.pr24_lifecycle_contract.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- $(status_emoji \"${{ steps.jira_ingest_contract.outcome }}\") jira-ingest-contract-check: ${{ steps.jira_ingest_contract.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- $(status_emoji \"${{ steps.signal_ingest_contract.outcome }}\") signal-ingest-contract-check: ${{ steps.signal_ingest_contract.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- $(status_emoji \"${{ steps.lifecycle_contract.outcome }}\") lifecycle-contract-check: ${{ steps.lifecycle_contract.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- $(status_emoji \"${{ steps.lifecycle_execution_contract.outcome }}\") lifecycle-execution-contract-check: ${{ steps.lifecycle_execution_contract.outcome }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- $(status_emoji \"${{ steps.boundary_enforcement.outcome }}\") boundary-enforcement-check: ${{ steps.boundary_enforcement.outcome }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- $(status_emoji \"${{ steps.tutorial_alignment.outcome }}\") tutorial-alignment-check: ${{ steps.tutorial_alignment.outcome }}" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"

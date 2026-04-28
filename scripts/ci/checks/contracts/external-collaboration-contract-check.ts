@@ -162,8 +162,8 @@ assert(
 );
 
 assert(
-  packageSource.includes("ci:pr22-jira-ingest-contract-check"),
-  "package.json must expose PR22 Jira ingest contract check",
+  packageSource.includes("ci:jira-ingest-contract-check"),
+  "package.json must expose Jira ingest contract check",
 );
 
 const requiredPr17Scripts = [
@@ -175,7 +175,7 @@ const requiredPr17Scripts = [
   "ci:slack-adapter-contract-check",
   "ci:email-adapter-contract-check",
   "ci:jira-like-adapter-design-contract-check",
-  "ci:pr22-jira-ingest-contract-check",
+  "ci:jira-ingest-contract-check",
   "ci:external-adapter-state-ownership-contract-check",
 ];
 

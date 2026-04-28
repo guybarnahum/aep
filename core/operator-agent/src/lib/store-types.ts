@@ -463,6 +463,12 @@ export interface TaskStore {
   createProject(args: Project): Promise<void>;
   getProject(id: string): Promise<Project | null>;
   listProjects(query: ProjectListQuery): Promise<Project[]>;
+  applyApprovedProjectLifecycleTransition(args: {
+    projectId: string;
+    status: ProjectStatus;
+    approvalId: string;
+    executedByEmployeeId: string;
+  }): Promise<Project | null>;
 
   updateTaskStatus(taskId: string, status: TaskStatus): Promise<void>;
   parkTask(args: {

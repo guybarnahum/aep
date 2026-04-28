@@ -406,7 +406,7 @@ npm run ci:external-collaboration-contract-check
 npm run ci:slack-adapter-contract-check
 npm run ci:email-adapter-contract-check
 npm run ci:jira-like-adapter-design-contract-check
-npm run ci:pr22-jira-ingest-contract-check
+npm run ci:jira-ingest-contract-check
 npm run ci:external-adapter-state-ownership-contract-check
 ```
 
@@ -993,7 +993,7 @@ Required invariant:
 CI guard:
 
 ```bash
-npm run ci:pr22-jira-ingest-contract-check
+npm run ci:jira-ingest-contract-check
 ```
 
 ### PR23 - Continuous Product Loop
@@ -1028,7 +1028,7 @@ Forbidden:
 CI guard:
 
 ```bash
-npm run ci:pr23-signal-ingest-contract-check
+npm run ci:signal-ingest-contract-check
 ```
 
 ### PR24 - Product Lifecycle
@@ -1063,7 +1063,41 @@ Forbidden:
 CI guard:
 
 ```bash
-npm run ci:pr24-lifecycle-contract-check
+npm run ci:lifecycle-contract-check
+```
+
+### PR25 - Lifecycle Execution Finalization
+
+PR25 adds the approved execution step for lifecycle transitions.
+
+Implemented:
+
+- `POST /agent/projects/:id/lifecycle-actions/execute`
+- approval-gated project lifecycle status update
+- lifecycle-specific project transition store method
+- approval execution marking
+- org-visible execution audit message
+
+Required flow:
+
+```text
+request
+  -> approval + task
+  -> approval decision
+  -> lifecycle execute route
+  -> project status change + audit
+```
+
+Forbidden:
+
+- lifecycle request route mutating project status
+- project status mutation without approved approval
+- generic project status mutation routes
+
+CI guard:
+
+```bash
+npm run ci:lifecycle-execution-contract-check
 ```
 
 PR19A should begin by defining how AEP represents a product initiative without

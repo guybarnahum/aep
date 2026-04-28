@@ -751,6 +751,25 @@ request
 	-> state change
 ```
 
+`POST /agent/projects/:id/lifecycle-actions/execute`
+
+Executes an approved product lifecycle request.
+
+Required body:
+
+- `approvalId`
+- `executedByEmployeeId`
+
+Contract:
+
+- approval must exist
+- approval must be `approved`
+- approval payload must be `product_lifecycle_request`
+- approval project must match route project
+- project status change is applied only through lifecycle execution
+- approval is marked executed
+- org-visible execution audit message is created
+
 ### Dashboard product initiative UI
 
 PR21A exposes a minimal dashboard surface for product initiatives.

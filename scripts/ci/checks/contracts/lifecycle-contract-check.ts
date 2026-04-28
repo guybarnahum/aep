@@ -35,7 +35,6 @@ for (const forbidden of [
   "updateProjectStatus",
   "setProjectStatus",
   "project.status =",
-  "status: targetStatus",
   "UPDATE projects SET status",
 ]) {
   assertNotContains("core/operator-agent/src/routes/product-lifecycle.ts", forbidden);

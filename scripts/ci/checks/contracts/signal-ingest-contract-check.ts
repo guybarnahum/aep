@@ -46,4 +46,4 @@ for (const forbidden of [
   assertNotContains("core/operator-agent/src/routes/product-signals.ts", forbidden);
 }
 
-console.log("pr23-signal-ingest-contract-check passed");
+console.log("signal-ingest-contract-check passed");

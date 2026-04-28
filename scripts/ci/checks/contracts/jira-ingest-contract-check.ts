@@ -99,11 +99,11 @@ assert(
 );
 
 assert(
-  packageSource.includes('"ci:pr22-jira-ingest-contract-check"'),
-  "package.json must expose ci:pr22-jira-ingest-contract-check",
+  packageSource.includes('"ci:jira-ingest-contract-check"'),
+  "package.json must expose ci:jira-ingest-contract-check",
 );
 
-console.log("pr22-jira-ingest-contract-check passed", {
+console.log("jira-ingest-contract-check passed", {
   jiraImplemented: jiraContract.implemented,
   surfaces: jiraContract.surfaces,
 });

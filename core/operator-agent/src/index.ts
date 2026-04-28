@@ -90,7 +90,10 @@ import {
   handleJiraStatusSignal,
 } from "./routes/jira";
 import { handleIngestProductSignal } from "./routes/product-signals";
-import { handleRequestProductLifecycleAction } from "./routes/product-lifecycle";
+import {
+  handleExecuteProductLifecycleAction,
+  handleRequestProductLifecycleAction,
+} from "./routes/product-lifecycle";
 import {
   handleApproveFromThread,
   handleRejectFromThread,
@@ -571,16 +574,27 @@ async function dispatch(request: Request, env: OperatorAgentEnv): Promise<Respon
     );
   }
 
-    const productLifecycleMatch = url.pathname.match(
-      /^\/agent\/projects\/([^/]+)\/lifecycle-actions$/,
+  const productLifecycleMatch = url.pathname.match(
+    /^\/agent\/projects\/([^/]+)\/lifecycle-actions$/,
+  );
+  if (productLifecycleMatch) {
+    return handleRequestProductLifecycleAction(
+      request,
+      env,
+      decodeURIComponent(productLifecycleMatch[1]),
     );
-    if (productLifecycleMatch) {
-      return handleRequestProductLifecycleAction(
-        request,
-        env,
-        decodeURIComponent(productLifecycleMatch[1]),
-      );
-    }
+  }
+
+  const productLifecycleExecuteMatch = url.pathname.match(
+    /^\/agent\/projects\/([^/]+)\/lifecycle-actions\/execute$/,
+  );
+  if (productLifecycleExecuteMatch) {
+    return handleExecuteProductLifecycleAction(
+      request,
+      env,
+      decodeURIComponent(productLifecycleExecuteMatch[1]),
+    );
+  }
 
   const projectMatch = url.pathname.match(/^\/agent\/projects\/([^/]+)$/);
   if (projectMatch) {

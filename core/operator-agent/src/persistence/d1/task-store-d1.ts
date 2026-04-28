@@ -12,6 +12,7 @@ import {
   type IntakeStatusUpdate,
   type Project,
   type ProjectListQuery,
+  type ProjectStatus,
   type ProductDeploymentListQuery,
   type ProductDeploymentRecord,
   type ProductDeploymentStatus,
@@ -1075,6 +1076,32 @@ export class D1TaskStore implements TaskStore {
       .all<ProjectRow>();
 
     return (rows.results ?? []).map(rowToProject);
+  }
+
+  async applyApprovedProjectLifecycleTransition(args: {
+    projectId: string;
+    status: ProjectStatus;
+    approvalId: string;
+    executedByEmployeeId: string;
+  }): Promise<Project | null> {
+    const now = new Date().toISOString();
+    await this.db
+      .prepare(
+        `UPDATE projects
+         SET status = ?,
+             updated_at = ?,
+             completed_at = CASE WHEN ? = 'completed' THEN ? ELSE completed_at END,
+             archived_at = CASE WHEN ? = 'archived' THEN ? ELSE archived_at END
+         WHERE id = ?`,
+      )
+      .bind(args.status, now, args.status, now, args.status, now, args.projectId)
+      .run();
+
+    // approvalId and executedByEmployeeId are enforced by the route/approval audit layer.
+    void args.approvalId;
+    void args.executedByEmployeeId;
+
+    return this.getProject(args.projectId);
   }
 
   async updateTaskStatus(taskId: string, status: TaskStatus): Promise<void> {
