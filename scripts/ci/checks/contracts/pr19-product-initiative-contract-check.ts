@@ -7,7 +7,7 @@ import {
   PRODUCT_INITIATIVE_KINDS,
   PRODUCT_SURFACES,
   getProductInitiativeContract,
-} from "@aep/operator-agent/src/product/product-initiative-contracts";
+} from "@aep/operator-agent/product/product-initiative-contracts";
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message);

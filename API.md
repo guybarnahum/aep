@@ -846,6 +846,31 @@ PR16G closeout note:
 `POST /agent/tasks/:taskId/artifacts`
 
 - Creates a task artifact.
+- PR19B note: deployable outputs are represented as canonical task artifacts,
+  not as direct deployments.
+- A task artifact becomes deployable only when its `content` includes
+  `deployableArtifactKind`.
+- Supported deployable artifact kinds:
+	- `github_repository`
+	- `website_bundle`
+	- `deployment_candidate`
+- Deployable artifacts must include:
+	- `deployableArtifactKind`
+	- `projectId`
+	- `productSurface`
+	- `state`
+	- `stateOwnership: "aep"`
+- `github_repository` artifacts must also include `repository`.
+- `website_bundle` artifacts must also include `bundle`.
+- `deployment_candidate` artifacts must also include `artifactRef` and
+  `deploymentTarget`.
+- Deployable artifact states:
+	- `draft`
+	- `ready_for_validation`
+	- `validated`
+	- `ready_for_deployment`
+- Deployable artifacts do not deploy anything by themselves.
+- External exposure requires a later canonical deployment record and approval.
 
 ### Messages And Threads
 

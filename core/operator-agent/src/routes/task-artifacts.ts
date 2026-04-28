@@ -2,6 +2,10 @@ import { getTaskStore } from "@aep/operator-agent/lib/store-factory";
 import type { TaskArtifactType } from "@aep/operator-agent/lib/store-types";
 import { newId } from "@aep/shared";
 import type { OperatorAgentEnv } from "@aep/operator-agent/types";
+import {
+  DeployableArtifactValidationError,
+  validateDeployableArtifactContent,
+} from "../product/deployable-artifact-contracts";
 
 type CreateTaskArtifactRequest = {
   companyId?: string;
@@ -55,6 +59,26 @@ export async function handleCreateTaskArtifact(
       { ok: false, error: "artifactType must be one of plan, result, evidence" },
       { status: 400 },
     );
+  }
+
+  try {
+    validateDeployableArtifactContent({
+      artifactType: body.artifactType,
+      content: body.content ?? {},
+    });
+  } catch (error) {
+    if (error instanceof DeployableArtifactValidationError) {
+      return Response.json(
+        {
+          ok: false,
+          error: error.message,
+          code: error.code,
+          field: error.field ?? null,
+        },
+        { status: 400 },
+      );
+    }
+    throw error;
   }
 
   const store = getTaskStore(env);

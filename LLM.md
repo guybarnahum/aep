@@ -847,6 +847,54 @@ PR19A CI guard:
 npm run ci:pr19-product-initiative-contract-check
 ```
 
+### PR19B - Artifact To Deployment Contract
+
+PR19B defines deployable outputs as canonical task artifacts.
+
+Supported deployable artifact kinds:
+
+- `github_repository`
+- `website_bundle`
+- `deployment_candidate`
+
+Deployable artifact invariants:
+
+- deployable artifacts live inside existing task artifacts
+- no deployment happens when the artifact is created
+- external exposure requires a later deployment record
+- external exposure requires approval
+- AEP remains the source of truth for state
+- GitHub, Pages, Workers, Jira, and other systems may hold external IDs or surfaces, but must not own canonical product/deployment state
+- private cognition is never included in deployable artifact content
+
+Required deployable artifact content:
+
+```text
+deployableArtifactKind
+projectId
+productSurface
+state
+stateOwnership: "aep"
+```
+
+Kind-specific content:
+
+```text
+github_repository -> repository
+website_bundle -> bundle
+deployment_candidate -> artifactRef + deploymentTarget
+```
+
+PR19B CI guard:
+
+```bash
+npm run ci:pr19-deployable-artifact-contract-check
+```
+
+Important invariant:
+
+> PR19B defines what can later be deployed. PR19B does not deploy it.
+
 Important invariant:
 
 > The product surface is the output. The organization runtime is the builder.
