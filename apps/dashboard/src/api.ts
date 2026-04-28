@@ -39,6 +39,7 @@ import type {
   TaskDetail,
   TaskRecord,
   ApprovalRecord,
+  ApprovalMutationResponse,
   ControlHistoryRecord,
   DepartmentOverview,
   EscalationMutationResponse,
@@ -1441,9 +1442,9 @@ export async function delegateTaskFromThread(
 export async function approveApproval(
   approvalId: string,
   decidedBy = "dashboard-operator",
-  decisionNote = "Approved from dashboard operator review.",
-): Promise<{ ok: boolean; approval?: ApprovalRecord }> {
-  return postJson<{ ok: boolean; approval?: ApprovalRecord }>(
+  decisionNote?: string,
+): Promise<ApprovalMutationResponse> {
+  return postJson<ApprovalMutationResponse>(
     getOperatorAgentBaseUrl(),
     "/agent/approvals/approve",
     { approvalId, decidedBy, decisionNote },
@@ -1453,9 +1454,9 @@ export async function approveApproval(
 export async function rejectApproval(
   approvalId: string,
   decidedBy = "dashboard-operator",
-  decisionNote = "Rejected from dashboard operator review.",
-): Promise<{ ok: boolean; approval?: ApprovalRecord }> {
-  return postJson<{ ok: boolean; approval?: ApprovalRecord }>(
+  decisionNote?: string,
+): Promise<ApprovalMutationResponse> {
+  return postJson<ApprovalMutationResponse>(
     getOperatorAgentBaseUrl(),
     "/agent/approvals/reject",
     { approvalId, decidedBy, decisionNote },
