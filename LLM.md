@@ -5,6 +5,7 @@ Repository (source of truth):
 
 The repository code is the source of truth.  
 This document is aligned to commit `6e6b82dfc34c19e5f0851f5928731a41e756446b`.
+This document has been updated for PR21A planning after baseline `bed9a59da43a7e9467d22af702a52303eaeca8d1`.
 
 Endpoint documentation note for future LLM sessions:
 
@@ -854,6 +855,35 @@ Important:
 > PR19 completes the **model and control loop**.
 > Post-PR19 work should focus on provider adapters, UI, and operational scale —
 > not changing the core model.
+
+### PR21A - Minimal Product UI
+
+PR21A adds the first human-facing dashboard surface for product initiatives.
+
+Implemented:
+
+- product initiative list
+- product initiative creation through canonical `POST /agent/projects`
+- product initiative detail through `GET /agent/projects/:id/product-visibility`
+- read-only task graph summary
+- read-only deployable artifacts and deployment records
+- human intervention creation through `POST /agent/projects/:id/interventions`
+- public intervention / decision history from PR19G visibility messages
+
+Boundaries:
+
+- dashboard reflects AEP state
+- dashboard does not own product state
+- dashboard does not execute deployments
+- dashboard does not mutate task status
+- dashboard does not edit GitHub/provider state
+- human steering creates canonical organizational signals only
+
+CI guard:
+
+```bash
+npm run ci:product-ui-contract-check
+```
 
 PR19A should begin by defining how AEP represents a product initiative without
 inventing a parallel workflow system. Prefer extending or specializing the

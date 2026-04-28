@@ -274,6 +274,66 @@ export type ProjectRecord = {
   updatedAt: string;
   completedAt?: string | null;
   archivedAt?: string | null;
+  initiativeKind?:
+    | "marketing_site"
+    | "customer_intake_surface"
+    | "tenant_conversion_surface"
+    | null;
+  productSurface?: "website_bundle" | "customer_intake" | "public_progress" | null;
+  externalVisibility?: "internal_only" | "external_safe" | null;
+};
+
+export type ProductDeploymentRecord = {
+  deploymentId: string;
+  companyId: string;
+  projectId: string;
+  sourceTaskId?: string | null;
+  sourceArtifactId: string;
+  requestedByEmployeeId: string;
+  environment: string;
+  externalVisibility: "internal_only" | "external_safe";
+  status: "requested" | "approved" | "in_progress" | "deployed" | "failed" | "canceled";
+  approvalId?: string | null;
+  targetUrl?: string | null;
+  deploymentTarget?: Record<string, unknown> | null;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export type ProductInterventionAction =
+  | "add_direction"
+  | "request_redesign"
+  | "change_priority"
+  | "review_validation"
+  | "review_deployment_risk"
+  | "pause_for_human_review";
+
+export type ProductVisibilitySummary = {
+  ok: boolean;
+  project: ProjectRecord;
+  sourceIntake?: IntakeRequestRecord | null;
+  relatedCustomerIntake?: IntakeRequestRecord[];
+  taskCounts: Record<string, number>;
+  taskTypeCounts?: Record<string, number>;
+  activeTasks: TaskRecord[];
+  blockedTasks: TaskRecord[];
+  recentTasks: TaskRecord[];
+  deployableArtifacts: TaskArtifactRecord[];
+  deploymentRecords: ProductDeploymentRecord[];
+  recentMessages: EmployeeMessageRecord[];
+  suggestedInterventions: Array<{
+    action: ProductInterventionAction;
+    label?: string;
+    reason?: string;
+  }>;
+};
+
+export type ProductInterventionResponse = {
+  ok: boolean;
+  projectId: string;
+  threadId: string;
+  messageId: string;
+  taskId: string;
 };
 
 export type ProjectTaskGraphTaskInput = {

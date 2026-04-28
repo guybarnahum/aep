@@ -67,6 +67,8 @@ import {
   createIntakeRequest,
   convertIntakeToProject,
   createProjectTaskGraph,
+  createProductInitiative,
+  createProductIntervention,
   createEmployee,
   createEmployeeReview,
   createCanonicalThreadMessage,
@@ -81,6 +83,8 @@ import {
   getEmployeeEmploymentEvents,
   getEmployeeReviews,
   getCompanyWorkIntakeOverview,
+  getProductInitiatives,
+  getProductVisibility,
   getExternalMirrorOverview,
   getMessageThreadDetail,
   getMessageThreads,
@@ -133,6 +137,8 @@ import {
   renderEmployeesDirectory,
   renderExternalMirrorOverview,
   renderIntakeProjectsOverview,
+  renderProductInitiativeDetail,
+  renderProductInitiativesOverview,
   renderNarrativeTimeline,
   renderPrimaryNav,
   renderRoleDetail,
@@ -178,6 +184,8 @@ type Route =
   | { kind: "service"; tenantId: string; serviceId: string }
   | { kind: "work" }
   | { kind: "intakeProjects" }
+  | { kind: "productInitiatives" }
+  | { kind: "productInitiative"; projectId: string }
   | { kind: "task"; taskId: string }
   | { kind: "thread"; threadId: string }
   | { kind: "employees" }
@@ -358,6 +366,8 @@ function isLiveOperationalRoute(route: Route): boolean {
   return (
     route.kind === "work" ||
     route.kind === "intakeProjects" ||
+    route.kind === "productInitiatives" ||
+    route.kind === "productInitiative" ||
     route.kind === "task" ||
     route.kind === "thread" ||
     route.kind === "employee" ||
@@ -373,6 +383,10 @@ function getLiveSurfaceLabel(route: Route): string | null {
       return "Canonical work";
     case "intakeProjects":
       return "Intake & Projects";
+    case "productInitiatives":
+      return "Product initiatives";
+    case "productInitiative":
+      return "Product initiative detail";
     case "task":
       return "Task detail";
     case "thread":
@@ -484,6 +498,10 @@ function getRoute(defaultTenantId: string): Route {
     return { kind: "intakeProjects" };
   }
 
+  if (hash === "product-initiatives") {
+    return { kind: "productInitiatives" };
+  }
+
   if (hash === "employees") {
     return { kind: "employees" };
   }
@@ -550,6 +568,14 @@ function getRoute(defaultTenantId: string): Route {
     return {
       kind: "role",
       roleId: decodeURIComponent(roleMatch[1]),
+    };
+  }
+
+  const productInitiativeMatch = hash.match(/^product-initiative\/(.+)$/);
+  if (productInitiativeMatch?.[1]) {
+    return {
+      kind: "productInitiative",
+      projectId: decodeURIComponent(productInitiativeMatch[1]),
     };
   }
 
@@ -1278,6 +1304,109 @@ function attachIntakeProjectHandlers(): void {
     });
 }
 
+function attachProductInitiativeHandlers(): void {
+  const form = document.querySelector<HTMLFormElement>("#create-product-initiative-form");
+  if (!form) {
+    return;
+  }
+
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const formData = new FormData(form);
+
+    try {
+      setMutationStatus("Creating product initiative...");
+      void renderRoute();
+
+      const initiativeKindRaw = String(formData.get("initiativeKind") ?? "marketing_site");
+      const productSurfaceRaw = String(formData.get("productSurface") ?? "website_bundle");
+      const externalVisibilityRaw = String(formData.get("externalVisibility") ?? "internal_only");
+
+      const project = await createProductInitiative({
+        companyId: "company_internal_aep",
+        title: String(formData.get("title") ?? "").trim(),
+        description: String(formData.get("description") ?? "").trim() || undefined,
+        createdByEmployeeId:
+          String(formData.get("createdByEmployeeId") ?? "").trim() || undefined,
+        initiativeKind:
+          initiativeKindRaw === "customer_intake_surface" ||
+          initiativeKindRaw === "tenant_conversion_surface"
+            ? initiativeKindRaw
+            : "marketing_site",
+        productSurface:
+          productSurfaceRaw === "customer_intake" ||
+          productSurfaceRaw === "public_progress"
+            ? productSurfaceRaw
+            : "website_bundle",
+        externalVisibility:
+          externalVisibilityRaw === "external_safe"
+            ? "external_safe"
+            : "internal_only",
+      });
+
+      setMutationStatus(`Created initiative ${project.id}`);
+      window.location.hash = `product-initiative/${encodeURIComponent(project.id)}`;
+    } catch (error) {
+      setMutationStatus(
+        error instanceof Error ? error.message : "Failed to create initiative",
+      );
+      void renderRoute();
+    }
+  });
+}
+
+function attachProductInterventionHandlers(): void {
+  const form = document.querySelector<HTMLFormElement>("#product-intervention-form");
+  if (!form) {
+    return;
+  }
+
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const projectId = form.dataset.projectId;
+    if (!projectId) {
+      return;
+    }
+
+    const formData = new FormData(form);
+
+    try {
+      setMutationStatus("Creating intervention request...");
+      void renderRoute();
+
+      const actionRaw = String(formData.get("action") ?? "add_direction");
+      const action =
+        actionRaw === "request_redesign" ||
+        actionRaw === "change_priority" ||
+        actionRaw === "review_validation" ||
+        actionRaw === "review_deployment_risk" ||
+        actionRaw === "pause_for_human_review"
+          ? actionRaw
+          : "add_direction";
+
+      await createProductIntervention({
+        projectId,
+        action,
+        createdByEmployeeId: String(formData.get("createdByEmployeeId") ?? "").trim(),
+        note: String(formData.get("note") ?? "").trim(),
+        targetTaskId: String(formData.get("targetTaskId") ?? "").trim() || undefined,
+        targetArtifactId:
+          String(formData.get("targetArtifactId") ?? "").trim() || undefined,
+        targetDeploymentId:
+          String(formData.get("targetDeploymentId") ?? "").trim() || undefined,
+      });
+
+      setMutationStatus("Intervention recorded as canonical AEP coordination work");
+    } catch (error) {
+      setMutationStatus(
+        error instanceof Error ? error.message : "Failed to create intervention",
+      );
+    }
+
+    void renderRoute();
+  });
+}
+
 function resolveThreadMessageRecipient(detail: Awaited<ReturnType<typeof getMessageThreadDetail>>): {
   receiverEmployeeId?: string;
   receiverTeamId?: string;
@@ -1868,6 +1997,7 @@ async function renderRoute(): Promise<void> {
       "department",
       "work",
       "intake-projects",
+      "product-initiatives",
       "employees",
       "roles",
       "runtime-role-policies",
@@ -1929,6 +2059,8 @@ async function renderRoute(): Promise<void> {
             ? "work"
             : route.kind === "intakeProjects"
               ? "intake-projects"
+              : route.kind === "productInitiatives" || route.kind === "productInitiative"
+                ? "product-initiatives"
             : route.kind === "employees" ||
                 route.kind === "employee" ||
                 route.kind === "roles" ||
@@ -1951,6 +2083,8 @@ async function renderRoute(): Promise<void> {
         route.kind === "department" ||
           route.kind === "work" ||
           route.kind === "intakeProjects" ||
+          route.kind === "productInitiatives" ||
+          route.kind === "productInitiative" ||
           route.kind === "task" ||
           route.kind === "thread" ||
           route.kind === "employees" ||
@@ -1978,6 +2112,12 @@ async function renderRoute(): Promise<void> {
     } else if (route.kind === "intakeProjects") {
       const overview: CompanyWorkIntakeOverview = await getCompanyWorkIntakeOverview();
       content += renderIntakeProjectsOverview(overview);
+    } else if (route.kind === "productInitiatives") {
+      const projects = await getProductInitiatives();
+      content += renderProductInitiativesOverview(projects);
+    } else if (route.kind === "productInitiative") {
+      const summary = await getProductVisibility(route.projectId);
+      content += renderProductInitiativeDetail(summary);
     } else if (route.kind === "task") {
       const detail = await getTaskDetail(route.taskId);
       content += renderTaskDetail(detail);
@@ -2093,6 +2233,14 @@ async function renderRoute(): Promise<void> {
 
     if (route.kind === "intakeProjects") {
       attachIntakeProjectHandlers();
+    }
+
+    if (route.kind === "productInitiatives") {
+      attachProductInitiativeHandlers();
+    }
+
+    if (route.kind === "productInitiative") {
+      attachProductInterventionHandlers();
     }
 
     if (route.kind === "thread") {

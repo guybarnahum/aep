@@ -283,6 +283,8 @@ import type {
   RoleGapRecord,
   RuntimeRolePolicyRecord,
   ProjectRecord,
+  ProductInterventionAction,
+  ProductVisibilitySummary,
   StaffingRequestRecord,
   TaskArtifactRecord,
   TaskDependency,
@@ -1271,7 +1273,18 @@ export function renderToolbar(args: {
 }
 
 export function renderPrimaryNav(args: {
-  activeView: "tenant" | "department" | "work" | "intake-projects" | "people" | "company" | "mirrors" | "activity" | "validation" | "runtime-role-policies";
+  activeView:
+    | "tenant"
+    | "department"
+    | "work"
+    | "intake-projects"
+    | "product-initiatives"
+    | "people"
+    | "company"
+    | "mirrors"
+    | "activity"
+    | "validation"
+    | "runtime-role-policies";
   tenantHref: string;
 }): string {
   return `
@@ -1285,6 +1298,9 @@ export function renderPrimaryNav(args: {
         </a>
         <a class="view-nav-link ${args.activeView === "intake-projects" ? "view-nav-link-active" : ""}" href="#intake-projects">
           Intake &amp; Projects
+        </a>
+        <a class="view-nav-link ${args.activeView === "product-initiatives" ? "view-nav-link-active" : ""}" href="#product-initiatives">
+          Product initiatives
         </a>
         <a class="view-nav-link ${args.activeView === "activity" ? "view-nav-link-active" : ""}" href="#activity">
           Activity
@@ -2149,6 +2165,174 @@ export function renderIntakeProjectsOverview(
               : `<p class="muted">No projects yet.</p>`
           }
         </div>
+      </section>
+    </main>
+  `;
+}
+
+const PRODUCT_INTERVENTION_ACTIONS: ProductInterventionAction[] = [
+  "add_direction",
+  "request_redesign",
+  "change_priority",
+  "review_validation",
+  "review_deployment_risk",
+  "pause_for_human_review",
+];
+
+export function renderProductInitiativesOverview(projects: ProjectRecord[]): string {
+  return `
+    <main>
+      <section class="panel">
+        <div class="panel-header">
+          <div>
+            <h2>Product initiatives</h2>
+            <p class="muted small">Human-visible product work. State remains canonical in AEP projects, tasks, artifacts, approvals, and deployments.</p>
+          </div>
+        </div>
+
+        <form class="form-grid" id="create-product-initiative-form">
+          <input name="title" placeholder="Initiative title" required />
+          <input name="createdByEmployeeId" placeholder="Created by employee ID" />
+          <select name="initiativeKind">
+            <option value="marketing_site">Marketing site</option>
+            <option value="customer_intake_surface">Customer intake surface</option>
+            <option value="tenant_conversion_surface">Tenant conversion surface</option>
+          </select>
+          <select name="productSurface">
+            <option value="website_bundle">Website bundle</option>
+            <option value="customer_intake">Customer intake</option>
+            <option value="public_progress">Public progress</option>
+          </select>
+          <select name="externalVisibility">
+            <option value="internal_only">Internal only</option>
+            <option value="external_safe">External safe</option>
+          </select>
+          <textarea name="description" placeholder="Description"></textarea>
+          <button class="button" type="submit">Create initiative</button>
+        </form>
+      </section>
+
+      <section class="panel">
+        <h3>Initiatives</h3>
+        ${projects.length === 0
+          ? `<div class="empty-state">No product initiatives yet.</div>`
+          : `
+          <table class="data-table">
+            <thead>
+              <tr><th>Title</th><th>Kind</th><th>Surface</th><th>Visibility</th><th>Status</th></tr>
+            </thead>
+            <tbody>
+              ${projects
+                .map(
+                  (project) => `
+                <tr>
+                  <td><a href="#product-initiative/${encodeURIComponent(project.id)}">${escapeHtml(project.title)}</a></td>
+                  <td>${escapeHtml(project.initiativeKind ?? "—")}</td>
+                  <td>${escapeHtml(project.productSurface ?? "—")}</td>
+                  <td>${escapeHtml(project.externalVisibility ?? "—")}</td>
+                  <td><span class="${statusClass(project.status)}">${escapeHtml(project.status)}</span></td>
+                </tr>
+              `,
+                )
+                .join("")}
+            </tbody>
+          </table>
+        `}
+      </section>
+    </main>
+  `;
+}
+
+export function renderProductInitiativeDetail(summary: ProductVisibilitySummary): string {
+  const project = summary.project;
+
+  return `
+    <main>
+      <section class="panel">
+        <div class="panel-header">
+          <div>
+            <h2>${escapeHtml(project.title)}</h2>
+            <p class="muted small">${escapeHtml(project.description ?? "No description.")}</p>
+          </div>
+          <span class="${statusClass(project.status)}">${escapeHtml(project.status)}</span>
+        </div>
+        <div class="summary-grid">
+          ${renderSummaryCard("Active tasks", summary.activeTasks.length, "Canonical active work")}
+          ${renderSummaryCard("Blocked tasks", summary.blockedTasks.length, "Needs attention")}
+          ${renderSummaryCard("Artifacts", summary.deployableArtifacts.length, "Read-only deployable outputs")}
+          ${renderSummaryCard("Deployments", summary.deploymentRecords.length, "Read-only canonical records")}
+        </div>
+      </section>
+
+      <section class="panel">
+        <h3>Task graph</h3>
+        <p class="muted small">Read-only dependency view. PR21A does not edit tasks or dependencies.</p>
+        ${summary.recentTasks.length === 0
+          ? `<div class="empty-state small-empty">No tasks yet.</div>`
+          : `
+          <div class="task-graph-list">
+            ${summary.recentTasks
+              .map(
+                (task) => `
+              <article class="task-graph-node">
+                <div><a href="#task/${encodeURIComponent(task.id)}">${escapeHtml(task.title)}</a></div>
+                <div class="muted small">${escapeHtml(task.taskType)} · ${escapeHtml(task.assignedTeamId)}</div>
+                <span class="${statusClass(task.status)}">${escapeHtml(task.status)}</span>
+              </article>
+            `,
+              )
+              .join("")}
+          </div>
+        `}
+      </section>
+
+      <section class="panel">
+        <h3>Artifacts and deployments</h3>
+        <p class="muted small">Read-only in PR21A. Provider execution belongs to PR20.</p>
+        <pre class="json-block scroll-block">${formatJsonBlock({
+          deployableArtifacts: summary.deployableArtifacts,
+          deployments: summary.deploymentRecords,
+        })}</pre>
+      </section>
+
+      <section class="panel">
+        <h3>Human intervention</h3>
+        <form class="form-grid" id="product-intervention-form" data-project-id="${escapeHtml(project.id)}">
+          <input name="createdByEmployeeId" placeholder="Created by employee ID" required />
+          <select name="action">
+            ${PRODUCT_INTERVENTION_ACTIONS.map((action) => `<option value="${action}">${action}</option>`).join("")}
+          </select>
+          <input name="targetTaskId" placeholder="Optional target task ID" />
+          <input name="targetArtifactId" placeholder="Optional target artifact ID" />
+          <input name="targetDeploymentId" placeholder="Optional target deployment ID" />
+          <textarea name="note" placeholder="Visible steering note" required></textarea>
+          <button class="button" type="submit">Create intervention</button>
+        </form>
+      </section>
+
+      <section class="panel">
+        <h3>Intervention / decision history</h3>
+        ${summary.recentMessages.length === 0
+          ? `<div class="empty-state small-empty">No recent public messages.</div>`
+          : `
+          <table class="data-table">
+            <thead><tr><th>Time</th><th>Sender</th><th>Subject</th><th>Message</th></tr></thead>
+            <tbody>
+              ${summary.recentMessages
+                .map(
+                  (message) => `
+                <tr>
+                  <td>${formatTimestamp(message.createdAt)}</td>
+                  <td>${escapeHtml(message.senderEmployeeId)}</td>
+                  <td>${escapeHtml(message.subject ?? "—")}</td>
+                  <td>${escapeHtml(message.body)}</td>
+                </tr>
+              `,
+                )
+                .join("")}
+            </tbody>
+          </table>
+        `}
       </section>
     </main>
   `;

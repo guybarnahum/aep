@@ -630,6 +630,25 @@ Important invariant:
 > Humans steer the product by creating visible organizational signals. They do
 > not bypass the organization by mutating execution state directly.
 
+### Dashboard product initiative UI
+
+PR21A exposes a minimal dashboard surface for product initiatives.
+
+The dashboard may:
+
+- list product initiative projects
+- create product initiative projects through `POST /agent/projects`
+- read product visibility through `GET /agent/projects/:id/product-visibility`
+- create intervention requests through `POST /agent/projects/:id/interventions`
+
+The dashboard must not:
+
+- execute deployments
+- mutate deployment records directly
+- mutate task status directly
+- edit GitHub or provider state
+- own product state locally
+
 ### PR19 enforcement
 
 PR19H adds enforcement checks for the product-construction model.

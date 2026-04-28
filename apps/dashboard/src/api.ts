@@ -27,6 +27,9 @@ import type {
   RuntimeRolePolicyInput,
   RuntimeRolePolicyRecord,
   ProjectRecord,
+  ProductInterventionAction,
+  ProductInterventionResponse,
+  ProductVisibilitySummary,
   ProjectTaskGraphTaskInput,
   TaskDetail,
   TaskRecord,
@@ -651,6 +654,76 @@ export async function getCompanyWorkIntakeOverview(): Promise<CompanyWorkIntakeO
     intake: intakePayload.items ?? [],
     projects: projectsPayload.projects ?? [],
   };
+}
+
+export async function getProductInitiatives(): Promise<ProjectRecord[]> {
+  const payload = await getJson<{ ok: boolean; projects: ProjectRecord[] }>(
+    getOperatorAgentBaseUrl(),
+    "/agent/projects?initiativeKind=marketing_site&limit=100",
+  );
+  return payload.projects ?? [];
+}
+
+export async function createProductInitiative(input: {
+  companyId: string;
+  title: string;
+  description?: string;
+  createdByEmployeeId?: string;
+  initiativeKind:
+    | "marketing_site"
+    | "customer_intake_surface"
+    | "tenant_conversion_surface";
+  productSurface: "website_bundle" | "customer_intake" | "public_progress";
+  externalVisibility: "internal_only" | "external_safe";
+}): Promise<ProjectRecord> {
+  const payload = await postJson<{ ok: boolean; project: ProjectRecord }>(
+    getOperatorAgentBaseUrl(),
+    "/agent/projects",
+    {
+      companyId: input.companyId,
+      title: input.title,
+      description: input.description,
+      createdByEmployeeId: input.createdByEmployeeId,
+      ownerTeamId: "team_web_product",
+      initiativeKind: input.initiativeKind,
+      productSurface: input.productSurface,
+      externalVisibility: input.externalVisibility,
+    },
+  );
+
+  return payload.project;
+}
+
+export async function getProductVisibility(
+  projectId: string,
+): Promise<ProductVisibilitySummary> {
+  return getJson<ProductVisibilitySummary>(
+    getOperatorAgentBaseUrl(),
+    `/agent/projects/${encodeURIComponent(projectId)}/product-visibility`,
+  );
+}
+
+export async function createProductIntervention(input: {
+  projectId: string;
+  action: ProductInterventionAction;
+  createdByEmployeeId: string;
+  note: string;
+  targetTaskId?: string;
+  targetArtifactId?: string;
+  targetDeploymentId?: string;
+}): Promise<ProductInterventionResponse> {
+  return postJson<ProductInterventionResponse>(
+    getOperatorAgentBaseUrl(),
+    `/agent/projects/${encodeURIComponent(input.projectId)}/interventions`,
+    {
+      action: input.action,
+      createdByEmployeeId: input.createdByEmployeeId,
+      note: input.note,
+      targetTaskId: input.targetTaskId,
+      targetArtifactId: input.targetArtifactId,
+      targetDeploymentId: input.targetDeploymentId,
+    },
+  );
 }
 
 export async function createIntakeRequest(input: {

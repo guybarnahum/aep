@@ -221,6 +221,11 @@ jobs:
         continue-on-error: true
         run: npm run ci:product-visibility-contract-check | tee product-visibility-contract-check.log
 
+      - name: Run product UI contract check
+        id: product_ui_contract
+        continue-on-error: true
+        run: npm run ci:product-ui-contract-check | tee product-ui-contract-check.log
+
       - name: Run boundary enforcement check
         id: boundary_enforcement
         continue-on-error: true
@@ -265,6 +270,7 @@ jobs:
             "${{ steps.customer_intake_flow_contract.outcome }}" == "success" && \
             "${{ steps.agentic_execution_contract.outcome }}" == "success" && \
             "${{ steps.product_visibility_contract.outcome }}" == "success" && \
+            "${{ steps.product_ui_contract.outcome }}" == "success" && \
             "${{ steps.boundary_enforcement.outcome }}" == "success" && \
             "${{ steps.tutorial_alignment.outcome }}" == "success" \
           ]]; then
@@ -327,6 +333,7 @@ jobs:
           echo "- $(status_emoji \"${{ steps.customer_intake_flow_contract.outcome }}\") customer-intake-flow-contract-check: ${{ steps.customer_intake_flow_contract.outcome }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- $(status_emoji \"${{ steps.agentic_execution_contract.outcome }}\") agentic-execution-contract-check: ${{ steps.agentic_execution_contract.outcome }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- $(status_emoji \"${{ steps.product_visibility_contract.outcome }}\") product-visibility-contract-check: ${{ steps.product_visibility_contract.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- $(status_emoji \"${{ steps.product_ui_contract.outcome }}\") product-ui-contract-check: ${{ steps.product_ui_contract.outcome }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- $(status_emoji \"${{ steps.boundary_enforcement.outcome }}\") boundary-enforcement-check: ${{ steps.boundary_enforcement.outcome }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- $(status_emoji \"${{ steps.tutorial_alignment.outcome }}\") tutorial-alignment-check: ${{ steps.tutorial_alignment.outcome }}" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
