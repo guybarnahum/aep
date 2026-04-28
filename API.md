@@ -668,6 +668,21 @@ The dashboard must not:
 - edit GitHub or provider state
 - own product state locally
 
+PR21B extends this dashboard surface with:
+
+- read-only artifact browser
+- read-only deployment panel
+- read-only repository mirror evidence
+- public decision timeline
+
+PR21B still must not:
+
+- execute deployments
+- call `/agent/product-deployments/:id/execute`
+- mutate deployment records directly
+- mutate task status directly
+- edit GitHub or Cloudflare state
+
 ### PR19 enforcement
 
 PR19H adds enforcement checks for the product-construction model.

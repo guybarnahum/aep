@@ -288,7 +288,7 @@ export type ProductDeploymentRecord = {
   id: string;
   companyId: string;
   projectId: string;
-  sourceTaskId?: string | null;
+  sourceTaskId: string;
   sourceArtifactId: string;
   requestedByEmployeeId: string;
   environment: string;
@@ -296,9 +296,13 @@ export type ProductDeploymentRecord = {
   status: "requested" | "approved" | "in_progress" | "deployed" | "failed" | "canceled";
   approvalId?: string | null;
   targetUrl?: string | null;
-  deploymentTarget?: Record<string, unknown> | null;
+  deploymentTarget: Record<string, unknown>;
   createdAt?: string;
   updatedAt?: string;
+  startedAt?: string | null;
+  deployedAt?: string | null;
+  failedAt?: string | null;
+  canceledAt?: string | null;
 };
 
 export type ProductInterventionAction =

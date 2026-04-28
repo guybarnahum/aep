@@ -915,6 +915,32 @@ CI guard:
 npm run ci:provider-adapter-contract-check
 ```
 
+### PR21B - Full Product UI
+
+PR21B extends the minimal product UI with richer read-only product visibility.
+
+Implemented:
+
+- deployment panel backed by canonical deployment records
+- repository mirror panel backed by artifact/provider evidence
+- artifact browser backed by canonical task artifacts
+- decision timeline backed by public PR19G decision messages
+
+Boundaries:
+
+- UI remains read-first
+- UI may create intervention requests only through canonical intervention routes
+- UI must not execute deployments
+- UI must not call `/agent/product-deployments/:id/execute`
+- UI must not mutate task status or deployment status directly
+- GitHub and Cloudflare remain adapters/evidence surfaces only
+
+CI guard:
+
+```bash
+npm run ci:full-product-ui-contract-check
+```
+
 PR19A should begin by defining how AEP represents a product initiative without
 inventing a parallel workflow system. Prefer extending or specializing the
 existing project/intake/task/artifact model before adding new primitives.

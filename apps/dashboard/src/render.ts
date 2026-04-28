@@ -2293,12 +2293,21 @@ export function renderProductInitiativeDetail(summary: ProductVisibilitySummary)
       </section>
 
       <section class="panel">
-        <h3>Artifacts and deployments</h3>
-        <p class="muted small">Read-only in PR21A. Provider execution belongs to PR20.</p>
-        <pre class="json-block scroll-block">${formatJsonBlock({
-          deployableArtifacts: summary.artifacts.deployable,
-          deployments: summary.deployments.latest,
-        })}</pre>
+        <h3>Artifact browser</h3>
+        <p class="muted small">Read-only deployable artifacts. Artifact creation remains task-owned.</p>
+        ${renderProductArtifactBrowser(summary)}
+      </section>
+
+      <section class="panel">
+        <h3>Deployment panel</h3>
+        <p class="muted small">Read-only canonical deployment records. UI does not execute deployments.</p>
+        ${renderProductDeploymentPanel(summary)}
+      </section>
+
+      <section class="panel">
+        <h3>Repository mirror</h3>
+        <p class="muted small">Read-only GitHub/provider mirror evidence. GitHub does not own AEP state.</p>
+        ${renderProductRepositoryPanel(summary)}
       </section>
 
       <section class="panel">
@@ -2317,7 +2326,7 @@ export function renderProductInitiativeDetail(summary: ProductVisibilitySummary)
       </section>
 
       <section class="panel">
-        <h3>Intervention / decision history</h3>
+        <h3>Decision timeline</h3>
         ${summary.decisions.recent.length === 0
           ? `<div class="empty-state small-empty">No recent public messages.</div>`
           : `
@@ -2341,6 +2350,103 @@ export function renderProductInitiativeDetail(summary: ProductVisibilitySummary)
         `}
       </section>
     </main>
+  `;
+}
+
+function renderProductArtifactBrowser(summary: ProductVisibilitySummary): string {
+  const artifacts = summary.artifacts.recent;
+  if (artifacts.length === 0) {
+    return `<div class="empty-state small-empty">No product artifacts recorded.</div>`;
+  }
+
+  return `
+    <table class="data-table">
+      <thead><tr><th>Artifact</th><th>Type</th><th>Deployable kind</th><th>State</th><th>Created</th></tr></thead>
+      <tbody>
+        ${artifacts
+          .map(
+            (artifact) => `
+          <tr>
+            <td><span class="mono">${escapeHtml(artifact.id)}</span></td>
+            <td>${escapeHtml(artifact.artifactType)}</td>
+            <td>${escapeHtml(String(artifact.content.deployableArtifactKind ?? "—"))}</td>
+            <td>${escapeHtml(String(artifact.content.state ?? "—"))}</td>
+            <td>${formatTimestamp(artifact.createdAt)}</td>
+          </tr>
+        `,
+          )
+          .join("")}
+      </tbody>
+    </table>
+  `;
+}
+
+function renderProductDeploymentPanel(summary: ProductVisibilitySummary): string {
+  const deployments = summary.deployments.latest;
+  if (deployments.length === 0) {
+    return `<div class="empty-state small-empty">No deployment records yet.</div>`;
+  }
+
+  return `
+    <table class="data-table">
+      <thead><tr><th>Status</th><th>Environment</th><th>Visibility</th><th>Target URL</th><th>Provider target</th></tr></thead>
+      <tbody>
+        ${deployments
+          .map(
+            (deployment) => `
+          <tr>
+            <td><span class="${statusClass(deployment.status)}">${escapeHtml(deployment.status)}</span></td>
+            <td>${escapeHtml(deployment.environment)}</td>
+            <td>${escapeHtml(deployment.externalVisibility)}</td>
+            <td>${deployment.targetUrl ? `<a href="${escapeHtml(deployment.targetUrl)}" target="_blank" rel="noreferrer">${escapeHtml(deployment.targetUrl)}</a>` : "—"}</td>
+            <td><pre class="inline-json">${escapeHtml(JSON.stringify(deployment.deploymentTarget ?? {}))}</pre></td>
+          </tr>
+        `,
+          )
+          .join("")}
+      </tbody>
+    </table>
+  `;
+}
+
+function renderProductRepositoryPanel(summary: ProductVisibilitySummary): string {
+  const repoArtifacts = summary.artifacts.recent.filter(
+    (artifact) => artifact.content.deployableArtifactKind === "github_repository",
+  );
+  const repoDeployments = summary.deployments.latest.filter((deployment) => {
+    const provider = deployment.deploymentTarget?.provider;
+    return provider === "github";
+  });
+
+  if (repoArtifacts.length === 0 && repoDeployments.length === 0) {
+    return `<div class="empty-state small-empty">No repository mirror evidence yet.</div>`;
+  }
+
+  return `
+    <div class="product-evidence-grid">
+      ${repoArtifacts
+        .map(
+          (artifact) => `
+        <article class="task-graph-node">
+          <strong>${escapeHtml(String((artifact.content.repository as Record<string, unknown> | undefined)?.name ?? artifact.id))}</strong>
+          <div class="muted small">Repository artifact · ${formatTimestamp(artifact.createdAt)}</div>
+          <pre class="json-block scroll-block">${formatJsonBlock(artifact.content.repository)}</pre>
+        </article>
+      `,
+        )
+        .join("")}
+      ${repoDeployments
+        .map(
+          (deployment) => `
+        <article class="task-graph-node">
+          <strong>${escapeHtml(deployment.id)}</strong>
+          <div class="muted small">Provider evidence · ${escapeHtml(deployment.status)}</div>
+          <pre class="json-block scroll-block">${formatJsonBlock(deployment.deploymentTarget)}</pre>
+        </article>
+      `,
+        )
+        .join("")}
+    </div>
   `;
 }
 
