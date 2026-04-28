@@ -3855,11 +3855,12 @@ lead / request
 
 ---
 
-## PR20 — Super-Admin Cognition Debug Layer
+## Future: Super-Admin Cognition Debug Layer
 
 ### Goal
 
 Enable controlled debugging of private cognition without breaking core boundaries.
+This work is scheduled after the post-PR19 roadmap completes (after PR24).
 
 ### Scope
 
@@ -3889,6 +3890,197 @@ Enable controlled debugging of private cognition without breaking core boundarie
 
 ---
 
+## Post-PR19 Roadmap (Do Not Implement Implicitly)
+
+PR19 completes the product construction model and control loop.
+
+The following work extends the system into real-world operation.
+These are NOT part of PR19 and must be implemented as separate PRs.
+
+---
+
+## PR21A — Minimal Product UI (Visibility + Intervention)
+
+First priority after PR19.
+
+Provides:
+
+- initiative list and creation
+- initiative detail view
+- product visibility summary (PR19G)
+- task graph (read-first)
+- intervention controls (PR19G)
+
+Important:
+
+> Without PR21A, the system is not usable by humans.
+> This is the canonical surface for visibility and steering.
+
+This phase does NOT require:
+
+- deployment panels
+- GitHub integration UI
+
+---
+
+## PR20 — Provider Adapters (Execution Realization)
+
+- Create GitHub repository artifacts from task outputs
+- Connect deployment records to provider adapters
+- Implement Cloudflare Pages / Workers deployment adapters
+
+Important:
+
+> Providers execute deployments.
+> AEP owns state and decisions.
+
+Note:
+
+PR20 enables **real product existence** (repo + deployment),
+but does not replace AEP as the source of truth.
+
+---
+
+## PR21B — Full Product UI
+
+Extends PR21A with:
+
+- deployment panel
+- repository view (GitHub mirror)
+- artifact browser
+- decision timeline refinement
+
+Important:
+
+> UI reflects AEP state. It does not own or mutate it directly.
+
+---
+
+## PR22 — External Mirroring (Jira)
+
+- Mirror initiatives, tasks, decisions, deployments into Jira
+- Ingest Jira comments/actions into AEP threads
+- Maintain AEP as source of truth
+
+### PR22 Jira Ingest Contract (MANDATORY)
+
+Jira is a **mirror and conversation surface only**.
+
+Allowed:
+
+```text
+Jira comment → AEP thread message
+Jira mention → AEP thread message
+Jira discussion → AEP coordination signal
+```
+
+Forbidden:
+
+```text
+Jira status change → AEP task status
+Jira task creation → AEP task
+Jira field mutation → AEP canonical state
+Jira workflow transition → AEP execution change
+```
+
+Required flow:
+
+```text
+Jira action
+  → AEP thread / message
+  → (optional) task or approval created inside AEP
+  → AEP decides state change
+```
+
+Invariant:
+
+> Jira must never directly mutate AEP state.
+
+---
+
+## PR23 — Continuous Product Loop
+
+- Validation failures generate follow-up tasks
+- Customer intake feeds product evolution
+- Monitoring/incidents create new work
+
+### PR23 Signal Ingest Contract (MANDATORY)
+
+External signals:
+
+- monitoring alerts
+- validation failures
+- customer intake
+
+Must NOT create tasks directly.
+
+Required flow:
+
+```text
+signal
+  → classification
+  → intake OR thread
+  → AEP creates tasks via canonical routes
+```
+
+Forbidden:
+
+```text
+signal → createTask ❌
+```
+
+Invariant:
+
+> All new work must originate from AEP decisions, not external triggers.
+
+---
+
+## PR24 — Product Lifecycle
+
+- Lifecycle states (active, deprecated, retired)
+- Retirement workflows
+- External surface shutdown
+- Artifact and audit preservation
+
+### PR24 Lifecycle Task-Gating Contract (MANDATORY)
+
+Lifecycle transitions:
+
+- pause
+- resume
+- retire
+- transition
+
+Must NOT be direct state mutations.
+
+Required flow:
+
+```text
+lifecycle request
+  → approval + task
+  → decision
+  → state transition
+```
+
+Forbidden:
+
+```text
+project.status = "paused" ❌
+project.status = "retired" ❌
+```
+
+Invariant:
+
+> Lifecycle is organizational work, not a state toggle.
+
+---
+
+Important invariant:
+
+> Post-PR19 work must not introduce direct execution paths that bypass tasks, artifacts, approvals, or deployments.
+
+---
+
 # Critical Path
 
 To reach a functioning operating company:
@@ -3902,7 +4094,9 @@ These four milestones enable:
 
 > autonomous Web → Infra → Validation delivery loop
 
-PR18 (HR) and PR20 (cognition debug) are important but do not block initial company operation.
+Post-PR19 roadmap (PR21A → PR20 → PR22 → PR23 → PR24) operationalizes
+the system with UI, external adapters, and lifecycle management.
+These must comply with the mandatory ingest and task-gating contracts.
 
 ---
 
