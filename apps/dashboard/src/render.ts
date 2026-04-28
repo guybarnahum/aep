@@ -2257,21 +2257,21 @@ export function renderProductInitiativeDetail(summary: ProductVisibilitySummary)
           <span class="${statusClass(project.status)}">${escapeHtml(project.status)}</span>
         </div>
         <div class="summary-grid">
-          ${renderSummaryCard("Active tasks", summary.activeTasks.length, "Canonical active work")}
-          ${renderSummaryCard("Blocked tasks", summary.blockedTasks.length, "Needs attention")}
-          ${renderSummaryCard("Artifacts", summary.deployableArtifacts.length, "Read-only deployable outputs")}
-          ${renderSummaryCard("Deployments", summary.deploymentRecords.length, "Read-only canonical records")}
+          ${renderSummaryCard("Active tasks", summary.tasks.active.length, "Canonical active work")}
+          ${renderSummaryCard("Blocked tasks", summary.tasks.blocked.length, "Needs attention")}
+          ${renderSummaryCard("Artifacts", summary.artifacts.deployable.length, "Read-only deployable outputs")}
+          ${renderSummaryCard("Deployments", summary.deployments.latest.length, "Read-only canonical records")}
         </div>
       </section>
 
       <section class="panel">
         <h3>Task graph</h3>
         <p class="muted small">Read-only dependency view. PR21A does not edit tasks or dependencies.</p>
-        ${summary.recentTasks.length === 0
+        ${summary.tasks.recent.length === 0
           ? `<div class="empty-state small-empty">No tasks yet.</div>`
           : `
           <div class="task-graph-list">
-            ${summary.recentTasks
+            ${summary.tasks.recent
               .map(
                 (task) => `
               <article class="task-graph-node">
@@ -2290,8 +2290,8 @@ export function renderProductInitiativeDetail(summary: ProductVisibilitySummary)
         <h3>Artifacts and deployments</h3>
         <p class="muted small">Read-only in PR21A. Provider execution belongs to PR20.</p>
         <pre class="json-block scroll-block">${formatJsonBlock({
-          deployableArtifacts: summary.deployableArtifacts,
-          deployments: summary.deploymentRecords,
+          deployableArtifacts: summary.artifacts.deployable,
+          deployments: summary.deployments.latest,
         })}</pre>
       </section>
 
@@ -2312,13 +2312,13 @@ export function renderProductInitiativeDetail(summary: ProductVisibilitySummary)
 
       <section class="panel">
         <h3>Intervention / decision history</h3>
-        ${summary.recentMessages.length === 0
+        ${summary.decisions.recent.length === 0
           ? `<div class="empty-state small-empty">No recent public messages.</div>`
           : `
           <table class="data-table">
             <thead><tr><th>Time</th><th>Sender</th><th>Subject</th><th>Message</th></tr></thead>
             <tbody>
-              ${summary.recentMessages
+              ${summary.decisions.recent
                 .map(
                   (message) => `
                 <tr>

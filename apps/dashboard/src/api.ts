@@ -659,9 +659,9 @@ export async function getCompanyWorkIntakeOverview(): Promise<CompanyWorkIntakeO
 export async function getProductInitiatives(): Promise<ProjectRecord[]> {
   const payload = await getJson<{ ok: boolean; projects: ProjectRecord[] }>(
     getOperatorAgentBaseUrl(),
-    "/agent/projects?initiativeKind=marketing_site&limit=100",
+    "/agent/projects?limit=100",
   );
-  return payload.projects ?? [];
+  return (payload.projects ?? []).filter((project) => Boolean(project.initiativeKind));
 }
 
 export async function createProductInitiative(input: {
@@ -697,10 +697,11 @@ export async function createProductInitiative(input: {
 export async function getProductVisibility(
   projectId: string,
 ): Promise<ProductVisibilitySummary> {
-  return getJson<ProductVisibilitySummary>(
+  const payload = await getJson<{ ok: boolean; summary: ProductVisibilitySummary }>(
     getOperatorAgentBaseUrl(),
     `/agent/projects/${encodeURIComponent(projectId)}/product-visibility`,
   );
+  return payload.summary;
 }
 
 export async function createProductIntervention(input: {

@@ -309,23 +309,37 @@ export type ProductInterventionAction =
   | "pause_for_human_review";
 
 export type ProductVisibilitySummary = {
-  ok: boolean;
   project: ProjectRecord;
-  sourceIntake?: IntakeRequestRecord | null;
-  relatedCustomerIntake?: IntakeRequestRecord[];
-  taskCounts: Record<string, number>;
-  taskTypeCounts?: Record<string, number>;
-  activeTasks: TaskRecord[];
-  blockedTasks: TaskRecord[];
-  recentTasks: TaskRecord[];
-  deployableArtifacts: TaskArtifactRecord[];
-  deploymentRecords: ProductDeploymentRecord[];
-  recentMessages: EmployeeMessageRecord[];
-  suggestedInterventions: Array<{
-    action: ProductInterventionAction;
-    label?: string;
-    reason?: string;
-  }>;
+  intake: {
+    source?: IntakeRequestRecord | null;
+    relatedCustomerIntake: IntakeRequestRecord[];
+  };
+  tasks: {
+    count: number;
+    byStatus: Record<string, number>;
+    byType: Record<string, number>;
+    active: TaskRecord[];
+    blocked: TaskRecord[];
+    recent: TaskRecord[];
+  };
+  artifacts: {
+    count: number;
+    deployable: TaskArtifactRecord[];
+    recent: TaskArtifactRecord[];
+  };
+  deployments: {
+    count: number;
+    byStatus: Record<string, number>;
+    latest: ProductDeploymentRecord[];
+  };
+  decisions: {
+    count: number;
+    recent: EmployeeMessageRecord[];
+  };
+  interventions: {
+    pendingApprovalsLikely: boolean;
+    suggestedActions: string[];
+  };
 };
 
 export type ProductInterventionResponse = {
