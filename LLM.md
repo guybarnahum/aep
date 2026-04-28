@@ -965,6 +965,41 @@ CI guard:
 npm run ci:pr22-jira-ingest-contract-check
 ```
 
+### PR23 - Continuous Product Loop
+
+PR23 introduces product signal ingestion for validation, monitoring, and
+customer feedback.
+
+Implemented:
+
+- `POST /agent/product-signals`
+- signal classification
+- signal routing to intake or thread/message
+- explicit guard that signals do not create tasks directly
+
+Required flow:
+
+```text
+signal
+  -> classification
+  -> intake OR thread
+  -> AEP decides task/approval/product evolution
+```
+
+Forbidden:
+
+- signal -> createTask
+- signal -> updateTaskStatus
+- signal -> deployment mutation
+- monitoring alert -> canonical state mutation
+- validation failure -> direct task graph mutation
+
+CI guard:
+
+```bash
+npm run ci:pr23-signal-ingest-contract-check
+```
+
 PR19A should begin by defining how AEP represents a product initiative without
 inventing a parallel workflow system. Prefer extending or specializing the
 existing project/intake/task/artifact model before adding new primitives.

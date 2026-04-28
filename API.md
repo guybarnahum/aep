@@ -653,6 +653,58 @@ Important invariant:
 > Humans steer the product by creating visible organizational signals. They do
 > not bypass the organization by mutating execution state directly.
 
+### Product signals
+
+`POST /agent/product-signals`
+
+Ingests continuous product-loop signals from validation, monitoring, or customer
+feedback.
+
+Allowed sources:
+
+- `validation`
+- `monitoring`
+- `customer_intake`
+
+Allowed severities:
+
+- `info`
+- `warning`
+- `failed`
+- `critical`
+
+Required body:
+
+- `source`
+- `severity`
+- `title`
+- `body`
+
+Optional body:
+
+- `projectId`
+- `classification`
+- `sourceUrl`
+- `externalSignalId`
+- `receivedAt`
+
+Contract:
+
+- signals may create intake
+- signals may create threads/messages
+- signals must not create tasks directly
+- signals must not mutate task status
+- signals must not mutate deployment state
+
+Required flow:
+
+```text
+signal
+  -> classification
+  -> intake OR thread
+  -> AEP decides task/approval/product action
+```
+
 ### Dashboard product initiative UI
 
 PR21A exposes a minimal dashboard surface for product initiatives.

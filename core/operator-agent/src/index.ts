@@ -89,6 +89,7 @@ import {
   handleJiraProjection,
   handleJiraStatusSignal,
 } from "./routes/jira";
+import { handleIngestProductSignal } from "./routes/product-signals";
 import {
   handleApproveFromThread,
   handleRejectFromThread,
@@ -358,6 +359,10 @@ async function dispatch(request: Request, env: OperatorAgentEnv): Promise<Respon
 
   if (url.pathname === "/agent/jira/status-signals" && request.method === "POST") {
     return handleJiraStatusSignal(request, env);
+  }
+
+  if (url.pathname === "/agent/product-signals" && request.method === "POST") {
+    return handleIngestProductSignal(request, env);
   }
 
   if (url.pathname === "/agent/message-threads" && request.method === "GET") {
