@@ -1112,6 +1112,8 @@ Implemented:
 - product-page lifecycle request / execution controls
 - product-page signal simulation controls
 - dashboard API helpers for existing canonical routes
+- scoped approve/reject controls for product-page steering
+- lifecycle transition target-state capture
 
 Boundaries:
 
@@ -1120,6 +1122,8 @@ Boundaries:
 - UI does not mutate task/project/deployment state directly
 - deployment execution still goes through `/agent/product-deployments/:id/execute`
 - lifecycle state changes still go through approved lifecycle execution
+- product-page controls must not present generic approval-by-ID as deployment-scoped approval
+- steering controls must expose both approve and reject decisions
 
 CI guard:
 

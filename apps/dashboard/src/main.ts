@@ -1435,17 +1435,21 @@ function attachTutorialIntakeHandlers(): void {
 }
 
 function attachManualTutorialControlHandlers(): void {
-  document.querySelectorAll<HTMLFormElement>("[data-form='approve-deployment']").forEach((form) => {
+  document.querySelectorAll<HTMLFormElement>("[data-form='decide-deployment-approval']").forEach((form) => {
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
+      const submitter = event.submitter as HTMLButtonElement | null;
       const formData = new FormData(form);
       await runManualAction(async () => {
-        await approveApproval(
-          String(formData.get("approvalId") ?? "").trim(),
-          String(formData.get("decidedBy") ?? "").trim() || "dashboard-operator",
-          String(formData.get("decisionNote") ?? "").trim() || undefined,
-        );
-        return "Approval approved";
+        const approvalId = String(formData.get("approvalId") ?? "").trim();
+        const decidedBy = String(formData.get("decidedBy") ?? "").trim() || "dashboard-operator";
+        const decisionNote = String(formData.get("decisionNote") ?? "").trim() || undefined;
+        if (submitter?.value === "reject") {
+          await rejectApproval(approvalId, decidedBy, decisionNote);
+          return "Deployment approval rejected";
+        }
+        await approveApproval(approvalId, decidedBy, decisionNote);
+        return "Deployment approval approved";
       });
     });
   });
@@ -1474,8 +1478,28 @@ function attachManualTutorialControlHandlers(): void {
           action: formData.get("action") as ProductLifecycleAction,
           requestedByEmployeeId: String(formData.get("requestedByEmployeeId") ?? "").trim(),
           reason: String(formData.get("reason") ?? "").trim(),
+          targetState: String(formData.get("targetState") ?? "").trim() || undefined,
         });
         return `Lifecycle approval requested: ${result.approvalId}`;
+      });
+    });
+  });
+
+  document.querySelectorAll<HTMLFormElement>("[data-form='decide-lifecycle-approval']").forEach((form) => {
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const submitter = event.submitter as HTMLButtonElement | null;
+      const formData = new FormData(form);
+      await runManualAction(async () => {
+        const approvalId = String(formData.get("approvalId") ?? "").trim();
+        const decidedBy = String(formData.get("decidedBy") ?? "").trim() || "dashboard-operator";
+        const decisionNote = String(formData.get("decisionNote") ?? "").trim() || undefined;
+        if (submitter?.value === "reject") {
+          await rejectApproval(approvalId, decidedBy, decisionNote);
+          return "Lifecycle approval rejected";
+        }
+        await approveApproval(approvalId, decidedBy, decisionNote);
+        return "Lifecycle approval approved";
       });
     });
   });

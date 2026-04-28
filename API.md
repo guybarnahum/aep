@@ -816,6 +816,13 @@ PR26 manual tutorial readiness extends the dashboard with operator controls for:
 These controls call existing canonical AEP routes only. They are allowed UI
 entry points for manual QA, not alternate state owners.
 
+Safety constraints:
+
+- product-page deployment approval controls must be scoped to deployment-linked approvals
+- product-page steering must include both approve and reject paths
+- lifecycle transition requests should preserve optional `targetState`
+- deployment execution controls should clearly distinguish internal-only from external-safe policy
+
 ### PR19 enforcement
 
 PR19H adds enforcement checks for the product-construction model.

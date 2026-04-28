@@ -81,6 +81,13 @@ Product initiatives
 → signal simulation
 ```
 
+Manual steering safety:
+
+- approve or reject deployment approvals from deployment-linked approval controls
+- approve or reject lifecycle approvals from lifecycle controls
+- preserve target-state intent when requesting a lifecycle transition
+- execute deployments only after checking internal-only vs external-safe approval policy
+
 ### 1. Define intent
 
 ```text

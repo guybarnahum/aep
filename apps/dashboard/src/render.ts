@@ -2376,30 +2376,44 @@ export function renderProductInitiativeDetail(summary: ProductVisibilitySummary)
 
 function renderDeploymentControls(summary: ProductVisibilitySummary): string {
   const deployments = summary.deployments.latest;
-  const pendingApprovals = summary.decisions.recent.filter(
-    (message) => message.relatedApprovalId,
+  const deploymentApprovalIds = Array.from(
+    new Set(
+      deployments
+        .map((deployment) => deployment.approvalId)
+        .filter((approvalId): approvalId is string => Boolean(approvalId)),
+    ),
   );
 
   return `
     <article class="control-card">
       <h4>Deployment controls</h4>
-      <p class="muted small">Approve through canonical approvals, then execute through canonical deployment route.</p>
-      <form class="compact-form" data-form="approve-deployment">
-        <input name="approvalId" placeholder="Approval ID" />
+      <p class="muted small">External-safe deployments require approval. Internal-only deployments may execute from requested state.</p>
+      <form class="compact-form" data-form="decide-deployment-approval">
+        <select name="approvalId" ${deploymentApprovalIds.length === 0 ? "disabled" : ""}>
+          ${deploymentApprovalIds.length === 0
+            ? `<option value="">No deployment approvals found</option>`
+            : deploymentApprovalIds.map((approvalId) => `
+              <option value="${escapeHtml(approvalId)}">${escapeHtml(approvalId)}</option>
+            `).join("")}
+        </select>
         <input name="decidedBy" placeholder="Decided by employee ID" />
         <input name="decisionNote" placeholder="Decision note" />
-        <button class="button button-small" type="submit">Approve</button>
+        <div class="table-actions">
+          <button class="button button-small" type="submit" name="decision" value="approve" ${deploymentApprovalIds.length === 0 ? "disabled" : ""}>Approve</button>
+          <button class="button button-small button-secondary" type="submit" name="decision" value="reject" ${deploymentApprovalIds.length === 0 ? "disabled" : ""}>Reject</button>
+        </div>
       </form>
       <form class="compact-form" data-form="execute-deployment">
-        <select name="deploymentId">
-          ${deployments.map((deployment) => `
-            <option value="${escapeHtml(deployment.id)}">${escapeHtml(deployment.id)} · ${escapeHtml(deployment.status)}</option>
-          `).join("")}
+        <select name="deploymentId" ${deployments.length === 0 ? "disabled" : ""}>
+          ${deployments.length === 0
+            ? `<option value="">No deployment records yet</option>`
+            : deployments.map((deployment) => `
+              <option value="${escapeHtml(deployment.id)}">${escapeHtml(deployment.id)} · ${escapeHtml(deployment.status)} · ${escapeHtml(deployment.externalVisibility)}</option>
+            `).join("")}
         </select>
         <input name="executedByEmployeeId" placeholder="Executed by employee ID" />
-        <button class="button button-small" type="submit">Execute deployment</button>
+        <button class="button button-small" type="submit" ${deployments.length === 0 ? "disabled" : ""}>Execute deployment</button>
       </form>
-      <div class="muted small">Recent approval refs: ${escapeHtml(pendingApprovals.map((m) => m.relatedApprovalId).filter(Boolean).join(", ") || "—")}</div>
     </article>
   `;
 }
@@ -2418,12 +2432,22 @@ function renderLifecycleControls(summary: ProductVisibilitySummary): string {
         </select>
         <input name="requestedByEmployeeId" placeholder="Requested by employee ID" />
         <input name="reason" placeholder="Reason" />
+        <input name="targetState" placeholder="Target state for transition, optional" />
         <button class="button button-small" type="submit">Request lifecycle action</button>
       </form>
       <form class="compact-form" data-form="execute-lifecycle" data-project-id="${escapeHtml(summary.project.id)}">
         <input name="approvalId" placeholder="Approved lifecycle approval ID" />
         <input name="executedByEmployeeId" placeholder="Executed by employee ID" />
         <button class="button button-small" type="submit">Execute lifecycle action</button>
+      </form>
+      <form class="compact-form" data-form="decide-lifecycle-approval">
+        <input name="approvalId" placeholder="Lifecycle approval ID" />
+        <input name="decidedBy" placeholder="Decided by employee ID" />
+        <input name="decisionNote" placeholder="Decision note" />
+        <div class="table-actions">
+          <button class="button button-small" type="submit" name="decision" value="approve">Approve lifecycle</button>
+          <button class="button button-small button-secondary" type="submit" name="decision" value="reject">Reject lifecycle</button>
+        </div>
       </form>
     </article>
   `;
