@@ -251,6 +251,43 @@ export class TaskDependencyValidationError extends Error {
 
 export type TaskArtifactType = "plan" | "result" | "evidence";
 
+export type ProductDeploymentStatus =
+  | "requested"
+  | "approved"
+  | "in_progress"
+  | "deployed"
+  | "failed"
+  | "canceled";
+
+export interface ProductDeploymentRecord {
+  id: string;
+  companyId: string;
+  projectId: string;
+  sourceTaskId: string;
+  sourceArtifactId: string;
+  requestedByEmployeeId: string;
+  environment: string;
+  targetUrl?: string | null;
+  externalVisibility: "internal_only" | "external_safe";
+  status: ProductDeploymentStatus;
+  approvalId?: string | null;
+  deploymentTarget: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+  startedAt?: string | null;
+  deployedAt?: string | null;
+  failedAt?: string | null;
+  canceledAt?: string | null;
+}
+
+export interface ProductDeploymentListQuery {
+  companyId?: string;
+  projectId?: string;
+  sourceArtifactId?: string;
+  status?: ProductDeploymentStatus;
+  limit?: number;
+}
+
 export interface TaskArtifact {
   id: string;
   taskId: string;
@@ -432,7 +469,21 @@ export interface TaskStore {
     artifact: Omit<TaskArtifact, "createdAt" | "updatedAt">,
   ): Promise<void>;
 
+  getArtifact(artifactId: string): Promise<TaskArtifact | null>;
+
   listArtifacts(query: TaskArtifactListQuery): Promise<TaskArtifact[]>;
+
+  createProductDeployment(record: ProductDeploymentRecord): Promise<void>;
+  getProductDeployment(deploymentId: string): Promise<ProductDeploymentRecord | null>;
+  listProductDeployments(
+    query: ProductDeploymentListQuery,
+  ): Promise<ProductDeploymentRecord[]>;
+  updateProductDeploymentStatus(args: {
+    deploymentId: string;
+    status: ProductDeploymentStatus;
+    approvalId?: string | null;
+    targetUrl?: string | null;
+  }): Promise<ProductDeploymentRecord | null>;
 
   createMessageThread(
     thread: Omit<MessageThread, "createdAt" | "updatedAt">,

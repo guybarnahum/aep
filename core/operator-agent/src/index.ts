@@ -63,6 +63,12 @@ import {
   handleListTaskArtifacts,
 } from "./routes/task-artifacts";
 import {
+  handleCreateProductDeployment,
+  handleGetProductDeployment,
+  handleListProductDeployments,
+  handleUpdateProductDeploymentStatus,
+} from "./routes/product-deployments";
+import {
   handleCreateMessage,
   handleCreateMessageThread,
   handleExternalAction,
@@ -445,6 +451,37 @@ async function dispatch(request: Request, env: OperatorAgentEnv): Promise<Respon
     if (request.method === "GET") {
       return handleListProjects(request, env);
     }
+  }
+
+  if (url.pathname === "/agent/product-deployments") {
+    if (request.method === "POST") {
+      return handleCreateProductDeployment(request, env);
+    }
+    if (request.method === "GET") {
+      return handleListProductDeployments(request, env);
+    }
+  }
+
+  const productDeploymentStatusMatch = url.pathname.match(
+    /^\/agent\/product-deployments\/([^/]+)\/status$/,
+  );
+  if (productDeploymentStatusMatch) {
+    return handleUpdateProductDeploymentStatus(
+      request,
+      env,
+      decodeURIComponent(productDeploymentStatusMatch[1]),
+    );
+  }
+
+  const productDeploymentMatch = url.pathname.match(
+    /^\/agent\/product-deployments\/([^/]+)$/,
+  );
+  if (productDeploymentMatch) {
+    return handleGetProductDeployment(
+      request,
+      env,
+      decodeURIComponent(productDeploymentMatch[1]),
+    );
   }
 
   const projectTaskGraphMatch = url.pathname.match(

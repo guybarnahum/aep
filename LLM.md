@@ -895,6 +895,57 @@ Important invariant:
 
 > PR19B defines what can later be deployed. PR19B does not deploy it.
 
+### PR19C - Deployment System
+
+PR19C introduces canonical product deployment records.
+
+Deployment flow:
+
+```text
+deployment_candidate artifact
+  -> product deployment record
+  -> approval gate for external_safe exposure
+  -> status lifecycle
+  -> visible coordination trace
+```
+
+Supported deployment statuses:
+
+- `requested`
+- `approved`
+- `in_progress`
+- `deployed`
+- `failed`
+- `canceled`
+
+Deployment records link:
+
+- company
+- project
+- source task
+- source artifact
+- requesting employee
+- environment
+- external visibility
+- approval id when required
+- deployment target metadata
+- target URL when available
+
+Important invariants:
+
+- deployment records are canonical AEP state
+- creating a deployment record does not execute external deployment
+- only `deployment_candidate` artifacts in `ready_for_deployment` state can create deployment records
+- `external_safe` deployment records require approval linkage
+- provider systems may supply URLs/evidence later but must not own canonical deployment state
+- deployment state is visible and human-intervenable
+
+PR19C CI guard:
+
+```bash
+npm run ci:pr19-deployment-system-contract-check
+```
+
 Important invariant:
 
 > The product surface is the output. The organization runtime is the builder.

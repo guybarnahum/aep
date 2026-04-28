@@ -25,6 +25,7 @@ const PURGE_TABLE_ORDER = [
   "thread_external_interaction_policy",
   "employee_messages",
   "message_threads",
+  "product_deployment_records",
   "task_artifacts",
   "task_dependencies",
   "decisions",
@@ -453,6 +454,27 @@ export async function handlePurgeCiArtifacts(
               OR json_extract(content_json, '$.__ci.runId') = ?`,
         )
         .bind(ciActorPrefix, runId)
+        .run();
+      deletedCount = result.meta?.changes ?? 0;
+    } else if (table === "product_deployment_records") {
+      // PR19C deployment records are CI-owned when requested by CI actor or derived
+      // from CI-marked artifacts/tasks.
+      const result = await db
+        .prepare(
+          `DELETE FROM product_deployment_records
+           WHERE requested_by_employee_id LIKE ?
+              OR source_artifact_id IN (
+                SELECT id FROM task_artifacts
+                WHERE created_by_employee_id LIKE ?
+                   OR json_extract(content_json, '$.__ci.runId') = ?
+              )
+              OR source_task_id IN (
+                SELECT id FROM tasks
+                WHERE created_by_employee_id LIKE ?
+                   OR json_extract(payload, '$.__ci.runId') = ?
+              )`,
+        )
+        .bind(ciActorPrefix, ciActorPrefix, runId, ciActorPrefix, runId)
         .run();
       deletedCount = result.meta?.changes ?? 0;
     } else if (table === "message_threads") {

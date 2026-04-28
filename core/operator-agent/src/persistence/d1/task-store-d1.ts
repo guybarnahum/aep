@@ -12,6 +12,9 @@ import {
   type IntakeStatusUpdate,
   type Project,
   type ProjectListQuery,
+  type ProductDeploymentListQuery,
+  type ProductDeploymentRecord,
+  type ProductDeploymentStatus,
   type ExternalInteractionAuditRecord,
   type TaskCreateInput,
   TaskDependencyValidationError,
@@ -82,6 +85,27 @@ type TaskArtifactRow = {
   content_json: string | null;
   created_at: string | null;
   updated_at: string | null;
+};
+
+type ProductDeploymentRow = {
+  deployment_id: string;
+  company_id: string;
+  project_id: string;
+  source_task_id: string;
+  source_artifact_id: string;
+  requested_by_employee_id: string;
+  environment: string;
+  target_url: string | null;
+  external_visibility: string;
+  status: string;
+  approval_id: string | null;
+  deployment_target_json: string;
+  created_at: string;
+  updated_at: string;
+  started_at: string | null;
+  deployed_at: string | null;
+  failed_at: string | null;
+  canceled_at: string | null;
 };
 
 type MessageThreadRow = {
@@ -313,6 +337,31 @@ function rowToArtifact(row: TaskArtifactRow): TaskArtifact {
     content: fromJson<Record<string, unknown>>(row.content_json) ?? {},
     createdAt: row.created_at ?? undefined,
     updatedAt: row.updated_at ?? undefined,
+  };
+}
+
+function rowToProductDeployment(row: ProductDeploymentRow): ProductDeploymentRecord {
+  return {
+    id: row.deployment_id,
+    companyId: row.company_id,
+    projectId: row.project_id,
+    sourceTaskId: row.source_task_id,
+    sourceArtifactId: row.source_artifact_id,
+    requestedByEmployeeId: row.requested_by_employee_id,
+    environment: row.environment,
+    targetUrl: row.target_url,
+    externalVisibility:
+      row.external_visibility as ProductDeploymentRecord["externalVisibility"],
+    status: row.status as ProductDeploymentStatus,
+    approvalId: row.approval_id,
+    deploymentTarget:
+      fromJson<Record<string, unknown>>(row.deployment_target_json) ?? {},
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    startedAt: row.started_at,
+    deployedAt: row.deployed_at,
+    failedAt: row.failed_at,
+    canceledAt: row.canceled_at,
   };
 }
 
@@ -1211,6 +1260,15 @@ export class D1TaskStore implements TaskStore {
       .run();
   }
 
+  async getArtifact(artifactId: string): Promise<TaskArtifact | null> {
+    const row = await this.db
+      .prepare(`SELECT * FROM task_artifacts WHERE id = ? LIMIT 1`)
+      .bind(artifactId)
+      .first<TaskArtifactRow>();
+
+    return row ? rowToArtifact(row) : null;
+  }
+
   async listArtifacts(query: TaskArtifactListQuery): Promise<TaskArtifact[]> {
     const clauses: string[] = [`task_id = ?`];
     const binds: Array<string | number> = [query.taskId];
@@ -1233,6 +1291,156 @@ export class D1TaskStore implements TaskStore {
       .all<TaskArtifactRow>();
 
     return (rows.results ?? []).map(rowToArtifact);
+  }
+
+  async createProductDeployment(record: ProductDeploymentRecord): Promise<void> {
+    await this.db
+      .prepare(
+        `INSERT INTO product_deployment_records (
+          deployment_id,
+          company_id,
+          project_id,
+          source_task_id,
+          source_artifact_id,
+          requested_by_employee_id,
+          environment,
+          target_url,
+          external_visibility,
+          status,
+          approval_id,
+          deployment_target_json,
+          created_at,
+          updated_at,
+          started_at,
+          deployed_at,
+          failed_at,
+          canceled_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .bind(
+        record.id,
+        record.companyId,
+        record.projectId,
+        record.sourceTaskId,
+        record.sourceArtifactId,
+        record.requestedByEmployeeId,
+        record.environment,
+        record.targetUrl ?? null,
+        record.externalVisibility,
+        record.status,
+        record.approvalId ?? null,
+        toJson(record.deploymentTarget),
+        record.createdAt,
+        record.updatedAt,
+        record.startedAt ?? null,
+        record.deployedAt ?? null,
+        record.failedAt ?? null,
+        record.canceledAt ?? null,
+      )
+      .run();
+  }
+
+  async getProductDeployment(
+    deploymentId: string,
+  ): Promise<ProductDeploymentRecord | null> {
+    const row = await this.db
+      .prepare(
+        `SELECT *
+         FROM product_deployment_records
+         WHERE deployment_id = ?
+         LIMIT 1`,
+      )
+      .bind(deploymentId)
+      .first<ProductDeploymentRow>();
+
+    return row ? rowToProductDeployment(row) : null;
+  }
+
+  async listProductDeployments(
+    query: ProductDeploymentListQuery,
+  ): Promise<ProductDeploymentRecord[]> {
+    const clauses: string[] = [];
+    const binds: Array<string | number> = [];
+
+    if (query.companyId) {
+      clauses.push("company_id = ?");
+      binds.push(query.companyId);
+    }
+    if (query.projectId) {
+      clauses.push("project_id = ?");
+      binds.push(query.projectId);
+    }
+    if (query.sourceArtifactId) {
+      clauses.push("source_artifact_id = ?");
+      binds.push(query.sourceArtifactId);
+    }
+    if (query.status) {
+      clauses.push("status = ?");
+      binds.push(query.status);
+    }
+
+    const where = clauses.length > 0 ? `WHERE ${clauses.join(" AND ")}` : "";
+    const rows = await this.db
+      .prepare(
+        `SELECT *
+         FROM product_deployment_records
+         ${where}
+         ORDER BY created_at DESC
+         LIMIT ?`,
+      )
+      .bind(...binds, query.limit ?? 50)
+      .all<ProductDeploymentRow>();
+
+    return (rows.results ?? []).map(rowToProductDeployment);
+  }
+
+  async updateProductDeploymentStatus(args: {
+    deploymentId: string;
+    status: ProductDeploymentStatus;
+    approvalId?: string | null;
+    targetUrl?: string | null;
+  }): Promise<ProductDeploymentRecord | null> {
+    const now = new Date().toISOString();
+    const startedAtExpr =
+      args.status === "in_progress" ? "?" : "started_at";
+    const deployedAtExpr =
+      args.status === "deployed" ? "?" : "deployed_at";
+    const failedAtExpr =
+      args.status === "failed" ? "?" : "failed_at";
+    const canceledAtExpr =
+      args.status === "canceled" ? "?" : "canceled_at";
+
+    const timestampBinds = [
+      ...(args.status === "in_progress" ? [now] : []),
+      ...(args.status === "deployed" ? [now] : []),
+      ...(args.status === "failed" ? [now] : []),
+      ...(args.status === "canceled" ? [now] : []),
+    ];
+
+    await this.db
+      .prepare(
+        `UPDATE product_deployment_records
+         SET status = ?,
+             approval_id = COALESCE(?, approval_id),
+             target_url = COALESCE(?, target_url),
+             updated_at = ?,
+             started_at = ${startedAtExpr},
+             deployed_at = ${deployedAtExpr},
+             failed_at = ${failedAtExpr},
+             canceled_at = ${canceledAtExpr}
+         WHERE deployment_id = ?`,
+      )
+      .bind(
+        args.status,
+        args.approvalId ?? null,
+        args.targetUrl ?? null,
+        now,
+        ...timestampBinds,
+        args.deploymentId,
+      )
+      .run();
+
+    return this.getProductDeployment(args.deploymentId);
   }
 
   async createMessageThread(

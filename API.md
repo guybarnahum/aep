@@ -395,6 +395,65 @@ or parallel workflow system.
   `project_planning -> requirements_definition -> task_graph_planning`.
 - Product initiative bootstrap does not implement a product surface directly.
 
+### Product deployments
+
+PR19C introduces canonical deployment records.
+
+`POST /agent/product-deployments`
+
+- Creates a canonical product deployment record from a deployable task artifact.
+- Required body fields:
+	- `sourceArtifactId`
+	- `requestedByEmployeeId`
+	- `environment`
+- Optional body fields:
+	- `approvalId`
+- The source artifact must be a `deployment_candidate`.
+- The source artifact state must be `ready_for_deployment`.
+- The source artifact must declare `stateOwnership: "aep"`.
+- `external_safe` deployments require `approvalId`.
+- This route does not deploy externally.
+
+`GET /agent/product-deployments`
+
+- Lists product deployment records.
+- Optional filters:
+	- `companyId`
+	- `projectId`
+	- `sourceArtifactId`
+	- `status`
+	- `limit`
+
+`GET /agent/product-deployments/:id`
+
+- Fetches one product deployment record.
+
+`POST /agent/product-deployments/:id/status`
+
+- Updates deployment record status.
+- Required body fields:
+	- `status`
+- Optional body fields:
+	- `approvalId`
+	- `targetUrl`
+- Supported statuses:
+	- `requested`
+	- `approved`
+	- `in_progress`
+	- `deployed`
+	- `failed`
+	- `canceled`
+- `external_safe` deployments require an approval id before moving to
+  `approved`, `in_progress`, or `deployed`.
+
+Important invariants:
+
+- Deployment records are canonical AEP state.
+- Deployment records do not execute provider deployment directly.
+- Provider-specific execution belongs in later adapter/runtime work.
+- External URLs and provider IDs are evidence attached to the canonical record,
+  not ownership of deployment state.
+
 `GET /agent/projects`
 
 - List canonical projects.
