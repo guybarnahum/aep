@@ -2,6 +2,7 @@ export type TaskStatus =
   | "queued"
   | "blocked"
   | "ready"
+  | "parked"
   | "in_progress"
   | "completed"
   | "failed"
@@ -284,7 +285,7 @@ export type ProjectRecord = {
 };
 
 export type ProductDeploymentRecord = {
-  deploymentId: string;
+  id: string;
   companyId: string;
   projectId: string;
   sourceTaskId?: string | null;

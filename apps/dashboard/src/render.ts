@@ -413,14 +413,20 @@ function statusRank(status: TaskStatus): number {
       return 1;
     case "queued":
       return 2;
-    case "blocked":
+    case "parked":
       return 3;
-    case "escalated":
+    case "blocked":
       return 4;
-    case "failed":
+    case "escalated":
       return 5;
-    case "completed":
+    case "failed":
       return 6;
+    case "completed":
+      return 7;
+    default: {
+      const unreachable: never = status;
+      return unreachable;
+    }
   }
 }
 
