@@ -1101,6 +1101,69 @@ PR19F CI guard:
 npm run ci:pr19-agentic-execution-contract-check
 ```
 
+### PR19G - Observability And Human Intervention
+
+PR19G makes the tutorial experience visible and steerable.
+
+Visibility route:
+
+```text
+GET /agent/projects/:id/product-visibility
+```
+
+It aggregates:
+
+- project state
+- source intake
+- related customer intake
+- tasks
+- artifacts
+- deployable artifacts
+- deployment records
+- public decision / rationale / coordination messages
+- suggested intervention actions
+
+Intervention route:
+
+```text
+POST /agent/projects/:id/interventions
+```
+
+Supported human actions:
+
+- `add_direction`
+- `request_redesign`
+- `change_priority`
+- `review_validation`
+- `review_deployment_risk`
+- `pause_for_human_review`
+
+The intervention route creates:
+
+- org-visible thread
+- human-authored message
+- canonical coordination task
+
+It must not directly mutate:
+
+- task execution state
+- artifacts
+- deployment records
+- approvals
+- staffing
+- employees
+
+Important invariant:
+
+> Human steering is itself organizational work. Intervention creates visible
+> messages and tasks instead of bypassing AEP.
+
+PR19G CI guard:
+
+```bash
+npm run ci:pr19-product-visibility-contract-check
+```
+
 Important invariant:
 
 > The product surface is the output. The organization runtime is the builder.

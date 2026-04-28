@@ -570,6 +570,66 @@ PR19F also allows conversion to include product initiative metadata:
 When `initiativeKind` is supplied, conversion creates a product initiative
 project and bootstraps the PR19A planning tasks.
 
+### Product visibility and intervention
+
+PR19G introduces human-facing visibility and steering surfaces.
+
+`GET /agent/projects/:id/product-visibility`
+
+- Returns a human-readable product initiative summary.
+- Aggregates canonical AEP state only.
+- Does not expose private cognition.
+- Does not mutate state.
+
+The summary includes:
+
+- project metadata
+- source intake
+- related customer intake
+- task counts by status and type
+- active tasks
+- blocked tasks
+- recent tasks
+- deployable artifacts
+- deployment records
+- recent public decision / rationale / coordination messages
+- suggested human intervention actions
+
+`POST /agent/projects/:id/interventions`
+
+- Creates a human intervention request.
+- Creates an org-visible coordination thread.
+- Creates an org-visible human message.
+- Creates a canonical coordination task for the owning team.
+- Does not directly mutate product work, artifacts, deployments, approvals, or
+	staffing.
+
+Required body fields:
+
+- `action`
+- `createdByEmployeeId`
+- `note`
+
+Supported actions:
+
+- `add_direction`
+- `request_redesign`
+- `change_priority`
+- `review_validation`
+- `review_deployment_risk`
+- `pause_for_human_review`
+
+Optional body fields:
+
+- `targetTaskId`
+- `targetArtifactId`
+- `targetDeploymentId`
+
+Important invariant:
+
+> Humans steer the product by creating visible organizational signals. They do
+> not bypass the organization by mutating execution state directly.
+
 `GET /agent/projects`
 
 - List canonical projects.

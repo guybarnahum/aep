@@ -52,6 +52,8 @@ import {
 } from "./routes/projects";
 import { handleCreateProjectTaskGraph } from "./routes/project-plan";
 import { handleCreateProductExecutionGraph } from "./routes/product-execution";
+import { handleGetProductVisibility } from "./routes/product-visibility";
+import { handleCreateProductIntervention } from "./routes/product-interventions";
 import { handleRunTeamOnce, handleRunTeams } from "./routes/team-run";
 import {
   handleCreateTask,
@@ -509,6 +511,28 @@ async function dispatch(request: Request, env: OperatorAgentEnv): Promise<Respon
       request,
       env,
       decodeURIComponent(productExecutionMatch[1]),
+    );
+  }
+
+  const productVisibilityMatch = url.pathname.match(
+    /^\/agent\/projects\/([^/]+)\/product-visibility$/,
+  );
+  if (productVisibilityMatch) {
+    return handleGetProductVisibility(
+      request,
+      env,
+      decodeURIComponent(productVisibilityMatch[1]),
+    );
+  }
+
+  const productInterventionMatch = url.pathname.match(
+    /^\/agent\/projects\/([^/]+)\/interventions$/,
+  );
+  if (productInterventionMatch) {
+    return handleCreateProductIntervention(
+      request,
+      env,
+      decodeURIComponent(productInterventionMatch[1]),
     );
   }
 
