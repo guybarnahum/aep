@@ -96,6 +96,6 @@ assert(
   "Task artifact route must return bounded external surface validation errors",
 );
 
-console.log("pr19-external-surface-contract-check passed", {
+console.log("external-surface-contract-check passed", {
   externalSurfaceKinds: EXTERNAL_SURFACE_KINDS.length,
 });

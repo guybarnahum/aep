@@ -73,6 +73,6 @@ assert(
   "Staffing contracts must reference canonical employee creation route",
 );
 
-console.log("pr18-staffing-contract-check passed", {
+console.log("staffing-contract-check passed", {
   contractCount: STAFFING_CONTRACTS.length,
 });

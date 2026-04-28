@@ -24,4 +24,4 @@ assert(main.includes("fulfillStaffingRequest"), "Dashboard action must call cano
 assert(!main.includes('localStorage.setItem("staffing'), "Dashboard must not own staffing state");
 assert(!render.includes("employees_catalog"), "Dashboard must not directly reference employee tables");
 
-console.log("pr18-staffing-dashboard-contract-check passed");
+console.log("staffing-dashboard-contract-check passed");

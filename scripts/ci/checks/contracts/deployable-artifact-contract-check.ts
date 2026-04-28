@@ -79,6 +79,6 @@ for (const denied of [
   assert(contractSource.includes(denied), `Missing deployable artifact invariant: ${denied}`);
 }
 
-console.log("pr19-deployable-artifact-contract-check passed", {
+console.log("deployable-artifact-contract-check passed", {
   deployableArtifactKinds: DEPLOYABLE_ARTIFACT_KINDS.length,
 });

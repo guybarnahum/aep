@@ -41,3 +41,7 @@ export function createStores(env: OperatorAgentEnv): OperatorAgentStores {
 export function getTaskStore(env: OperatorAgentEnv): TaskStore {
   return new D1TaskStore(env);
 }
+
+export function getApprovalStore(env: OperatorAgentEnv): IApprovalStore {
+  return new D1ApprovalStore(env);
+}

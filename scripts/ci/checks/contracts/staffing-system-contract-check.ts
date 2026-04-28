@@ -99,4 +99,4 @@ assert(
   "CI artifact marker must include __ci payload metadata for purge targeting",
 );
 
-console.log("pr18-staffing-system-contract-check passed");
+console.log("staffing-system-contract-check passed");

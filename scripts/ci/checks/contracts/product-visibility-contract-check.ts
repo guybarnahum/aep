@@ -111,4 +111,4 @@ assert(
   "Operator-agent must expose product intervention route",
 );
 
-console.log("pr19-product-visibility-contract-check passed");
+console.log("product-visibility-contract-check passed");

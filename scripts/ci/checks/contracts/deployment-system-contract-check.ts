@@ -66,4 +66,4 @@ for (const method of [
   assert(d1Store.includes(method), `D1 store must implement ${method}`);
 }
 
-console.log("pr19-deployment-system-contract-check passed");
+console.log("deployment-system-contract-check passed");

@@ -36,4 +36,4 @@ assert(!routes.includes("createEmployee("), "Hiring request route must not creat
 assert(!store.includes("createEmployee("), "Hiring request store must not create employees in PR18D");
 assert(index.includes("/agent/staffing/requests"), "Staffing request routes must be wired");
 
-console.log("pr18-hiring-request-flow-contract-check passed");
+console.log("hiring-request-flow-contract-check passed");

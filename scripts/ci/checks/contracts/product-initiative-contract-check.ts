@@ -92,6 +92,6 @@ for (const field of ["initiativeKind", "productSurface", "externalVisibility"]) 
   assert(storeTypesSource.includes(field), `Project must expose ${field}`);
 }
 
-console.log("pr19-product-initiative-contract-check passed", {
+console.log("product-initiative-contract-check passed", {
   initiativeKinds: PRODUCT_INITIATIVE_KINDS.length,
 });

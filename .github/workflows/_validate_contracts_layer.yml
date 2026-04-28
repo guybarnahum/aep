@@ -178,13 +178,58 @@ jobs:
         id: thread_task_delegation_contract
         run: npx tsx scripts/ci/checks/contracts/thread-task-delegation-contract-check.ts | tee thread-task-delegation-contract-check.log
 
-      - name: Run PR16 role realism contract check
-        id: pr16_role_realism_contract
-        run: npx tsx scripts/ci/checks/contracts/pr16-role-realism-contract-check.ts | tee pr16-role-realism-contract-check.log
+      - name: Run role realism contract check
+        id: role_realism_contract
+        run: npx tsx scripts/ci/checks/contracts/role-realism-contract-check.ts | tee role-realism-contract-check.log
 
-      - name: PR18 staffing system contract check
-        id: pr18_staffing_system_contract
-        run: npm run ci:pr18-staffing-system-contract-check | tee pr18-staffing-system-contract-check.log
+      - name: Run staffing system contract check
+        id: staffing_system_contract
+        run: npm run ci:staffing-system-contract-check | tee staffing-system-contract-check.log
+
+      - name: Run product initiative contract check
+        id: product_initiative_contract
+        continue-on-error: true
+        run: npm run ci:product-initiative-contract-check | tee product-initiative-contract-check.log
+
+      - name: Run deployable artifact contract check
+        id: deployable_artifact_contract
+        continue-on-error: true
+        run: npm run ci:deployable-artifact-contract-check | tee deployable-artifact-contract-check.log
+
+      - name: Run deployment system contract check
+        id: deployment_system_contract
+        continue-on-error: true
+        run: npm run ci:deployment-system-contract-check | tee deployment-system-contract-check.log
+
+      - name: Run external surface contract check
+        id: external_surface_contract
+        continue-on-error: true
+        run: npm run ci:external-surface-contract-check | tee external-surface-contract-check.log
+
+      - name: Run customer intake flow contract check
+        id: customer_intake_flow_contract
+        continue-on-error: true
+        run: npm run ci:customer-intake-flow-contract-check | tee customer-intake-flow-contract-check.log
+
+      - name: Run agentic execution contract check
+        id: agentic_execution_contract
+        continue-on-error: true
+        run: npm run ci:agentic-execution-contract-check | tee agentic-execution-contract-check.log
+
+      - name: Run product visibility contract check
+        id: product_visibility_contract
+        continue-on-error: true
+        run: npm run ci:product-visibility-contract-check | tee product-visibility-contract-check.log
+
+      - name: Run boundary enforcement check
+        id: boundary_enforcement
+        continue-on-error: true
+        run: npm run ci:boundary-enforcement-check | tee boundary-enforcement-check.log
+
+      - name: Run tutorial alignment check
+        id: tutorial_alignment
+        continue-on-error: true
+        run: npm run ci:tutorial-alignment-check | tee tutorial-alignment-check.log
 
       - name: Capture outcome
         id: capture_outcome
@@ -211,8 +256,17 @@ jobs:
             "${{ steps.thread_rationale_publication.outcome }}" == "success" && \
             "${{ steps.public_rationale_artifact.outcome }}" == "success" && \
             "${{ steps.thread_task_delegation_contract.outcome }}" == "success" && \
-            "${{ steps.pr16_role_realism_contract.outcome }}" == "success" && \
-            "${{ steps.pr18_staffing_system_contract.outcome }}" == "success" \
+            "${{ steps.role_realism_contract.outcome }}" == "success" && \
+            "${{ steps.staffing_system_contract.outcome }}" == "success" && \
+            "${{ steps.product_initiative_contract.outcome }}" == "success" && \
+            "${{ steps.deployable_artifact_contract.outcome }}" == "success" && \
+            "${{ steps.deployment_system_contract.outcome }}" == "success" && \
+            "${{ steps.external_surface_contract.outcome }}" == "success" && \
+            "${{ steps.customer_intake_flow_contract.outcome }}" == "success" && \
+            "${{ steps.agentic_execution_contract.outcome }}" == "success" && \
+            "${{ steps.product_visibility_contract.outcome }}" == "success" && \
+            "${{ steps.boundary_enforcement.outcome }}" == "success" && \
+            "${{ steps.tutorial_alignment.outcome }}" == "success" \
           ]]; then
             echo "value=success" >> "$GITHUB_OUTPUT"
           else
@@ -264,8 +318,17 @@ jobs:
           echo "- $(status_emoji \"${{ steps.thread_rationale_publication.outcome }}\") thread-rationale-publication-check: ${{ steps.thread_rationale_publication.outcome }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- $(status_emoji \"${{ steps.public_rationale_artifact.outcome }}\") public-rationale-artifact-check: ${{ steps.public_rationale_artifact.outcome }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- $(status_emoji \"${{ steps.thread_task_delegation_contract.outcome }}\") thread-task-delegation-contract-check: ${{ steps.thread_task_delegation_contract.outcome }}" >> "$GITHUB_STEP_SUMMARY"
-          echo "- $(status_emoji \"${{ steps.pr16_role_realism_contract.outcome }}\") pr16-role-realism-contract-check: ${{ steps.pr16_role_realism_contract.outcome }}" >> "$GITHUB_STEP_SUMMARY"
-          echo "- $(status_emoji \"${{ steps.pr18_staffing_system_contract.outcome }}\") pr18-staffing-system-contract-check: ${{ steps.pr18_staffing_system_contract.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- $(status_emoji \"${{ steps.role_realism_contract.outcome }}\") role-realism-contract-check: ${{ steps.role_realism_contract.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- $(status_emoji \"${{ steps.staffing_system_contract.outcome }}\") staffing-system-contract-check: ${{ steps.staffing_system_contract.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- $(status_emoji \"${{ steps.product_initiative_contract.outcome }}\") product-initiative-contract-check: ${{ steps.product_initiative_contract.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- $(status_emoji \"${{ steps.deployable_artifact_contract.outcome }}\") deployable-artifact-contract-check: ${{ steps.deployable_artifact_contract.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- $(status_emoji \"${{ steps.deployment_system_contract.outcome }}\") deployment-system-contract-check: ${{ steps.deployment_system_contract.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- $(status_emoji \"${{ steps.external_surface_contract.outcome }}\") external-surface-contract-check: ${{ steps.external_surface_contract.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- $(status_emoji \"${{ steps.customer_intake_flow_contract.outcome }}\") customer-intake-flow-contract-check: ${{ steps.customer_intake_flow_contract.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- $(status_emoji \"${{ steps.agentic_execution_contract.outcome }}\") agentic-execution-contract-check: ${{ steps.agentic_execution_contract.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- $(status_emoji \"${{ steps.product_visibility_contract.outcome }}\") product-visibility-contract-check: ${{ steps.product_visibility_contract.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- $(status_emoji \"${{ steps.boundary_enforcement.outcome }}\") boundary-enforcement-check: ${{ steps.boundary_enforcement.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- $(status_emoji \"${{ steps.tutorial_alignment.outcome }}\") tutorial-alignment-check: ${{ steps.tutorial_alignment.outcome }}" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "### Layer verdict" >> "$GITHUB_STEP_SUMMARY"
           echo "- $(status_emoji "$LAYER_OUTCOME") Contracts layer: $LAYER_OUTCOME" >> "$GITHUB_STEP_SUMMARY"

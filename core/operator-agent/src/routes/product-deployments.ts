@@ -1,4 +1,4 @@
-import { getTaskStore } from "@aep/operator-agent/lib/store-factory";
+import { getApprovalStore, getTaskStore } from "@aep/operator-agent/lib/store-factory";
 import type {
   ProductDeploymentRecord,
   ProductDeploymentStatus,
@@ -47,6 +47,31 @@ function parseStatus(value: string | null): ProductDeploymentStatus | undefined 
   return value && STATUSES.includes(value as ProductDeploymentStatus)
     ? (value as ProductDeploymentStatus)
     : undefined;
+}
+
+async function requireApprovedDeploymentApproval(args: {
+  env: OperatorAgentEnv;
+  approvalId: string | null;
+}): Promise<Response | null> {
+  if (!args.approvalId) {
+    return jsonError("external_safe deployments require approvalId");
+  }
+
+  const approval = await getApprovalStore(args.env).get(args.approvalId);
+  if (!approval) {
+    return jsonError("approvalId does not reference an existing approval", 404, {
+      approvalId: args.approvalId,
+    });
+  }
+
+  if (approval.status !== "approved") {
+    return jsonError("external_safe deployments require an approved approval", 409, {
+      approvalId: args.approvalId,
+      status: approval.status,
+    });
+  }
+
+  return null;
 }
 
 function requireDeploymentCandidate(artifact: TaskArtifact): Response | null {
@@ -121,6 +146,14 @@ export async function handleCreateProductDeployment(
     return jsonError(
       "external_safe deployments require approvalId before deployment record creation",
     );
+  }
+
+  if (externalVisibility === "external_safe") {
+    const approvalError = await requireApprovedDeploymentApproval({
+      env,
+      approvalId,
+    });
+    if (approvalError) return approvalError;
   }
 
   const now = new Date().toISOString();
@@ -265,6 +298,17 @@ export async function handleUpdateProductDeploymentStatus(
     !stringOrEmpty(body.approvalId)
   ) {
     return jsonError("external_safe deployment status changes require approvalId");
+  }
+
+  if (
+    current.externalVisibility === "external_safe" &&
+    ["approved", "in_progress", "deployed"].includes(status)
+  ) {
+    const approvalError = await requireApprovedDeploymentApproval({
+      env,
+      approvalId: stringOrEmpty(body.approvalId) || current.approvalId || null,
+    });
+    if (approvalError) return approvalError;
   }
 
   const deployment = await store.updateProductDeploymentStatus({

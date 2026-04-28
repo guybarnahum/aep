@@ -88,4 +88,4 @@ for (const forbidden of [
   );
 }
 
-console.log("pr19-agentic-execution-contract-check passed");
+console.log("agentic-execution-contract-check passed");

@@ -138,7 +138,7 @@ for (const scriptName of requiredScripts) {
   assert(packageSource.includes(`"${scriptName}"`), `Missing PR16 CI script ${scriptName}`);
 }
 
-console.log("pr16-role-realism-contract-check passed", {
+console.log("role-realism-contract-check passed", {
   taskContractCount: TASK_CONTRACTS.length,
   requiredTaskTypeCount: requiredTaskTypes.length,
   requiredDelegationEdgeCount: requiredDelegationEdges.length,

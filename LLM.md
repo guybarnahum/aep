@@ -140,7 +140,7 @@ All PR16 behavior remains inside:
 The umbrella CI check is:
 
 ```bash
-npm run ci:pr16-role-realism-contract-check
+npm run ci:role-realism-contract-check
 ```
 
 It verifies the integrated PR16 contract surface: task contracts, payload
@@ -200,7 +200,7 @@ External systems must not:
 PR17B adds the CI guard:
 
 ```bash
-npm run ci:pr17-external-collaboration-contract-check
+npm run ci:external-collaboration-contract-check
 ```
 
 The check verifies that Slack, email, and Jira-like systems have explicit
@@ -329,7 +329,7 @@ The PR17 CI surface now guards:
 The PR17 umbrella check is:
 
 ```bash
-npm run ci:pr17-external-collaboration-contract-check
+npm run ci:external-collaboration-contract-check
 ```
 
 Additional adapter-specific checks:
@@ -401,7 +401,7 @@ External systems must not:
 PR17 CI guardrails:
 
 ```bash
-npm run ci:pr17-external-collaboration-contract-check
+npm run ci:external-collaboration-contract-check
 npm run ci:slack-adapter-contract-check
 npm run ci:email-adapter-contract-check
 npm run ci:jira-like-adapter-design-contract-check
@@ -495,7 +495,7 @@ Important boundaries:
 PR18B CI guard:
 
 ```bash
-npm run ci:pr18-staffing-contract-check
+npm run ci:staffing-contract-check
 ```
 
 PR18B does not add:
@@ -531,7 +531,7 @@ Important invariants:
 CI guard:
 
 ```bash
-npm run ci:pr18-staffing-gap-detection-contract-check
+npm run ci:staffing-gap-detection-contract-check
 ```
 
 ### PR18D - Hiring Request Flow
@@ -567,7 +567,7 @@ Boundaries:
 CI guard:
 
 ```bash
-npm run ci:pr18-hiring-request-flow-contract-check
+npm run ci:hiring-request-flow-contract-check
 ```
 
 ### PR18E - Hiring To Employee Creation
@@ -595,7 +595,7 @@ Boundaries:
 CI guard:
 
 ```bash
-npm run ci:pr18-hiring-employee-linkage-contract-check
+npm run ci:hiring-employee-linkage-contract-check
 ```
 
 ### PR18F - Staffing Dashboard
@@ -622,7 +622,7 @@ Boundaries:
 CI guard:
 
 ```bash
-npm run ci:pr18-staffing-dashboard-contract-check
+npm run ci:staffing-dashboard-contract-check
 ```
 
 ### PR18G - Staffing CI Coverage
@@ -844,7 +844,7 @@ Important invariant:
 PR19A CI guard:
 
 ```bash
-npm run ci:pr19-product-initiative-contract-check
+npm run ci:product-initiative-contract-check
 ```
 
 ### PR19B - Artifact To Deployment Contract
@@ -888,7 +888,7 @@ deployment_candidate -> artifactRef + deploymentTarget
 PR19B CI guard:
 
 ```bash
-npm run ci:pr19-deployable-artifact-contract-check
+npm run ci:deployable-artifact-contract-check
 ```
 
 Important invariant:
@@ -945,7 +945,7 @@ Important invariants:
 PR19C CI guard:
 
 ```bash
-npm run ci:pr19-deployment-system-contract-check
+npm run ci:deployment-system-contract-check
 ```
 
 ### PR19D - External Surface Contract
@@ -989,7 +989,7 @@ Important invariant:
 PR19D CI guard:
 
 ```bash
-npm run ci:pr19-external-surface-contract-check
+npm run ci:external-surface-contract-check
 ```
 
 ### PR19E - Customer Intake Flow
@@ -1040,7 +1040,7 @@ Important invariant:
 PR19E CI guard:
 
 ```bash
-npm run ci:pr19-customer-intake-flow-contract-check
+npm run ci:customer-intake-flow-contract-check
 ```
 
 ### PR19F - Agentic Product Execution
@@ -1098,7 +1098,7 @@ customer/user demand
 PR19F CI guard:
 
 ```bash
-npm run ci:pr19-agentic-execution-contract-check
+npm run ci:agentic-execution-contract-check
 ```
 
 ### PR19G - Observability And Human Intervention
@@ -1161,8 +1161,53 @@ Important invariant:
 PR19G CI guard:
 
 ```bash
-npm run ci:pr19-product-visibility-contract-check
+npm run ci:product-visibility-contract-check
 ```
+
+### PR19H - Enforcement Guards
+
+PR19H locks the PR19 model so later work cannot bypass the organization.
+
+Runtime enforcement:
+
+- `external_safe` deployment records require an approval id
+- the approval id must reference an existing approval
+- the approval must be in `approved` state before external-safe deployment
+  creation or status movement to `approved`, `in_progress`, or `deployed`
+
+CI enforcement:
+
+```bash
+npm run ci:boundary-enforcement-check
+npm run ci:tutorial-alignment-check
+```
+
+The boundary check enforces:
+
+- customer intake cannot create projects directly
+- customer intake cannot create tasks directly
+- customer intake cannot create artifacts directly
+- customer intake cannot create deployments directly
+- human interventions cannot mutate task/artifact/deployment state directly
+- only task artifact routes create artifacts
+- only product deployment routes mutate deployment records
+- product contract/runtime code does not directly invoke provider deployment
+- external surfaces do not own canonical state
+- deployable artifacts do not deploy themselves
+
+The tutorial alignment check enforces:
+
+- `TUTORIAL.md` exists
+- PR19 docs continue to describe a loop, not a pipeline
+- API docs include the product initiative, customer intake, product execution,
+  visibility, intervention, and deployment surfaces
+- docs continue to preserve private cognition and AEP source-of-truth
+  boundaries
+
+Important invariant:
+
+> PR19H does not add capability. It prevents future work from breaking the
+> product-construction experience promised by `TUTORIAL.md`.
 
 Important invariant:
 

@@ -33,4 +33,4 @@ assert(!detectorSource.includes("applyEmployeeLifecycleAction"), "Gap detection 
 assert(routeSource.includes("request.method !== \"GET\""), "Role gaps route must be read-only GET");
 assert(indexSource.includes("/agent/staffing/role-gaps"), "Role gaps route must be wired");
 
-console.log("pr18-staffing-gap-detection-contract-check passed");
+console.log("staffing-gap-detection-contract-check passed");

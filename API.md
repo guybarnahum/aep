@@ -412,6 +412,8 @@ PR19C introduces canonical deployment records.
 - The source artifact state must be `ready_for_deployment`.
 - The source artifact must declare `stateOwnership: "aep"`.
 - `external_safe` deployments require `approvalId`.
+- PR19H enforcement: `external_safe` deployments require that `approvalId`
+	references an existing approval whose status is `approved`.
 - This route does not deploy externally.
 
 `GET /agent/product-deployments`
@@ -445,10 +447,8 @@ PR19C introduces canonical deployment records.
 	- `canceled`
 - `external_safe` deployments require an approval id before moving to
   `approved`, `in_progress`, or `deployed`.
-- PR19C caveat: this route currently validates approval id presence, but does
-	not yet verify approval existence or approved status.
-- PR19H target: `external_safe` must not transition to `deployed` without a
-	valid approved approval record.
+- PR19H enforcement: that approval must exist and be approved before those
+  status transitions are accepted.
 
 Important invariants:
 
@@ -629,6 +629,33 @@ Important invariant:
 
 > Humans steer the product by creating visible organizational signals. They do
 > not bypass the organization by mutating execution state directly.
+
+### PR19 enforcement
+
+PR19H adds enforcement checks for the product-construction model.
+
+CI guards:
+
+```bash
+npm run ci:boundary-enforcement-check
+npm run ci:tutorial-alignment-check
+```
+
+Enforced boundaries:
+
+- customer intake cannot create projects, tasks, artifacts, approvals,
+  deployments, staffing, or employees directly
+- customer intake does not create projects
+- customer intake does not create tasks
+- product visibility and intervention surfaces do not deploy
+- human interventions cannot directly mutate execution state
+- deployment records can only be mutated through the deployment route
+- artifacts can only be created through task artifact routes
+- external-safe deployment requires an approved approval
+- external surfaces cannot own canonical state
+- external surfaces must not own canonical state
+- deployable artifacts cannot deploy themselves
+- PR19 docs must remain aligned with `TUTORIAL.md`
 
 `GET /agent/projects`
 
@@ -1024,7 +1051,7 @@ PR16F delegation note:
 PR16G closeout note:
 
 - PR16 role realism is guarded by an umbrella contract check:
-	`npm run ci:pr16-role-realism-contract-check`
+	`npm run ci:role-realism-contract-check`
 - The check verifies task contracts, payload contracts, artifact expectations,
 	parked task state, cognitive scheduling, delegation route wiring, and PR16
 	CI script registration.

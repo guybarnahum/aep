@@ -74,4 +74,4 @@ assert(
   "Customer intake must support idempotency",
 );
 
-console.log("pr19-customer-intake-flow-contract-check passed");
+console.log("customer-intake-flow-contract-check passed");

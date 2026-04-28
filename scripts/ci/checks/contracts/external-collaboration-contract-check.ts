@@ -142,7 +142,7 @@ assert(
 );
 
 assert(
-  packageSource.includes("ci:pr17-external-collaboration-contract-check"),
+  packageSource.includes("ci:external-collaboration-contract-check"),
   "package.json must expose PR17 external collaboration contract check",
 );
 
@@ -182,6 +182,6 @@ assert(
   "Runtime literal guard must continue checking placeholder recipient regex",
 );
 
-console.log("pr17-external-collaboration-contract-check passed", {
+console.log("external-collaboration-contract-check passed", {
   adapterCount: EXTERNAL_ADAPTER_CONTRACTS.length,
 });

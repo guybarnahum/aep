@@ -303,7 +303,7 @@ ownership boundaries.
 Run the umbrella check:
 
 ```bash
-npm run ci:pr17-external-collaboration-contract-check
+npm run ci:external-collaboration-contract-check
 ```
 
 ### PR17 final state
@@ -346,7 +346,7 @@ npm run ci:no-hardcoded-runtime-identifiers
 PR16 role-realism integration check:
 
 ```bash
-npm run ci:pr16-role-realism-contract-check
+npm run ci:role-realism-contract-check
 ```
 
 Historical migrations, docs, examples, and local-dev-only scripts are treated as

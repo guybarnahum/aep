@@ -36,4 +36,4 @@ assert(route.includes("fulfilledByEmployeeId"), "Fulfillment route must require 
 assert(index.includes("/agent/staffing/requests"), "Staffing routes must remain wired");
 assert(index.includes("/fulfill"), "Fulfillment route must be wired");
 
-console.log("pr18-hiring-employee-linkage-contract-check passed");
+console.log("hiring-employee-linkage-contract-check passed");
