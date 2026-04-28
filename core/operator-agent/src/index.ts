@@ -51,6 +51,7 @@ import {
   handleListProjects,
 } from "./routes/projects";
 import { handleCreateProjectTaskGraph } from "./routes/project-plan";
+import { handleCreateProductExecutionGraph } from "./routes/product-execution";
 import { handleRunTeamOnce, handleRunTeams } from "./routes/team-run";
 import {
   handleCreateTask,
@@ -497,6 +498,17 @@ async function dispatch(request: Request, env: OperatorAgentEnv): Promise<Respon
       request,
       env,
       decodeURIComponent(projectTaskGraphMatch[1]),
+    );
+  }
+
+  const productExecutionMatch = url.pathname.match(
+    /^\/agent\/projects\/([^/]+)\/product-execution$/,
+  );
+  if (productExecutionMatch) {
+    return handleCreateProductExecutionGraph(
+      request,
+      env,
+      decodeURIComponent(productExecutionMatch[1]),
     );
   }
 

@@ -516,6 +516,60 @@ Important invariant:
 > that demand into projects, tasks, staffing, approvals, artifacts, and
 > deployments.
 
+### Product execution
+
+PR19F introduces canonical product execution task graph creation.
+
+`POST /agent/projects/:id/product-execution`
+
+- Creates a canonical execution graph for an existing product initiative.
+- Does not implement product code directly.
+- Does not create artifacts directly.
+- Does not create deployment records directly.
+- Does not bypass staffing, task execution, validation, or approvals.
+
+Required body fields:
+
+- `createdByEmployeeId`
+
+Optional body fields:
+
+- `environment` - defaults to `staging`
+- `targetUrl`
+- `requirementsRef`
+- `testPlanRef`
+- `artifactRef`
+
+The route creates these canonical tasks:
+
+```text
+web_design
+	-> web_implementation
+	-> test_execution
+	-> deployment
+	-> verification
+
+deployment
+	-> monitoring_setup
+```
+
+Assigned teams:
+
+- `team_web_product` - design and implementation
+- `team_validation` - validation and verification
+- `team_infra` - deployment and monitoring setup
+
+`POST /agent/intake/:id/convert-to-project`
+
+PR19F also allows conversion to include product initiative metadata:
+
+- `initiativeKind`
+- `productSurface`
+- `externalVisibility`
+
+When `initiativeKind` is supplied, conversion creates a product initiative
+project and bootstraps the PR19A planning tasks.
+
 `GET /agent/projects`
 
 - List canonical projects.

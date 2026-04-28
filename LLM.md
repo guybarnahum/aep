@@ -1043,6 +1043,64 @@ PR19E CI guard:
 npm run ci:pr19-customer-intake-flow-contract-check
 ```
 
+### PR19F - Agentic Product Execution
+
+PR19F turns product initiatives into executable organizational work.
+
+It introduces:
+
+```text
+POST /agent/projects/:id/product-execution
+```
+
+The route creates a canonical task graph:
+
+```text
+web_design
+  -> web_implementation
+  -> test_execution
+  -> deployment
+  -> verification
+
+deployment
+  -> monitoring_setup
+```
+
+The graph assigns work to:
+
+- `team_web_product`
+- `team_validation`
+- `team_infra`
+
+Important invariants:
+
+- PR19F creates tasks, not product code
+- PR19F creates tasks, not artifacts
+- PR19F creates deployment work, not deployment records
+- PR19F keeps the organization as the execution owner
+- artifacts, deployment candidates, deployment records, approvals, and provider
+  execution happen later through their canonical routes
+
+PR19F also updates intake conversion so customer/external intake can become a
+product initiative project with PR19A bootstrap tasks.
+
+This is the first PR19 stage where the tutorial loop becomes executable:
+
+```text
+customer/user demand
+  -> intake
+  -> product initiative
+  -> execution task graph
+  -> staffed work
+  -> artifacts / validation / deployment records in later stages
+```
+
+PR19F CI guard:
+
+```bash
+npm run ci:pr19-agentic-execution-contract-check
+```
+
 Important invariant:
 
 > The product surface is the output. The organization runtime is the builder.

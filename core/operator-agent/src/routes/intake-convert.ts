@@ -2,6 +2,12 @@ import { getTaskStore } from "@aep/operator-agent/lib/store-factory";
 import { newId } from "@aep/shared";
 import { TEAM_WEB_PRODUCT, isTeamId } from "@aep/operator-agent/org/teams";
 import type { OperatorAgentEnv } from "@aep/operator-agent/types";
+import { bootstrapProductInitiativeTasks } from "../product/product-initiative-bootstrap";
+import {
+  parseProductExternalVisibility,
+  parseProductInitiativeKind,
+  parseProductSurface,
+} from "../product/product-initiative-contracts";
 
 type ConvertIntakeBody = {
   ownerTeamId?: unknown;
@@ -9,6 +15,9 @@ type ConvertIntakeBody = {
   projectDescription?: unknown;
   convertedByEmployeeId?: unknown;
   rationale?: unknown;
+  initiativeKind?: unknown;
+  productSurface?: unknown;
+  externalVisibility?: unknown;
 };
 
 function jsonError(message: string, status = 400): Response {
@@ -75,6 +84,33 @@ export async function handleConvertIntakeToProject(
 
   const now = new Date().toISOString();
   const projectId = newId("project");
+  const initiativeKind = parseProductInitiativeKind(body.initiativeKind);
+  const productSurface =
+    parseProductSurface(body.productSurface) ??
+    (intake.productSurface ?? undefined);
+  const externalVisibility =
+    parseProductExternalVisibility(body.externalVisibility) ??
+    (intake.externalSurfaceKind ? "external_safe" : undefined);
+
+  if (typeof body.initiativeKind !== "undefined" && !initiativeKind) {
+    return jsonError(`Unsupported initiativeKind: ${String(body.initiativeKind)}`);
+  }
+
+  if (typeof body.productSurface !== "undefined" && !productSurface) {
+    return jsonError(`Unsupported productSurface: ${String(body.productSurface)}`);
+  }
+
+  if (typeof body.externalVisibility !== "undefined" && !externalVisibility) {
+    return jsonError(
+      `Unsupported externalVisibility: ${String(body.externalVisibility)}`,
+    );
+  }
+
+  if (initiativeKind && (!productSurface || !externalVisibility)) {
+    return jsonError(
+      "Product initiative conversion requires initiativeKind, productSurface, and externalVisibility",
+    );
+  }
 
   await store.createProject({
     id: projectId,
@@ -84,6 +120,9 @@ export async function handleConvertIntakeToProject(
     title: projectTitle,
     description: projectDescription,
     ownerTeamId,
+    initiativeKind: initiativeKind ?? null,
+    productSurface: productSurface ?? null,
+    externalVisibility: externalVisibility ?? null,
     status: "active",
     createdAt: now,
     updatedAt: now,
@@ -92,6 +131,16 @@ export async function handleConvertIntakeToProject(
   });
 
   await store.updateIntakeRequestStatus({ id: intake.id, status: "converted" });
+
+  const project = await store.getProject(projectId);
+  const bootstrap =
+    project && initiativeKind
+      ? await bootstrapProductInitiativeTasks({
+          store,
+          project,
+          createdByEmployeeId: convertedByEmployeeId,
+        })
+      : null;
 
   const threadId = newId("thread");
   await store.createMessageThread({
@@ -123,13 +172,12 @@ export async function handleConvertIntakeToProject(
     requiresResponse: false,
   });
 
-  const project = await store.getProject(projectId);
-
   return Response.json(
     {
       ok: true,
       intake: { ...intake, status: "converted" },
       project,
+      bootstrap,
       threadId,
       messageId: message.id,
     },
