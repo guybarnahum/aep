@@ -17,6 +17,11 @@ import type {
   MirrorDeliveryRecord,
 } from "@aep/operator-agent/adapters/types";
 import type { CanonicalTaskType } from "./task-contracts";
+import type {
+  ProductExternalVisibility,
+  ProductInitiativeKind,
+  ProductSurface,
+} from "../product/product-initiative-contracts";
 
 export interface IApprovalStore {
   write(record: ApprovalRecord): Promise<void>;
@@ -144,6 +149,9 @@ export type Project = {
   title: string;
   description?: string | null;
   ownerTeamId: string;
+  initiativeKind?: ProductInitiativeKind | null;
+  productSurface?: ProductSurface | null;
+  externalVisibility?: ProductExternalVisibility | null;
   status: ProjectStatus;
   createdAt: string;
   updatedAt: string;
@@ -156,6 +164,8 @@ export type ProjectListQuery = {
   ownerTeamId?: string;
   status?: ProjectStatus;
   intakeRequestId?: string;
+  initiativeKind?: ProductInitiativeKind;
+  productSurface?: ProductSurface;
   limit?: number;
 };
 

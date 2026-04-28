@@ -366,6 +366,10 @@ Important invariants:
 
 ### Projects
 
+PR19A note: product initiatives are represented as specialized canonical
+projects. They do not introduce a product database, website implementation path,
+or parallel workflow system.
+
 `POST /agent/projects`
 
 - Create a canonical project.
@@ -377,8 +381,19 @@ Important invariants:
 	- `createdByEmployeeId`
 	- `description`
 	- `intakeRequestId`
+	- `initiativeKind` — one of `marketing_site`,
+	  `customer_intake_surface`, `tenant_conversion_surface`
+	- `productSurface` — one of `website_bundle`, `customer_intake`,
+	  `public_progress`
+	- `externalVisibility` — one of `internal_only`, `external_safe`
 - Status is initialized to `active`.
 - If `intakeRequestId` is supplied, it must exist and belong to the same company.
+- If `initiativeKind` is supplied, `productSurface` and
+  `externalVisibility` are required.
+- Product initiatives must be owned by `team_web_product`.
+- Product initiative creation bootstraps canonical planning tasks:
+  `project_planning -> requirements_definition -> task_graph_planning`.
+- Product initiative bootstrap does not implement a product surface directly.
 
 `GET /agent/projects`
 
@@ -388,6 +403,8 @@ Important invariants:
 	- `ownerTeamId`
 	- `status`
 	- `intakeRequestId`
+	- `initiativeKind`
+	- `productSurface`
 	- `limit`
 
 `GET /agent/projects/:id`

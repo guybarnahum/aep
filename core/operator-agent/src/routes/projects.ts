@@ -3,6 +3,13 @@ import type { ProjectStatus } from "@aep/operator-agent/lib/store-types";
 import { isTeamId } from "@aep/operator-agent/org/teams";
 import type { OperatorAgentEnv } from "@aep/operator-agent/types";
 import { newId } from "@aep/shared";
+import { TEAM_WEB_PRODUCT } from "../org/teams";
+import { bootstrapProductInitiativeTasks } from "../product/product-initiative-bootstrap";
+import {
+  parseProductExternalVisibility,
+  parseProductInitiativeKind,
+  parseProductSurface,
+} from "../product/product-initiative-contracts";
 
 type CreateProjectBody = {
   companyId?: unknown;
@@ -11,6 +18,9 @@ type CreateProjectBody = {
   title?: unknown;
   description?: unknown;
   ownerTeamId?: unknown;
+  initiativeKind?: unknown;
+  productSurface?: unknown;
+  externalVisibility?: unknown;
 };
 
 const PROJECT_STATUSES: ProjectStatus[] = [
@@ -74,6 +84,9 @@ export async function handleCreateProject(
     typeof body.intakeRequestId === "string" && body.intakeRequestId.trim()
       ? body.intakeRequestId.trim()
       : null;
+  const initiativeKind = parseProductInitiativeKind(body.initiativeKind);
+  const productSurface = parseProductSurface(body.productSurface);
+  const externalVisibility = parseProductExternalVisibility(body.externalVisibility);
   let intakeRequestedBy: string | null = null;
 
   if (!companyId || !title || !ownerTeamId) {
@@ -82,6 +95,42 @@ export async function handleCreateProject(
 
   if (!isTeamId(ownerTeamId)) {
     return jsonError(`Unsupported ownerTeamId: ${ownerTeamId}`);
+  }
+
+  if (typeof body.initiativeKind !== "undefined" && !initiativeKind) {
+    return jsonError(`Unsupported initiativeKind: ${String(body.initiativeKind)}`);
+  }
+
+  if (typeof body.productSurface !== "undefined" && !productSurface) {
+    return jsonError(`Unsupported productSurface: ${String(body.productSurface)}`);
+  }
+
+  if (typeof body.externalVisibility !== "undefined" && !externalVisibility) {
+    return jsonError(
+      `Unsupported externalVisibility: ${String(body.externalVisibility)}`,
+    );
+  }
+
+  if (initiativeKind && (!productSurface || !externalVisibility)) {
+    return jsonError(
+      "Product initiatives require initiativeKind, productSurface, and externalVisibility",
+    );
+  }
+
+  if (!initiativeKind && (productSurface || externalVisibility)) {
+    return jsonError(
+      "productSurface and externalVisibility require initiativeKind",
+    );
+  }
+
+  if (initiativeKind && ownerTeamId !== TEAM_WEB_PRODUCT) {
+    return jsonError("Product initiatives must be owned by team_web_product");
+  }
+
+  if (initiativeKind && !createdByEmployeeId && !intakeRequestId) {
+    return jsonError(
+      "Product initiatives require createdByEmployeeId or linked intake provenance",
+    );
   }
 
   const store = getTaskStore(env);
@@ -108,6 +157,9 @@ export async function handleCreateProject(
     title,
     description: description || null,
     ownerTeamId,
+    initiativeKind: initiativeKind ?? null,
+    productSurface: productSurface ?? null,
+    externalVisibility: externalVisibility ?? null,
     status: "active" as const,
     createdAt: now,
     updatedAt: now,
@@ -117,7 +169,16 @@ export async function handleCreateProject(
 
   await store.createProject(project);
 
-  return Response.json({ ok: true, project }, { status: 201 });
+  const bootstrap = initiativeKind
+    ? await bootstrapProductInitiativeTasks({
+        store,
+        project,
+        createdByEmployeeId:
+          project.createdByEmployeeId ?? createdByEmployeeId ?? intakeRequestedBy ?? "",
+      })
+    : null;
+
+  return Response.json({ ok: true, project, bootstrap }, { status: 201 });
 }
 
 export async function handleListProjects(
@@ -145,12 +206,26 @@ export async function handleListProjects(
     return jsonError(`Unsupported ownerTeamId: ${ownerTeamId}`);
   }
 
+  const initiativeKindRaw = url.searchParams.get("initiativeKind");
+  const initiativeKind = parseProductInitiativeKind(initiativeKindRaw);
+  if (initiativeKindRaw && !initiativeKind) {
+    return jsonError(`Unsupported initiativeKind: ${initiativeKindRaw}`);
+  }
+
+  const productSurfaceRaw = url.searchParams.get("productSurface");
+  const productSurface = parseProductSurface(productSurfaceRaw);
+  if (productSurfaceRaw && !productSurface) {
+    return jsonError(`Unsupported productSurface: ${productSurfaceRaw}`);
+  }
+
   const store = getTaskStore(env);
   const projects = await store.listProjects({
     companyId: url.searchParams.get("companyId")?.trim() || undefined,
     ownerTeamId,
     status,
     intakeRequestId: url.searchParams.get("intakeRequestId")?.trim() || undefined,
+    initiativeKind,
+    productSurface,
     limit: parseLimit(url.searchParams.get("limit"), 50),
   });
 

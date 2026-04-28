@@ -218,6 +218,9 @@ type ProjectRow = {
   title: string;
   description: string | null;
   owner_team_id: string;
+  initiative_kind: string | null;
+  product_surface: string | null;
+  external_visibility: string | null;
   status: string;
   created_at: string;
   updated_at: string;
@@ -461,6 +464,9 @@ function rowToProject(row: ProjectRow): Project {
     title: row.title,
     description: row.description,
     ownerTeamId: row.owner_team_id,
+    initiativeKind: row.initiative_kind as Project["initiativeKind"],
+    productSurface: row.product_surface as Project["productSurface"],
+    externalVisibility: row.external_visibility as Project["externalVisibility"],
     status: row.status as Project["status"],
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -899,12 +905,15 @@ export class D1TaskStore implements TaskStore {
           title,
           description,
           owner_team_id,
+          initiative_kind,
+          product_surface,
+          external_visibility,
           status,
           created_at,
           updated_at,
           completed_at,
           archived_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .bind(
         args.id,
@@ -914,6 +923,9 @@ export class D1TaskStore implements TaskStore {
         args.title,
         args.description ?? null,
         args.ownerTeamId,
+        args.initiativeKind ?? null,
+        args.productSurface ?? null,
+        args.externalVisibility ?? null,
         args.status,
         args.createdAt,
         args.updatedAt,
@@ -954,6 +966,16 @@ export class D1TaskStore implements TaskStore {
     if (query.intakeRequestId) {
       clauses.push("intake_request_id = ?");
       binds.push(query.intakeRequestId);
+    }
+
+    if (query.initiativeKind) {
+      clauses.push("initiative_kind = ?");
+      binds.push(query.initiativeKind);
+    }
+
+    if (query.productSurface) {
+      clauses.push("product_surface = ?");
+      binds.push(query.productSurface);
     }
 
     const where = clauses.length > 0 ? `WHERE ${clauses.join(" AND ")}` : "";

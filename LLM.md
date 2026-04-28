@@ -810,6 +810,43 @@ PR19A should begin by defining how AEP represents a product initiative without
 inventing a parallel workflow system. Prefer extending or specializing the
 existing project/intake/task/artifact model before adding new primitives.
 
+### PR19A - Product Initiative Model
+
+PR19A makes product initiatives first-class as specialized canonical projects.
+
+Implemented model:
+
+- product initiative metadata is stored on `projects`
+- supported metadata:
+  - `initiativeKind`
+  - `productSurface`
+  - `externalVisibility`
+- product initiatives must be owned by `team_web_product`
+- product initiatives require complete initiative metadata
+- product initiatives bootstrap canonical planning work:
+
+```text
+project_planning
+  -> requirements_definition
+  -> task_graph_planning
+```
+
+The bootstrap creates ordinary canonical tasks with dependencies and a visible
+coordination thread/message. It does not implement a website, create a
+deployment, or bypass staffing, artifacts, approvals, validation, or future
+deployment records.
+
+Important invariant:
+
+> A product initiative is a project-shaped organizational container. The
+> product surface is an artifact produced later through staffed canonical work.
+
+PR19A CI guard:
+
+```bash
+npm run ci:pr19-product-initiative-contract-check
+```
+
 Important invariant:
 
 > The product surface is the output. The organization runtime is the builder.
