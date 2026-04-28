@@ -200,15 +200,9 @@ export async function handleExecuteProductLifecycleAction(
     return jsonError("Approval target status does not match lifecycle contract", 409);
   }
 
-  const store = getTaskStore(env);
-  const updatedProject = await store.applyApprovedProjectLifecycleTransition({
-    projectId,
-    status: targetStatus,
-    approvalId,
-    executedByEmployeeId,
-  });
-  if (!updatedProject) return jsonError("Project not found", 404);
-
+  // Mark approval as executed before updating project state to ensure consistency:
+  // if markExecuted fails, no project state changes; if project update fails after,
+  // at least the execution is recorded in approvals.
   const executed = await approvals.markExecuted({
     approvalId,
     executedAt: new Date().toISOString(),
@@ -220,6 +214,15 @@ export async function handleExecuteProductLifecycleAction(
       reason: executed.reason,
     });
   }
+
+  const store = getTaskStore(env);
+  const updatedProject = await store.applyApprovedProjectLifecycleTransition({
+    projectId,
+    status: targetStatus,
+    approvalId,
+    executedByEmployeeId,
+  });
+  if (!updatedProject) return jsonError("Project not found", 404);
 
   const threadId = newId("thr");
   await store.createMessageThread({
