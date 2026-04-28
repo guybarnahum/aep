@@ -458,6 +458,25 @@ Important invariants:
 - External URLs and provider IDs are evidence attached to the canonical record,
   not ownership of deployment state.
 
+`POST /agent/product-deployments/:id/execute`
+
+- Executes provider deployment for an existing canonical deployment record.
+- Required body fields:
+	- `executedByEmployeeId`
+- The deployment record must already exist in AEP.
+- The source artifact must still be a ready `deployment_candidate`.
+- `external_safe` deployments still require an approved approval record.
+- Provider execution updates the canonical AEP deployment record to:
+	- `in_progress`
+	- `deployed`
+	- or `failed`
+- Provider URLs and external IDs are stored as evidence / metadata only.
+
+Important invariant:
+
+> AEP owns deployment state. GitHub and Cloudflare execute provider operations
+> but do not own canonical product or deployment state.
+
 ### Customer intake
 
 PR19E introduces a customer-safe intake route for external surfaces.

@@ -885,6 +885,36 @@ CI guard:
 npm run ci:product-ui-contract-check
 ```
 
+### PR20 - Provider Adapters
+
+PR20 realizes product deployment in external providers while preserving AEP as
+the source of truth.
+
+Implemented:
+
+- provider adapter boundary for GitHub and Cloudflare
+- canonical deployment execution route:
+  - `POST /agent/product-deployments/:id/execute`
+  - deployment execution updates canonical AEP deployment records
+  - provider URLs and external IDs are recorded as evidence only
+  - external-safe deployment execution remains approval-gated
+  - provider execution publishes an org-visible coordination trace
+
+Boundaries:
+
+- provider adapters do not own AEP state
+- GitHub does not own task/project/deployment state
+- Cloudflare does not own task/project/deployment state
+- dashboard does not execute deployments
+- deployment execution must start from a canonical deployment record
+- deployment execution must use the deployment route, not artifact creation
+
+CI guard:
+
+```bash
+npm run ci:provider-adapter-contract-check
+```
+
 PR19A should begin by defining how AEP represents a product initiative without
 inventing a parallel workflow system. Prefer extending or specializing the
 existing project/intake/task/artifact model before adding new primitives.

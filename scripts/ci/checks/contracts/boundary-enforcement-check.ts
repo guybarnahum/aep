@@ -91,6 +91,20 @@ for (const path of artifactRouteFiles) {
 const productSources = walk("core/operator-agent/src/product");
 for (const path of productSources) {
   const source = readFileSync(path, "utf8");
+  if (path.endsWith("provider-adapters.ts")) {
+    for (const required of [
+      "stateOwnership: \"aep\"",
+      "GitHub adapter is not configured",
+      "Cloudflare adapter is not configured",
+    ]) {
+      assert(
+        source.includes(required),
+        `Provider adapter boundary missing ${required}: ${path}`,
+      );
+    }
+    continue;
+  }
+
   assert(
     !source.includes("wrangler") &&
       !source.includes("cloudflare") &&

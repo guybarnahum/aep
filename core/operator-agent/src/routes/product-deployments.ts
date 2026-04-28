@@ -6,6 +6,7 @@ import type {
 } from "@aep/operator-agent/lib/store-types";
 import type { OperatorAgentEnv } from "@aep/operator-agent/types";
 import { newId } from "@aep/shared";
+import { executeProviderDeployment } from "../product/provider-adapters";
 
 const STATUSES: ProductDeploymentStatus[] = [
   "requested",
@@ -27,6 +28,10 @@ type UpdateDeploymentStatusBody = {
   status?: unknown;
   approvalId?: unknown;
   targetUrl?: unknown;
+};
+
+type ExecuteDeploymentBody = {
+  executedByEmployeeId?: unknown;
 };
 
 function jsonError(message: string, status = 400, details?: unknown): Response {
@@ -319,4 +324,130 @@ export async function handleUpdateProductDeploymentStatus(
   });
 
   return Response.json({ ok: true, deployment });
+}
+
+export async function handleExecuteProductDeployment(
+  request: Request,
+  env: OperatorAgentEnv | undefined,
+  deploymentId: string,
+): Promise<Response> {
+  if (request.method !== "POST") {
+    return new Response("Method Not Allowed", { status: 405 });
+  }
+  if (!env) return jsonError("Missing operator-agent environment", 500);
+
+  let body: ExecuteDeploymentBody;
+  try {
+    body = (await request.json()) as ExecuteDeploymentBody;
+  } catch {
+    return jsonError("Invalid JSON body");
+  }
+
+  const executedByEmployeeId = stringOrEmpty(body.executedByEmployeeId);
+  if (!executedByEmployeeId) {
+    return jsonError("executedByEmployeeId is required");
+  }
+
+  const store = getTaskStore(env);
+  const deployment = await store.getProductDeployment(deploymentId);
+  if (!deployment) return jsonError("Deployment not found", 404);
+
+  if (!["approved", "requested"].includes(deployment.status)) {
+    return jsonError("Deployment must be requested or approved before provider execution", 409, {
+      deploymentId,
+      status: deployment.status,
+    });
+  }
+
+  if (deployment.externalVisibility === "external_safe") {
+    const approvalError = await requireApprovedDeploymentApproval({
+      env,
+      approvalId: deployment.approvalId ?? null,
+    });
+    if (approvalError) return approvalError;
+  }
+
+  const artifact = await store.getArtifact(deployment.sourceArtifactId);
+  if (!artifact) return jsonError("Deployment source artifact not found", 404);
+
+  const candidateError = requireDeploymentCandidate(artifact);
+  if (candidateError) return candidateError;
+
+  await store.updateProductDeploymentStatus({
+    deploymentId,
+    status: "in_progress",
+    approvalId: deployment.approvalId ?? null,
+    targetUrl: deployment.targetUrl ?? null,
+  });
+
+  try {
+    const result = await executeProviderDeployment({
+      env,
+      store,
+      deployment,
+      artifact,
+    });
+
+    const updated = await store.updateProductDeploymentStatus({
+      deploymentId,
+      status: "deployed",
+      approvalId: deployment.approvalId ?? null,
+      targetUrl: result.targetUrl ?? null,
+    });
+
+    const threadId = newId("thread");
+    await store.createMessageThread({
+      id: threadId,
+      companyId: deployment.companyId,
+      topic: `Deployment executed: ${deployment.projectId}`,
+      createdByEmployeeId: executedByEmployeeId,
+      relatedArtifactId: deployment.sourceArtifactId,
+      visibility: "org",
+    });
+
+    const message = await store.createMessage({
+      id: newId("message"),
+      threadId,
+      companyId: deployment.companyId,
+      senderEmployeeId: executedByEmployeeId,
+      type: "coordination",
+      status: "delivered",
+      source: "system",
+      subject: "Provider deployment executed",
+      body:
+        "Provider execution completed and the canonical AEP deployment record was updated. " +
+        "Provider state remains evidence only; AEP remains the source of truth.",
+      payload: {
+        kind: "provider_deployment_executed",
+        deploymentId,
+        provider: result.provider,
+        targetUrl: result.targetUrl ?? null,
+        externalIds: result.externalIds,
+        evidence: result.evidence,
+        stateOwnership: "aep",
+      },
+      requiresResponse: false,
+    });
+
+    return Response.json({
+      ok: true,
+      deployment: updated,
+      provider: result,
+      threadId,
+      messageId: message.id,
+    });
+  } catch (error) {
+    const failed = await store.updateProductDeploymentStatus({
+      deploymentId,
+      status: "failed",
+      approvalId: deployment.approvalId ?? null,
+      targetUrl: deployment.targetUrl ?? null,
+    });
+
+    return jsonError(
+      error instanceof Error ? error.message : "Provider deployment failed",
+      502,
+      { deployment: failed },
+    );
+  }
 }

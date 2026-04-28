@@ -1053,4 +1053,8 @@ export interface OperatorAgentEnv extends Record<string, unknown> {
   MIRROR_ESCALATIONS_EMAIL_GROUP?: string;
   SLACK_MIRROR_WEBHOOK_URL?: string;
   CI_CLEANUP_TOKEN?: string;
+  GITHUB_TOKEN?: string;
+  GITHUB_OWNER?: string;
+  CLOUDFLARE_API_TOKEN?: string;
+  CLOUDFLARE_ACCOUNT_ID?: string;
 }

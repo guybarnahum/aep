@@ -68,6 +68,7 @@ import {
 } from "./routes/task-artifacts";
 import {
   handleCreateProductDeployment,
+  handleExecuteProductDeployment,
   handleGetProductDeployment,
   handleListProductDeployments,
   handleUpdateProductDeploymentStatus,
@@ -478,6 +479,17 @@ async function dispatch(request: Request, env: OperatorAgentEnv): Promise<Respon
       request,
       env,
       decodeURIComponent(productDeploymentStatusMatch[1]),
+    );
+  }
+
+  const executeDeploymentMatch = url.pathname.match(
+    /^\/agent\/product-deployments\/([^/]+)\/execute$/,
+  );
+  if (executeDeploymentMatch?.[1]) {
+    return handleExecuteProductDeployment(
+      request,
+      env,
+      decodeURIComponent(executeDeploymentMatch[1]),
     );
   }
 

@@ -75,6 +75,7 @@
     "ci:agentic-execution-contract-check": "tsx scripts/ci/checks/contracts/agentic-execution-contract-check.ts",
     "ci:product-visibility-contract-check": "tsx scripts/ci/checks/contracts/product-visibility-contract-check.ts",
     "ci:product-ui-contract-check": "tsx scripts/ci/checks/contracts/product-ui-contract-check.ts",
+    "ci:provider-adapter-contract-check": "tsx scripts/ci/checks/contracts/provider-adapter-contract-check.ts",
     "ci:boundary-enforcement-check": "tsx scripts/ci/checks/contracts/boundary-enforcement-check.ts",
     "ci:tutorial-alignment-check": "tsx scripts/ci/checks/contracts/tutorial-alignment-check.ts",
     "ci:guard-check": "npm run ci:boundary-enforcement-check && npm run ci:tutorial-alignment-check",
