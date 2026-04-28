@@ -169,14 +169,33 @@ export async function handleCreateProject(
 
   await store.createProject(project);
 
-  const bootstrap = initiativeKind
-    ? await bootstrapProductInitiativeTasks({
+  let bootstrap: { taskIds: string[]; threadId: string; messageId: string } | null = null;
+
+  if (initiativeKind) {
+    try {
+      bootstrap = await bootstrapProductInitiativeTasks({
         store,
         project,
         createdByEmployeeId:
           project.createdByEmployeeId ?? createdByEmployeeId ?? intakeRequestedBy ?? "",
-      })
-    : null;
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error(
+        `[projects] product initiative bootstrap failed after project creation: projectId=${project.id}, error=${message}`,
+      );
+      return Response.json(
+        {
+          ok: false,
+          error: "Product initiative bootstrap failed after project creation",
+          projectId: project.id,
+          projectCreated: true,
+          bootstrapFailed: true,
+        },
+        { status: 500 },
+      );
+    }
+  }
 
   return Response.json({ ok: true, project, bootstrap }, { status: 201 });
 }
