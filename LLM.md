@@ -929,6 +929,11 @@ Implemented:
 - Cloudflare Worker script upload from deployable `workerScript`
 - provider URLs and provider IDs returned as deployment evidence only
 
+Operational caveats:
+
+- org-owned GitHub repo creation requires `GITHUB_OWNER_TYPE=org`
+- Cloudflare Pages direct-upload payload shape is intentionally isolated and may require integration adjustment
+
 Boundaries:
 
 - execution still starts only from `POST /agent/product-deployments/:id/execute`

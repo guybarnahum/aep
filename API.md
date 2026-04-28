@@ -479,6 +479,8 @@ Important invariants:
 	- GitHub repository creation/update from `repository.files`
 	- Cloudflare Pages deployment from `bundle.files`
 	- Cloudflare Workers script upload from `workerScript`
+- For org-owned GitHub repositories, set `GITHUB_OWNER_TYPE=org`.
+- Cloudflare Pages direct-upload request body is provisional until integration verification.
 
 Important invariant:
 

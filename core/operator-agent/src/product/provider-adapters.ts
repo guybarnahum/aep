@@ -51,6 +51,7 @@ async function executeGitHubAdapter(args: {
 }): Promise<ProviderExecutionResult> {
   const token = stringEnv(args.env.GITHUB_TOKEN);
   const owner = stringEnv(args.env.GITHUB_OWNER);
+  const ownerType = parseGitHubOwnerType(args.env.GITHUB_OWNER_TYPE);
   if (!token || !owner) {
     throw new Error("GitHub adapter is not configured");
   }
@@ -69,6 +70,7 @@ async function executeGitHubAdapter(args: {
   const repo = await ensureGitHubRepository({
     token,
     owner,
+    ownerType,
     repoName,
     privateRepo,
   });
@@ -229,6 +231,7 @@ async function executeCloudflareWorkerDeployment(args: {
 async function ensureGitHubRepository(args: {
   token: string;
   owner: string;
+  ownerType: "user" | "org";
   repoName: string;
   privateRepo: boolean;
 }): Promise<{ id?: number; created: boolean }> {
@@ -246,7 +249,10 @@ async function ensureGitHubRepository(args: {
   const created = await githubJson({
     token: args.token,
     method: "POST",
-    path: "/user/repos",
+    path:
+      args.ownerType === "org"
+        ? `/orgs/${encodeURIComponent(args.owner)}/repos`
+        : "/user/repos",
     body: {
       name: args.repoName,
       private: args.privateRepo,
@@ -327,6 +333,8 @@ async function createCloudflarePagesDirectUpload(args: {
   projectName: string;
   files: ProviderFileMap;
 }): Promise<{ deploymentId: string; fileCount: number }> {
+  // NOTE: This request shape is intentionally isolated and may need adjustment
+  // after end-to-end validation against Cloudflare's current Direct Upload flow.
   const response = await cloudflareJson({
     token: args.token,
     method: "POST",
@@ -484,6 +492,11 @@ function base64Encode(value: string): string {
 function numberField(record: Record<string, unknown>, key: string): number | undefined {
   const value = record[key];
   return typeof value === "number" ? value : undefined;
+}
+
+function parseGitHubOwnerType(value: unknown): "user" | "org" {
+  const normalized = typeof value === "string" ? value.trim().toLowerCase() : "";
+  return normalized === "org" ? "org" : "user";
 }
 
 function stringEnv(value: unknown): string {

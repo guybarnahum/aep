@@ -1055,6 +1055,7 @@ export interface OperatorAgentEnv extends Record<string, unknown> {
   CI_CLEANUP_TOKEN?: string;
   GITHUB_TOKEN?: string;
   GITHUB_OWNER?: string;
+  GITHUB_OWNER_TYPE?: string;
   CLOUDFLARE_API_TOKEN?: string;
   CLOUDFLARE_ACCOUNT_ID?: string;
 }
