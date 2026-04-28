@@ -85,6 +85,11 @@ import {
   handleListOutbox,
 } from "./routes/messages";
 import {
+  handleJiraComment,
+  handleJiraProjection,
+  handleJiraStatusSignal,
+} from "./routes/jira";
+import {
   handleApproveFromThread,
   handleRejectFromThread,
 } from "./routes/thread-approval-actions";
@@ -341,6 +346,18 @@ async function dispatch(request: Request, env: OperatorAgentEnv): Promise<Respon
 
   if (url.pathname === "/agent/messages/external-action" && request.method === "POST") {
     return handleExternalAction(request, env);
+  }
+
+  if (url.pathname === "/agent/jira/projections" && request.method === "POST") {
+    return handleJiraProjection(request, env);
+  }
+
+  if (url.pathname === "/agent/jira/comments" && request.method === "POST") {
+    return handleJiraComment(request, env);
+  }
+
+  if (url.pathname === "/agent/jira/status-signals" && request.method === "POST") {
+    return handleJiraStatusSignal(request, env);
   }
 
   if (url.pathname === "/agent/message-threads" && request.method === "GET") {

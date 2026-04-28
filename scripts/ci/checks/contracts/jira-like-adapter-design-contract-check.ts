@@ -4,7 +4,7 @@ import {
   EXTERNAL_ADAPTER_CONTRACTS,
   JIRA_LIKE_STATUS_RECONCILIATION_RULES,
   getExternalAdapterContract,
-} from "@aep/operator-agent/src/adapters/external-collaboration-contract";
+} from "@aep/operator-agent/adapters/external-collaboration-contract";
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) {
@@ -15,13 +15,23 @@ function assert(condition: unknown, message: string): asserts condition {
 const jira = getExternalAdapterContract("jira");
 
 assert(jira, "Missing Jira-like external adapter contract");
-assert(jira.implemented === false, "Jira-like adapter must remain design-only in PR17E");
+assert(jira.implemented === true, "Jira adapter must be implemented as a mirror in PR22");
 assert(jira.ownsCanonicalWorkState === false, "Jira-like adapter must not own canonical work state");
 assert(jira.requiresProjectionMapping === true, "Jira-like adapter must require projection mapping");
 
 assert(
   jira.surfaces.includes("ticket_projection"),
-  "Jira-like adapter must define ticket projection surface",
+  "Jira adapter must define ticket projection surface",
+);
+
+assert(
+  jira.surfaces.includes("message_projection"),
+  "Jira adapter must define message projection surface",
+);
+
+assert(
+  jira.surfaces.includes("status_signal"),
+  "Jira adapter must define status signal surface",
 );
 
 assert(
@@ -60,5 +70,6 @@ const adapterNames = new Set(EXTERNAL_ADAPTER_CONTRACTS.map((contract) => contra
 assert(adapterNames.has("jira"), "External adapter inventory must include Jira-like adapter");
 
 console.log("jira-like-adapter-design-contract-check passed", {
+  mode: "implemented_mirror_only",
   statusRuleCount: JIRA_LIKE_STATUS_RECONCILIATION_RULES.length,
 });

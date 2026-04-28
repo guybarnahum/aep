@@ -24,7 +24,7 @@ Notes:
 ## External collaboration adapters
 
 Slack and email are implemented external collaboration adapters. Jira-like
-ticket systems are design-only at PR17B.
+ticket systems are implemented mirror/ingest adapters in PR22.
 
 Canonical AEP state remains in AEP.
 
@@ -129,14 +129,20 @@ Missing email configuration is explicit:
 
 ### Jira-like ticket adapter
 
-Jira-like systems are design-only in PR17E.
+Jira-like systems are implemented in PR22 as mirror and ingest adapters.
 
-A Jira-like system may eventually:
+Implemented Jira routes:
+
+- `POST /agent/jira/projections`
+- `POST /agent/jira/comments`
+- `POST /agent/jira/status-signals`
+
+A Jira-like system may:
 
 - project canonical projects, tasks, and threads as external tickets
 - map external ticket IDs back to canonical AEP IDs
 - ingest external comments as canonical thread messages
-- request allowed external actions through canonical AEP routes
+- ingest external status changes as canonical coordination signals
 - surface external ticket URLs for human navigation
 
 A Jira-like system must not:
@@ -154,9 +160,7 @@ Status reconciliation rule:
 - AEP task/project state remains canonical
 - `blocked` and `done` should request manager review or create canonical messages
 - external status changes must not directly mutate canonical status
-
-PR17E does not add Jira runtime delivery, credentials, webhooks, or tables beyond
-design-level contracts.
+- Jira status updates must flow through canonical thread/messages first
 
 ### External collaboration CI coverage
 
@@ -181,7 +185,7 @@ Adapter status:
 
 - Slack: implemented and hardened
 - email: implemented and hardened, with provider transport disabled until configured
-- Jira-like systems: design-only ticket projection adapter
+- Jira-like systems: implemented mirror/ingest adapter with canonical-state guardrails
 
 Canonical ownership:
 

@@ -5,7 +5,7 @@ import { resolve } from "node:path";
 import {
   EXTERNAL_ADAPTER_CONTRACTS,
   getExternalAdapterContract,
-} from "@aep/operator-agent/src/adapters/external-collaboration-contract";
+} from "@aep/operator-agent/adapters/external-collaboration-contract";
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) {
@@ -49,8 +49,8 @@ assert(
 );
 
 assert(
-  getExternalAdapterContract("jira")?.implemented === false,
-  "Jira-like adapter must remain design-only in PR17B",
+  getExternalAdapterContract("jira")?.implemented === true,
+  "Jira adapter contract must reflect implemented mirror support",
 );
 
 const contractAdapters = new Set(
@@ -158,7 +158,12 @@ assert(
 
 assert(
   packageSource.includes("ci:jira-like-adapter-design-contract-check"),
-  "package.json must expose Jira-like adapter design contract check",
+  "package.json must expose Jira adapter contract check",
+);
+
+assert(
+  packageSource.includes("ci:pr22-jira-ingest-contract-check"),
+  "package.json must expose PR22 Jira ingest contract check",
 );
 
 const requiredPr17Scripts = [
@@ -170,6 +175,7 @@ const requiredPr17Scripts = [
   "ci:slack-adapter-contract-check",
   "ci:email-adapter-contract-check",
   "ci:jira-like-adapter-design-contract-check",
+  "ci:pr22-jira-ingest-contract-check",
   "ci:external-adapter-state-ownership-contract-check",
 ];
 

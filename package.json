@@ -60,6 +60,7 @@
     "ci:slack-adapter-contract-check": "tsx scripts/ci/checks/contracts/slack-adapter-contract-check.ts",
     "ci:email-adapter-contract-check": "tsx scripts/ci/checks/contracts/email-adapter-contract-check.ts",
     "ci:jira-like-adapter-design-contract-check": "tsx scripts/ci/checks/contracts/jira-like-adapter-design-contract-check.ts",
+    "ci:pr22-jira-ingest-contract-check": "tsx scripts/ci/checks/contracts/pr22-jira-ingest-contract-check.ts",
     "ci:external-adapter-state-ownership-contract-check": "tsx scripts/ci/checks/contracts/external-adapter-state-ownership-contract-check.ts",
     "ci:staffing-contract-check": "tsx scripts/ci/checks/contracts/staffing-contract-check.ts",
     "ci:staffing-gap-detection-contract-check": "tsx scripts/ci/checks/contracts/staffing-gap-detection-contract-check.ts",

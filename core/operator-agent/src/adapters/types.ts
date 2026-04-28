@@ -1,5 +1,5 @@
-export type MirrorChannel = "slack" | "email";
-export type ExternalAdapterKind = MirrorChannel | "jira";
+export type MirrorChannel = "slack" | "email" | "jira";
+export type ExternalAdapterKind = MirrorChannel;
 
 export type MirrorTarget =
   | {
@@ -74,7 +74,8 @@ export type ExternalCollaborationSurface =
   | "message_projection"
   | "inbound_reply"
   | "external_action"
-  | "ticket_projection";
+  | "ticket_projection"
+  | "status_signal";
 
 export type CanonicalExternalResource =
   | "thread"

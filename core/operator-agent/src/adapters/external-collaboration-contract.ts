@@ -92,8 +92,8 @@ export const EXTERNAL_ADAPTER_CONTRACTS: ExternalAdapterContract[] = [
   },
   {
     adapter: "jira",
-    implemented: false,
-    surfaces: ["ticket_projection", "inbound_reply", "external_action"],
+    implemented: true,
+    surfaces: ["ticket_projection", "message_projection", "inbound_reply", "status_signal"],
     canonicalResources: ["project", "task", "thread", "message"],
     ownsCanonicalWorkState: false,
     requiresProjectionMapping: true,
@@ -101,12 +101,11 @@ export const EXTERNAL_ADAPTER_CONTRACTS: ExternalAdapterContract[] = [
       "projectId/taskId/threadId + adapter + target",
       "externalTicketId",
       "externalCommentId",
-      "externalActionId",
+      "externalStatusEventId",
     ],
     policyEnforcement: [
       "inbound_correlation",
       "external_actor_policy",
-      "external_action_policy",
       "canonical_route",
     ],
     deniedCapabilities: [
@@ -145,7 +144,7 @@ export type ExternalDeliveryAuditContract = Pick<
 
 export type JiraLikeTicketProjectionContract = {
   adapter: "jira";
-  implemented: false;
+  implemented: true;
   canonicalSource:
     | { kind: "project"; projectId: string }
     | { kind: "task"; taskId: string }
@@ -170,7 +169,8 @@ export type JiraLikeStatusReconciliationRule = {
     | "no_op"
     | "request_manager_review"
     | "create_canonical_message"
-    | "create_external_action";
+    | "create_external_action"
+    | "ingest_status_signal";
   directCanonicalMutationAllowed: false;
 };
 
@@ -182,7 +182,7 @@ export const JIRA_LIKE_STATUS_RECONCILIATION_RULES: JiraLikeStatusReconciliation
   },
   {
     externalStatus: "in_progress",
-    canonicalEffect: "create_canonical_message",
+    canonicalEffect: "ingest_status_signal",
     directCanonicalMutationAllowed: false,
   },
   {

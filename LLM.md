@@ -178,8 +178,8 @@ Implemented:
 - external interaction policy/audit
 - external approval/escalation action routing
 
-Design-only:
-- Jira-like ticket projection adapter
+Implemented in PR22 (mirror-only):
+- Jira-like ticket projection and ingest adapter
 
 Canonical invariant:
 
@@ -206,8 +206,8 @@ npm run ci:external-collaboration-contract-check
 
 The check verifies that Slack, email, and Jira-like systems have explicit
 contracts, that all adapters deny canonical state ownership, that Jira remains
-design-only, and that existing mirror/inbound/action/policy wiring remains in
-place.
+mirror-only (never a canonical work-state owner), and that existing
+mirror/inbound/action/policy wiring remains in place.
 
 ### PR17C - Slack Adapter Hardening
 
@@ -307,7 +307,7 @@ PR17E adds the CI guard:
 npm run ci:jira-like-adapter-design-contract-check
 ```
 
-This check verifies that Jira remains design-only, requires projection mapping,
+This check verifies that Jira remains mirror-only, requires projection mapping,
 denies canonical state ownership, and has no direct canonical status mutation.
 
 ### PR17F - External Collaboration CI Coverage
@@ -325,7 +325,7 @@ The PR17 CI surface now guards:
 - skipped delivery with missing Slack/email configuration
 - no committed placeholder recipients
 - no external adapter ownership of canonical work state
-- Jira-like systems remaining design-only
+- Jira-like systems remaining mirror-only (no canonical ownership)
 
 The PR17 umbrella check is:
 
@@ -367,7 +367,7 @@ Implemented adapters:
 - Slack
 - email
 
-Design-only adapter:
+Implemented mirror-only adapter:
 
 - Jira-like ticket systems
 
@@ -399,13 +399,14 @@ External systems must not:
 - expose private cognition
 - directly set canonical status
 
-PR17 CI guardrails:
+PR17/PR22 CI guardrails:
 
 ```bash
 npm run ci:external-collaboration-contract-check
 npm run ci:slack-adapter-contract-check
 npm run ci:email-adapter-contract-check
 npm run ci:jira-like-adapter-design-contract-check
+npm run ci:pr22-jira-ingest-contract-check
 npm run ci:external-adapter-state-ownership-contract-check
 ```
 
@@ -939,6 +940,29 @@ CI guard:
 
 ```bash
 npm run ci:full-product-ui-contract-check
+```
+
+### PR22 - Jira Mirroring With Contracted Ingest
+
+PR22 implements Jira as a collaboration mirror, not a canonical work-state
+owner.
+
+Implemented routes:
+
+- `POST /agent/jira/projections`
+- `POST /agent/jira/comments`
+- `POST /agent/jira/status-signals`
+
+Required invariant:
+
+> Jira comments and status changes become canonical AEP thread/messages first;
+> Jira must never directly mutate task/project/deployment/approval/escalation
+> state.
+
+CI guard:
+
+```bash
+npm run ci:pr22-jira-ingest-contract-check
 ```
 
 PR19A should begin by defining how AEP represents a product initiative without

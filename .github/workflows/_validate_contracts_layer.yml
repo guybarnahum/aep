@@ -236,6 +236,11 @@ jobs:
         continue-on-error: true
         run: npm run ci:full-product-ui-contract-check | tee full-product-ui-contract-check.log
 
+      - name: Run PR22 Jira ingest contract check
+        id: pr22_jira_ingest_contract
+        continue-on-error: true
+        run: npm run ci:pr22-jira-ingest-contract-check | tee pr22-jira-ingest-contract-check.log
+
       - name: Run boundary enforcement check
         id: boundary_enforcement
         continue-on-error: true
@@ -283,6 +288,7 @@ jobs:
             "${{ steps.product_ui_contract.outcome }}" == "success" && \
             "${{ steps.provider_adapter_contract.outcome }}" == "success" && \
             "${{ steps.full_product_ui_contract.outcome }}" == "success" && \
+            "${{ steps.pr22_jira_ingest_contract.outcome }}" == "success" && \
             "${{ steps.boundary_enforcement.outcome }}" == "success" && \
             "${{ steps.tutorial_alignment.outcome }}" == "success" \
           ]]; then
@@ -348,6 +354,7 @@ jobs:
           echo "- $(status_emoji \"${{ steps.product_ui_contract.outcome }}\") product-ui-contract-check: ${{ steps.product_ui_contract.outcome }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- $(status_emoji \"${{ steps.provider_adapter_contract.outcome }}\") provider-adapter-contract-check: ${{ steps.provider_adapter_contract.outcome }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- $(status_emoji \"${{ steps.full_product_ui_contract.outcome }}\") full-product-ui-contract-check: ${{ steps.full_product_ui_contract.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- $(status_emoji \"${{ steps.pr22_jira_ingest_contract.outcome }}\") pr22-jira-ingest-contract-check: ${{ steps.pr22_jira_ingest_contract.outcome }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- $(status_emoji \"${{ steps.boundary_enforcement.outcome }}\") boundary-enforcement-check: ${{ steps.boundary_enforcement.outcome }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- $(status_emoji \"${{ steps.tutorial_alignment.outcome }}\") tutorial-alignment-check: ${{ steps.tutorial_alignment.outcome }}" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
