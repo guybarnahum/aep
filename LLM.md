@@ -806,6 +806,55 @@ Recommended PR19 stages:
 - PR19H - CI and safety guards
 - PR19I - Docs closeout
 
+### PR19I — Closeout
+
+PR19 is now complete.
+
+The system supports:
+
+- product initiative definition (PR19A)
+- deployable artifacts (PR19B)
+- deployment system (PR19C)
+- external-safe product surfaces (PR19D)
+- customer intake flow (PR19E)
+- agentic execution through task graphs (PR19F)
+- human visibility and intervention (PR19G)
+- enforcement and guardrails (PR19H)
+
+The tutorial experience described in `TUTORIAL.md` is now achievable.
+
+Core invariant:
+
+> AEP builds products through an organization, not through direct execution.
+
+All product work flows through:
+
+- tasks
+- employees
+- artifacts
+- approvals
+- staffing
+
+External systems:
+
+- GitHub
+- Cloudflare
+- Jira
+
+are adapters only and must not own canonical state.
+
+PR19 enforcement:
+
+```bash
+npm run ci:guard-check
+```
+
+Important:
+
+> PR19 completes the **model and control loop**.
+> Post-PR19 work should focus on provider adapters, UI, and operational scale —
+> not changing the core model.
+
 PR19A should begin by defining how AEP represents a product initiative without
 inventing a parallel workflow system. Prefer extending or specializing the
 existing project/intake/task/artifact model before adding new primitives.

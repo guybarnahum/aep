@@ -641,6 +641,12 @@ npm run ci:boundary-enforcement-check
 npm run ci:tutorial-alignment-check
 ```
 
+Shortcut:
+
+```bash
+npm run ci:guard-check
+```
+
 Enforced boundaries:
 
 - customer intake cannot create projects, tasks, artifacts, approvals,
@@ -656,6 +662,18 @@ Enforced boundaries:
 - external surfaces must not own canonical state
 - deployable artifacts cannot deploy themselves
 - PR19 docs must remain aligned with `TUTORIAL.md`
+
+PR19 status:
+
+All PR19 routes are now available:
+
+- `/agent/customer-intake`
+- `/agent/projects/:id/product-execution`
+- `/agent/projects/:id/product-visibility`
+- `/agent/projects/:id/interventions`
+- `/agent/product-deployments`
+
+These routes together implement the product construction loop.
 
 `GET /agent/projects`
 

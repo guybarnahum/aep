@@ -54,6 +54,37 @@ The company must also support:
 
 ---
 
+## Getting Started (Product Construction)
+
+Start here:
+
+- [`TUTORIAL.md`](./TUTORIAL.md) — step-by-step guide for defining and building a product
+- [`WHITEPAPER.md`](./WHITEPAPER.md) — how the system works end-to-end
+
+The tutorial describes the real experience enabled by PR19:
+
+- define a product initiative
+- observe work as it happens
+- intervene in decisions
+- see deployment progress
+- receive customer input
+- continuously evolve the product
+
+Important:
+
+> AEP is not a pipeline. It is a loop.
+
+All product work is executed through:
+
+- tasks
+- employees
+- artifacts
+- approvals
+- staffing
+
+Nothing bypasses the organization.
+
+---
 
 ## Current Milestone Status
 
