@@ -28,6 +28,7 @@ assertContains("apps/dashboard/src/render.ts", "decide-deployment-approval");
 assertContains("apps/dashboard/src/render.ts", "decide-lifecycle-approval");
 assertContains("apps/dashboard/src/render.ts", "No deployment approvals found");
 assertContains("apps/dashboard/src/render.ts", "No deployment records yet");
+assertContains("apps/dashboard/src/render.ts", "No lifecycle approvals found");
 assertContains("apps/dashboard/src/render.ts", "targetState");
 assertContains("apps/dashboard/src/render.ts", "value=\"reject\"");
 
@@ -38,6 +39,10 @@ assertContains("apps/dashboard/src/main.ts", "targetState:");
 
 if (read("apps/dashboard/src/render.ts").includes("placeholder=\"Approval ID\"")) {
   throw new Error("Product deployment approval control must not use a generic free-form Approval ID input");
+}
+
+if (read("apps/dashboard/src/render.ts").includes("placeholder=\"Lifecycle approval ID\"")) {
+  throw new Error("Lifecycle approval control must not use a generic free-form Lifecycle approval ID input");
 }
 
 console.log("manual-tutorial-readiness-contract-check passed");

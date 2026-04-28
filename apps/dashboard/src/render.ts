@@ -2419,6 +2419,20 @@ function renderDeploymentControls(summary: ProductVisibilitySummary): string {
 }
 
 function renderLifecycleControls(summary: ProductVisibilitySummary): string {
+  const lifecycleApprovalIds = Array.from(
+    new Set(
+      summary.decisions.recent
+        .filter((message) => {
+          const kind =
+            message.payload && typeof message.payload.kind === "string"
+              ? message.payload.kind
+              : null;
+          return Boolean(message.relatedApprovalId) && kind === "product_lifecycle_request";
+        })
+        .map((message) => message.relatedApprovalId as string),
+    ),
+  );
+
   return `
     <article class="control-card">
       <h4>Lifecycle controls</h4>
@@ -2441,12 +2455,18 @@ function renderLifecycleControls(summary: ProductVisibilitySummary): string {
         <button class="button button-small" type="submit">Execute lifecycle action</button>
       </form>
       <form class="compact-form" data-form="decide-lifecycle-approval">
-        <input name="approvalId" placeholder="Lifecycle approval ID" />
+        <select name="approvalId" ${lifecycleApprovalIds.length === 0 ? "disabled" : ""}>
+          ${lifecycleApprovalIds.length === 0
+            ? `<option value="">No lifecycle approvals found</option>`
+            : lifecycleApprovalIds.map((approvalId) => `
+              <option value="${escapeHtml(approvalId)}">${escapeHtml(approvalId)}</option>
+            `).join("")}
+        </select>
         <input name="decidedBy" placeholder="Decided by employee ID" />
         <input name="decisionNote" placeholder="Decision note" />
         <div class="table-actions">
-          <button class="button button-small" type="submit" name="decision" value="approve">Approve lifecycle</button>
-          <button class="button button-small button-secondary" type="submit" name="decision" value="reject">Reject lifecycle</button>
+          <button class="button button-small" type="submit" name="decision" value="approve" ${lifecycleApprovalIds.length === 0 ? "disabled" : ""}>Approve lifecycle</button>
+          <button class="button button-small button-secondary" type="submit" name="decision" value="reject" ${lifecycleApprovalIds.length === 0 ? "disabled" : ""}>Reject lifecycle</button>
         </div>
       </form>
     </article>
