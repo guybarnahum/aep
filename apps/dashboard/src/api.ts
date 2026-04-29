@@ -735,21 +735,19 @@ export async function createProductIntervention(input: {
 }
 
 export async function createProductDeploymentRecord(input: {
-  projectId: string;
-  artifactId: string;
-  createdByEmployeeId: string;
-  externalVisibility: string;
-  notes?: string;
+  sourceArtifactId: string;
+  requestedByEmployeeId: string;
+  environment: string;
+  approvalId?: string;
 }): Promise<ProductDeploymentCreateResponse> {
   return postJson<ProductDeploymentCreateResponse>(
     getOperatorAgentBaseUrl(),
     `/agent/product-deployments`,
     {
-      projectId: input.projectId,
-      artifactId: input.artifactId,
-      createdByEmployeeId: input.createdByEmployeeId,
-      externalVisibility: input.externalVisibility,
-      notes: input.notes,
+      sourceArtifactId: input.sourceArtifactId,
+      requestedByEmployeeId: input.requestedByEmployeeId,
+      environment: input.environment,
+      approvalId: input.approvalId,
     },
   );
 }

@@ -1442,11 +1442,10 @@ function attachManualTutorialControlHandlers(): void {
       const formData = new FormData(form);
       await runManualAction(async () => {
         const result = await createProductDeploymentRecord({
-          projectId: form.dataset.projectId ?? "",
-          artifactId: String(formData.get("artifactId") ?? "").trim(),
-          createdByEmployeeId: String(formData.get("createdByEmployeeId") ?? "").trim(),
-          externalVisibility: String(formData.get("externalVisibility") ?? "internal_only").trim(),
-          notes: String(formData.get("notes") ?? "").trim() || undefined,
+          sourceArtifactId: String(formData.get("sourceArtifactId") ?? "").trim(),
+          requestedByEmployeeId: String(formData.get("requestedByEmployeeId") ?? "").trim(),
+          environment: String(formData.get("environment") ?? "").trim() || "staging",
+          approvalId: String(formData.get("approvalId") ?? "").trim() || undefined,
         });
         return `Deployment record created: ${result.deployment.id}`;
       });

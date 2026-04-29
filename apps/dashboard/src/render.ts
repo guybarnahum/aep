@@ -2397,19 +2397,16 @@ function renderDeploymentControls(summary: ProductVisibilitySummary): string {
       <h4>Deployment controls</h4>
       <p class="muted small">External-safe deployments require approval. Internal-only deployments may execute from requested state.</p>
       <form class="compact-form" data-form="create-deployment-record" data-project-id="${escapeHtml(summary.project.id)}">
-        <select name="artifactId" ${deploymentCandidates.length === 0 ? "disabled" : ""}>
+        <select name="sourceArtifactId" ${deploymentCandidates.length === 0 ? "disabled" : ""}>
           ${deploymentCandidates.length === 0
             ? `<option value="">No deployment_candidate artifacts ready</option>`
             : deploymentCandidates.map((artifact) => `
               <option value="${escapeHtml(artifact.id)}">${escapeHtml(artifact.id)} · ${escapeHtml(artifact.artifactType)}</option>
             `).join("")}
         </select>
-        <select name="externalVisibility">
-          <option value="internal_only">internal_only</option>
-          <option value="external_safe">external_safe</option>
-        </select>
-        <input name="createdByEmployeeId" placeholder="Created by employee ID" />
-        <textarea name="notes" placeholder="Deployment notes (optional)"></textarea>
+        <input name="requestedByEmployeeId" placeholder="Requested by employee ID" />
+        <input name="environment" placeholder="Environment" value="staging" />
+        <input name="approvalId" placeholder="Approval ID for external_safe candidates" />
         <button class="button button-small" type="submit" ${deploymentCandidates.length === 0 ? "disabled" : ""}>Create deployment record</button>
       </form>
       <form class="compact-form" data-form="decide-deployment-approval">
@@ -4944,10 +4941,10 @@ export function renderDepartmentOverview(args: {
 
 function getReadyDeploymentCandidates(summary: ProductVisibilitySummary): TaskArtifactRecord[] {
   return summary.artifacts.deployable.filter(
-    (artifact) => {
-      const kind = artifact.content?.kind;
-      return typeof kind === "string" && kind === "deployment_candidate";
-    },
+    (artifact) =>
+      artifact.content?.deployableArtifactKind === "deployment_candidate" &&
+      artifact.content?.state === "ready_for_deployment" &&
+      artifact.content?.stateOwnership === "aep",
   );
 }
 
