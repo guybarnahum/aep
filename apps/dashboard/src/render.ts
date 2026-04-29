@@ -2361,11 +2361,11 @@ export function renderProductInitiativeDetail(summary: ProductVisibilitySummary)
         <form class="form-grid" id="product-intervention-form" data-project-id="${escapeHtml(project.id)}">
           <input name="createdByEmployeeId" placeholder="Created by employee ID" required />
           <select name="action">
-            <option value="modify_requirements">Modify requirements</option>
+            <option value="add_direction">Modify requirements</option>
             <option value="request_redesign">Request redesign</option>
-            <option value="add_constraint">Add constraint</option>
-            <option value="escalate_issue">Escalate issue</option>
-            <option value="pause_work">Pause work</option>
+            <option value="add_direction">Add constraint</option>
+            <option value="pause_for_human_review">Escalate issue</option>
+            <option value="pause_for_human_review">Pause work</option>
           </select>
           <p class="muted small">Each action creates canonical AEP work, message, or approval context. It does not mutate project state directly.</p>
           <input name="targetTaskId" placeholder="Optional target task ID" />

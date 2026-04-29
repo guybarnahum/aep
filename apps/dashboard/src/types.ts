@@ -311,11 +311,7 @@ export type ProductInterventionAction =
   | "change_priority"
   | "review_validation"
   | "review_deployment_risk"
-  | "pause_for_human_review"
-  | "modify_requirements"
-  | "add_constraint"
-  | "escalate_issue"
-  | "pause_work";
+  | "pause_for_human_review";
 
 export type ProductVisibilitySummary = {
   project: ProjectRecord;
