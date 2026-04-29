@@ -1,4 +1,4 @@
-import { WorkerDeploymentAdapter } from "@aep/deployment-engine/worker-adapter";
+import { CloudflareWorkerDeploymentAdapter as WorkerDeploymentAdapter } from "@aep/deployment-engine/providers/cloudflare/worker-adapter";
 
 async function main() {
   const adapter = new WorkerDeploymentAdapter();
