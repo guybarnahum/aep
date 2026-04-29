@@ -9,7 +9,8 @@ runtime, not by implementing it directly.
 The goal of PR19 is to make this user experience real.
 
 The post-PR25 system implements the underlying organization runtime for this
-flow. PR26 makes the flow manually operable from the dashboard for QA.
+flow. PR26 makes the flow manually operable from the dashboard for QA. PR27
+makes the flow fully closable by adding the deployment-record creation step.
 
 ## Core idea
 
@@ -235,7 +236,9 @@ Important controls:
 Every control must map to canonical tasks, approvals, or threads/messages.
 
 PR26 manual readiness means the dashboard exposes these controls without
-creating a parallel state owner.
+creating a parallel state owner. PR27 adds the deployment-record creation step
+so the `deployment_candidate` artifact → deployment record → execution path is
+completable end-to-end from the dashboard.
 
 ## Jira / external mirroring
 

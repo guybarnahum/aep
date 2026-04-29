@@ -301,6 +301,38 @@ button:disabled {
   min-height: 4rem;
 }
 
+.tutorial-flow-grid {
+  display: grid;
+  gap: 0.35rem;
+  margin-top: 0.5rem;
+}
+
+.tutorial-flow-step {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+}
+
+.tutorial-flow-done {
+  opacity: 0.6;
+}
+
+.tutorial-flow-ready {
+  font-weight: 600;
+}
+
+.tutorial-flow-blocked {
+  color: var(--muted-color, #888);
+  font-style: italic;
+}
+
+.tutorial-flow-missing {
+  opacity: 0.4;
+}
+
 .mono {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 }

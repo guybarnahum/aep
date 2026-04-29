@@ -375,6 +375,15 @@ export type ProductDeploymentExecutionResponse = {
   messageId: string;
 };
 
+export type ProductDeploymentCreateResponse = {
+  ok: boolean;
+  deployment: ProductDeploymentRecord;
+  threadId: string;
+  messageId: string;
+};
+
+export type TutorialFlowStepState = "missing" | "ready" | "blocked" | "done";
+
 export type ProductLifecycleAction = "pause" | "resume" | "retire" | "transition";
 
 export type ProductLifecycleRequestResponse = {

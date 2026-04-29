@@ -30,6 +30,7 @@ import type {
   ProductInterventionAction,
   ProductInterventionResponse,
   ProductVisibilitySummary,
+  ProductDeploymentCreateResponse,
   ProductDeploymentExecutionResponse,
   ProductLifecycleAction,
   ProductLifecycleExecutionResponse,
@@ -729,6 +730,26 @@ export async function createProductIntervention(input: {
       targetTaskId: input.targetTaskId,
       targetArtifactId: input.targetArtifactId,
       targetDeploymentId: input.targetDeploymentId,
+    },
+  );
+}
+
+export async function createProductDeploymentRecord(input: {
+  projectId: string;
+  artifactId: string;
+  createdByEmployeeId: string;
+  externalVisibility: string;
+  notes?: string;
+}): Promise<ProductDeploymentCreateResponse> {
+  return postJson<ProductDeploymentCreateResponse>(
+    getOperatorAgentBaseUrl(),
+    `/agent/product-deployments`,
+    {
+      projectId: input.projectId,
+      artifactId: input.artifactId,
+      createdByEmployeeId: input.createdByEmployeeId,
+      externalVisibility: input.externalVisibility,
+      notes: input.notes,
     },
   );
 }

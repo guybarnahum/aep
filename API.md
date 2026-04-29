@@ -823,6 +823,20 @@ Safety constraints:
 - lifecycle transition requests should preserve optional `targetState`
 - deployment execution controls should clearly distinguish internal-only from external-safe policy
 
+PR27 tutorial flow closure makes the manual tutorial flow fully completable from
+the dashboard by adding:
+
+- `POST /agent/product-deployments` — create a deployment record from a `deployment_candidate` artifact
+- `ProductDeploymentCreateResponse` type for the creation response
+- `createProductDeploymentRecord` API helper in the dashboard
+- tutorial flow progress panel showing canonical checklist state (intake → project → tasks → artifacts → candidate → record → executed)
+- `create-deployment-record` form scoped to `deployment_candidate` artifacts
+- `getReadyDeploymentCandidates` helper to filter deployable artifacts by type
+
+No new backend primitives are introduced. The creation endpoint and deployment
+execution endpoint were already present. PR27 connects the dashboard UI to the
+creation step that was previously missing.
+
 ### PR19 enforcement
 
 PR19H adds enforcement checks for the product-construction model.

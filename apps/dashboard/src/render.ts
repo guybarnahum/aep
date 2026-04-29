@@ -301,6 +301,7 @@ import type {
   TenantSummary,
   TeamRoadmap,
   SchedulerStatus,
+  TutorialFlowStepState,
   ValidationOverview,
 } from "./types";
 
@@ -2282,6 +2283,12 @@ export function renderProductInitiativeDetail(summary: ProductVisibilitySummary)
       </section>
 
       <section class="panel">
+        <h3>Tutorial flow progress</h3>
+        <p class="muted small">Read-only checklist derived from canonical AEP state. No mutation.</p>
+        ${renderTutorialFlowProgress(summary)}
+      </section>
+
+      <section class="panel">
         <h3>Manual tutorial controls</h3>
         <p class="muted small">These controls call canonical AEP routes only. They do not mutate dashboard-owned state.</p>
         <div class="product-control-grid">
@@ -2376,6 +2383,7 @@ export function renderProductInitiativeDetail(summary: ProductVisibilitySummary)
 
 function renderDeploymentControls(summary: ProductVisibilitySummary): string {
   const deployments = summary.deployments.latest;
+  const deploymentCandidates = getReadyDeploymentCandidates(summary);
   const deploymentApprovalIds = Array.from(
     new Set(
       deployments
@@ -2388,6 +2396,22 @@ function renderDeploymentControls(summary: ProductVisibilitySummary): string {
     <article class="control-card">
       <h4>Deployment controls</h4>
       <p class="muted small">External-safe deployments require approval. Internal-only deployments may execute from requested state.</p>
+      <form class="compact-form" data-form="create-deployment-record" data-project-id="${escapeHtml(summary.project.id)}">
+        <select name="artifactId" ${deploymentCandidates.length === 0 ? "disabled" : ""}>
+          ${deploymentCandidates.length === 0
+            ? `<option value="">No deployment_candidate artifacts ready</option>`
+            : deploymentCandidates.map((artifact) => `
+              <option value="${escapeHtml(artifact.id)}">${escapeHtml(artifact.id)} · ${escapeHtml(artifact.artifactType)}</option>
+            `).join("")}
+        </select>
+        <select name="externalVisibility">
+          <option value="internal_only">internal_only</option>
+          <option value="external_safe">external_safe</option>
+        </select>
+        <input name="createdByEmployeeId" placeholder="Created by employee ID" />
+        <textarea name="notes" placeholder="Deployment notes (optional)"></textarea>
+        <button class="button button-small" type="submit" ${deploymentCandidates.length === 0 ? "disabled" : ""}>Create deployment record</button>
+      </form>
       <form class="compact-form" data-form="decide-deployment-approval">
         <select name="approvalId" ${deploymentApprovalIds.length === 0 ? "disabled" : ""}>
           ${deploymentApprovalIds.length === 0
@@ -4914,6 +4938,85 @@ export function renderDepartmentOverview(args: {
         })}
         ${renderControlHistoryTable(pagedControlHistory.items)}
       </section>
+    </div>
+  `;
+}
+
+function getReadyDeploymentCandidates(summary: ProductVisibilitySummary): TaskArtifactRecord[] {
+  return summary.artifacts.deployable.filter(
+    (artifact) => {
+      const kind = artifact.content?.kind;
+      return typeof kind === "string" && kind === "deployment_candidate";
+    },
+  );
+}
+
+function renderTutorialFlowProgress(summary: ProductVisibilitySummary): string {
+  const project = summary.project;
+
+  function stepState(
+    condition: boolean,
+    blockedBy?: boolean,
+  ): TutorialFlowStepState {
+    if (condition) return "done";
+    if (blockedBy) return "blocked";
+    return "ready";
+  }
+
+  function stepClass(state: TutorialFlowStepState): string {
+    switch (state) {
+      case "done": return "tutorial-flow-step tutorial-flow-done";
+      case "ready": return "tutorial-flow-step tutorial-flow-ready";
+      case "blocked": return "tutorial-flow-step tutorial-flow-blocked";
+      case "missing": return "tutorial-flow-step tutorial-flow-missing";
+    }
+  }
+
+  function stepIcon(state: TutorialFlowStepState): string {
+    switch (state) {
+      case "done": return "✅";
+      case "ready": return "▶";
+      case "blocked": return "⏳";
+      case "missing": return "○";
+    }
+  }
+
+  const hasIntake = Boolean(summary.intake.source);
+  const hasProject = Boolean(project.id);
+  const hasTaskGraph = summary.tasks.count > 0;
+  const hasArtifacts = summary.artifacts.count > 0;
+  const hasDeploymentCandidate = getReadyDeploymentCandidates(summary).length > 0;
+  const hasDeploymentRecord = summary.deployments.count > 0;
+  const hasExecutedDeployment = summary.deployments.latest.some(
+    (d) => d.status === "deployed",
+  );
+
+  const intakeState = stepState(hasIntake);
+  const projectState = stepState(hasProject, !hasIntake);
+  const taskGraphState = stepState(hasTaskGraph, !hasProject);
+  const artifactState = stepState(hasArtifacts, !hasTaskGraph);
+  const candidateState = stepState(hasDeploymentCandidate, !hasArtifacts);
+  const deploymentRecordState = stepState(hasDeploymentRecord, !hasDeploymentCandidate);
+  const executionState = stepState(hasExecutedDeployment, !hasDeploymentRecord);
+
+  const steps: Array<{ label: string; state: TutorialFlowStepState }> = [
+    { label: "Intake submitted", state: intakeState },
+    { label: "Product initiative created", state: projectState },
+    { label: "Task graph created", state: taskGraphState },
+    { label: "Artifacts produced", state: artifactState },
+    { label: "Deployment candidate ready", state: candidateState },
+    { label: "Deployment record created", state: deploymentRecordState },
+    { label: "Deployment executed", state: executionState },
+  ];
+
+  return `
+    <div class="tutorial-flow-grid">
+      ${steps.map((step) => `
+        <div class="${stepClass(step.state)}">
+          <span class="tutorial-flow-icon">${stepIcon(step.state)}</span>
+          <span>${escapeHtml(step.label)}</span>
+        </div>
+      `).join("")}
     </div>
   `;
 }

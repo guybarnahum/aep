@@ -64,6 +64,7 @@ import {
   acknowledgeEscalationFromThread,
   approveApproval,
   approveFromThread,
+  createProductDeploymentRecord,
   createIntakeRequest,
   convertIntakeToProject,
   createProjectTaskGraph,
@@ -1435,6 +1436,23 @@ function attachTutorialIntakeHandlers(): void {
 }
 
 function attachManualTutorialControlHandlers(): void {
+  document.querySelectorAll<HTMLFormElement>("[data-form='create-deployment-record']").forEach((form) => {
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const formData = new FormData(form);
+      await runManualAction(async () => {
+        const result = await createProductDeploymentRecord({
+          projectId: form.dataset.projectId ?? "",
+          artifactId: String(formData.get("artifactId") ?? "").trim(),
+          createdByEmployeeId: String(formData.get("createdByEmployeeId") ?? "").trim(),
+          externalVisibility: String(formData.get("externalVisibility") ?? "internal_only").trim(),
+          notes: String(formData.get("notes") ?? "").trim() || undefined,
+        });
+        return `Deployment record created: ${result.deployment.id}`;
+      });
+    });
+  });
+
   document.querySelectorAll<HTMLFormElement>("[data-form='decide-deployment-approval']").forEach((form) => {
     form.addEventListener("submit", async (event) => {
       event.preventDefault();

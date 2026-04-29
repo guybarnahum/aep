@@ -1131,6 +1131,33 @@ CI guard:
 npm run ci:manual-tutorial-readiness-contract-check
 ```
 
+### PR27 - Tutorial Flow Closure
+
+PR27 makes the tutorial flow fully closable from the dashboard by adding the
+missing deployment-record creation step.
+
+Implemented:
+
+- `POST /agent/product-deployments` wired into dashboard via `createProductDeploymentRecord`
+- `ProductDeploymentCreateResponse` and `TutorialFlowStepState` types added
+- `create-deployment-record` form scoped to `deployment_candidate` artifacts
+- `renderTutorialFlowProgress` progress panel with canonical 7-step checklist
+- `getReadyDeploymentCandidates` helper filtering artifacts by `deployment_candidate` type
+- tutorial-flow CSS grid for step visibility
+
+Boundaries:
+
+- no new backend primitives introduced
+- creation POSTs to the existing canonical `/agent/product-deployments` endpoint
+- tutorial progress panel is read-only (no mutation)
+- deployment record creation is only available when `deployment_candidate` artifacts are present
+
+CI guard:
+
+```bash
+npm run ci:tutorial-flow-closure-contract-check
+```
+
 PR19A should begin by defining how AEP represents a product initiative without
 inventing a parallel workflow system. Prefer extending or specializing the
 existing project/intake/task/artifact model before adding new primitives.
