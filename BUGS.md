@@ -140,3 +140,47 @@ Each bug follows this schema:
 
 ---
 
+### BUG-006 — Ready Tasks Are Not Executed and No Manual Runtime Trigger Exists
+
+- **Area**: Runtime / Task Execution
+- **Severity**: critical
+- **Observed**:
+  UI shows ready canonical tasks:
+  - `project_planning`
+  - `coordination`
+  But no task progresses to running/completed, and no UI control exists to run, process, trigger, or inspect workers.
+- **Expected**:
+  Ready tasks should be picked up by the execution runtime, or a manual debug trigger should exist in non-production QA flows.
+- **Root Cause (hypothesis)**:
+  Execution loop is not running, not wired to ready tasks, or not exposed in the dashboard.
+- **Fix Suggestion (minimal)**:
+  Add runtime execution visibility and ensure ready tasks are processed by the operator/worker loop.
+- **Validation Steps**:
+  1. Create initiative
+  2. Create human intervention
+  3. Confirm ready tasks transition beyond `ready`
+  4. Confirm artifacts are produced downstream
+- **Status**: open
+
+---
+
+### BUG-007 — Dashboard Does Not Expose Runtime / Worker Health
+
+- **Area**: Observability / Runtime UX
+- **Severity**: high
+- **Observed**:
+  User cannot determine whether task execution is stopped, unavailable, paused, or failing.
+  Dashboard exposes canonical state but not runtime health.
+- **Expected**:
+  Dashboard should show execution runtime status, last worker activity, or clear reason why ready tasks are not progressing.
+- **Root Cause (hypothesis)**:
+  Observability panel does not include execution runtime health.
+- **Fix Suggestion (minimal)**:
+  Add a runtime status panel showing worker availability, last task pickup, and last execution error.
+- **Validation Steps**:
+  1. Open initiative with ready tasks
+  2. Confirm dashboard explains whether runtime is active
+  3. Confirm failures are visible without inspecting backend logs
+- **Status**: open
+
+---
