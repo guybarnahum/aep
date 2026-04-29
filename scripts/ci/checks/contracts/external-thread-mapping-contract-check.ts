@@ -162,13 +162,13 @@ async function main(): Promise<void> {
       }) as any,
       store: projectionStore.store as any,
       input: {
-        messageId: "msg_pr10b_contract_success",
-        threadId: "thr_pr10b_contract_success",
-        body: "PR10B should project canonical messages into a stable external conversation.",
+        messageId: "msg_thread_mapping_contract_success",
+        threadId: "thr_thread_mapping_contract_success",
+        body: "Thread mapping should project canonical messages into a stable external conversation.",
         senderEmployeeId: FIXTURE_INFRA_OPS_MANAGER_ID,
         createdAt: new Date().toISOString(),
         routing: {
-          threadId: "thr_pr10b_contract_success",
+          threadId: "thr_thread_mapping_contract_success",
           messageType: "coordination",
           senderEmployeeId: FIXTURE_INFRA_OPS_MANAGER_ID,
           humanVisibilityRequired: true,
@@ -194,8 +194,8 @@ async function main(): Promise<void> {
   assert(threadProjection.externalThreadId.length > 0, "Expected external thread projection id");
   assert(messageProjection.externalThreadId.length > 0, "Expected message projection external thread id");
   assert(messageProjection.externalMessageId.length > 0, "Expected message projection external message id");
-  assert(threadProjection.threadId === "thr_pr10b_contract_success", "Expected canonical thread id to remain intact");
-  assert(messageProjection.messageId === "msg_pr10b_contract_success", "Expected canonical message id to remain intact");
+  assert(threadProjection.threadId === "thr_thread_mapping_contract_success", "Expected canonical thread id to remain intact");
+  assert(messageProjection.messageId === "msg_thread_mapping_contract_success", "Expected canonical message id to remain intact");
   assert(
     messageProjection.externalThreadId === threadProjection.externalThreadId,
     "Expected message projection to link to the thread projection external thread id",
@@ -210,13 +210,13 @@ async function main(): Promise<void> {
     env: createEnvWithMirrorRules({ rules: [] }) as any,
     store: failedRun.store as any,
     input: {
-      messageId: "msg_pr10b_contract_failed",
-      threadId: "thr_pr10b_contract_failed",
-      body: "PR10B must not synthesize mappings when no mirror target resolves.",
+      messageId: "msg_thread_mapping_contract_failed",
+      threadId: "thr_thread_mapping_contract_failed",
+      body: "Thread mapping must not synthesize mappings when no mirror target resolves.",
       senderEmployeeId: FIXTURE_RELIABILITY_ENGINEER_ID,
       createdAt: new Date().toISOString(),
       routing: {
-        threadId: "thr_pr10b_contract_failed",
+          threadId: "thr_thread_mapping_contract_failed",
         messageType: "coordination",
         senderEmployeeId: FIXTURE_RELIABILITY_ENGINEER_ID,
         humanVisibilityRequired: true,

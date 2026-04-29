@@ -61,9 +61,9 @@ async function main(): Promise<void> {
 
   const thread = await client.createMessageThread({
     companyId: "company_internal_aep",
-    topic: "PR10E external reply policy enforcement",
+    topic: "External reply policy enforcement",
     createdByEmployeeId: managerEmployeeId,
-    relatedTaskId: "task_pr10e_reply_policy",
+    relatedTaskId: "task_ext_reply_policy",
     visibility: "internal",
     externalInteractionPolicy: {
       inboundRepliesAllowed: true,
@@ -85,9 +85,9 @@ async function main(): Promise<void> {
     receiverEmployeeId: reliabilityEngineerEmployeeId,
     type: "coordination",
     source: "internal",
-    subject: "PR10E reply policy anchor",
+    subject: "External reply policy anchor",
     body: "Create a projected thread so reply policy can be enforced.",
-    relatedTaskId: "task_pr10e_reply_policy",
+    relatedTaskId: "task_ext_reply_policy",
   });
 
   if (!outbound?.ok || !outbound?.messageId) {
@@ -126,7 +126,7 @@ async function main(): Promise<void> {
     body: JSON.stringify({
       channel: projection.channel,
       externalThreadId: projection.externalThreadId,
-      externalMessageId: `pr10e-reply-denied-${newToken()}`,
+      externalMessageId: `ext-reply-denied-${newToken()}`,
       externalAuthorId: "U_BLOCKED",
       externalReceivedAt: new Date().toISOString(),
       subject: "Denied reply",
@@ -145,7 +145,7 @@ async function main(): Promise<void> {
   const allowed = await client.ingestExternalMessage({
     channel: projection.channel,
     externalThreadId: projection.externalThreadId,
-    externalMessageId: `pr10e-reply-allowed-${newToken()}`,
+    externalMessageId: `ext-reply-allowed-${newToken()}`,
     externalAuthorId: "U_ALLOWED",
     externalReceivedAt: new Date().toISOString(),
     subject: "Allowed reply",

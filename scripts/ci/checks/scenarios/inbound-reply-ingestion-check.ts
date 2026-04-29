@@ -62,9 +62,9 @@ async function main(): Promise<void> {
 
   const thread = await client.createMessageThread({
     companyId: "company_internal_aep",
-    topic: "PR10C inbound reply ingestion check",
+    topic: "Inbound reply ingestion check",
     createdByEmployeeId: ciActor(CHECK_NAME),
-    relatedTaskId: "task_pr10c_inbound_ingestion",
+    relatedTaskId: "task_inbound_ingestion",
     visibility: "internal",
   });
 
@@ -79,12 +79,12 @@ async function main(): Promise<void> {
     receiverEmployeeId: reliabilityEngineerEmployeeId,
     type: "coordination",
     source: "internal",
-    subject: "PR10C outbound anchor",
+    subject: "Inbound reply outbound anchor",
     body: "This outbound mirrored message should create an external thread anchor for inbound replies.",
     payload: {
       ...ciArtifactMarker(CHECK_NAME),
     },
-    relatedTaskId: "task_pr10c_inbound_ingestion",
+    relatedTaskId: "task_inbound_ingestion",
   });
 
   if (!outbound?.ok || !outbound?.messageId) {
@@ -117,8 +117,8 @@ async function main(): Promise<void> {
   const inbound = await client.ingestExternalMessage({
     channel: projection.channel,
     externalThreadId: projection.externalThreadId,
-    externalMessageId: `pr10c-inbound-reply-${newToken()}`,
-    externalAuthorId: "U_PR10C_REPLY",
+    externalMessageId: `inbound-reply-${newToken()}`,
+    externalAuthorId: "U_INBOUND_REPLY",
     externalReceivedAt: new Date().toISOString(),
     subject: "Inbound Slack reply",
     body: "This reply should be ingested back into the canonical AEP thread.",
@@ -142,7 +142,7 @@ async function main(): Promise<void> {
     `Expected inbound source ${projection.channel}, got ${JSON.stringify(ingestedMessage)}`,
   );
   assert(
-    ingestedMessage.externalMessageId?.startsWith("pr10c-inbound-reply-"),
+    ingestedMessage.externalMessageId?.startsWith("inbound-reply-"),
     `Expected inbound external message id to be preserved, got ${JSON.stringify(ingestedMessage)}`,
   );
 

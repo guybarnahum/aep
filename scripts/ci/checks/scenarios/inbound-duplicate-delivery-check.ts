@@ -61,9 +61,9 @@ async function main(): Promise<void> {
 
   const thread = await client.createMessageThread({
     companyId: "company_internal_aep",
-    topic: "PR10C inbound duplicate delivery check",
+    topic: "Inbound duplicate delivery check",
     createdByEmployeeId: infraOpsManagerEmployeeId,
-    relatedTaskId: "task_pr10c_inbound_duplicate",
+    relatedTaskId: "task_inbound_duplicate",
     visibility: "internal",
   });
 
@@ -78,9 +78,9 @@ async function main(): Promise<void> {
     receiverEmployeeId: reliabilityEngineerEmployeeId,
     type: "coordination",
     source: "internal",
-    subject: "PR10C duplicate anchor",
+    subject: "Inbound duplicate anchor",
     body: "This mirrored message should create an external thread projection for duplicate inbound delivery checks.",
-    relatedTaskId: "task_pr10c_inbound_duplicate",
+    relatedTaskId: "task_inbound_duplicate",
   });
 
   if (!outbound?.ok || !outbound?.messageId) {
@@ -113,8 +113,8 @@ async function main(): Promise<void> {
   const inboundPayload = {
     channel: projection.channel,
     externalThreadId: projection.externalThreadId,
-    externalMessageId: `pr10c-inbound-duplicate-${newToken()}`,
-    externalAuthorId: "U_PR10C_DUPLICATE",
+    externalMessageId: `inbound-duplicate-${newToken()}`,
+    externalAuthorId: "U_INBOUND_DUPLICATE",
     externalReceivedAt: new Date().toISOString(),
     subject: "Inbound duplicate reply",
     body: "This external reply should only create one canonical message, even if delivered twice.",

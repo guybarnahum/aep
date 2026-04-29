@@ -23,10 +23,10 @@ async function main(): Promise<void> {
     assignedTeamId: "team_infra",
     createdByEmployeeId: CHECK_NAME,
     taskType: "deployment",
-    title: "PR16D live cognitive scheduling fixture",
+    title: "Live cognitive scheduling fixture",
     payload: {
       environment: "staging",
-      artifactRef: "artifact_pr16d_cognitive_fixture",
+      artifactRef: "artifact_ci_cognitive_fixture",
       priority: "high",
       urgency: "normal",
       deadline: "soon",

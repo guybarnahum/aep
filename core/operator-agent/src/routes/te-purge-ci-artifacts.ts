@@ -457,7 +457,7 @@ export async function handlePurgeCiArtifacts(
         .run();
       deletedCount = result.meta?.changes ?? 0;
     } else if (table === "product_deployment_records") {
-      // PR19C deployment records are CI-owned when requested by CI actor or derived
+      // Product deployment records are CI-owned when requested by CI actor or derived
       // from CI-marked artifacts/tasks.
       const result = await db
         .prepare(

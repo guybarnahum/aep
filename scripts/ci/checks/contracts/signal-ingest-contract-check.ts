@@ -6,13 +6,13 @@ function read(path: string): string {
 
 function assertContains(path: string, needle: string): void {
   if (!read(path).includes(needle)) {
-    throw new Error(`${path} missing PR23 signal contract: ${needle}`);
+    throw new Error(`${path} missing signal contract: ${needle}`);
   }
 }
 
 function assertNotContains(path: string, needle: string): void {
   if (read(path).includes(needle)) {
-    throw new Error(`${path} violates PR23 signal contract: ${needle}`);
+    throw new Error(`${path} violates signal contract: ${needle}`);
   }
 }
 

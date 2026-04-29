@@ -61,9 +61,9 @@ async function main(): Promise<void> {
 
   const thread = await client.createMessageThread({
     companyId: "company_internal_aep",
-    topic: "PR10B threaded mirror continuity check",
+    topic: "threaded mirror continuity check",
     createdByEmployeeId: ciActor(CHECK_NAME),
-    relatedTaskId: "task_pr10b_threaded_mirroring",
+    relatedTaskId: "task_threaded_mirroring",
     visibility: "internal",
   });
 
@@ -78,12 +78,12 @@ async function main(): Promise<void> {
     receiverEmployeeId: reliabilityEngineerEmployeeId,
     type: "coordination",
     source: "internal",
-    subject: "PR10B continuity message one",
+    subject: "threaded mirror continuity message one",
     body: "The first mirrored message should establish an external thread projection.",
     payload: {
       ...ciArtifactMarker(CHECK_NAME),
     },
-    relatedTaskId: "task_pr10b_threaded_mirroring",
+    relatedTaskId: "task_threaded_mirroring",
   });
 
   const secondMessage = await client.createMessage({
@@ -93,12 +93,12 @@ async function main(): Promise<void> {
     receiverEmployeeId: reliabilityEngineerEmployeeId,
     type: "coordination",
     source: "internal",
-    subject: "PR10B continuity message two",
+    subject: "threaded mirror continuity message two",
     body: "The second mirrored message should reuse the same external thread projection.",
     payload: {
       ...ciArtifactMarker(CHECK_NAME),
     },
-    relatedTaskId: "task_pr10b_threaded_mirroring",
+    relatedTaskId: "task_threaded_mirroring",
   });
 
   if (!firstMessage?.ok || !firstMessage?.messageId || !secondMessage?.ok || !secondMessage?.messageId) {

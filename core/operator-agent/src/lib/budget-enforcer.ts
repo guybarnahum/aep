@@ -1,1 +1,1 @@
-// Deprecated: KV-backed BudgetEnforcer removed in PR8. Use D1BudgetEnforcer.
+// Deprecated: KV-backed BudgetEnforcer. Use D1BudgetEnforcer.

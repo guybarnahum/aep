@@ -86,7 +86,7 @@ async function main(): Promise<void> {
     assignedEmployeeId: reliabilityEngineerEmployeeId,
     createdByEmployeeId: managerEmployeeId,
     taskType: "validate-deployment",
-    title: "PR7.8D thread rationale publication task",
+    title: "Thread rationale publication task",
     payload: {
       targetUrl: getTargetUrl(),
       subjectRef: "deployment_validation_subject",

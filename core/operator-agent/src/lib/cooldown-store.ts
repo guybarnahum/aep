@@ -1,1 +1,1 @@
-// Deprecated: KV-backed CooldownStore removed in PR8. Use D1CooldownStore.
+// Deprecated: KV-backed CooldownStore. Use D1CooldownStore.

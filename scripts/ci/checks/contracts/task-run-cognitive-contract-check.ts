@@ -57,7 +57,7 @@ async function main(): Promise<void> {
     assignedEmployeeId: reliabilityEngineerEmployeeId,
     createdByEmployeeId: infraOpsManagerEmployeeId,
     taskType: "validate-deployment",
-    title: "PR7.1 cognitive run contract task",
+    title: "Cognitive run contract task",
     payload: {
       targetUrl: getTargetUrl(),
       subjectRef: "deployment_validation_subject",

@@ -131,7 +131,7 @@ async function main(): Promise<void> {
     },
     body: JSON.stringify({
       companyId: "company_internal_aep",
-      topic: "PR10E invalid channel policy",
+      topic: "Invalid channel policy",
       createdByEmployeeId: infraOpsManagerEmployeeId,
       visibility: "internal",
       externalInteractionPolicy: {
@@ -144,9 +144,9 @@ async function main(): Promise<void> {
 
   const replyThread = await client.createMessageThread({
     companyId: "company_internal_aep",
-    topic: "PR10E reply policy contract",
+    topic: "Reply policy contract",
     createdByEmployeeId: infraOpsManagerEmployeeId,
-    relatedTaskId: "task_pr10e_reply_contract",
+    relatedTaskId: "task_reply_policy_contract",
     visibility: "internal",
     externalInteractionPolicy: {
       inboundRepliesAllowed: true,
@@ -168,9 +168,9 @@ async function main(): Promise<void> {
     receiverEmployeeId: reliabilityEngineerEmployeeId,
     type: "coordination",
     source: "internal",
-    subject: "PR10E reply contract anchor",
+    subject: "Reply contract anchor",
     body: "Create a projected thread so inbound reply policy can be exercised.",
-    relatedTaskId: "task_pr10e_reply_contract",
+    relatedTaskId: "task_reply_policy_contract",
   });
 
   if (!replyAnchor?.ok || !replyAnchor?.messageId) {
@@ -193,7 +193,7 @@ async function main(): Promise<void> {
     body: JSON.stringify({
       channel: replyProjection.channel,
       externalThreadId: replyProjection.externalThreadId,
-      externalMessageId: `pr10e-denied-reply-${newToken()}`,
+      externalMessageId: `ext-denied-reply-${newToken()}`,
       externalAuthorId: "U_BLOCKED",
       externalReceivedAt: new Date().toISOString(),
       subject: "Denied reply",
@@ -209,7 +209,7 @@ async function main(): Promise<void> {
   const allowedReply = await client.ingestExternalMessage({
     channel: replyProjection.channel,
     externalThreadId: replyProjection.externalThreadId,
-    externalMessageId: `pr10e-allowed-reply-${newToken()}`,
+    externalMessageId: `ext-allowed-reply-${newToken()}`,
     externalAuthorId: "U_ALLOWED",
     externalReceivedAt: new Date().toISOString(),
     subject: "Allowed reply",
@@ -242,7 +242,7 @@ async function main(): Promise<void> {
     body: JSON.stringify({
       channel: "teams",
       externalThreadId: replyProjection.externalThreadId,
-      externalMessageId: `pr10e-invalid-channel-${newToken()}`,
+      externalMessageId: `ext-invalid-channel-${newToken()}`,
       externalReceivedAt: new Date().toISOString(),
       body: "invalid",
     }),
@@ -254,7 +254,7 @@ async function main(): Promise<void> {
     requestedByEmployeeId: infraOpsManagerEmployeeId,
     requestedByRoleId: "infra-ops-manager",
     actionType: "deploy-change",
-    reason: "PR10E action policy contract",
+    reason: "External action policy contract",
     message: "Seed approval for external policy contract validation.",
   });
 
@@ -265,7 +265,7 @@ async function main(): Promise<void> {
   const approvalId = (seededApproval as any).approval.approvalId;
   const actionThread = await client.createMessageThread({
     companyId: "company_internal_aep",
-    topic: "PR10E action policy contract",
+    topic: "Action policy contract",
     createdByEmployeeId: infraOpsManagerEmployeeId,
     relatedApprovalId: approvalId,
     visibility: "internal",
@@ -289,7 +289,7 @@ async function main(): Promise<void> {
     receiverEmployeeId: reliabilityEngineerEmployeeId,
     type: "coordination",
     source: "internal",
-    subject: "PR10E action contract anchor",
+    subject: "Action contract anchor",
     body: "Create a projected thread so external actions can be authorized.",
     relatedApprovalId: approvalId,
   });
@@ -305,7 +305,7 @@ async function main(): Promise<void> {
   });
 
   const actionProjection = actionProjectionState.projection;
-  const sharedExternalActionId = `pr10e-shared-action-${newToken()}`;
+  const sharedExternalActionId = `ext-shared-action-${newToken()}`;
 
   const deniedActionResponse = await fetch(`${client.baseUrl.replace(/\/$/, "")}/agent/messages/external-action`, {
     method: "POST",
@@ -361,7 +361,7 @@ async function main(): Promise<void> {
     },
     body: JSON.stringify({
       source: "teams",
-      externalActionId: `pr10e-invalid-action-${newToken()}`,
+      externalActionId: `ext-invalid-action-${newToken()}`,
       externalThreadId: actionProjection.externalThreadId,
       externalAuthorId: "U_ALLOWED",
       receivedAt: new Date().toISOString(),

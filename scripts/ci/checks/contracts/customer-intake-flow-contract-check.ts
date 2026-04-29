@@ -67,7 +67,7 @@ const migration = readFileSync(
 );
 assert(
   migration.includes("ALTER TABLE intake_requests"),
-  "PR19E must extend canonical intake_requests",
+  "Customer intake flow must extend canonical intake_requests",
 );
 assert(
   migration.includes("idempotency_key"),

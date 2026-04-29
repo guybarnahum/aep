@@ -104,9 +104,9 @@ async function main(): Promise<void> {
 
   const thread = await client.createMessageThread({
     companyId: "company_internal_aep",
-    topic: "PR7.2 thread contract",
+    topic: "Thread contract",
     createdByEmployeeId: infraOpsManagerEmployeeId,
-    relatedTaskId: "task_fake_pr72_thread",
+    relatedTaskId: "task_message_thread_contract",
     visibility: "internal",
   });
 
@@ -124,7 +124,7 @@ async function main(): Promise<void> {
     subject: "Please review",
     body: "Review the task-linked context in this thread.",
     requiresResponse: true,
-    relatedTaskId: "task_fake_pr72_thread",
+    relatedTaskId: "task_message_thread_contract",
   });
 
   if (!firstMessage?.ok || !firstMessage?.messageId) {
@@ -139,7 +139,7 @@ async function main(): Promise<void> {
     type: "coordination",
     source: "internal",
     body: "Acknowledged. Reviewing now.",
-    relatedTaskId: "task_fake_pr72_thread",
+    relatedTaskId: "task_message_thread_contract",
   });
 
   if (!reply?.ok || !reply?.messageId) {
@@ -156,10 +156,10 @@ async function main(): Promise<void> {
     subject: "Incoming email context",
     body: "Customer replied from email; keep this as a canonical thread message only.",
     externalChannel: "email",
-    externalMessageId: "pr79d-message-thread-contract-email-001",
+    externalMessageId: "ext-message-thread-contract-email-001",
     externalAuthorId: "customer_external_author",
     externalReceivedAt: new Date().toISOString(),
-    relatedTaskId: "task_fake_pr72_thread",
+    relatedTaskId: "task_message_thread_contract",
   });
 
   if (!externalMessage?.ok || !externalMessage?.messageId) {
@@ -175,10 +175,10 @@ async function main(): Promise<void> {
     source: "slack",
     body: "Forwarded from Slack into canonical AEP thread form.",
     externalChannel: "slack",
-    externalMessageId: "pr79d-message-thread-contract-slack-001",
+    externalMessageId: "ext-message-thread-contract-slack-001",
     externalAuthorId: "slack-user-123",
     externalReceivedAt: new Date().toISOString(),
-    relatedTaskId: "task_fake_pr72_thread",
+    relatedTaskId: "task_message_thread_contract",
   });
 
   if (!slackMessage?.ok || !slackMessage?.messageId) {
@@ -209,7 +209,7 @@ async function main(): Promise<void> {
   });
 
   const persistedExternalMessage = threadDetail.messages.find(
-    (message: any) => message.externalMessageId === "pr79d-message-thread-contract-email-001",
+    (message: any) => message.externalMessageId === "ext-message-thread-contract-email-001",
   );
 
   if (!persistedExternalMessage || persistedExternalMessage.externalChannel !== "email") {
@@ -217,7 +217,7 @@ async function main(): Promise<void> {
   }
 
   const persistedSlackMessage = threadDetail.messages.find(
-    (message: any) => message.externalMessageId === "pr79d-message-thread-contract-slack-001",
+    (message: any) => message.externalMessageId === "ext-message-thread-contract-slack-001",
   );
 
   if (!persistedSlackMessage || persistedSlackMessage.externalChannel !== "slack") {

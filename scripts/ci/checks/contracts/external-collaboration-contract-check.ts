@@ -143,7 +143,7 @@ assert(
 
 assert(
   packageSource.includes("ci:external-collaboration-contract-check"),
-  "package.json must expose PR17 external collaboration contract check",
+  "package.json must expose external collaboration contract check",
 );
 
 assert(
@@ -166,7 +166,7 @@ assert(
   "package.json must expose Jira ingest contract check",
 );
 
-const requiredPr17Scripts = [
+const requiredCollaborationScripts = [
   "ci:mirror-routing-contract-check",
   "ci:external-thread-mapping-contract-check",
   "ci:inbound-reply-correlation-contract-check",
@@ -179,8 +179,8 @@ const requiredPr17Scripts = [
   "ci:external-adapter-state-ownership-contract-check",
 ];
 
-for (const scriptName of requiredPr17Scripts) {
-  assert(packageSource.includes(`"${scriptName}"`), `Missing PR17 CI script ${scriptName}`);
+for (const scriptName of requiredCollaborationScripts) {
+  assert(packageSource.includes(`"${scriptName}"`), `Missing external collaboration CI script ${scriptName}`);
 }
 
 assert(

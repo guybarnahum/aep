@@ -110,7 +110,7 @@ async function main(): Promise<void> {
     receiverEmployeeId: reliabilityEngineerEmployeeId,
     type: "escalation",
     source: "internal",
-    subject: "PR10D escalation anchor",
+    subject: "external escalation anchor",
     body: "Create an external thread projection for escalation actions.",
     payload: {
       ...ciArtifactMarker(CHECK_NAME),
@@ -147,9 +147,9 @@ async function main(): Promise<void> {
 
   const action = await client.sendExternalAction({
     source: projection.channel,
-    externalActionId: `pr10d-escalation-${newToken()}`,
+    externalActionId: `ext-escalation-${newToken()}`,
     externalThreadId: projection.externalThreadId,
-    externalAuthorId: "U_PR10D_ESCALATION",
+    externalAuthorId: "U_EXT_ESCALATION",
     receivedAt: new Date().toISOString(),
     actionType: "escalation_resolve",
     metadata: { source: "scenario-check" },

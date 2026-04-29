@@ -24,11 +24,11 @@ async function main(): Promise<void> {
     assignedTeamId: "team_infra",
     createdByEmployeeId: ciActor(CHECK_NAME),
     taskType: "deployment",
-    title: "PR16E artifact expectation fixture",
+    title: "Artifact expectation fixture",
     payload: {
       ...ciArtifactMarker(CHECK_NAME),
       environment: "staging",
-      artifactRef: "artifact_pr16e_fixture",
+      artifactRef: "artifact_ci_expectation_fixture",
     },
   });
 

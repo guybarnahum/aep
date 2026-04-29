@@ -61,9 +61,9 @@ async function main(): Promise<void> {
 
   const thread = await client.createMessageThread({
     companyId: "company_internal_aep",
-    topic: "PR10C inbound reply correlation contract check",
+    topic: "Inbound reply correlation contract check",
     createdByEmployeeId: infraOpsManagerEmployeeId,
-    relatedTaskId: "task_pr10c_inbound_contract",
+    relatedTaskId: "task_inbound_correlation_contract",
     visibility: "internal",
   });
 
@@ -78,9 +78,9 @@ async function main(): Promise<void> {
     receiverEmployeeId: reliabilityEngineerEmployeeId,
     type: "coordination",
     source: "internal",
-    subject: "PR10C correlation anchor",
+    subject: "Inbound reply correlation anchor",
     body: "Create a mirrored thread projection so inbound replies can resolve back to the canonical thread.",
-    relatedTaskId: "task_pr10c_inbound_contract",
+    relatedTaskId: "task_inbound_correlation_contract",
   });
 
   if (!outbound?.ok || !outbound?.messageId) {
@@ -113,8 +113,8 @@ async function main(): Promise<void> {
   const inboundPayload = {
     channel: projection.channel,
     externalThreadId: projection.externalThreadId,
-    externalMessageId: `pr10c-inbound-contract-${newToken()}`,
-    externalAuthorId: "U_PR10C_CONTRACT",
+    externalMessageId: `inbound-correlation-contract-${newToken()}`,
+    externalAuthorId: "U_INBOUND_CONTRACT",
     externalReceivedAt: new Date().toISOString(),
     subject: "Inbound reply",
     body: "Inbound correlation should resolve this reply back to the canonical thread.",

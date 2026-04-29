@@ -34,16 +34,16 @@ for (const required of [
 }
 
 for (const required of [
-  "PR19A",
-  "PR19B",
-  "PR19C",
-  "PR19D",
-  "PR19E",
-  "PR19F",
-  "PR19G",
-  "PR19H",
+  "product initiative definition",
+  "deployable artifacts",
+  "deployment system",
+  "external-safe product surfaces",
+  "customer intake flow",
+  "agentic execution through task graphs",
+  "human visibility and intervention",
+  "enforcement and guardrails",
 ]) {
-  assert(llm.includes(required), `LLM.md must include ${required}`);
+  assert(llm.includes(required), `LLM.md must include feature: ${required}`);
 }
 
 for (const route of [

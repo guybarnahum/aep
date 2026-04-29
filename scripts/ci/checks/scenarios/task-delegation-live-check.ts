@@ -24,12 +24,12 @@ async function main(): Promise<void> {
     assignedTeamId: "team_web_product",
     createdByEmployeeId: ciActor(CHECK_NAME),
     taskType: "web_implementation",
-    title: "PR16F delegation source fixture",
+    title: "Delegation source fixture",
     payload: {
       ...ciArtifactMarker(CHECK_NAME),
       targetUrl: "https://example.invalid",
       requirementsRef: "task_requirements_fixture",
-      projectId: "project_pr16f_fixture",
+      projectId: "project_delegation_fixture",
     },
   });
 
@@ -45,7 +45,7 @@ async function main(): Promise<void> {
       body: JSON.stringify({
         delegatedByEmployeeId: CHECK_NAME,
         taskType: "requirements_definition",
-        title: "Invalid PR16F delegation",
+        title: "Invalid delegation",
         payload: {
           objectiveTitle: "Invalid",
           sourceRef: source.taskId,
@@ -69,7 +69,7 @@ async function main(): Promise<void> {
       body: JSON.stringify({
         delegatedByEmployeeId: CHECK_NAME,
         taskType: "deployment",
-        title: "PR16F delegated deployment fixture",
+        title: "Delegated deployment fixture",
         payload: {
           ...ciArtifactMarker(CHECK_NAME),
           environment: "staging",
@@ -99,7 +99,7 @@ async function main(): Promise<void> {
     );
   }
 
-  if (detail.task?.payload?.projectId !== "project_pr16f_fixture") {
+  if (detail.task?.payload?.projectId !== "project_delegation_fixture") {
     throw new Error(
       `Expected delegated task to inherit projectId: ${JSON.stringify(detail.task?.payload)}`,
     );

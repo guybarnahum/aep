@@ -84,7 +84,7 @@ for (const forbidden of [
 ]) {
   assert(
     !executionLoop.includes(forbidden),
-    `PR19F must not directly create artifacts or deployments: ${forbidden}`,
+    `Agentic execution must not directly create artifacts or deployments: ${forbidden}`,
   );
 }
 

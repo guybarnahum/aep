@@ -46,10 +46,10 @@ async function main(): Promise<void> {
     requestedByEmployeeId: infraOpsManagerEmployeeId,
     requestedByRoleId: "infra-ops-manager",
     actionType: "deploy-change",
-    reason: "PR7.6 deterministic thread action test",
+    reason: "Deterministic thread action test",
     message: "Please approve this seeded request from the thread.",
     createThread: true,
-    threadTopic: "PR7.6 approval thread action",
+    threadTopic: "Approval thread action",
     threadReceiverEmployeeId: reliabilityEngineerEmployeeId,
   });
 

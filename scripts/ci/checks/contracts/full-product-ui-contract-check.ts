@@ -6,13 +6,13 @@ function read(path: string): string {
 
 function assertContains(path: string, needle: string): void {
   if (!read(path).includes(needle)) {
-    throw new Error(`${path} missing PR21B full product UI contract: ${needle}`);
+    throw new Error(`${path} missing full product UI contract: ${needle}`);
   }
 }
 
 function assertNotContains(path: string, needle: string): void {
   if (read(path).includes(needle)) {
-    throw new Error(`${path} violates PR21B read-only UI contract: ${needle}`);
+    throw new Error(`${path} violates read-only UI contract: ${needle}`);
   }
 }
 
@@ -33,4 +33,4 @@ assertNotContains("apps/dashboard/src/api.ts", "/execute");
 assertNotContains("apps/dashboard/src/render.ts", "Execute deployment");
 assertNotContains("apps/dashboard/src/render.ts", "Deploy now");
 
-console.log("PR21B full product UI contract passed");
+console.log("full product UI contract passed");

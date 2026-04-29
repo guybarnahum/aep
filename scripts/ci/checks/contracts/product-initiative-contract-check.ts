@@ -48,7 +48,7 @@ assert(PRODUCT_INITIATIVE_CONTRACTS.length === PRODUCT_INITIATIVE_KINDS.length,
 
 assert(
   PRODUCT_SURFACES.includes("website_bundle"),
-  "PR19A must define website_bundle as a product surface",
+  "Product initiative model must define website_bundle as a product surface",
 );
 
 const projectRouteSource = readFileSync(

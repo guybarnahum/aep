@@ -15,7 +15,7 @@ function assert(condition: unknown, message: string): asserts condition {
 const jira = getExternalAdapterContract("jira");
 
 assert(jira, "Missing Jira-like external adapter contract");
-assert(jira.implemented === true, "Jira adapter must be implemented as a mirror in PR22");
+assert(jira.implemented === true, "Jira adapter must be implemented as a mirror");
 assert(jira.ownsCanonicalWorkState === false, "Jira-like adapter must not own canonical work state");
 assert(jira.requiresProjectionMapping === true, "Jira-like adapter must require projection mapping");
 

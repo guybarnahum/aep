@@ -9,8 +9,8 @@ export {};
 
 const CHECK_NAME = "external-style-message-order-tolerance-check";
 const CHECK_LABEL = "external-style message order tolerance check";
-const FIRST_ID = "pr79d-order-message-001";
-const SECOND_ID = "pr79d-order-message-002";
+const FIRST_ID = "ext-order-message-001";
+const SECOND_ID = "ext-order-message-002";
 
 async function loadRecentTasks(
   client: ReturnType<typeof createOperatorAgentClient>,

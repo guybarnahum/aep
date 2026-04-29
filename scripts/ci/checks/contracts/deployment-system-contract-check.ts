@@ -13,7 +13,7 @@ const migration = readFileSync(
 );
 assert(
   migration.includes("CREATE TABLE IF NOT EXISTS product_deployment_records"),
-  "PR19C must create product_deployment_records",
+  "Deployment system must create product_deployment_records",
 );
 assert(
   migration.includes("source_artifact_id") && migration.includes("approval_id"),

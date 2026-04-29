@@ -32,7 +32,7 @@ for (const kind of requiredContracts) {
 assert(
   getStaffingContract("staffing_request")?.lifecycleStates.join(" ") ===
     "draft submitted approved fulfilled rejected canceled",
-  "StaffingRequest lifecycle must match PR18D contract",
+  "StaffingRequest lifecycle must match staffing contract",
 );
 
 assert(

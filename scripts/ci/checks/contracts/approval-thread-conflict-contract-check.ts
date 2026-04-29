@@ -63,10 +63,10 @@ async function main(): Promise<void> {
     requestedByEmployeeId: infraOpsManagerEmployeeId,
     requestedByRoleId: "infra-ops-manager",
     actionType: "deploy-change",
-    reason: "PR7.6 conflict action test",
+    reason: "Conflict action test",
     message: "Please approve this seeded request from the thread.",
     createThread: true,
-    threadTopic: "PR7.6 approval conflict action",
+    threadTopic: "Approval conflict action",
     threadReceiverEmployeeId: reliabilityEngineerEmployeeId,
   });
 

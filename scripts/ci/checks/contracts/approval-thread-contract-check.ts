@@ -42,7 +42,7 @@ async function main(): Promise<void> {
   const approveResult = await client.approveApproval({
     approvalId,
     decidedBy: "human_ci_operator",
-    decisionNote: "Approved via PR7.3 contract check",
+    decisionNote: "Approved via approval thread contract check",
   });
 
   const approvalDetail = await client.getApproval(approvalId);

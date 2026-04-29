@@ -32,8 +32,8 @@ assert(store.includes("parallelHrDatabaseAllowed: false"), "Store output must de
 assert(store.includes("POST /agent/employees"), "Store must preserve canonical employee creation boundary");
 assert(routes.includes("validateRoleCatalogEntry"), "Routes must validate role/team ownership");
 assert(routes.includes("approvedByEmployeeId is required"), "Approval must require approver identity");
-assert(!routes.includes("createEmployee("), "Hiring request route must not create employees in PR18D");
-assert(!store.includes("createEmployee("), "Hiring request store must not create employees in PR18D");
+assert(!routes.includes("createEmployee("), "Hiring request route must not create employees directly");
+assert(!store.includes("createEmployee("), "Hiring request store must not create employees directly");
 assert(index.includes("/agent/staffing/requests"), "Staffing request routes must be wired");
 
 console.log("hiring-request-flow-contract-check passed");

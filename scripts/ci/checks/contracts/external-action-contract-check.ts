@@ -90,10 +90,10 @@ async function main(): Promise<void> {
     requestedByEmployeeId: infraOpsManagerEmployeeId,
     requestedByRoleId: "infra-ops-manager",
     actionType: "deploy-change",
-    reason: "PR10D external action contract",
+    reason: "External action contract",
     message: "Seed approval thread for strict external action validation.",
     createThread: true,
-    threadTopic: "PR10D external action contract",
+    threadTopic: "External action contract",
     threadReceiverEmployeeId: reliabilityEngineerEmployeeId,
   });
 
@@ -111,7 +111,7 @@ async function main(): Promise<void> {
     receiverEmployeeId: reliabilityEngineerEmployeeId,
     type: "coordination",
     source: "internal",
-    subject: "PR10D contract anchor",
+    subject: "External action contract anchor",
     body: "Create an external projection so strict external actions can be correlated back to the approval thread.",
     relatedApprovalId: approvalId,
   });
@@ -145,9 +145,9 @@ async function main(): Promise<void> {
 
   const success = await client.sendExternalAction({
     source: projection.channel,
-    externalActionId: `pr10d-contract-${newToken()}`,
+    externalActionId: `ext-action-contract-${newToken()}`,
     externalThreadId: projection.externalThreadId,
-    externalAuthorId: "U_PR10D_CONTRACT",
+    externalAuthorId: "U_EXT_CONTRACT",
     receivedAt: new Date().toISOString(),
     actionType: "approval_approve",
     metadata: { source: "contract-check" },
@@ -163,9 +163,9 @@ async function main(): Promise<void> {
     },
     body: JSON.stringify({
       source: projection.channel,
-      externalActionId: `pr10d-bad-${newToken()}`,
+      externalActionId: `ext-action-bad-${newToken()}`,
       externalThreadId: projection.externalThreadId,
-      externalAuthorId: "U_PR10D_CONTRACT",
+      externalAuthorId: "U_EXT_CONTRACT",
       receivedAt: new Date().toISOString(),
       actionType: "approval_maybe",
     }),
@@ -182,9 +182,9 @@ async function main(): Promise<void> {
     },
     body: JSON.stringify({
       source: projection.channel,
-      externalActionId: `pr10d-missing-${newToken()}`,
+      externalActionId: `ext-action-missing-${newToken()}`,
       externalThreadId: `missing-${newToken()}`,
-      externalAuthorId: "U_PR10D_CONTRACT",
+      externalAuthorId: "U_EXT_CONTRACT",
       receivedAt: new Date().toISOString(),
       actionType: "approval_approve",
     }),

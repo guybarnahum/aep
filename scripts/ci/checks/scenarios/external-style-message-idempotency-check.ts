@@ -9,7 +9,7 @@ export {};
 
 const CHECK_NAME = "external-style-message-idempotency-check";
 const CHECK_LABEL = "external-style message idempotency check";
-const EXTERNAL_MESSAGE_ID = "pr79d-duplicate-message-001";
+const EXTERNAL_MESSAGE_ID = "ext-duplicate-message-001";
 
 async function loadRecentTasks(
   client: ReturnType<typeof createOperatorAgentClient>,

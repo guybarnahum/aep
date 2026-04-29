@@ -6,13 +6,13 @@ function read(path: string): string {
 
 function assertContains(path: string, needle: string): void {
   if (!read(path).includes(needle)) {
-    throw new Error(`${path} missing required PR20 provider-adapter contract: ${needle}`);
+    throw new Error(`${path} missing required provider-adapter contract: ${needle}`);
   }
 }
 
 function assertNotContains(path: string, needle: string): void {
   if (read(path).includes(needle)) {
-    throw new Error(`${path} contains forbidden PR20 provider-adapter pattern: ${needle}`);
+    throw new Error(`${path} contains forbidden provider-adapter pattern: ${needle}`);
   }
 }
 
@@ -29,4 +29,4 @@ assertContains("core/operator-agent/src/routes/product-deployments.ts", "require
 assertNotContains("apps/dashboard/src/api.ts", "/execute");
 assertNotContains("apps/dashboard/src/render.ts", "Execute deployment");
 
-console.log("PR20 provider adapter contract passed");
+console.log("provider adapter contract passed");

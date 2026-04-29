@@ -24,7 +24,7 @@ async function main(): Promise<void> {
     assignedTeamId: "team_web_product",
     createdByEmployeeId: ciActor(CHECK_NAME),
     taskType: "analysis",
-    title: "PR16D live parking fixture",
+    title: "Live parking fixture",
     payload: {
       ...ciArtifactMarker(CHECK_NAME),
       question: "Validate manager-mediated task parking.",

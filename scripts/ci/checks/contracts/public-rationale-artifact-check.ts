@@ -90,7 +90,7 @@ async function main(): Promise<void> {
     assignedEmployeeId: reliabilityEngineerEmployeeId,
     createdByEmployeeId: infraOpsManagerEmployeeId,
     taskType: "validate-deployment",
-    title: "PR7.8C public rationale artifact task",
+    title: "Public rationale artifact task",
     payload: {
       targetUrl: getTargetUrl(),
       subjectRef: "deployment_validation_subject",

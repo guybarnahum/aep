@@ -85,7 +85,7 @@ async function main(): Promise<void> {
     employeeId: productManagerEmployeeId,
     roleId: "product-manager-web",
     trigger: "manual",
-    policyVersion: "ci-pr11b",
+    policyVersion: "ci-planning-task-graph",
   });
 
   if (!(result as any)?.ok) {

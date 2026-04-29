@@ -38,7 +38,7 @@ const taskContractsByType = new Map(
 for (const taskType of requiredTaskTypes) {
   const contract = taskContractsByType.get(taskType as any);
 
-  assert(contract, `Missing PR16 task contract: ${taskType}`);
+  assert(contract, `Missing task contract: ${taskType}`);
   assert(contract.expectedTeamIds.length > 0, `Missing expected teams for ${taskType}`);
   assert(contract.expectedArtifacts.length > 0, `Missing artifact expectations for ${taskType}`);
   assert(contract.payloadContract.required.length > 0, `Missing payload contract for ${taskType}`);
@@ -135,7 +135,7 @@ const requiredScripts = [
 ];
 
 for (const scriptName of requiredScripts) {
-  assert(packageSource.includes(`"${scriptName}"`), `Missing PR16 CI script ${scriptName}`);
+  assert(packageSource.includes(`"${scriptName}"`), `Missing role-realism CI script ${scriptName}`);
 }
 
 console.log("role-realism-contract-check passed", {

@@ -91,13 +91,13 @@ async function main(): Promise<void> {
     requestedByEmployeeId: ciActor(CHECK_NAME),
     requestedByRoleId: "infra-ops-manager",
     actionType: "deploy-change",
-    reason: "PR10D external approval scenario",
+    reason: "External approval scenario",
     message: "Seed approval thread for external approval action.",
     payload: {
       ...ciArtifactMarker(CHECK_NAME),
     },
     createThread: true,
-    threadTopic: "PR10D external approval action",
+    threadTopic: "External approval action",
     threadReceiverEmployeeId: reliabilityEngineerEmployeeId,
   });
 
@@ -115,7 +115,7 @@ async function main(): Promise<void> {
     receiverEmployeeId: reliabilityEngineerEmployeeId,
     type: "coordination",
     source: "internal",
-    subject: "PR10D approval anchor",
+    subject: "External approval anchor",
     body: "Create an external thread projection for approval actions.",
     payload: {
       ...ciArtifactMarker(CHECK_NAME),
@@ -152,9 +152,9 @@ async function main(): Promise<void> {
 
   const action = await client.sendExternalAction({
     source: projection.channel,
-    externalActionId: `pr10d-approval-${newToken()}`,
+    externalActionId: `ext-approval-${newToken()}`,
     externalThreadId: projection.externalThreadId,
-    externalAuthorId: "U_PR10D_APPROVER",
+    externalAuthorId: "U_EXT_APPROVER",
     receivedAt: new Date().toISOString(),
     actionType: "approval_approve",
     metadata: { source: "scenario-check" },

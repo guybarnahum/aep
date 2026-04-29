@@ -46,7 +46,7 @@ async function main(): Promise<void> {
       assignedTeamId: "team_web_product",
       createdByEmployeeId: CHECK_NAME,
       taskType: "web_implementation",
-      title: "Invalid PR16B payload check",
+      title: "Invalid task payload check",
       payload: {
         targetUrl: "https://example.invalid",
       },
@@ -79,7 +79,7 @@ async function main(): Promise<void> {
     assignedTeamId: "team_web_product",
     createdByEmployeeId: CHECK_NAME,
     taskType: "website-implementation",
-    title: "Valid PR16B payload check",
+    title: "Valid task payload check",
     payload: {
       targetUrl: "https://example.invalid",
       requirementsRef: "task_requirements_fixture",

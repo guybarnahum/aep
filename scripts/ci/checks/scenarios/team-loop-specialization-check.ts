@@ -34,7 +34,7 @@ type TeamLoopResult = {
 };
 
 const CHECK_NAME = "team-loop-specialization-check";
-const COMPANY_ID = `company_pr16c_specialization_${Date.now()}`;
+const COMPANY_ID = `company_specialization_${Date.now()}`;
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) {
@@ -71,11 +71,11 @@ async function main(): Promise<void> {
     assignedTeamId: "team_web_product",
     createdByEmployeeId: ciActor(CHECK_NAME),
     taskType: "web_design",
-    title: `PR16C specialization design ${Date.now()}`,
+    title: `Team loop specialization design ${Date.now()}`,
     payload: {
       ...ciArtifactMarker(CHECK_NAME),
-      targetUrl: "https://example.invalid/pr16c/design",
-      objectiveTitle: "PR16C specialization ordering",
+      targetUrl: "https://example.invalid/ci/design",
+      objectiveTitle: "Team loop specialization ordering",
     },
   });
 
@@ -89,10 +89,10 @@ async function main(): Promise<void> {
     assignedTeamId: "team_web_product",
     createdByEmployeeId: ciActor(CHECK_NAME),
     taskType: "web_implementation",
-    title: `PR16C specialization implementation ${Date.now()}`,
+    title: `Team loop specialization implementation ${Date.now()}`,
     payload: {
       ...ciArtifactMarker(CHECK_NAME),
-      targetUrl: "https://example.invalid/pr16c/implementation",
+      targetUrl: "https://example.invalid/ci/implementation",
       requirementsRef: designTask.taskId,
     },
   });

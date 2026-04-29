@@ -54,9 +54,9 @@ async function main(): Promise<void> {
 
   const thread = await client.createMessageThread({
     companyId: "company_internal_aep",
-    topic: "PR10A agent message mirroring check",
+    topic: "Agent message mirroring check",
     createdByEmployeeId: infraOpsManagerEmployeeId,
-    relatedTaskId: "task_pr10a_agent_mirroring",
+    relatedTaskId: "task_agent_mirroring",
     visibility: "internal",
   });
 
@@ -73,7 +73,7 @@ async function main(): Promise<void> {
     source: "internal",
     subject: "Mirror this canonical agent message",
     body: "Agent-originated canonical thread messages must produce a human-visible mirror attempt.",
-    relatedTaskId: "task_pr10a_agent_mirroring",
+    relatedTaskId: "task_agent_mirroring",
   });
 
   if (!created?.ok || !created?.messageId) {

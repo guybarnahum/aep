@@ -90,13 +90,13 @@ async function main(): Promise<void> {
     requestedByEmployeeId: ciActor(CHECK_NAME),
     requestedByRoleId: "infra-ops-manager",
     actionType: "deploy-change",
-    reason: "PR10D external action idempotency",
+    reason: "External action idempotency",
     message: "Seed approval thread for external action idempotency.",
     payload: {
       ...ciArtifactMarker(CHECK_NAME),
     },
     createThread: true,
-    threadTopic: "PR10D external action idempotency",
+    threadTopic: "External action idempotency",
     threadReceiverEmployeeId: reliabilityEngineerEmployeeId,
   });
 
@@ -114,7 +114,7 @@ async function main(): Promise<void> {
     receiverEmployeeId: reliabilityEngineerEmployeeId,
     type: "coordination",
     source: "internal",
-    subject: "PR10D idempotency anchor",
+    subject: "External action idempotency anchor",
     body: "Create an external thread projection for external action idempotency.",
     payload: {
       ...ciArtifactMarker(CHECK_NAME),
@@ -148,13 +148,13 @@ async function main(): Promise<void> {
 
   assert(projections.length >= 1, "Expected an external thread projection for idempotency");
   const projection = projections[0];
-  const externalActionId = `pr10d-idempotent-${newToken()}`;
+  const externalActionId = `ext-idempotent-${newToken()}`;
 
   const first = await client.sendExternalAction({
     source: projection.channel,
     externalActionId,
     externalThreadId: projection.externalThreadId,
-    externalAuthorId: "U_PR10D_IDEMPOTENT",
+    externalAuthorId: "U_EXT_IDEMPOTENT",
     receivedAt: new Date().toISOString(),
     actionType: "approval_approve",
     metadata: { source: "idempotency-check" },
@@ -164,7 +164,7 @@ async function main(): Promise<void> {
     source: projection.channel,
     externalActionId,
     externalThreadId: projection.externalThreadId,
-    externalAuthorId: "U_PR10D_IDEMPOTENT",
+    externalAuthorId: "U_EXT_IDEMPOTENT",
     receivedAt: new Date().toISOString(),
     actionType: "approval_approve",
     metadata: { source: "idempotency-check" },

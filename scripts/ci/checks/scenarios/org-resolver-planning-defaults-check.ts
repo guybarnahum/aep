@@ -92,7 +92,7 @@ async function main(): Promise<void> {
     employeeId: productManagerEmployeeId,
     roleId: PM_ROLE_ID,
     trigger: "manual",
-    policyVersion: "ci-pr11-5",
+    policyVersion: "ci-planning-defaults",
   });
 
   if (!(result as any)?.ok) {

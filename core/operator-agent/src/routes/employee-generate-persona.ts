@@ -118,7 +118,7 @@ export async function handleGenerateEmployeePersona(
       collaborationStyle: generated.privateProfile.collaborationStyle,
       identitySeed: generated.privateProfile.identitySeed,
       portraitPrompt: generated.privateProfile.portraitPrompt,
-      promptVersion: "pr13c-v1",
+      promptVersion: "employee-persona-v1",
       status: "draft",
     });
 

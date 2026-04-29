@@ -89,8 +89,8 @@ async function main(): Promise<void> {
     requestedByEmployeeId: infraOpsManagerEmployeeId,
     requestedByRoleId: "infra-ops-manager",
     actionType: "deploy-change",
-    reason: "PR10E external action policy enforcement",
-    message: "Seed approval for PR10E action policy enforcement.",
+    reason: "External action policy enforcement",
+    message: "Seed approval for external action policy enforcement.",
   });
 
   if (!(seeded as any)?.ok || !(seeded as any).approval?.approvalId) {
@@ -100,7 +100,7 @@ async function main(): Promise<void> {
   const approvalId = (seeded as any).approval.approvalId;
   const thread = await client.createMessageThread({
     companyId: "company_internal_aep",
-    topic: "PR10E external action policy enforcement",
+    topic: "External action policy enforcement",
     createdByEmployeeId: infraOpsManagerEmployeeId,
     relatedApprovalId: approvalId,
     visibility: "internal",
@@ -124,7 +124,7 @@ async function main(): Promise<void> {
     receiverEmployeeId: reliabilityEngineerEmployeeId,
     type: "coordination",
     source: "internal",
-    subject: "PR10E action policy anchor",
+    subject: "External action policy anchor",
     body: "Create a projected approval thread so external policy can be enforced.",
     relatedApprovalId: approvalId,
   });
@@ -163,7 +163,7 @@ async function main(): Promise<void> {
     },
     body: JSON.stringify({
       source: projection.channel,
-      externalActionId: `pr10e-action-denied-${newToken()}`,
+      externalActionId: `ext-action-denied-${newToken()}`,
       externalThreadId: projection.externalThreadId,
       externalAuthorId: "U_BLOCKED",
       receivedAt: new Date().toISOString(),
@@ -192,7 +192,7 @@ async function main(): Promise<void> {
 
   const allowed = await client.sendExternalAction({
     source: projection.channel,
-    externalActionId: `pr10e-action-allowed-${newToken()}`,
+    externalActionId: `ext-action-allowed-${newToken()}`,
     externalThreadId: projection.externalThreadId,
     externalAuthorId: "U_ALLOWED",
     receivedAt: new Date().toISOString(),

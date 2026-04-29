@@ -12,7 +12,7 @@ function assert(condition: unknown, message: string): asserts condition {
 
 const jiraContract = getExternalAdapterContract("jira");
 assert(jiraContract, "Missing Jira adapter contract");
-assert(jiraContract.implemented === true, "Jira contract must be implemented in PR22");
+assert(jiraContract.implemented === true, "Jira contract must be implemented");
 assert(
   jiraContract.ownsCanonicalWorkState === false,
   "Jira contract must not own canonical work state",

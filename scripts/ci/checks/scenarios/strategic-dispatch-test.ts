@@ -21,7 +21,7 @@ async function main() {
     companyId: "company_internal_aep",
     teamId: "team_infra",
     trigger: "manual",
-    policyVersion: "pr5.3-test"
+    policyVersion: "ci-dispatch-test"
   });
 
   console.log("Marcus run response:", JSON.stringify(response, null, 2));

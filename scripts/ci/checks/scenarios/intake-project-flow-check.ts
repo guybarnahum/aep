@@ -119,7 +119,7 @@ async function resolveEmployeeAuthor(baseUrl: string): Promise<string> {
     );
   });
 
-  assert(employee?.identity?.employeeId, "No active implemented employee found for PR15 authoring check");
+  assert(employee?.identity?.employeeId, "No active implemented employee found for intake authoring check");
   return employee.identity.employeeId;
 }
 
@@ -136,7 +136,7 @@ async function main(): Promise<void> {
   assert(root.links?.projects === "/agent/projects", "root does not advertise projects route");
 
   const unique = Date.now();
-  const title = `PR15F CI Intake ${unique}`;
+  const title = `CI Intake ${unique}`;
 
   const createdIntakePayload = await postJson<{
     ok: true;
@@ -144,7 +144,7 @@ async function main(): Promise<void> {
   }>(`${baseUrl}/agent/intake`, {
     companyId: "company_internal_aep",
     title,
-    description: "CI-created intake for PR15F canonical flow validation.",
+    description: "CI-created intake for canonical flow validation.",
     requestedBy: ciActor(CHECK_NAME),
     source: "ci",
   });
@@ -181,7 +181,7 @@ async function main(): Promise<void> {
   }>(`${baseUrl}/agent/projects`, {
     companyId: "company_internal_aep",
     createdByEmployeeId: ciActor(CHECK_NAME),
-    title: `PR15F Direct Project ${unique}`,
+    title: `Direct Project ${unique}`,
     description: "CI-created direct project for route contract validation.",
     ownerTeamId: "team_web_product",
   });
@@ -197,7 +197,7 @@ async function main(): Promise<void> {
   }>(`${baseUrl}/agent/intake/${encodeURIComponent(intake.id)}/convert-to-project`, {
     convertedByEmployeeId: authorEmployeeId,
     ownerTeamId: "team_web_product",
-    projectTitle: `PR15F Converted Project ${unique}`,
+    projectTitle: `Converted Project ${unique}`,
     projectDescription: "CI-created project converted from intake.",
     rationale: "Public CI rationale for validating intake conversion.",
   });
@@ -219,7 +219,7 @@ async function main(): Promise<void> {
   await expectRequestFailure("invalid project owner team", () =>
     postJson(`${baseUrl}/agent/projects`, {
       companyId: "company_internal_aep",
-      title: `PR15F Invalid Project ${unique}`,
+      title: `Invalid Project ${unique}`,
       ownerTeamId: "not_a_team",
     }),
   );
@@ -237,48 +237,48 @@ async function main(): Promise<void> {
     tasks: [
       {
         clientTaskId: "requirements",
-        title: `PR15F Define requirements ${unique}`,
+        title: `Define requirements ${unique}`,
         taskType: "requirements_definition",
         assignedTeamId: "team_web_product",
         payload: {
           ...ciArtifactMarker(CHECK_NAME),
-          objectiveTitle: `PR15F requirements objective ${unique}`,
+          objectiveTitle: `Requirements objective ${unique}`,
           sourceRef: `intake:${intake.id}`,
         },
       },
       {
         clientTaskId: "implementation",
-        title: `PR15F Implement deliverable ${unique}`,
+        title: `Implement deliverable ${unique}`,
         taskType: "web_implementation",
         assignedTeamId: "team_web_product",
         dependsOnClientTaskIds: ["requirements"],
         payload: {
           ...ciArtifactMarker(CHECK_NAME),
-          targetUrl: "https://example.invalid/pr15f/implementation",
+          targetUrl: "https://example.invalid/ci/implementation",
           requirementsRef: "requirements",
         },
       },
       {
         clientTaskId: "deploy",
-        title: `PR15F Deploy deliverable ${unique}`,
+        title: `Deploy deliverable ${unique}`,
         taskType: "deployment",
         assignedTeamId: "team_infra",
         dependsOnClientTaskIds: ["implementation"],
         payload: {
           ...ciArtifactMarker(CHECK_NAME),
           environment: "staging",
-          artifactRef: "build_pr15f_fixture",
+          artifactRef: "build_ci_fixture",
         },
       },
       {
         clientTaskId: "validate",
-        title: `PR15F Validate deliverable ${unique}`,
+        title: `Validate deliverable ${unique}`,
         taskType: "verification",
         assignedTeamId: "team_validation",
         dependsOnClientTaskIds: ["deploy"],
         payload: {
           ...ciArtifactMarker(CHECK_NAME),
-          targetUrl: "https://example.invalid/pr15f/verification",
+          targetUrl: "https://example.invalid/ci/verification",
           subjectRef: "deploy",
         },
       },

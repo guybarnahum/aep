@@ -6,13 +6,13 @@ function read(path: string): string {
 
 function assertContains(path: string, needle: string): void {
   if (!read(path).includes(needle)) {
-    throw new Error(`${path} missing PR25 lifecycle execution contract: ${needle}`);
+    throw new Error(`${path} missing lifecycle execution contract: ${needle}`);
   }
 }
 
 function assertNotContains(path: string, needle: string): void {
   if (read(path).includes(needle)) {
-    throw new Error(`${path} violates PR25 lifecycle execution contract: ${needle}`);
+    throw new Error(`${path} violates lifecycle execution contract: ${needle}`);
   }
 }
 
@@ -38,4 +38,4 @@ for (const forbidden of [
   assertNotContains("core/operator-agent/src/routes/product-lifecycle.ts", forbidden);
 }
 
-console.log("PR25 lifecycle execution contract passed");
+console.log("lifecycle execution contract passed");

@@ -2293,7 +2293,7 @@ export function renderProductInitiativeDetail(summary: ProductVisibilitySummary)
 
       <section class="panel">
         <h3>Task graph</h3>
-        <p class="muted small">Read-only dependency view. PR21A does not edit tasks or dependencies.</p>
+        <p class="muted small">Read-only dependency view. This view does not edit tasks or dependencies.</p>
         ${summary.tasks.recent.length === 0
           ? `<div class="empty-state small-empty">No tasks yet.</div>`
           : `
