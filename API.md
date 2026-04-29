@@ -837,6 +837,17 @@ No new backend primitives are introduced. The creation endpoint and deployment
 execution endpoint were already present. PR27 connects the dashboard UI to the
 creation step that was previously missing.
 
+PR28 product operator UX completion removes tutorial-specific dashboard surfaces
+and exposes the same capabilities through normal product UI:
+
+- product flow progress
+- product operator controls
+- validation and monitoring visibility
+- external mirror visibility
+- staffing and blocker visibility
+
+No new API routes are introduced.
+
 ### PR19 enforcement
 
 PR19H adds enforcement checks for the product-construction model.

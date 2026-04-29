@@ -1158,6 +1158,34 @@ CI guard:
 npm run ci:tutorial-flow-closure-contract-check
 ```
 
+### PR28 - Product Operator UX Completion
+
+PR28 removes tutorial-specific dashboard labels and makes the TUTORIAL.md vision
+available through normal product operator UI.
+
+Implemented:
+
+- product flow progress panel
+- product operator controls
+- validation and monitoring panel
+- external mirror panel
+- staffing and blocker panel
+- normal product intervention labels for requirements, redesign, constraints, escalation
+- CI guard preventing tutorial-specific UI markers from returning
+
+Boundaries:
+
+- no dedicated tutorial UI
+- no new backend primitives
+- all controls call existing canonical AEP routes
+- panels are read-only unless explicitly invoking canonical task/message/approval/deployment routes
+
+CI guard:
+
+```bash
+npm run ci:product-operator-ux-contract-check
+```
+
 PR19A should begin by defining how AEP represents a product initiative without
 inventing a parallel workflow system. Prefer extending or specializing the
 existing project/intake/task/artifact model before adding new primitives.

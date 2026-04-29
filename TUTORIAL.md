@@ -69,14 +69,14 @@ or product state.
 
 ## Product initiator flow
 
-Manual dashboard QA path:
+Manual dashboard QA path through normal product UI:
 
 ```text
 Product initiatives
-→ Tutorial intake flow
+→ Product intake flow
 → Intake & Projects conversion
 → Product initiative detail
-→ Manual tutorial controls
+→ Product operator controls
 → deployment approval / execution
 → lifecycle request / execution
 → signal simulation
@@ -235,10 +235,8 @@ Important controls:
 
 Every control must map to canonical tasks, approvals, or threads/messages.
 
-PR26 manual readiness means the dashboard exposes these controls without
-creating a parallel state owner. PR27 adds the deployment-record creation step
-so the `deployment_candidate` artifact → deployment record → execution path is
-completable end-to-end from the dashboard.
+The dashboard must not contain dedicated tutorial-only surfaces. The tutorial is
+validated through normal product operator UI.
 
 ## Jira / external mirroring
 

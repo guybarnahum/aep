@@ -1413,8 +1413,8 @@ function attachProductInterventionHandlers(): void {
   });
 }
 
-function attachTutorialIntakeHandlers(): void {
-  const form = document.querySelector<HTMLFormElement>("#create-tutorial-intake-form");
+function attachProductIntakeHandlers(): void {
+  const form = document.querySelector<HTMLFormElement>("#create-product-intake-form");
   form?.addEventListener("submit", async (event) => {
     event.preventDefault();
     const formData = new FormData(form);
@@ -1425,17 +1425,17 @@ function attachTutorialIntakeHandlers(): void {
         title: String(formData.get("title") ?? "").trim(),
         description: String(formData.get("description") ?? "").trim(),
         requestedBy: String(formData.get("requestedBy") ?? "").trim(),
-        source: "dashboard_tutorial",
+        source: "dashboard_product_operator",
       });
       setMutationStatus(`Created intake ${intake.id}. Convert it from Intake & Projects.`);
       window.location.hash = "intake-projects";
     } catch (error) {
-      setMutationStatus(error instanceof Error ? error.message : "Failed to create tutorial intake");
+      setMutationStatus(error instanceof Error ? error.message : "Failed to create intake");
     }
   });
 }
 
-function attachManualTutorialControlHandlers(): void {
+function attachProductOperatorControlHandlers(): void {
   document.querySelectorAll<HTMLFormElement>("[data-form='create-deployment-record']").forEach((form) => {
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
@@ -1558,12 +1558,12 @@ function attachManualTutorialControlHandlers(): void {
 
 async function runManualAction(action: () => Promise<string>): Promise<void> {
   try {
-    setMutationStatus("Running manual tutorial action…");
+    setMutationStatus("Running operator action…");
     const message = await action();
     setMutationStatus(message);
     await renderRoute();
   } catch (error) {
-    setMutationStatus(error instanceof Error ? error.message : "Manual tutorial action failed");
+    setMutationStatus(error instanceof Error ? error.message : "Operator action failed");
   }
 }
 
@@ -2397,13 +2397,13 @@ async function renderRoute(): Promise<void> {
 
     if (route.kind === "productInitiatives") {
       attachProductInitiativeHandlers();
-      attachTutorialIntakeHandlers();
+      attachProductIntakeHandlers();
       return;
     }
 
     if (route.kind === "productInitiative") {
       attachProductInterventionHandlers();
-      attachManualTutorialControlHandlers();
+      attachProductOperatorControlHandlers();
       return;
     }
 

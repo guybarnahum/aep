@@ -2220,9 +2220,9 @@ export function renderProductInitiativesOverview(projects: ProjectRecord[]): str
       </section>
 
       <section class="panel">
-        <h3>Tutorial intake flow</h3>
+        <h3>Product intake flow</h3>
         <p class="muted small">Manual path for TUTORIAL.md: create intake, then convert it to a product initiative.</p>
-        <form class="form-grid" id="create-tutorial-intake-form">
+        <form class="form-grid" id="create-product-intake-form">
           <input name="title" placeholder="Intake title" value="AEP Marketing Website" required />
           <input name="requestedBy" placeholder="Requested by employee ID" required />
           <textarea name="description" placeholder="Goal, audience, constraints" required></textarea>
@@ -2283,19 +2283,37 @@ export function renderProductInitiativeDetail(summary: ProductVisibilitySummary)
       </section>
 
       <section class="panel">
-        <h3>Tutorial flow progress</h3>
+        <h3>Product flow progress</h3>
         <p class="muted small">Read-only checklist derived from canonical AEP state. No mutation.</p>
-        ${renderTutorialFlowProgress(summary)}
+        ${renderProductFlowProgress(summary)}
       </section>
 
       <section class="panel">
-        <h3>Manual tutorial controls</h3>
+        <h3>Product operator controls</h3>
         <p class="muted small">These controls call canonical AEP routes only. They do not mutate dashboard-owned state.</p>
         <div class="product-control-grid">
           ${renderDeploymentControls(summary)}
           ${renderLifecycleControls(summary)}
           ${renderSignalControls(summary)}
         </div>
+      </section>
+
+      <section class="panel">
+        <h3>Validation and monitoring</h3>
+        <p class="muted small">Signals, validation failures, monitoring alerts, and feedback that may drive product evolution.</p>
+        ${renderProductSignalPanel(summary)}
+      </section>
+
+      <section class="panel">
+        <h3>External mirrors</h3>
+        <p class="muted small">Read-only external collaboration state. Jira and other tools do not own AEP state.</p>
+        ${renderProductExternalMirrorPanel(summary)}
+      </section>
+
+      <section class="panel">
+        <h3>Staffing and blockers</h3>
+        <p class="muted small">Initiative blockers, staffing gaps, and missing-capability signals visible to the product initiator.</p>
+        ${renderProductStaffingAndBlockerPanel(summary)}
       </section>
 
       <section class="panel">
@@ -2343,8 +2361,13 @@ export function renderProductInitiativeDetail(summary: ProductVisibilitySummary)
         <form class="form-grid" id="product-intervention-form" data-project-id="${escapeHtml(project.id)}">
           <input name="createdByEmployeeId" placeholder="Created by employee ID" required />
           <select name="action">
-            ${PRODUCT_INTERVENTION_ACTIONS.map((action) => `<option value="${action}">${action}</option>`).join("")}
+            <option value="modify_requirements">Modify requirements</option>
+            <option value="request_redesign">Request redesign</option>
+            <option value="add_constraint">Add constraint</option>
+            <option value="escalate_issue">Escalate issue</option>
+            <option value="pause_work">Pause work</option>
           </select>
+          <p class="muted small">Each action creates canonical AEP work, message, or approval context. It does not mutate project state directly.</p>
           <input name="targetTaskId" placeholder="Optional target task ID" />
           <input name="targetArtifactId" placeholder="Optional target artifact ID" />
           <input name="targetDeploymentId" placeholder="Optional target deployment ID" />
@@ -4948,7 +4971,7 @@ function getReadyDeploymentCandidates(summary: ProductVisibilitySummary): TaskAr
   );
 }
 
-function renderTutorialFlowProgress(summary: ProductVisibilitySummary): string {
+function renderProductFlowProgress(summary: ProductVisibilitySummary): string {
   const project = summary.project;
 
   function stepState(
@@ -4962,10 +4985,10 @@ function renderTutorialFlowProgress(summary: ProductVisibilitySummary): string {
 
   function stepClass(state: TutorialFlowStepState): string {
     switch (state) {
-      case "done": return "tutorial-flow-step tutorial-flow-done";
-      case "ready": return "tutorial-flow-step tutorial-flow-ready";
-      case "blocked": return "tutorial-flow-step tutorial-flow-blocked";
-      case "missing": return "tutorial-flow-step tutorial-flow-missing";
+      case "done": return "product-flow-step product-flow-done";
+      case "ready": return "product-flow-step product-flow-ready";
+      case "blocked": return "product-flow-step product-flow-blocked";
+      case "missing": return "product-flow-step product-flow-missing";
     }
   }
 
@@ -5007,12 +5030,106 @@ function renderTutorialFlowProgress(summary: ProductVisibilitySummary): string {
   ];
 
   return `
-    <div class="tutorial-flow-grid">
+    <div class="product-flow-grid">
       ${steps.map((step) => `
         <div class="${stepClass(step.state)}">
-          <span class="tutorial-flow-icon">${stepIcon(step.state)}</span>
+          <span class="product-flow-icon">${stepIcon(step.state)}</span>
           <span>${escapeHtml(step.label)}</span>
         </div>
+      `).join("")}
+    </div>
+  `;
+}
+
+function renderProductSignalPanel(summary: ProductVisibilitySummary): string {
+  const signalMessages = summary.decisions.recent.filter((message) => {
+    const kind = message.payload && typeof message.payload.kind === "string"
+      ? message.payload.kind
+      : "";
+    return [
+      "product_signal",
+      "jira_status_signal",
+      "validation_failure",
+      "monitoring_alert",
+      "product_intervention",
+    ].includes(kind);
+  });
+
+  if (signalMessages.length === 0) {
+    return `<div class="empty-state small-empty">No validation, monitoring, or feedback signals recorded.</div>`;
+  }
+
+  return `
+    <table class="data-table">
+      <thead><tr><th>Signal</th><th>Source</th><th>Message</th><th>When</th></tr></thead>
+      <tbody>
+        ${signalMessages.map((message) => `
+          <tr>
+            <td>${escapeHtml(String(message.payload?.kind ?? message.type))}</td>
+            <td>${escapeHtml(String(message.payload?.source ?? message.source ?? "aep"))}</td>
+            <td>${escapeHtml(message.subject ?? message.body ?? "—")}</td>
+            <td>${formatTimestamp(message.createdAt)}</td>
+          </tr>
+        `).join("")}
+      </tbody>
+    </table>
+  `;
+}
+
+function renderProductExternalMirrorPanel(summary: ProductVisibilitySummary): string {
+  const mirrorMessages = summary.decisions.recent.filter((message) => {
+    const kind = message.payload && typeof message.payload.kind === "string"
+      ? message.payload.kind
+      : "";
+    return kind.startsWith("jira_") || kind.includes("mirror");
+  });
+
+  if (mirrorMessages.length === 0) {
+    return `<div class="empty-state small-empty">No external mirror activity recorded for this initiative.</div>`;
+  }
+
+  return `
+    <table class="data-table">
+      <thead><tr><th>Mirror event</th><th>External ref</th><th>Canonical effect</th></tr></thead>
+      <tbody>
+        ${mirrorMessages.map((message) => `
+          <tr>
+            <td>${escapeHtml(String(message.payload?.kind ?? "external_mirror"))}</td>
+            <td>${escapeHtml(String(message.payload?.externalTicketId ?? message.externalMessageId ?? "—"))}</td>
+            <td>${escapeHtml("thread/message only")}</td>
+          </tr>
+        `).join("")}
+      </tbody>
+    </table>
+  `;
+}
+
+function renderProductStaffingAndBlockerPanel(summary: ProductVisibilitySummary): string {
+  const blockedTasks = summary.tasks.recent.filter((task) => task.status === "blocked");
+  const staffingMessages = summary.decisions.recent.filter((message) => {
+    const kind = message.payload && typeof message.payload.kind === "string"
+      ? message.payload.kind
+      : "";
+    return kind.includes("staffing") || kind.includes("role_gap");
+  });
+
+  if (blockedTasks.length === 0 && staffingMessages.length === 0) {
+    return `<div class="empty-state small-empty">No staffing gaps or blockers visible for this initiative.</div>`;
+  }
+
+  return `
+    <div class="product-evidence-grid">
+      ${blockedTasks.map((task) => `
+        <article class="task-graph-node">
+          <strong>${escapeHtml(task.title)}</strong>
+          <div class="muted small">${escapeHtml(task.id)} · ${escapeHtml(task.status)}</div>
+        </article>
+      `).join("")}
+      ${staffingMessages.map((message) => `
+        <article class="task-graph-node">
+          <strong>${escapeHtml(message.subject ?? "Staffing signal")}</strong>
+          <pre class="json-block scroll-block">${formatJsonBlock(message.payload)}</pre>
+        </article>
       `).join("")}
     </div>
   `;
