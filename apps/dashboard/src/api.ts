@@ -627,11 +627,12 @@ export async function getOrgPresenceOverview(): Promise<OrgPresenceOverview> {
 export async function runTeamOnce(
   baseUrl: string,
   teamId: string,
+  taskId?: string,
 ): Promise<TeamLoopResult> {
   return postJson<TeamLoopResult>(
     baseUrl,
     `/agent/teams/${encodeURIComponent(teamId)}/run-once`,
-    { limit: 5 },
+    taskId ? { limit: 5, taskId } : { limit: 5 },
   );
 }
 

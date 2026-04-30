@@ -551,16 +551,53 @@ export async function runTeamWorkLoop(args: {
   teamId: TeamId;
   companyId?: CompanyId;
   limit?: number;
+  /**
+   * When set, bypass the global task queue and run the specific task only.
+   * If the task is not found or is not in a ready/queued state, returns
+   * no_pending_tasks. This is used by product initiative bootstrap and the
+   * initiative-scoped manual run button to avoid selecting a stale task from
+   * a different project.
+   */
+  pinnedTaskId?: string;
 }): Promise<TeamWorkLoopResult> {
   const config = getConfig(args.env);
   const companyId = args.companyId ?? COMPANY_INTERNAL_AEP;
   const taskStore = getTaskStore(args.env);
-  const pendingTasks = await taskStore.getPendingTasksForTeam({
-    teamId: args.teamId,
-    limit: args.limit ?? 20,
-  });
-  const eligibleTasks = pendingTasks.filter((task) => task.companyId === companyId);
-  const candidates = prioritizeCandidates(eligibleTasks, args.teamId);
+
+  let pendingTasks: Task[];
+  let eligibleTasks: Task[];
+  let candidates: TeamTaskCandidate[];
+
+  if (args.pinnedTaskId) {
+    // Scoped run: only operate on the pinned task, do not touch the global queue.
+    const pinnedTask = await taskStore.getTask(args.pinnedTaskId);
+    if (
+      !pinnedTask ||
+      (pinnedTask.status !== "ready" && pinnedTask.status !== "queued") ||
+      pinnedTask.companyId !== companyId
+    ) {
+      return {
+        ok: true,
+        status: "no_pending_tasks",
+        companyId,
+        teamId: args.teamId,
+        scanned: { pendingTasks: 0, eligibleTasks: 0 },
+        message: pinnedTask
+          ? `Pinned task ${args.pinnedTaskId} is not in a runnable state (status: ${pinnedTask.status}).`
+          : `Pinned task ${args.pinnedTaskId} not found.`,
+      };
+    }
+    pendingTasks = [pinnedTask];
+    eligibleTasks = [pinnedTask];
+    candidates = prioritizeCandidates(eligibleTasks, args.teamId);
+  } else {
+    pendingTasks = await taskStore.getPendingTasksForTeam({
+      teamId: args.teamId,
+      limit: args.limit ?? 20,
+    });
+    eligibleTasks = pendingTasks.filter((task) => task.companyId === companyId);
+    candidates = prioritizeCandidates(eligibleTasks, args.teamId);
+  }
   const recommendation = await selectTaskWithCognition({
     env: args.env,
     teamId: args.teamId,

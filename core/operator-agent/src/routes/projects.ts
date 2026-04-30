@@ -205,6 +205,9 @@ export async function handleCreateProject(
           env: env as OperatorAgentEnv,
           teamId: project.ownerTeamId as import("@aep/operator-agent/org/teams").TeamId,
           companyId: project.companyId as import("@aep/operator-agent/org/company").CompanyId,
+          // Pin to the first bootstrapped task so the loop cannot select an older
+          // ready task from a different project under the same team.
+          pinnedTaskId: bootstrapCapture.taskIds[0],
         }).then(async (result) => {
           console.log(
             `[projects] bootstrap work loop result: projectId=${project.id} teamId=${project.ownerTeamId} status=${result.status} pendingTasks=${result.scanned.pendingTasks} eligibleTasks=${result.scanned.eligibleTasks} taskId=${result.taskId ?? "none"} message=${result.message}`,

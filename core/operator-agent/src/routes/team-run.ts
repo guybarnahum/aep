@@ -7,6 +7,7 @@ type TeamRunRequestBody = {
   companyId?: string;
   teamIds?: string[];
   limit?: number;
+  taskId?: string;
 };
 
 function jsonError(error: string, status = 400): Response {
@@ -147,6 +148,7 @@ export async function handleRunTeamOnce(
       companyId: body.companyId as CompanyId | undefined,
       teamId,
       limit: parseLimit(body.limit),
+      pinnedTaskId: typeof body.taskId === "string" ? body.taskId : undefined,
     });
 
     return Response.json(result);

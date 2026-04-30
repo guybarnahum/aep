@@ -2543,8 +2543,8 @@ function renderExecutionControls(summary: ProductVisibilitySummary, lastResult?:
       ${teamIds.length === 0
         ? `<p class="muted small">No queued or ready tasks for this initiative.</p>`
         : `<div class="table-actions">
-          ${teamIds.map((teamId) => `
-            <button class="button button-small" type="button" data-action="run-team-once" data-team-id="${escapeHtml(teamId)}">Run ${escapeHtml(teamId)} loop</button>
+          ${pendingTasks.map((task) => `
+            <button class="button button-small" type="button" data-action="run-team-once" data-team-id="${escapeHtml(task.assignedTeamId)}" data-task-id="${escapeHtml(task.id)}">Run ${escapeHtml(task.assignedTeamId)} loop</button>
           `).join("")}
         </div>`}
       ${lastResultMarkup}

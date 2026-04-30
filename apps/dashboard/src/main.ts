@@ -1160,7 +1160,8 @@ function attachTeamLoopHandlers(): void {
       try {
         setMutationStatus(`Running ${teamId} once…`);
         void renderRoute();
-        const result = await runTeamOnce(getOperatorAgentBaseUrl(), teamId);
+        const taskId = button.dataset.taskId || undefined;
+        const result = await runTeamOnce(getOperatorAgentBaseUrl(), teamId, taskId);
         upsertTeamLoopResult(result);
         setMutationStatus(`Ran team loop for ${teamId}: ${result.status}.`);
       } catch (error) {

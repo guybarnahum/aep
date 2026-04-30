@@ -133,3 +133,44 @@ test("BUG-012: tasks not belonging to project are excluded from summary", async 
   );
   assert.strictEqual(summary.tasks.active[0].id, taskWithError.id);
 });
+
+test("BUG-012 scope: errorMessage on project B task is not affected by project A task sharing the same team", async () => {
+  // Simulates the real failure mode: two ready team_web_product tasks exist.
+  // An unscoped loop would pick either one, persisting the error to the wrong task.
+  // After the fix, errorMessage is written to the pinned task (project B), not project A.
+  const projectATask: Task = {
+    ...taskWithError,
+    id: "task_project_A_001",
+    payload: { projectId: "project_A" },
+    errorMessage: undefined, // no error persisted here
+  };
+  const projectBTask: Task = {
+    ...taskWithError,
+    id: "task_project_B_001",
+    payload: { projectId: "project_B" },
+    errorMessage: "Task task_project_B_001 is assigned to unavailable runtime employee pm002. Current team runtime roster: none.",
+  };
+
+  const summaryA = await buildProductVisibilitySummary({
+    store: makeStore([projectATask, projectBTask], { ...fakeProject, id: "project_A" }),
+    projectId: "project_A",
+  });
+  const summaryB = await buildProductVisibilitySummary({
+    store: makeStore([projectATask, projectBTask], { ...fakeProject, id: "project_B" }),
+    projectId: "project_B",
+  });
+
+  assert.ok(summaryA);
+  assert.ok(summaryB);
+
+  assert.strictEqual(
+    summaryA.tasks.active[0].errorMessage,
+    undefined,
+    "project A task must not have error from project B loop run",
+  );
+  assert.strictEqual(
+    summaryB.tasks.active[0].errorMessage,
+    projectBTask.errorMessage,
+    "project B task must carry the error that was persisted to it",
+  );
+});
