@@ -319,4 +319,32 @@ Each bug follows this schema:
   4. Confirm task graph node for the new initiative shows `waiting_for_staffing` message inline
   5. Confirm manual Run button (now per-task, scoped to that task) shows the same result
   6. Confirm no other initiative's tasks show that `errorMessage`
-- **Status**: fixed (pending QA — actual staffing fix tracked in BUG-010/BUG-011)
+- **Status**: validated ✅
+
+---
+
+### BUG-013 — Manual Loop Result Not Rendered with Error Severity
+
+- **Area**: Dashboard / Runtime Observability
+- **Severity**: medium
+- **Observed**:
+  Clicking `Run team_web_product loop` surfaces `waiting_for_staffing` text in the execution card, but the message is unstyled — no red/error-state treatment distinguishes it from a success result.
+- **Expected**:
+  Any non-success loop result (`status !== "executed_task"`) should render with red error styling so the operator immediately recognises the failure without reading the status string.
+- **Fix Applied**:
+  In `renderExecutionControls`, added `lastResultIsError = lastResult.status !== "executed_task"`. The result message paragraph now uses `class="work-card-error small"` when the result is non-success, and `class="muted small"` on success. Reuses the existing `.work-card-error` red-pill style (rgba(239,68,68) background/border, `#fca5a5` text).
+- **Status**: fixed (pending QA)
+
+---
+
+### BUG-014 — Initiative Page Does Not Aggregate Runtime Errors Near Mutation Status
+
+- **Area**: Dashboard / Runtime Observability
+- **Severity**: medium
+- **Observed**:
+  Individual task cards and task graph nodes display `errorMessage` inline, but there is no summary-level signal in the toolbar or mutation status area. An operator viewing the initiative header has no immediate indication that any task is in an error state.
+- **Expected**:
+  The page should collect all current `errorMessage` values across active and recent tasks, deduplicate them, and display a consolidated error banner visible without scrolling.
+- **Fix Applied**:
+  In `renderProductInitiativeDetail`, compute `errorMessages` by collecting `errorMessage` from `summary.tasks.active` and `summary.tasks.recent`, deduplicating with `Array.from(new Set(...))`. If non-empty, a `.initiative-error-banner` div is injected at the top of `<main>` (before any panels) showing "Runtime errors detected" with a `<ul>` of deduped messages. New CSS class `.initiative-error-banner` added to `styles.css` with a slightly stronger red treatment (rgba(239,68,68,0.10) background, 0.30 border opacity) than task-level error banners.
+- **Status**: fixed (pending QA)

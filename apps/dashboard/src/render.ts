@@ -2264,9 +2264,21 @@ export function renderProductInitiativesOverview(projects: ProjectRecord[]): str
 
 export function renderProductInitiativeDetail(summary: ProductVisibilitySummary, lastTeamLoopResult?: TeamLoopResult): string {
   const project = summary.project;
+  const errorMessages = Array.from(new Set(
+    [...summary.tasks.active, ...summary.tasks.recent]
+      .map((t) => t.errorMessage)
+      .filter((m): m is string => !!m),
+  ));
+  const errorBanner = errorMessages.length > 0
+    ? `<div class="initiative-error-banner">
+        <strong>Runtime errors detected</strong>
+        <ul>${errorMessages.map((m) => `<li>${escapeHtml(m)}</li>`).join("")}</ul>
+      </div>`
+    : "";
 
   return `
     <main>
+      ${errorBanner}
       <section class="panel">
         <div class="panel-header">
           <div>
@@ -2526,6 +2538,7 @@ function renderExecutionControls(summary: ProductVisibilitySummary, lastResult?:
   );
   const teamIds = Array.from(new Set(pendingTasks.map((task) => task.assignedTeamId)));
 
+  const lastResultIsError = lastResult != null && lastResult.status !== "executed_task";
   const lastResultMarkup = lastResult
     ? `<div class="meta-grid" style="margin-top:0.5rem">
         ${renderCompactPill("Last result", escapeHtml(lastResult.status))}
@@ -2533,7 +2546,7 @@ function renderExecutionControls(summary: ProductVisibilitySummary, lastResult?:
         ${lastResult.taskId ? renderCompactHtmlPill("Task", `<a href="#task/${encodeURIComponent(lastResult.taskId)}">${escapeHtml(lastResult.taskId)}</a>`) : renderCompactPill("Task", "—")}
         ${lastResult.employeeId ? renderCompactPill("Employee", lastResult.employeeId) : ""}
       </div>
-      <p class="muted small">${escapeHtml(lastResult.message)}</p>`
+      <p class="${lastResultIsError ? "work-card-error" : "muted"} small">${escapeHtml(lastResult.message)}</p>`
     : "";
 
   return `
