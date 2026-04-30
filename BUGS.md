@@ -333,7 +333,7 @@ Each bug follows this schema:
   Any non-success loop result (`status !== "executed_task"`) should render with red error styling so the operator immediately recognises the failure without reading the status string.
 - **Fix Applied**:
   In `renderExecutionControls`, added `lastResultIsError = lastResult.status !== "executed_task"`. The result message paragraph now uses `class="work-card-error small"` when the result is non-success, and `class="muted small"` on success. Reuses the existing `.work-card-error` red-pill style (rgba(239,68,68) background/border, `#fca5a5` text).
-- **Status**: fixed (pending QA)
+- **Status**: validated ✅
 
 ---
 
