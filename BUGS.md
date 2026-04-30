@@ -281,4 +281,36 @@ Each bug follows this schema:
   2. Check Cloudflare worker logs for `[projects] bootstrap work loop result`
   3. Confirm `project_planning` moves beyond `ready`, OR surface exact status from logs
   4. If `waiting_for_staffing`: verify staffing and re-create initiative
-- **Status**: open (diagnostic logging added; root cause TBD from Worker logs)
+- **Status**: open (diagnostic logging added; root cause TBD from Worker logs; error visibility in UI tracked in BUG-012)
+
+---
+
+### BUG-012 — Auto-Triggered Work Loop Failure Is Not Surfaced in Initiative UI
+
+- **Area**: Runtime Observability / Dashboard / Initiative Bootstrap
+- **Severity**: critical
+- **Observed**:
+  After creating a fresh initiative, the system auto-triggered the team work loop, but the initiative UI showed no visible result or error.
+  Only after manually clicking `Run team_web_product loop` did the UI show:
+  `waiting_for_staffing`
+  `Task ... is assigned to unavailable runtime employee pm002. Current team runtime roster: none.`
+- **Expected**:
+  Auto-triggered work loop failures should be visible in the initiative UI after a single page refresh, without requiring the user to manually click the Run button.
+  The Task graph section and/or task card should show the loop result message inline.
+- **Root Cause (confirmed)**:
+  Three separate gaps:
+  1. `ctx.waitUntil` error persistence only covered `waiting_for_staffing` and `execution_failed` with a `result.taskId`. `no_pending_tasks` (no taskId) and thrown errors were silently dropped.
+  2. Task graph nodes in `renderProductInitiativeDetail` showed title, taskType, status only — `task.errorMessage` was not rendered even when set.
+  3. No deferred re-render after initiative creation — the page rendered once before `ctx.waitUntil` finished writing to D1, so `errorMessage` was never visible on first load.
+- **Fix Applied**:
+  - `routes/projects.ts`: Extended error persistence to all non-success statuses (`waiting_for_staffing`, `execution_failed`, `no_pending_tasks`, `manager_review_requested`). For statuses with no `taskId`, falls back to `bootstrap.taskIds[0]` (the `project_planning` task). Thrown errors also write to the fallback task.
+  - `render.ts`: Task graph nodes now render `task.errorMessage` as a red banner under the status badge.
+  - `main.ts`: After navigating to the initiative detail on creation, a 3-second deferred `renderRoute()` re-fetches and re-renders, picking up the `error_message` written by `ctx.waitUntil`.
+  - Regression test added: `product-visibility-error-message.test.ts` verifies `errorMessage` propagates through `buildProductVisibilitySummary` into `tasks.active` and `tasks.recent`.
+- **Validation Steps**:
+  1. Create initiative when `team_web_product` has no available runtime employee
+  2. Do NOT click manual run
+  3. Wait ~3 seconds (auto-refresh fires)
+  4. Confirm task graph node shows `waiting_for_staffing` message inline
+  5. Confirm manual Run button shows the same result
+- **Status**: fixed (pending QA — actual staffing fix tracked in BUG-010/BUG-011)

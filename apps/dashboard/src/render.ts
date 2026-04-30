@@ -2332,6 +2332,7 @@ export function renderProductInitiativeDetail(summary: ProductVisibilitySummary,
                 <div><a href="#task/${encodeURIComponent(task.id)}">${escapeHtml(task.title)}</a></div>
                 <div class="muted small">${escapeHtml(task.taskType)} · ${escapeHtml(task.assignedTeamId)}</div>
                 <span class="${statusClass(task.status)}">${escapeHtml(task.status)}</span>
+                ${task.errorMessage ? `<p class="task-graph-node-error muted small">${escapeHtml(task.errorMessage)}</p>` : ""}
               </article>
             `,
               )

@@ -199,6 +199,7 @@ export async function handleCreateProject(
     }
 
     if (bootstrap && ctx) {
+      const bootstrapCapture = bootstrap;
       ctx.waitUntil(
         runTeamWorkLoop({
           env: env as OperatorAgentEnv,
@@ -208,17 +209,24 @@ export async function handleCreateProject(
           console.log(
             `[projects] bootstrap work loop result: projectId=${project.id} teamId=${project.ownerTeamId} status=${result.status} pendingTasks=${result.scanned.pendingTasks} eligibleTasks=${result.scanned.eligibleTasks} taskId=${result.taskId ?? "none"} message=${result.message}`,
           );
-          if (
-            result.taskId &&
-            (result.status === "waiting_for_staffing" || result.status === "execution_failed")
-          ) {
-            await store.setTaskErrorMessage(result.taskId, result.message);
+          // Persist failure reason to the task so the dashboard can surface it without Worker logs.
+          // For every non-success status, write the message to the affected task (or the first
+          // bootstrapped task as fallback when the loop did not select a specific task).
+          if (result.status !== "executed_task") {
+            const targetTaskId = result.taskId ?? bootstrapCapture.taskIds[0];
+            if (targetTaskId) {
+              await store.setTaskErrorMessage(targetTaskId, result.message);
+            }
           }
-        }).catch((error: unknown) => {
+        }).catch(async (error: unknown) => {
           const message = error instanceof Error ? error.message : String(error);
           console.error(
             `[projects] bootstrap work loop failed: projectId=${project.id} teamId=${project.ownerTeamId} error=${message}`,
           );
+          const fallbackTaskId = bootstrapCapture.taskIds[0];
+          if (fallbackTaskId) {
+            await store.setTaskErrorMessage(fallbackTaskId, `Bootstrap work loop threw: ${message}`);
+          }
         }),
       );
     }

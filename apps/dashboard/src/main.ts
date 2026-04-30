@@ -1352,6 +1352,10 @@ function attachProductInitiativeHandlers(): void {
 
       setMutationStatus(`Created initiative ${project.id}`);
       window.location.hash = `product-initiative/${encodeURIComponent(project.id)}`;
+      // Deferred re-render: ctx.waitUntil persists the auto-loop result (e.g. waiting_for_staffing)
+      // to task.error_message after the 201 response. Refresh once after a short delay so the
+      // task graph node shows the error without requiring a manual refresh.
+      setTimeout(() => void renderRoute(), 3000);
     } catch (error) {
       setMutationStatus(
         error instanceof Error ? error.message : "Failed to create initiative",

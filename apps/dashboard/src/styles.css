@@ -272,6 +272,15 @@ button:disabled {
   background: rgba(10, 17, 30, 0.7);
 }
 
+.task-graph-node-error {
+  margin: 6px 0 0;
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  color: #fca5a5;
+}
+
 .product-evidence-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));

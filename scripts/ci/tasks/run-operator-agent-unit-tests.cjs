@@ -15,6 +15,7 @@ const TEST_FILES = [
   "core/operator-agent/src/lib/implementation-binding-registry.test.ts",
   "core/operator-agent/src/lib/employee-cognition.test.ts",
   "core/operator-agent/src/persistence/d1/runtime-employee-resolver-d1.test.ts",
+  "core/operator-agent/src/product/product-visibility-error-message.test.ts",
 ];
 
 function parseMajorVersion(version) {
