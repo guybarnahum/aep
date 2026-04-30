@@ -935,6 +935,15 @@ button:disabled {
   border: 1px solid rgba(148, 163, 184, 0.14);
 }
 
+.work-card-error {
+  margin: 10px 0 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  color: #fca5a5;
+}
+
 .work-card-top {
   display: flex;
   justify-content: space-between;

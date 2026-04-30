@@ -2277,7 +2277,10 @@ async function renderRoute(): Promise<void> {
       content += renderProductInitiativesOverview(projects);
     } else if (route.kind === "productInitiative") {
       const summary = await getProductVisibility(route.projectId);
-      content += renderProductInitiativeDetail(summary);
+      const lastTeamLoopResult = summary.tasks.active.length > 0
+        ? getTeamLoopResult(summary.tasks.active[0].assignedTeamId)
+        : undefined;
+      content += renderProductInitiativeDetail(summary, lastTeamLoopResult);
     } else if (route.kind === "task") {
       const detail = await getTaskDetail(route.taskId);
       content += renderTaskDetail(detail);
@@ -2402,6 +2405,7 @@ async function renderRoute(): Promise<void> {
     }
 
     if (route.kind === "productInitiative") {
+      attachTeamLoopHandlers();
       attachProductInterventionHandlers();
       attachProductOperatorControlHandlers();
       return;

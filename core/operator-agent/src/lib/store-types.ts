@@ -225,6 +225,7 @@ export interface Task {
   startedAt?: string;
   completedAt?: string;
   failedAt?: string;
+  errorMessage?: string;
 }
 
 export interface TaskDependency {
@@ -471,6 +472,7 @@ export interface TaskStore {
   }): Promise<Project | null>;
 
   updateTaskStatus(taskId: string, status: TaskStatus): Promise<void>;
+  setTaskErrorMessage(taskId: string, message: string): Promise<void>;
   parkTask(args: {
     taskId: string;
     parkedByEmployeeId: string;

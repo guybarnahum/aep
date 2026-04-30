@@ -48,6 +48,7 @@ export type TaskRecord = {
   startedAt?: string;
   completedAt?: string;
   failedAt?: string;
+  errorMessage?: string;
 };
 
 export type TaskDependency = {

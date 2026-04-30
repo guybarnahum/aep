@@ -1820,6 +1820,7 @@ function renderTaskCard(task: TaskRecord): string {
         ${renderCompactPill("Originating team", task.originatingTeamId)}
         ${renderCompactPill("Blocking deps", task.blockingDependencyCount)}
       </div>
+      ${task.errorMessage ? `<p class="work-card-error muted small">${escapeHtml(task.errorMessage)}</p>` : ""}
     </article>
   `;
 }
@@ -2261,7 +2262,7 @@ export function renderProductInitiativesOverview(projects: ProjectRecord[]): str
   `;
 }
 
-export function renderProductInitiativeDetail(summary: ProductVisibilitySummary): string {
+export function renderProductInitiativeDetail(summary: ProductVisibilitySummary, lastTeamLoopResult?: TeamLoopResult): string {
   const project = summary.project;
 
   return `
@@ -2292,7 +2293,7 @@ export function renderProductInitiativeDetail(summary: ProductVisibilitySummary)
         <h3>Product operator controls</h3>
         <p class="muted small">These controls call canonical AEP routes only. They do not mutate dashboard-owned state.</p>
         <div class="product-control-grid">
-          ${renderExecutionControls(summary)}
+          ${renderExecutionControls(summary, lastTeamLoopResult)}
           ${renderDeploymentControls(summary)}
           ${renderLifecycleControls(summary)}
           ${renderSignalControls(summary)}
@@ -2518,11 +2519,21 @@ function renderLifecycleControls(summary: ProductVisibilitySummary): string {
   `;
 }
 
-function renderExecutionControls(summary: ProductVisibilitySummary): string {
+function renderExecutionControls(summary: ProductVisibilitySummary, lastResult?: TeamLoopResult): string {
   const pendingTasks = summary.tasks.active.filter(
     (task) => task.status === "ready" || task.status === "queued",
   );
   const teamIds = Array.from(new Set(pendingTasks.map((task) => task.assignedTeamId)));
+
+  const lastResultMarkup = lastResult
+    ? `<div class="meta-grid" style="margin-top:0.5rem">
+        ${renderCompactPill("Last result", escapeHtml(lastResult.status))}
+        ${lastResult.scanned ? renderCompactPill("Scanned", `${lastResult.scanned.pendingTasks} pending / ${lastResult.scanned.eligibleTasks} eligible`) : renderCompactPill("Scanned", "—")}
+        ${lastResult.taskId ? renderCompactHtmlPill("Task", `<a href="#task/${encodeURIComponent(lastResult.taskId)}">${escapeHtml(lastResult.taskId)}</a>`) : renderCompactPill("Task", "—")}
+        ${lastResult.employeeId ? renderCompactPill("Employee", lastResult.employeeId) : ""}
+      </div>
+      <p class="muted small">${escapeHtml(lastResult.message)}</p>`
+    : "";
 
   return `
     <article class="control-card">
@@ -2535,6 +2546,7 @@ function renderExecutionControls(summary: ProductVisibilitySummary): string {
             <button class="button button-small" type="button" data-action="run-team-once" data-team-id="${escapeHtml(teamId)}">Run ${escapeHtml(teamId)} loop</button>
           `).join("")}
         </div>`}
+      ${lastResultMarkup}
     </article>
   `;
 }

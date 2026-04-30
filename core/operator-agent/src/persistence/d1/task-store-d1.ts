@@ -63,6 +63,7 @@ type TaskRow = {
   started_at: string | null;
   completed_at: string | null;
   failed_at: string | null;
+  error_message: string | null;
 
   // Legacy compatibility columns may still exist in older local/staging DBs.
   team_id?: string | null;
@@ -300,6 +301,7 @@ function rowToTask(row: TaskRow): Task {
     startedAt: row.started_at ?? undefined,
     completedAt: row.completed_at ?? undefined,
     failedAt: row.failed_at ?? undefined,
+    errorMessage: row.error_message ?? undefined,
   };
 }
 
@@ -1128,6 +1130,18 @@ export class D1TaskStore implements TaskStore {
     if (status === "completed") {
       await this.releaseCompletedDependency(taskId);
     }
+  }
+
+  async setTaskErrorMessage(taskId: string, message: string): Promise<void> {
+    await this.db
+      .prepare(
+        `UPDATE tasks
+         SET error_message = ?,
+             updated_at = CURRENT_TIMESTAMP
+         WHERE id = ?`,
+      )
+      .bind(message, taskId)
+      .run();
   }
 
   async parkTask(args: {

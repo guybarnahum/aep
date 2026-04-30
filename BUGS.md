@@ -72,7 +72,7 @@ Each bug follows this schema:
   3. Open the initiative detail view; under "Product operator controls", click "Run team_web_product loop"
   4. Confirm `project_planning` transitions to `in_progress` or `completed`
   5. Subsequent tasks unblock as upstream tasks complete
-* **Status**: fixed
+* **Status**: open (see BUG-009, BUG-010)
 
 ---
 
@@ -177,7 +177,7 @@ Each bug follows this schema:
   3. With `project_planning` ready, card shows "Run team_web_product loop" button
   4. Click button — `project_planning` progresses
   5. Repeat for other ready tasks as they appear
-- **Status**: fixed
+- **Status**: open (see BUG-009, BUG-010)
 
 ---
 
@@ -227,3 +227,58 @@ Each bug follows this schema:
   4. Execute lifecycle
   5. Confirm initiative transitions to `retired`
 - **Status**: open
+
+---
+
+### BUG-009 — Task Execution Button Renders But Does Not Trigger Visible Execution
+
+- **Area**: Dashboard / Runtime Execution
+- **Severity**: critical
+- **Observed**:
+  The Product operator controls panel renders:
+  `Run team_web_product loop`
+
+  After clicking it:
+  - mutation status does not change
+  - task state does not change
+  - `project_planning` remains `ready`
+  - downstream tasks remain `blocked`
+  - no artifacts are produced
+- **Expected**:
+  Clicking `Run team_web_product loop` should call the canonical team execution route and cause at least one ready task to transition to `in_progress`, `completed`, `failed`, or visible execution error.
+- **Root Cause (confirmed)**:
+  The `productInitiative` route attachment block called only `attachProductInterventionHandlers` and `attachProductOperatorControlHandlers`. The `run-team-once` click handler lives exclusively in `attachTeamLoopHandlers`, which was never called for the `productInitiative` route. The button was rendered but unlistened.
+- **Fix Applied**:
+  Added `attachTeamLoopHandlers()` to the `productInitiative` attachment block in `main.ts`. After clicking, mutation status shows `Running team_web_product once…` then `Ran team loop for team_web_product: <status>.`. The last loop result (status, scanned counts, task link, message) is now displayed inline in the Task execution card via `renderExecutionControls(summary, lastTeamLoopResult)`, so the result is visible without reopening the teams view.
+- **Validation Steps**:
+  1. Open initiative with `project_planning` ready
+  2. Click `Run team_web_product loop`
+  3. Confirm mutation status changes to `Ran team loop for team_web_product: <status>`
+  4. Confirm task state changes or execution result message is shown in the card
+- **Status**: fixed (BUG-010 tracks whether execution actually advances the task)
+
+---
+
+### BUG-010 — Auto-Execution After Initiative Creation Does Not Advance Ready Task
+
+- **Area**: Runtime / Initiative Bootstrap
+- **Severity**: critical
+- **Observed**:
+  After creating a fresh product initiative on build `4bce394`, `Plan product initiative` remains `ready`.
+  No automatic execution is observed after refresh.
+- **Expected**:
+  `ctx.waitUntil(runTeamWorkLoop(...))` should pick up the initial `project_planning` task after initiative bootstrap.
+- **Root Cause (hypothesis)**:
+  The background work loop is not executing, exits with no visible error, cannot resolve runtime staffing, or fails before changing task state. Most likely `resolveRuntimeEmployeesForTeam` returns an empty roster for `team_web_product` (no active employee with `runtime_enabled = 1` in `employees_catalog` / `roles_catalog`), causing `waiting_for_staffing` silently.
+- **Fix Applied (partial)**:
+  Added `.then(result => console.log(...)).catch(error => console.error(...))` around the `ctx.waitUntil` call so that the exact result (`status`, scanned counts, message) or error is visible in Worker logs. QA should check Cloudflare worker logs for `[projects] bootstrap work loop result` after creating a new initiative to confirm whether the failure is `waiting_for_staffing`, `no_pending_tasks`, or an unhandled error.
+- **Next Step**:
+  If logs show `waiting_for_staffing`: confirm `team_web_product` has at least one active, runtime-enabled employee row in D1. If not, the dev bootstrap or seed is incomplete.
+  If logs show `no_pending_tasks`: the task was not created or the companyId filter is mismatched.
+  If logs show `execution_failed`: PM agent ran but threw; check `result.message`.
+- **Validation Steps**:
+  1. Create fresh initiative
+  2. Check Cloudflare worker logs for `[projects] bootstrap work loop result`
+  3. Confirm `project_planning` moves beyond `ready`, OR surface exact status from logs
+  4. If `waiting_for_staffing`: verify staffing and re-create initiative
+- **Status**: open (diagnostic logging added; root cause TBD from Worker logs)

@@ -204,6 +204,21 @@ export async function handleCreateProject(
           env: env as OperatorAgentEnv,
           teamId: project.ownerTeamId as import("@aep/operator-agent/org/teams").TeamId,
           companyId: project.companyId as import("@aep/operator-agent/org/company").CompanyId,
+        }).then(async (result) => {
+          console.log(
+            `[projects] bootstrap work loop result: projectId=${project.id} teamId=${project.ownerTeamId} status=${result.status} pendingTasks=${result.scanned.pendingTasks} eligibleTasks=${result.scanned.eligibleTasks} taskId=${result.taskId ?? "none"} message=${result.message}`,
+          );
+          if (
+            result.taskId &&
+            (result.status === "waiting_for_staffing" || result.status === "execution_failed")
+          ) {
+            await store.setTaskErrorMessage(result.taskId, result.message);
+          }
+        }).catch((error: unknown) => {
+          const message = error instanceof Error ? error.message : String(error);
+          console.error(
+            `[projects] bootstrap work loop failed: projectId=${project.id} teamId=${project.ownerTeamId} error=${message}`,
+          );
         }),
       );
     }
