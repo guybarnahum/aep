@@ -124,7 +124,7 @@ function withCors(response: Response): Response {
   return next;
 }
 
-async function dispatch(request: Request, env: OperatorAgentEnv): Promise<Response> {
+async function dispatch(request: Request, env: OperatorAgentEnv, ctx: ExecutionContext): Promise<Response> {
   console.log("[DEBUG] ENABLE_TEST_ENDPOINTS:", env.ENABLE_TEST_ENDPOINTS);
   const url = new URL(request.url);
 
@@ -481,7 +481,7 @@ async function dispatch(request: Request, env: OperatorAgentEnv): Promise<Respon
 
   if (url.pathname === "/agent/projects") {
     if (request.method === "POST") {
-      return handleCreateProject(request, env);
+      return handleCreateProject(request, env, ctx);
     }
     if (request.method === "GET") {
       return handleListProjects(request, env);
@@ -805,12 +805,13 @@ export default {
   async fetch(
     request: Request,
     env: OperatorAgentEnv,
+    ctx: ExecutionContext,
   ): Promise<Response> {
     try {
       if (request.method === "OPTIONS") {
         return new Response(null, { status: 204, headers: CORS_HEADERS });
       }
-      return withCors(await dispatch(request, env));
+      return withCors(await dispatch(request, env, ctx));
     } catch (error) {
       if (error instanceof TaskTypeValidationError) {
         const response = Response.json(

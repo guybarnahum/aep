@@ -2292,6 +2292,7 @@ export function renderProductInitiativeDetail(summary: ProductVisibilitySummary)
         <h3>Product operator controls</h3>
         <p class="muted small">These controls call canonical AEP routes only. They do not mutate dashboard-owned state.</p>
         <div class="product-control-grid">
+          ${renderExecutionControls(summary)}
           ${renderDeploymentControls(summary)}
           ${renderLifecycleControls(summary)}
           ${renderSignalControls(summary)}
@@ -2513,6 +2514,27 @@ function renderLifecycleControls(summary: ProductVisibilitySummary): string {
           <button class="button button-small button-secondary" type="submit" name="decision" value="reject" ${lifecycleApprovalIds.length === 0 ? "disabled" : ""}>Reject lifecycle</button>
         </div>
       </form>
+    </article>
+  `;
+}
+
+function renderExecutionControls(summary: ProductVisibilitySummary): string {
+  const pendingTasks = summary.tasks.active.filter(
+    (task) => task.status === "ready" || task.status === "queued",
+  );
+  const teamIds = Array.from(new Set(pendingTasks.map((task) => task.assignedTeamId)));
+
+  return `
+    <article class="control-card">
+      <h4>Task execution</h4>
+      <p class="muted small">Manually trigger the team work loop. Use when the cron scheduler is inactive or tasks are stalled in ready/queued state.</p>
+      ${teamIds.length === 0
+        ? `<p class="muted small">No queued or ready tasks for this initiative.</p>`
+        : `<div class="table-actions">
+          ${teamIds.map((teamId) => `
+            <button class="button button-small" type="button" data-action="run-team-once" data-team-id="${escapeHtml(teamId)}">Run ${escapeHtml(teamId)} loop</button>
+          `).join("")}
+        </div>`}
     </article>
   `;
 }

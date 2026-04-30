@@ -57,12 +57,22 @@ Each bug follows this schema:
   Missing execution trigger, worker pickup, or initial task kickoff.
 * **Fix Suggestion (minimal)**:
   Ensure project_planning auto-executes or is picked up by execution loop.
+* **Root Cause (confirmed)**:
+  `runTeamWorkLoop` for `team_web_product` correctly picks up `ready` tasks. Execution was never triggered because no UI control existed on the initiative view to invoke the team work loop. The cron fallback must also be enabled in production for automatic pickup.
+* **Fix Applied**:
+  Added `ctx.waitUntil(runTeamWorkLoop(...))` after successful bootstrap in `routes/projects.ts` so the work loop fires automatically as a background task inside the same Worker invocation that creates the initiative. The HTTP `201` response is returned immediately; `project_planning` is picked up before the Worker shuts down, with no dependency on the cron scheduler.
+
+  `ExecutionContext` is threaded through `dispatch` in `index.ts` into `handleCreateProject` as an optional parameter, so existing test callers are unaffected.
+
+  Also added a \"Task execution\" card to the Product operator controls panel (`renderExecutionControls`) as a manual fallback for staging QA when the cron is inactive.
 * **Validation Steps**:
 
   1. Create new initiative
-  2. Observe task states
-  3. Confirm at least one task transitions to running/completed
-* **Status**: open
+  2. Observe task states — `project_planning` should be `ready`
+  3. Open the initiative detail view; under "Product operator controls", click "Run team_web_product loop"
+  4. Confirm `project_planning` transitions to `in_progress` or `completed`
+  5. Subsequent tasks unblock as upstream tasks complete
+* **Status**: fixed
 
 ---
 
@@ -155,12 +165,19 @@ Each bug follows this schema:
   Execution loop is not running, not wired to ready tasks, or not exposed in the dashboard.
 - **Fix Suggestion (minimal)**:
   Add runtime execution visibility and ensure ready tasks are processed by the operator/worker loop.
+- **Root Cause (confirmed)**:
+  The `POST /agent/teams/:teamId/run-once` route and `runTeamOnce` API were already implemented. The team detail view (`#team/:teamId`) had a "Run once" button but it was not reachable from the initiative/product flow view. The product operator panel had no execution control.
+- **Fix Applied**:
+  Added `renderExecutionControls` to the Product operator controls panel in the initiative detail view. The function reads `summary.tasks.active` to find teams with `ready` or `queued` tasks, and renders a per-team "Run [teamId] loop" button using the existing `data-action="run-team-once"` handler.
+
+  Added `ctx.waitUntil(runTeamWorkLoop(...))` in `handleCreateProject` (`routes/projects.ts`) so that immediately after bootstrap succeeds, the team work loop fires as a background task inside the same Cloudflare Worker invocation. This means `project_planning` is picked up without waiting for the first cron tick. `ExecutionContext` is threaded through `dispatch` → `handleCreateProject`; it is optional so existing test callers are unaffected.
 - **Validation Steps**:
   1. Create initiative
-  2. Create human intervention
-  3. Confirm ready tasks transition beyond `ready`
-  4. Confirm artifacts are produced downstream
-- **Status**: open
+  2. Open initiative detail — "Product operator controls" panel shows "Task execution" card
+  3. With `project_planning` ready, card shows "Run team_web_product loop" button
+  4. Click button — `project_planning` progresses
+  5. Repeat for other ready tasks as they appear
+- **Status**: fixed
 
 ---
 
@@ -184,3 +201,29 @@ Each bug follows this schema:
 - **Status**: open
 
 ---
+
+### BUG-008 — Lifecycle Approval Not Surfaced After Request
+
+- **Area**: Lifecycle / Approvals / UI
+- **Severity**: critical
+- **Observed**:
+  After requesting a lifecycle action (e.g., retire):
+  - UI shows: “Lifecycle approval requested: approval_<id>”
+  - A lifecycle coordination task is created and marked `ready`
+  - BUT the Lifecycle controls panel still shows:
+    “No lifecycle approvals found”
+  - Initiative remains `active`
+- **Expected**:
+  The created lifecycle approval should appear in the approval selector so it can be approved and executed:
+  request → approval visible → approve → execute → state transition
+- **Root Cause (hypothesis)**:
+  Approval query/filter in the dashboard does not include lifecycle approvals or filters them out (e.g., by project scope, type, or state mismatch)
+- **Fix Suggestion (minimal)**:
+  Ensure lifecycle approvals are returned and rendered in the approval dropdown for the current project
+- **Validation Steps**:
+  1. Request lifecycle action (retire)
+  2. Verify approval appears in selector
+  3. Approve lifecycle
+  4. Execute lifecycle
+  5. Confirm initiative transitions to `retired`
+- **Status**: open

@@ -1,5 +1,6 @@
 import { getTaskStore } from "@aep/operator-agent/lib/store-factory";
 import type { ProjectStatus } from "@aep/operator-agent/lib/store-types";
+import { runTeamWorkLoop } from "@aep/operator-agent/lib/team-work-loop";
 import { isTeamId } from "@aep/operator-agent/org/teams";
 import type { OperatorAgentEnv } from "@aep/operator-agent/types";
 import { newId } from "@aep/shared";
@@ -54,6 +55,7 @@ function parseProjectStatus(value: string | null): ProjectStatus | undefined {
 export async function handleCreateProject(
   request: Request,
   env?: OperatorAgentEnv,
+  ctx?: ExecutionContext,
 ): Promise<Response> {
   if (request.method !== "POST") {
     return new Response("Method Not Allowed", { status: 405 });
@@ -193,6 +195,16 @@ export async function handleCreateProject(
           bootstrapFailed: true,
         },
         { status: 500 },
+      );
+    }
+
+    if (bootstrap && ctx) {
+      ctx.waitUntil(
+        runTeamWorkLoop({
+          env: env as OperatorAgentEnv,
+          teamId: project.ownerTeamId as import("@aep/operator-agent/org/teams").TeamId,
+          companyId: project.companyId as import("@aep/operator-agent/org/company").CompanyId,
+        }),
       );
     }
   }
