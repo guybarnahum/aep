@@ -39,6 +39,7 @@ Top-level workflows use **hyphenated names**:
 - `deploy-preview.yml`
 - `destroy-preview.yml`
 - `free-leaked-resources.yml`
+- `cleanup-qa-initiatives.yml`
 - `deploy-staging.yml`
 - `deploy-production.yml`
 - `validate-async-environment.yml`
@@ -372,3 +373,29 @@ Inputs:
 - `operator_agent_base_url` (optional, falls back to env var)
 - `ci_run_id` (required)
 - `cleanup_mode` (default: `current-run`)
+
+### `cleanup-qa-initiatives.yml`
+
+Manual workflow for retiring or purging QA-created product initiatives in a
+target environment. Intended for post-QA cleanup and test environment hygiene.
+
+Defaults to **dry-run mode** to prevent accidental mutation. Set `dry_run` to
+`false` to apply changes.
+
+Preserves canonical lifecycle semantics: `retire` mode requests, approves, and
+executes a lifecycle `retire` action through the approval gate. Hard `purge`
+mode is only permitted if a canonical purge endpoint exists; otherwise the
+script exits with an error rather than deleting rows directly.
+
+Inputs:
+- `target_environment` (required, choice: `async-validation` / `staging` / `production`)
+- `mode` (choice: `retire` / `purge`, default: `retire`)
+- `title_prefix` (default: `"QA "`) — initiatives whose title starts with this prefix are selected
+- `older_than_hours` (default: `0`) — only select initiatives older than N hours; `0` = all matching
+- `dry_run` (boolean, default: `true`)
+
+Required environment variables:
+- `vars.OPERATOR_AGENT_BASE_URL`
+- `secrets.CI_CLEANUP_TOKEN`
+
+Script: `scripts/ci/cleanup-qa-initiatives.ts` (npm run `ci:cleanup-qa-initiatives`)

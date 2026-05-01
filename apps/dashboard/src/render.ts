@@ -2478,19 +2478,23 @@ function renderDeploymentControls(summary: ProductVisibilitySummary): string {
 }
 
 function renderLifecycleControls(summary: ProductVisibilitySummary): string {
-  const lifecycleApprovalIds = Array.from(
-    new Set(
-      summary.decisions.recent
-        .filter((message) => {
-          const kind =
-            message.payload && typeof message.payload.kind === "string"
-              ? message.payload.kind
-              : null;
-          return Boolean(message.relatedApprovalId) && kind === "product_lifecycle_request";
-        })
-        .map((message) => message.relatedApprovalId as string),
-    ),
-  );
+  const { lifecyclePending, lifecycleApproved } = summary.approvals;
+
+  const pendingOptions = lifecyclePending.length === 0
+    ? `<option value="">No pending lifecycle approvals</option>`
+    : lifecyclePending.map((a) => {
+        const action = typeof a.payload["action"] === "string" ? a.payload["action"] : "unknown";
+        return `<option value="${escapeHtml(a.approvalId)}">${escapeHtml(a.approvalId)} — ${escapeHtml(action)}</option>`;
+      }).join("");
+
+  const approvedOptions = lifecycleApproved.length === 0
+    ? `<option value="">No approved lifecycle approvals</option>`
+    : lifecycleApproved.map((a) => {
+        const action = typeof a.payload["action"] === "string" ? a.payload["action"] : "unknown";
+        const target = typeof a.payload["targetStatus"] === "string" ? a.payload["targetStatus"] : "";
+        const label = target ? `${action} → ${target}` : action;
+        return `<option value="${escapeHtml(a.approvalId)}">${escapeHtml(a.approvalId)} — ${escapeHtml(label)}</option>`;
+      }).join("");
 
   return `
     <article class="control-card">
@@ -2508,25 +2512,21 @@ function renderLifecycleControls(summary: ProductVisibilitySummary): string {
         <input name="targetState" placeholder="Target state for transition, optional" />
         <button class="button button-small" type="submit">Request lifecycle action</button>
       </form>
-      <form class="compact-form" data-form="execute-lifecycle" data-project-id="${escapeHtml(summary.project.id)}">
-        <input name="approvalId" placeholder="Approved lifecycle approval ID" />
-        <input name="executedByEmployeeId" placeholder="Executed by employee ID" />
-        <button class="button button-small" type="submit">Execute lifecycle action</button>
-      </form>
       <form class="compact-form" data-form="decide-lifecycle-approval">
-        <select name="approvalId" ${lifecycleApprovalIds.length === 0 ? "disabled" : ""}>
-          ${lifecycleApprovalIds.length === 0
-            ? `<option value="">No lifecycle approvals found</option>`
-            : lifecycleApprovalIds.map((approvalId) => `
-              <option value="${escapeHtml(approvalId)}">${escapeHtml(approvalId)}</option>
-            `).join("")}
-        </select>
+        <p class="muted small">Pending approvals (${lifecyclePending.length})</p>
+        <select name="approvalId" ${lifecyclePending.length === 0 ? "disabled" : ""}>${pendingOptions}</select>
         <input name="decidedBy" placeholder="Decided by employee ID" />
         <input name="decisionNote" placeholder="Decision note" />
         <div class="table-actions">
-          <button class="button button-small" type="submit" name="decision" value="approve" ${lifecycleApprovalIds.length === 0 ? "disabled" : ""}>Approve lifecycle</button>
-          <button class="button button-small button-secondary" type="submit" name="decision" value="reject" ${lifecycleApprovalIds.length === 0 ? "disabled" : ""}>Reject lifecycle</button>
+          <button class="button button-small" type="submit" name="decision" value="approve" ${lifecyclePending.length === 0 ? "disabled" : ""}>Approve lifecycle</button>
+          <button class="button button-small button-secondary" type="submit" name="decision" value="reject" ${lifecyclePending.length === 0 ? "disabled" : ""}>Reject lifecycle</button>
         </div>
+      </form>
+      <form class="compact-form" data-form="execute-lifecycle" data-project-id="${escapeHtml(summary.project.id)}">
+        <p class="muted small">Approved approvals ready to execute (${lifecycleApproved.length})</p>
+        <select name="approvalId" ${lifecycleApproved.length === 0 ? "disabled" : ""}>${approvedOptions}</select>
+        <input name="executedByEmployeeId" placeholder="Executed by employee ID" />
+        <button class="button button-small" type="submit" ${lifecycleApproved.length === 0 ? "disabled" : ""}>Execute lifecycle action</button>
       </form>
     </article>
   `;

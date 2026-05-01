@@ -1,4 +1,4 @@
-import { getTaskStore } from "@aep/operator-agent/lib/store-factory";
+import { getApprovalStore, getTaskStore } from "@aep/operator-agent/lib/store-factory";
 import type { OperatorAgentEnv } from "@aep/operator-agent/types";
 import { buildProductVisibilitySummary } from "../product/product-visibility-summary";
 
@@ -28,6 +28,7 @@ export async function handleGetProductVisibility(
   const url = new URL(request.url);
   const summary = await buildProductVisibilitySummary({
     store: getTaskStore(env),
+    approvalStore: getApprovalStore(env),
     projectId,
     limit: parseLimit(url.searchParams.get("limit")),
   });

@@ -128,6 +128,7 @@
     "ci:task-reassignment-continuity-check": "tsx scripts/ci/checks/scenarios/task-reassignment-continuity-check.ts",
     "ci:purge-synthetic-employees": "tsx scripts/ci/checks/scenarios/purge-synthetic-employees.ts",
     "ci:cleanup-canonical-artifacts": "tsx scripts/ci/checks/scenarios/cleanup-canonical-artifacts.ts",
+    "ci:cleanup-qa-initiatives": "tsx scripts/ci/cleanup-qa-initiatives.ts",
     "ci:cognition-effective-policy-context-check": "tsx scripts/ci/checks/scenarios/cognition-effective-policy-context-check.ts",
     "ci:validation-loop-feedback-check": "tsx scripts/ci/checks/scenarios/validation-loop-feedback-check.ts",
     "ci:human-visibility-summary-check": "tsx scripts/ci/checks/scenarios/human-visibility-summary-check.ts",

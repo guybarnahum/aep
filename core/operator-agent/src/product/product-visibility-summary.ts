@@ -1,5 +1,7 @@
+import type { ApprovalRecord } from "../types";
 import type {
   EmployeeMessage,
+  IApprovalStore,
   IntakeRequest,
   ProductDeploymentRecord,
   Project,
@@ -40,6 +42,10 @@ export type ProductVisibilitySummary = {
   interventions: {
     pendingApprovalsLikely: boolean;
     suggestedActions: string[];
+  };
+  approvals: {
+    lifecyclePending: ApprovalRecord[];
+    lifecycleApproved: ApprovalRecord[];
   };
 };
 
@@ -91,8 +97,17 @@ function buildSuggestedActions(args: {
   return [...suggestions];
 }
 
+function isLifecycleApprovalForProject(
+  approval: ApprovalRecord,
+  projectId: string,
+): boolean {
+  const p = approval.payload ?? {};
+  return p["kind"] === "product_lifecycle_request" && p["projectId"] === projectId;
+}
+
 export async function buildProductVisibilitySummary(args: {
   store: TaskStore;
+  approvalStore?: IApprovalStore;
   projectId: string;
   limit?: number;
 }): Promise<ProductVisibilitySummary | null> {
@@ -151,6 +166,19 @@ export async function buildProductVisibilitySummary(args: {
   });
   const decisionMessages = messages.filter(isProductDecisionMessage);
 
+  let lifecyclePending: ApprovalRecord[] = [];
+  let lifecycleApproved: ApprovalRecord[] = [];
+  if (args.approvalStore) {
+    const [pendingRaw, approvedRaw] = await Promise.all([
+      args.approvalStore.list({ limit: 50, status: "pending", companyId: project.companyId }),
+      args.approvalStore.list({ limit: 50, status: "approved", companyId: project.companyId }),
+    ]);
+    lifecyclePending = pendingRaw.filter((a) => isLifecycleApprovalForProject(a, project.id));
+    lifecycleApproved = approvedRaw.filter(
+      (a) => isLifecycleApprovalForProject(a, project.id) && !a.executedAt,
+    );
+  }
+
   return {
     project,
     intake: {
@@ -190,6 +218,10 @@ export async function buildProductVisibilitySummary(args: {
         deployments,
         customerIntake: relatedCustomerIntake,
       }),
+    },
+    approvals: {
+      lifecyclePending,
+      lifecycleApproved,
     },
   };
 }

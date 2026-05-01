@@ -1,0 +1,104 @@
+name: Cleanup QA Initiatives
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_environment:
+        description: "GitHub Actions environment to use for this cleanup run"
+        required: true
+        default: "async-validation"
+        type: choice
+        options:
+          - async-validation
+          - staging
+          - production
+      mode:
+        description: "retire — request/approve/execute lifecycle retire; purge — hard-delete (requires canonical purge endpoint)"
+        required: true
+        default: "retire"
+        type: choice
+        options:
+          - retire
+          - purge
+      title_prefix:
+        description: "Initiatives whose title starts with this prefix are selected"
+        required: false
+        default: "QA "
+      older_than_hours:
+        description: "Only select initiatives older than this many hours (0 = all matching)"
+        required: false
+        default: "0"
+      dry_run:
+        description: "Print actions without executing them"
+        required: false
+        default: true
+        type: boolean
+
+concurrency:
+  group: cleanup-qa-initiatives-${{ inputs.target_environment }}
+  cancel-in-progress: false
+
+jobs:
+  cleanup-qa-initiatives:
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ inputs.target_environment }}
+    defaults:
+      run:
+        shell: bash -eo pipefail {0}
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Resolve target environment
+        id: target_environment
+        run: |
+          echo "target_environment=${{ inputs.target_environment }}" >> "$GITHUB_OUTPUT"
+
+      - name: Cleanup QA initiatives
+        id: cleanup
+        env:
+          OPERATOR_AGENT_BASE_URL: ${{ vars.OPERATOR_AGENT_BASE_URL }}
+          CI_CLEANUP_TOKEN: ${{ secrets.CI_CLEANUP_TOKEN }}
+          TARGET_ENVIRONMENT: ${{ inputs.target_environment }}
+          MODE: ${{ inputs.mode }}
+          TITLE_PREFIX: ${{ inputs.title_prefix }}
+          OLDER_THAN_HOURS: ${{ inputs.older_than_hours }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          DRY_RUN_FLAG=""
+          if [[ "$DRY_RUN" == "true" ]]; then
+            DRY_RUN_FLAG="--dry-run"
+          fi
+          npm run ci:cleanup-qa-initiatives -- \
+            --mode "$MODE" \
+            --title-prefix "$TITLE_PREFIX" \
+            --older-than-hours "$OLDER_THAN_HOURS" \
+            --environment "$TARGET_ENVIRONMENT" \
+            $DRY_RUN_FLAG \
+          | tee cleanup-qa-initiatives.log
+
+      - name: Write summary
+        if: always()
+        run: |
+          echo "## Cleanup QA Initiatives summary" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Target environment: ${{ inputs.target_environment }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Mode: ${{ inputs.mode }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Title prefix: \`${{ inputs.title_prefix }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Older than hours: ${{ inputs.older_than_hours }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Dry run: ${{ inputs.dry_run }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          if [[ -f cleanup-qa-initiatives.log ]]; then
+            cat cleanup-qa-initiatives.log >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "- No cleanup log found." >> "$GITHUB_STEP_SUMMARY"
+          fi

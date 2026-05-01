@@ -226,7 +226,28 @@ Each bug follows this schema:
   3. Approve lifecycle
   4. Execute lifecycle
   5. Confirm initiative transitions to `retired`
-- **Status**: open
+- **Root Cause (confirmed)**:
+  Two gaps:
+  1. `buildProductVisibilitySummary` never queried the approval store — lifecycle approvals were completely absent from the summary returned by the product-visibility route.
+  2. `renderLifecycleControls` sourced approval IDs from `decisions.recent` messages (a fragile workaround). Lifecycle coordination messages are not tagged as decision messages so the selector always rendered empty.
+- **Fix Applied**:
+  - `product-visibility-summary.ts`: Added optional `approvalStore?: IApprovalStore` parameter. Queries `status=pending` and `status=approved` approvals by `companyId`, then filters in-memory for `payload.kind === "product_lifecycle_request"` and `payload.projectId === project.id`. Already-executed approvals (`executedAt` set) are excluded from `lifecycleApproved`. Exposed as `summary.approvals.{ lifecyclePending, lifecycleApproved }`.
+  - `routes/product-visibility.ts`: Passes `approvalStore: getApprovalStore(env)` to `buildProductVisibilitySummary`.
+  - `apps/dashboard/src/types.ts`: Added `approvals: { lifecyclePending: ApprovalRecord[]; lifecycleApproved: ApprovalRecord[] }` to `ProductVisibilitySummary`.
+  - `apps/dashboard/src/render.ts`: Rewrote `renderLifecycleControls` to populate the approve/reject selector from `summary.approvals.lifecyclePending` and the execute selector from `summary.approvals.lifecycleApproved`. Both selectors show `approvalId — action (→ targetStatus)` labels. Controls disabled when respective list is empty.
+  - Regression test: `product-lifecycle-approval-visibility.test.ts` — 6 tests covering pending/approved/executed/cross-project/multi-approval/no-store scenarios.
+- **Validation Steps**:
+  1. Create fresh QA initiative
+  2. Request lifecycle action `retire` from the Lifecycle controls panel
+  3. Confirm mutation status shows `Lifecycle approval requested: approval_<id>`
+  4. Refresh the page
+  5. Confirm the `Pending approvals (1)` selector shows the approval labelled `approval_<id> — retire`
+  6. Approve the lifecycle
+  7. Refresh the page
+  8. Confirm `Approved approvals ready to execute (1)` selector shows `approval_<id> — retire → archived`
+  9. Execute the lifecycle
+  10. Confirm initiative status transitions to `archived`
+- **Status**: fixed (pending QA)
 
 ---
 
@@ -347,4 +368,4 @@ Each bug follows this schema:
   The page should collect all current `errorMessage` values across active and recent tasks, deduplicate them, and display a consolidated error banner visible without scrolling.
 - **Fix Applied**:
   In `renderProductInitiativeDetail`, compute `errorMessages` by collecting `errorMessage` from `summary.tasks.active` and `summary.tasks.recent`, deduplicating with `Array.from(new Set(...))`. If non-empty, a `.initiative-error-banner` div is injected at the top of `<main>` (before any panels) showing "Runtime errors detected" with a `<ul>` of deduped messages. New CSS class `.initiative-error-banner` added to `styles.css` with a slightly stronger red treatment (rgba(239,68,68,0.10) background, 0.30 border opacity) than task-level error banners.
-- **Status**: fixed (pending QA)
+- **Status**: validated ✅

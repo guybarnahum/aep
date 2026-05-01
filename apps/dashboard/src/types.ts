@@ -346,6 +346,10 @@ export type ProductVisibilitySummary = {
     pendingApprovalsLikely: boolean;
     suggestedActions: string[];
   };
+  approvals: {
+    lifecyclePending: ApprovalRecord[];
+    lifecycleApproved: ApprovalRecord[];
+  };
 };
 
 export type ProductInterventionResponse = {
