@@ -3,6 +3,7 @@ import { handleApprovalDetail } from "./routes/approval-detail";
 import { handleApproveApproval } from "./routes/approvals-approve";
 import { handleRejectApproval } from "./routes/approvals-reject";
 import { handleApprovals } from "./routes/approvals";
+import { handleAuthMe } from "./routes/auth";
 import { handleBuildInfo } from "./routes/build-info";
 import { handleEscalations } from "./routes/escalations";
 import { handleAcknowledgeEscalation } from "./routes/escalations-acknowledge";
@@ -199,6 +200,10 @@ async function dispatch(request: Request, env: OperatorAgentEnv, ctx: ExecutionC
 
   if (request.method === "GET" && url.pathname === "/build-info") {
     return handleBuildInfo(request, env);
+  }
+
+  if (url.pathname === "/agent/auth/me") {
+    return handleAuthMe(request, env);
   }
 
   if (url.pathname === "/agent/run") {

@@ -391,6 +391,32 @@ export type TutorialFlowStepState = "missing" | "ready" | "blocked" | "done";
 
 export type ProductLifecycleAction = "pause" | "resume" | "retire" | "transition";
 
+export type OperatorPermission =
+  | "product.lifecycle.request"
+  | "product.lifecycle.approve"
+  | "product.lifecycle.execute"
+  | "deployment.request"
+  | "deployment.approve"
+  | "deployment.execute"
+  | "qa.cleanup"
+  | "admin.runtime";
+
+export interface OperatorIdentity {
+  operatorId: string;
+  email: string;
+  name?: string;
+  picture?: string;
+  provider?: string;
+  providerUserId?: string;
+  userUuid?: string;
+  permissions: OperatorPermission[];
+}
+
+export interface AuthMeResponse {
+  ok: true;
+  operator: OperatorIdentity;
+}
+
 export type ProductLifecycleRequestResponse = {
   ok: boolean;
   projectId: string;

@@ -228,6 +228,30 @@ npm run ci:no-hardcoded-runtime-identifiers
 
 Base service: `core/operator-agent`
 
+### Authentication
+
+`GET /agent/auth/me`
+
+- Returns the Cloudflare Access identity for the authenticated operator.
+- Response: `{ operator: OperatorIdentity }` on success.
+- Returns `401` when no Cloudflare Access identity is present (`Cf-Access-Authenticated-User-Email` header or `Cf-Access-Jwt-Assertion` JWT).
+- Returns `403` when the operator email is not in `OPERATOR_ALLOWLIST` (when the allowlist is non-empty).
+- Local-dev fallback: when `AUTH_REQUIRED=false`, returns a synthetic `local-operator@local.aep` identity.
+- `OperatorIdentity.permissions` defaults to `["product.lifecycle.request"]`; admin permissions require the email to be listed in `OPERATOR_ADMIN_EMAILS`.
+
+```json
+{
+  "operator": {
+    "operatorId": "operator:alice",
+    "email": "alice@example.com",
+    "name": "Alice Example",
+    "picture": "https://cdn.example.com/alice.jpg",
+    "provider": "google",
+    "permissions": ["product.lifecycle.request"]
+  }
+}
+```
+
 ### System
 
 `GET /healthz`

@@ -78,6 +78,7 @@ import {
   delegateTaskFromThread,
   fulfillStaffingRequest,
   getApiBaseUrl,
+  getAuthMe,
   getEmployeeContinuityOverview,
   getEmployeeControlOverview,
   getEmployeeEffectivePolicy,
@@ -130,6 +131,7 @@ import type {
   EmployeePublicLink,
   OrgPresenceOverview,
   PageSize,
+  OperatorIdentity,
   ProductLifecycleAction,
   TeamLoopResult,
   TenantSummary,
@@ -184,6 +186,7 @@ let lastRenderCompletedAt: number | null = null;
 let lastAutoRefreshAt: number | null = null;
 let activeRenderCount = 0;
 let latestTeamLoopResults: TeamLoopResult[] = [];
+let authenticatedOperator: OperatorIdentity | null = null;
 
 type Route =
   | { kind: "tenant"; tenantId: string }
@@ -2177,6 +2180,14 @@ async function renderRoute(): Promise<void> {
       !homeTenantId &&
       !orgHashes.includes(window.location.hash.replace(/^#/, ""))
     ) {
+      if (!authenticatedOperator) {
+        try {
+          authenticatedOperator = (await getAuthMe()).operator;
+        } catch {
+          authenticatedOperator = null;
+        }
+      }
+
       const content = `
         ${renderToolbar({
           autoRefresh: getAutoRefreshEnabled(),
@@ -2186,6 +2197,7 @@ async function renderRoute(): Promise<void> {
           lastRefreshedLabel: formatRefreshAge(lastRenderCompletedAt),
           lastAutoRefreshLabel: lastAutoRefreshAt ? formatRefreshAge(lastAutoRefreshAt) : null,
           isRefreshing: false,
+          operator: authenticatedOperator,
         })}
         ${renderPrimaryNav({
           activeView: "tenant",
@@ -2214,6 +2226,7 @@ async function renderRoute(): Promise<void> {
       lastRefreshedLabel: formatRefreshAge(lastRenderCompletedAt),
       lastAutoRefreshLabel: lastAutoRefreshAt ? formatRefreshAge(lastAutoRefreshAt) : null,
       isRefreshing: false,
+      operator: authenticatedOperator,
     });
 
     content += renderPrimaryNav({

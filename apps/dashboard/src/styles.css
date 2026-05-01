@@ -131,6 +131,32 @@ button:disabled {
   align-items: center;
 }
 
+.operator-identity {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.45);
+}
+
+.operator-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  object-fit: cover;
+}
+
+.operator-avatar-fallback {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(99, 102, 241, 0.22);
+  color: #c7d2fe;
+  font-weight: 700;
+}
+
 .checkbox-label {
   display: inline-flex;
   align-items: center;

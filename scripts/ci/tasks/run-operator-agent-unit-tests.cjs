@@ -12,6 +12,8 @@ const TSX_TSCONFIG_PATH = join(REPO_ROOT, "core", "control-plane", "tsconfig.jso
 const TEST_FILES = [
   "core/control-plane/src/routes/validation-smoke.test.ts",
   "core/operator-agent/src/lib/employee-persona-generator.test.ts",
+  "core/operator-agent/src/auth/cloudflare-access.test.ts",
+  "core/operator-agent/src/auth/operator-identity.test.ts",
   "core/operator-agent/src/lib/implementation-binding-registry.test.ts",
   "core/operator-agent/src/lib/employee-cognition.test.ts",
   "core/operator-agent/src/persistence/d1/runtime-employee-resolver-d1.test.ts",

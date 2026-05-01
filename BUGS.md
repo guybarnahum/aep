@@ -247,7 +247,7 @@ Each bug follows this schema:
   8. Confirm `Approved approvals ready to execute (1)` selector shows `approval_<id> — retire → archived`
   9. Execute the lifecycle
   10. Confirm initiative status transitions to `archived`
-- **Status**: fixed (pending QA)
+- **Status**: fixed ✓
 
 ---
 

@@ -282,6 +282,7 @@ import type {
   RoleJobDescriptionProjection,
   RoleGapRecord,
   RuntimeRolePolicyRecord,
+  OperatorIdentity,
   ProjectRecord,
   ProductInterventionAction,
   ProductVisibilitySummary,
@@ -1224,6 +1225,7 @@ export function renderToolbar(args: {
   lastRefreshedLabel?: string | null;
   lastAutoRefreshLabel?: string | null;
   isRefreshing?: boolean;
+  operator?: OperatorIdentity | null;
 }): string {
   return `
     <section class="panel toolbar-panel">
@@ -1268,6 +1270,7 @@ export function renderToolbar(args: {
         </div>
 
         <div class="toolbar-group toolbar-actions">
+          ${args.operator ? renderOperatorIdentity(args.operator) : ""}
           <label class="checkbox-label">
             <input id="auto-refresh-toggle" type="checkbox" ${args.autoRefresh ? "checked" : ""} />
             <span>Auto-refresh while visible (15s)</span>
@@ -1276,6 +1279,21 @@ export function renderToolbar(args: {
         </div>
       </div>
     </section>
+  `;
+}
+
+function renderOperatorIdentity(operator: OperatorIdentity): string {
+  const label = operator.name || operator.email;
+  return `
+    <div class="operator-identity" title="${escapeHtml(operator.email)}">
+      ${operator.picture
+        ? `<img class="operator-avatar" src="${escapeHtml(operator.picture)}" alt="" />`
+        : `<span class="operator-avatar operator-avatar-fallback">${escapeHtml(label.slice(0, 1).toUpperCase())}</span>`}
+      <span>
+        <strong>${escapeHtml(label)}</strong>
+        <span class="muted small">${escapeHtml(operator.operatorId)}</span>
+      </span>
+    </div>
   `;
 }
 

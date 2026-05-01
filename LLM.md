@@ -32,6 +32,8 @@ Endpoint documentation note for future LLM sessions:
 - dashboard and ops-console may use localhost defaults only in Vite local-dev builds
 - deployed frontend builds must require explicit public base URL configuration
 - missing deployed frontend URL config should fail loudly rather than silently pointing at localhost
+- operator identity is resolved from Cloudflare Access; AUTH_REQUIRED=false enables local-dev fallback only; all other environments must present the Cf-Access-Authenticated-User-Email header or a valid Cf-Access-Jwt-Assertion or the response is 401
+- operator permissions default to product.lifecycle.request; admin permissions require explicit OPERATOR_ADMIN_EMAILS env var; OPERATOR_ALLOWLIST controls who may access when non-empty (empty = allow all authenticated operators)
 - Slack and email are adapters only; AEP canonical state remains the source of truth for tasks, approvals, escalations, canonical message threads, evidence, and rationale
 - mirroring uses three layers: secrets such as `SLACK_MIRROR_WEBHOOK_URL`, per-environment delivery targets such as `MIRROR_DEFAULT_SLACK_CHANNEL` and `MIRROR_ESCALATIONS_EMAIL_GROUP`, and D1-backed routing policy that maps canonical context to logical target keys
 - do not commit placeholder live recipients such as `example.com`
@@ -1130,6 +1132,27 @@ CI guard:
 ```bash
 npm run ci:manual-tutorial-readiness-contract-check
 ```
+
+### PR-AUTH-1 - Dashboard Operator Identity
+
+PR-AUTH-1 surfaces the authenticated operator's identity in the dashboard toolbar
+using Cloudflare Access.
+
+Implemented:
+
+- `GET /agent/auth/me` — resolves Cloudflare Access identity to `OperatorIdentity`
+- `getCloudflareAccessIdentity` — extracts identity from Access email header, JWT fallback, or local-dev fallback
+- `resolveOperatorIdentity` — maps email to `operatorId`, applies allowlist guard and admin permission set
+- dashboard `getAuthMe()` API helper and `renderOperatorIdentity()` toolbar widget
+- `OperatorPermission`, `OperatorIdentity`, `AuthMeResponse` types in dashboard
+
+Boundaries:
+
+- `/agent/auth/me` fails closed 401 when no Access identity is present
+- `AUTH_REQUIRED=false` local-dev fallback must not appear in staging or production wrangler config
+- OPERATOR_ALLOWLIST empty = allow all authenticated operators; non-empty = strict allowlist
+- OPERATOR_ADMIN_EMAILS controls the admin permission set; default operators receive product.lifecycle.request only
+- dashboard toolbar displays operator name/avatar but does not gate UI actions on permissions
 
 ### PR27 - Tutorial Flow Closure
 

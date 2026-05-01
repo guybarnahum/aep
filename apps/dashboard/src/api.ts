@@ -36,6 +36,7 @@ import type {
   ProductLifecycleExecutionResponse,
   ProductLifecycleRequestResponse,
   ProductSignalResponse,
+  AuthMeResponse,
   ProjectTaskGraphTaskInput,
   TaskDetail,
   TaskRecord,
@@ -670,6 +671,10 @@ export async function getProductInitiatives(): Promise<ProjectRecord[]> {
     "/agent/projects?limit=100",
   );
   return (payload.projects ?? []).filter((project) => Boolean(project.initiativeKind));
+}
+
+export async function getAuthMe(): Promise<AuthMeResponse> {
+  return getJson<AuthMeResponse>(getOperatorAgentBaseUrl(), "/agent/auth/me");
 }
 
 export async function createProductInitiative(input: {
