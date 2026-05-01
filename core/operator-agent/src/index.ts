@@ -117,7 +117,8 @@ import type { OperatorAgentEnv } from "./types";
 const CORS_HEADERS: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, PATCH, PUT, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type",
+  "Access-Control-Allow-Headers": "Content-Type, Cf-Access-Jwt-Assertion",
+  "Access-Control-Allow-Credentials": "true",
 };
 
 function withCors(response: Response): Response {
