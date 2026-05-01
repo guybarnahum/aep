@@ -107,6 +107,7 @@ import { handleSeedApproval } from "./routes/te-seed-approval";
 import { handlePurgeEmployee } from "./routes/te-purge-employee";
 import { handleSeedWorkLog } from "./routes/te-seed-work-log";
 import { handlePurgeCiArtifacts } from "./routes/te-purge-ci-artifacts";
+import { handlePurgeProjects } from "./routes/te-purge-projects";
 import { handleWorkLog } from "./routes/work-log";
 import { handleScheduledCron } from "./triggers/scheduled";
 import { TaskTypeValidationError } from "./lib/task-contracts";
@@ -789,6 +790,10 @@ async function dispatch(request: Request, env: OperatorAgentEnv, ctx: ExecutionC
 
   if (url.pathname === "/agent/te/purge-ci-artifacts" && request.method === "POST") {
     return handlePurgeCiArtifacts(request, env);
+  }
+
+  if (url.pathname === "/agent/te/purge-projects" && request.method === "POST") {
+    return handlePurgeProjects(request, env);
   }
 
   if (

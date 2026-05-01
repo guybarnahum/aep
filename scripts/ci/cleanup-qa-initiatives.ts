@@ -49,6 +49,16 @@ interface LifecycleExecuteResponse {
   project: { id: string; status: string };
 }
 
+interface PurgeProjectsResponse {
+  ok: boolean;
+  purgedCount: number;
+  skippedCount: number;
+  failedCount: number;
+  purged: string[];
+  skipped: Array<{ projectId: string; outcome: "skipped"; reason: string }>;
+  failed: Array<{ projectId: string; outcome: "failed"; reason: string }>;
+}
+
 // ---------------------------------------------------------------------------
 // HTTP helpers
 // ---------------------------------------------------------------------------
@@ -103,6 +113,67 @@ function isOlderThan(project: ProjectRecord, hours: number): boolean {
 
 function isRetirable(project: ProjectRecord): boolean {
   return ["active", "paused"].includes(project.status);
+}
+
+function isPurgeable(project: ProjectRecord): boolean {
+  return project.status === "archived";
+}
+
+// ---------------------------------------------------------------------------
+// Purge flow (hard delete — only archived projects)
+// ---------------------------------------------------------------------------
+
+const PURGE_BATCH_SIZE = 50;
+
+async function purgeInitiatives(
+  baseUrl: string,
+  token: string,
+  projects: ProjectRecord[],
+  dryRun: boolean,
+): Promise<{ purged: number; skipped: number; failed: number }> {
+  if (dryRun) {
+    for (const p of projects) {
+      console.log(`  [dry-run] would purge: ${p.id} (${p.title})`);
+    }
+    return { purged: 0, skipped: projects.length, failed: 0 };
+  }
+
+  let purged = 0;
+  let skipped = 0;
+  let failed = 0;
+
+  for (let i = 0; i < projects.length; i += PURGE_BATCH_SIZE) {
+    const batch = projects.slice(i, i + PURGE_BATCH_SIZE);
+    const projectIds = batch.map((p) => p.id);
+
+    try {
+      const res = (await apiPost(
+        baseUrl,
+        "/agent/te/purge-projects",
+        { projectIds },
+        token,
+      )) as PurgeProjectsResponse;
+
+      purged += res.purgedCount;
+      skipped += res.skippedCount;
+      failed += res.failedCount;
+
+      for (const p of res.purged) {
+        console.log(`  Purged: ${p}`);
+      }
+      for (const s of res.skipped) {
+        console.warn(`  Skipped ${s.projectId}: ${s.reason}`);
+      }
+      for (const f of res.failed) {
+        console.error(`  FAILED ${f.projectId}: ${f.reason}`);
+      }
+    } catch (err) {
+      console.error(`  FAILED batch [${projectIds.join(", ")}]: ${String(err)}`);
+      failed += batch.length;
+    }
+  }
+
+  return { purged, skipped, failed };
 }
 
 // ---------------------------------------------------------------------------
@@ -218,16 +289,8 @@ async function main(): Promise<void> {
     console.warn("[cleanup-qa-initiatives] Targeting production with dry-run=true — proceeding in dry-run mode only.");
   }
 
-  if (mode === "purge") {
-    console.error(
-      "[cleanup-qa-initiatives] purge mode requires a canonical purge endpoint. " +
-        "No such endpoint exists yet — aborting. Use mode=retire instead.",
-    );
-    process.exit(1);
-  }
-
-  if (mode !== "retire") {
-    console.error(`[cleanup-qa-initiatives] Unsupported mode: ${mode}. Use 'retire'.`);
+  if (mode !== "retire" && mode !== "purge") {
+    console.error(`[cleanup-qa-initiatives] Unsupported mode: ${mode}. Use 'retire' or 'purge'.`);
     process.exit(1);
   }
 
@@ -255,6 +318,40 @@ async function main(): Promise<void> {
   const matched = allProjects.filter(
     (p) => isQaInitiative(p, titlePrefix) && isOlderThan(p, olderThanHours),
   );
+
+  // --- Purge mode: hard-delete already-archived (retired) QA initiatives ---
+  if (mode === "purge") {
+    const toPurge = matched.filter(isPurgeable);
+    const notPurgeable = matched.filter((p) => !isPurgeable(p));
+
+    console.log(`Matched ${matched.length} QA initiatives (${toPurge.length} purgeable, ${notPurgeable.length} not archived):`);
+    for (const p of toPurge) {
+      console.log(`  • ${p.id}  status=${p.status}  "${p.title}"`);
+    }
+    if (notPurgeable.length > 0) {
+      console.log(`\nNot archived (skipping — purge only targets archived projects):`);
+      for (const p of notPurgeable) {
+        console.log(`  • ${p.id}  status=${p.status}  "${p.title}"`);
+      }
+    }
+    console.log("");
+
+    if (toPurge.length === 0) {
+      console.log("[cleanup-qa-initiatives] No purgeable QA initiatives found — nothing to do.");
+      printSummary({ matched: matched.length, actioned: 0, skipped: matched.length, failed: 0, mode, dryRun });
+      return;
+    }
+
+    const { purged, skipped, failed } = await purgeInitiatives(baseUrl, token, toPurge, dryRun);
+    console.log("");
+    printSummary({ matched: matched.length, actioned: purged, skipped: skipped + notPurgeable.length, failed, mode, dryRun });
+    if (failed > 0) {
+      process.exit(1);
+    }
+    return;
+  }
+
+  // --- Retire mode (default) ---
   const toRetire = matched.filter(isRetirable);
   const alreadyRetired = matched.filter((p) => !isRetirable(p));
 
@@ -272,7 +369,7 @@ async function main(): Promise<void> {
 
   if (toRetire.length === 0) {
     console.log("[cleanup-qa-initiatives] No retirable QA initiatives found — nothing to do.");
-    printSummary({ matched: matched.length, retired: 0, skipped: matched.length, failed: 0, dryRun });
+    printSummary({ matched: matched.length, actioned: 0, skipped: matched.length, failed: 0, mode, dryRun });
     return;
   }
 
@@ -293,7 +390,7 @@ async function main(): Promise<void> {
   }
 
   console.log("");
-  printSummary({ matched: matched.length, retired, skipped, failed, dryRun });
+  printSummary({ matched: matched.length, actioned: retired, skipped, failed, mode, dryRun });
 
   if (failed > 0) {
     process.exit(1);
@@ -302,16 +399,18 @@ async function main(): Promise<void> {
 
 function printSummary(args: {
   matched: number;
-  retired: number;
+  actioned: number;
   skipped: number;
   failed: number;
+  mode: string;
   dryRun: boolean;
 }): void {
+  const actionLabel = args.mode === "purge" ? "purged" : "retired";
   console.log("[cleanup-qa-initiatives] Summary");
-  console.log(`  matched:  ${args.matched}`);
-  console.log(`  retired:  ${args.retired}${args.dryRun ? " (dry-run)" : ""}`);
-  console.log(`  skipped:  ${args.skipped}`);
-  console.log(`  failed:   ${args.failed}`);
+  console.log(`  matched:   ${args.matched}`);
+  console.log(`  ${actionLabel}:   ${args.actioned}${args.dryRun ? " (dry-run)" : ""}`);
+  console.log(`  skipped:   ${args.skipped}`);
+  console.log(`  failed:    ${args.failed}`);
 }
 
 main().catch((err) => {
