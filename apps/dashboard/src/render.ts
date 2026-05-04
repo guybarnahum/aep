@@ -190,7 +190,7 @@ function renderPackedRoleGapSources(row: PackedRoleGapRow): string {
   }
 
   return `
-    <details class="inline-details">
+    <details class="inline-details" open>
       <summary>${escapeHtml(row.sources.length)} sources</summary>
       <div class="source-list source-list-scroll">
         ${row.sources.map(renderSourceItem).join("")}
