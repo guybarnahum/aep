@@ -1556,3 +1556,19 @@ button:disabled {
   color: #c7d2fe;
   font-size: 12px;
 }
+
+.runtime-health-card {
+  border-color: rgba(148, 163, 184, 0.32);
+}
+
+.runtime-health-detail {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(148, 163, 184, 0.25);
+}
+
+.runtime-health-errors {
+  margin: 8px 0 0;
+  padding-left: 20px;
+  color: #fca5a5;
+}

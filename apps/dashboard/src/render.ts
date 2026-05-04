@@ -2404,6 +2404,7 @@ export function renderProductInitiativeDetail(summary: ProductVisibilitySummary,
         <h3>Product operator controls</h3>
         <p class="muted small">These controls call canonical AEP routes only. They do not mutate dashboard-owned state.</p>
         <div class="product-control-grid">
+          ${renderRuntimeHealthPanel(summary, lastTeamLoopResult)}
           ${renderExecutionControls(summary, lastTeamLoopResult)}
           ${renderDeploymentControls(summary)}
           ${renderLifecycleControls(summary)}
@@ -2627,6 +2628,121 @@ function renderLifecycleControls(summary: ProductVisibilitySummary): string {
         <input name="executedByEmployeeId" placeholder="Executed by employee ID" />
         <button class="button button-small" type="submit" ${lifecycleApproved.length === 0 ? "disabled" : ""}>Execute lifecycle action</button>
       </form>
+    </article>
+  `;
+}
+
+function getRuntimeHealthStatus(args: {
+  summary: ProductVisibilitySummary;
+  lastTeamLoopResult?: TeamLoopResult;
+}): {
+  status: "healthy" | "waiting" | "error";
+  title: string;
+  message: string;
+  readyCount: number;
+  queuedCount: number;
+  blockedCount: number;
+  errorMessages: string[];
+} {
+  const activeTasks = args.summary.tasks.active;
+  const recentTasks = args.summary.tasks.recent;
+  const allVisibleTasks = [...activeTasks, ...recentTasks];
+
+  const readyCount = allVisibleTasks.filter((task) => task.status === "ready").length;
+  const queuedCount = allVisibleTasks.filter((task) => task.status === "queued").length;
+  const blockedCount = allVisibleTasks.filter((task) => task.status === "blocked").length;
+  const errorMessages = Array.from(
+    new Set(
+      allVisibleTasks
+        .map((task) => task.errorMessage)
+        .filter((value): value is string => Boolean(value && value.trim())),
+    ),
+  );
+
+  if (errorMessages.length > 0) {
+    return {
+      status: "error",
+      title: "Runtime error",
+      message: `${errorMessages.length} task error${errorMessages.length === 1 ? "" : "s"} detected.`,
+      readyCount,
+      queuedCount,
+      blockedCount,
+      errorMessages,
+    };
+  }
+
+  const lastResult = args.lastTeamLoopResult;
+
+  if (lastResult?.status === "executed_task") {
+    return {
+      status: "healthy",
+      title: "Runtime healthy",
+      message: lastResult.message,
+      readyCount,
+      queuedCount,
+      blockedCount,
+      errorMessages: [],
+    };
+  }
+
+  if (readyCount > 0 || queuedCount > 0) {
+    return {
+      status: "waiting",
+      title: "Runtime waiting",
+      message: lastResult
+        ? `Last loop: ${lastResult.message}`
+        : `${readyCount + queuedCount} task(s) ready but no recent worker activity.`,
+      readyCount,
+      queuedCount,
+      blockedCount,
+      errorMessages: [],
+    };
+  }
+
+  return {
+    status: "healthy",
+    title: "Runtime idle",
+    message: lastResult ? lastResult.message : "No active tasks.",
+    readyCount,
+    queuedCount,
+    blockedCount,
+    errorMessages: [],
+  };
+}
+
+function renderRuntimeHealthPanel(
+  summary: ProductVisibilitySummary,
+  lastTeamLoopResult?: TeamLoopResult,
+): string {
+  const health = getRuntimeHealthStatus({ summary, lastTeamLoopResult });
+
+  const statusCls =
+    health.status === "healthy"
+      ? "status-completed"
+      : health.status === "error"
+        ? "status-failed"
+        : "status-waiting";
+
+  const errorBlock =
+    health.errorMessages.length > 0
+      ? `<ul class="runtime-health-errors">${health.errorMessages.map((msg) => `<li>${escapeHtml(msg)}</li>`).join("")}</ul>`
+      : "";
+
+  return `
+    <article class="work-card runtime-health-card">
+      <div class="work-card-top">
+        <h4>${escapeHtml(health.title)}</h4>
+        <span class="status ${statusCls}">${health.status}</span>
+      </div>
+      <p class="muted small">${escapeHtml(health.message)}</p>
+      <div class="runtime-health-detail">
+        <div class="meta-grid">
+          ${renderCompactPill("Ready", health.readyCount)}
+          ${renderCompactPill("Queued", health.queuedCount)}
+          ${renderCompactPill("Blocked", health.blockedCount)}
+        </div>
+        ${errorBlock}
+      </div>
     </article>
   `;
 }

@@ -203,7 +203,8 @@ Each bug follows this schema:
   1. Open initiative with ready tasks
   2. Confirm dashboard explains whether runtime is active
   3. Confirm failures are visible without inspecting backend logs
-- **Status**: open
+- **Fix Applied**: Added `getRuntimeHealthStatus()` + `renderRuntimeHealthPanel()` to `render.ts`. Panel rendered as the first card in the Product operator controls grid, showing health status, ready/queued/blocked counts, and any task error messages.
+- **Status**: fixed (pending QA)
 
 ---
 
