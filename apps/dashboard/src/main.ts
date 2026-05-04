@@ -163,6 +163,7 @@ import {
   renderWorkOverview,
 } from "./render";
 import "./styles.css";
+import { openDashboardDialog } from "./dialog";
 
 const app: HTMLDivElement = (() => {
   const node = document.querySelector<HTMLDivElement>("#app");
@@ -956,8 +957,49 @@ async function handleCreateStaffingRequestFromGap(target: HTMLElement): Promise<
   const roleId = target.dataset.roleId ?? "";
   const teamId = target.dataset.teamId ?? "";
   const reason = target.dataset.reason ?? "role gap";
-  const requestedByEmployeeId = await promptForExistingEmployeeId("Requested by employee?");
-  if (!roleId || !teamId || !requestedByEmployeeId) return;
+  const sourceCount = target.dataset.sourceCount ?? "1";
+  if (!roleId || !teamId) return;
+
+  const overview = await getDepartmentOverview();
+
+  const dialog = await openDashboardDialog({
+    title: "Request hire",
+    description: `Create one canonical staffing request for ${roleId} on ${teamId}, covering ${sourceCount} detected source${sourceCount === "1" ? "" : "s"}.`,
+    submitLabel: "Create request",
+    fields: [
+      {
+        kind: "select",
+        name: "requestedByEmployeeId",
+        label: "Requested by",
+        required: true,
+        options: overview.employees.map((employee) => ({
+          value: employee.identity.employeeId,
+          label: `${employee.identity.employeeId} — ${
+            employee.publicProfile?.displayName ?? employee.identity.employeeId
+          } (${employee.identity.roleId}, ${employee.identity.teamId})`,
+        })),
+      },
+      {
+        kind: "select",
+        name: "urgency",
+        label: "Urgency",
+        value: "normal",
+        options: ["low", "normal", "high", "critical"].map((value) => ({
+          value,
+          label: value,
+        })),
+      },
+      {
+        kind: "textarea",
+        name: "reason",
+        label: "Reason",
+        value: `Staffing gap covering ${sourceCount} detected source${sourceCount === "1" ? "" : "s"}: ${reason}`,
+        required: true,
+      },
+    ],
+  });
+
+  if (!dialog) return;
 
   try {
     setMutationStatus(`Creating staffing request for ${roleId}...`);
@@ -965,9 +1007,9 @@ async function handleCreateStaffingRequestFromGap(target: HTMLElement): Promise<
     await createStaffingRequest({
       roleId,
       teamId,
-      reason: `Staffing gap: ${reason}`,
-      urgency: "normal",
-      requestedByEmployeeId,
+      reason: dialog.reason,
+      urgency: dialog.urgency as "low" | "normal" | "high" | "critical",
+      requestedByEmployeeId: dialog.requestedByEmployeeId,
       source: { kind: "role", roleId },
       status: "submitted",
     });

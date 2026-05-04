@@ -15,6 +15,7 @@ const PURGE_TABLE_ORDER = [
   "employee_prompt_profiles",
   "employee_personas",
   "employee_employment_events",
+  "staffing_requests",
   "task_reassignments",
   "employees_catalog",
   "message_mirror_deliveries",
@@ -352,6 +353,45 @@ export async function handlePurgeCiArtifacts(
               )`,
         )
         .bind(ciActorPrefix, ciActorPrefix)
+        .run();
+      deletedCount = result.meta?.changes ?? 0;
+    } else if (table === "staffing_requests") {
+      const result = await db
+        .prepare(
+          `DELETE FROM staffing_requests
+           WHERE requested_by_employee_id LIKE ?
+              OR approved_by_employee_id LIKE ?
+              OR fulfilled_employee_id IN (
+                SELECT id FROM employees_catalog
+                WHERE created_by_employee_id LIKE ?
+                   OR is_synthetic = 1
+              )
+              OR source_id IN (
+                SELECT id FROM tasks
+                WHERE created_by_employee_id LIKE ?
+                   OR json_extract(payload, '$.__ci.runId') = ?
+              )
+              OR source_id IN (
+                SELECT id FROM projects
+                WHERE created_by_employee_id LIKE ?
+                   OR intake_request_id IN (
+                     SELECT id FROM intake_requests
+                     WHERE requested_by LIKE ?
+                        OR source = 'ci'
+                   )
+              )
+              OR reason LIKE ?`,
+        )
+        .bind(
+          ciActorPrefix,
+          ciActorPrefix,
+          ciActorPrefix,
+          ciActorPrefix,
+          runId,
+          ciActorPrefix,
+          ciActorPrefix,
+          `%${runId}%`,
+        )
         .run();
       deletedCount = result.meta?.changes ?? 0;
     } else if (table === "task_reassignments") {

@@ -125,41 +125,118 @@ function renderRoadmapsTable(roadmaps: TeamRoadmap[]): string {
   `;
 }
 
+type PackedRoleGapRow = {
+  roleId: string;
+  teamId: string;
+  state: string;
+  reasons: string[];
+  sources: Array<{
+    reason: string;
+    source: Record<string, string>;
+    roleGapId: string;
+  }>;
+};
+
+function packRoleGapsByRoleTeam(gaps: RoleGapRecord[]): PackedRoleGapRow[] {
+  const grouped = new Map<string, PackedRoleGapRow>();
+
+  for (const gap of gaps) {
+    const key = `${gap.roleId}::${gap.teamId}`;
+    const existing =
+      grouped.get(key) ??
+      {
+        roleId: gap.roleId,
+        teamId: gap.teamId,
+        state: gap.state,
+        reasons: [],
+        sources: [],
+      };
+
+    if (!existing.reasons.includes(gap.reason)) {
+      existing.reasons.push(gap.reason);
+    }
+
+    existing.sources.push({
+      reason: gap.reason,
+      source: gap.source,
+      roleGapId: gap.roleGapId,
+    });
+
+    grouped.set(key, existing);
+  }
+
+  return [...grouped.values()].sort((left, right) => {
+    const roleCompare = left.roleId.localeCompare(right.roleId);
+    return roleCompare !== 0 ? roleCompare : left.teamId.localeCompare(right.teamId);
+  });
+}
+
+function renderPackedRoleGapSources(row: PackedRoleGapRow): string {
+  if (row.sources.length === 0) {
+    return "—";
+  }
+
+  return `
+    <details class="inline-details">
+      <summary>${escapeHtml(row.sources.length)} source${row.sources.length === 1 ? "" : "s"}</summary>
+      <div class="source-list">
+        ${row.sources
+          .map(
+            (entry) => `
+              <div class="source-list-item">
+                <div class="muted small">${escapeHtml(entry.reason)} · ${escapeHtml(entry.roleGapId)}</div>
+                <pre class="inline-json">${escapeHtml(JSON.stringify(entry.source, null, 2))}</pre>
+              </div>
+            `,
+          )
+          .join("")}
+      </div>
+    </details>
+  `;
+}
+
 function renderStaffingGapsTable(gaps: RoleGapRecord[]): string {
   if (gaps.length === 0) {
     return `<div class="empty-state small-empty">No role gaps detected.</div>`;
   }
+
+  const packedRows = packRoleGapsByRoleTeam(gaps);
 
   return `
     <table class="data-table">
       <thead>
         <tr>
           <th>State</th>
-          <th>Reason</th>
           <th>Role</th>
           <th>Team</th>
-          <th>Source</th>
+          <th>Reasons</th>
+          <th>Sources</th>
           <th>Action</th>
         </tr>
       </thead>
       <tbody>
-        ${gaps
+        ${packedRows
           .map(
-            (gap) => `
+            (row) => `
               <tr>
-                <td><span class="${statusClass(gap.state)}">${escapeHtml(gap.state)}</span></td>
-                <td>${escapeHtml(gap.reason)}</td>
-                <td>${escapeHtml(gap.roleId)}</td>
-                <td>${escapeHtml(gap.teamId)}</td>
-                <td><pre class="inline-json">${escapeHtml(JSON.stringify(gap.source))}</pre></td>
+                <td><span class="${statusClass(row.state)}">${escapeHtml(row.state)}</span></td>
+                <td>${escapeHtml(row.roleId)}</td>
+                <td>${escapeHtml(row.teamId)}</td>
+                <td>
+                  <div class="compact-pill-list">
+                    ${row.reasons.map((reason) => `<span class="compact-pill">${escapeHtml(reason)}</span>`).join("")}
+                  </div>
+                </td>
+                <td>${renderPackedRoleGapSources(row)}</td>
                 <td>
                   <button
                     type="button"
                     class="button button-small"
                     data-action="create-staffing-request-from-gap"
-                    data-role-id="${escapeHtml(gap.roleId)}"
-                    data-team-id="${escapeHtml(gap.teamId)}"
-                    data-reason="${escapeHtml(gap.reason)}"
+                    data-role-id="${escapeHtml(row.roleId)}"
+                    data-team-id="${escapeHtml(row.teamId)}"
+                    data-reason="${escapeHtml(row.reasons.join(", "))}"
+                    data-source-count="${escapeHtml(String(row.sources.length))}"
                   >
                     Request hire
                   </button>
