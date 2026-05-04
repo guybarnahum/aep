@@ -171,25 +171,29 @@ function packRoleGapsByRoleTeam(gaps: RoleGapRecord[]): PackedRoleGapRow[] {
   });
 }
 
+function renderSourceItem(entry: PackedRoleGapRow["sources"][number]): string {
+  return `
+    <div class="source-list-item">
+      <div class="muted small">${escapeHtml(entry.reason)} · ${escapeHtml(entry.roleGapId)}</div>
+      <pre class="inline-json">${escapeHtml(JSON.stringify(entry.source, null, 2))}</pre>
+    </div>
+  `;
+}
+
 function renderPackedRoleGapSources(row: PackedRoleGapRow): string {
   if (row.sources.length === 0) {
     return "—";
   }
 
+  if (row.sources.length === 1) {
+    return renderSourceItem(row.sources[0]);
+  }
+
   return `
     <details class="inline-details">
-      <summary>${escapeHtml(row.sources.length)} source${row.sources.length === 1 ? "" : "s"}</summary>
-      <div class="source-list">
-        ${row.sources
-          .map(
-            (entry) => `
-              <div class="source-list-item">
-                <div class="muted small">${escapeHtml(entry.reason)} · ${escapeHtml(entry.roleGapId)}</div>
-                <pre class="inline-json">${escapeHtml(JSON.stringify(entry.source, null, 2))}</pre>
-              </div>
-            `,
-          )
-          .join("")}
+      <summary>${escapeHtml(row.sources.length)} sources</summary>
+      <div class="source-list source-list-scroll">
+        ${row.sources.map(renderSourceItem).join("")}
       </div>
     </details>
   `;

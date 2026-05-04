@@ -1529,6 +1529,12 @@ button:disabled {
   margin-top: 8px;
 }
 
+.source-list-scroll {
+  max-height: calc(3 * (72px + 8px));
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
 .source-list-item {
   border: 1px solid rgba(148, 163, 184, 0.25);
   border-radius: 10px;
