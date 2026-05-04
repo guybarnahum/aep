@@ -396,6 +396,34 @@ function escapeHtml(value: unknown): string {
     .replaceAll("'", "&#39;");
 }
 
+function renderEmployeeSelect(
+  nameAttr: string,
+  employees: OperatorEmployeeRecord[],
+  opts: {
+    required?: boolean;
+    useIdAttr?: boolean;
+    className?: string;
+    blankLabel?: string;
+  } = {},
+): string {
+  const required = opts.required ?? false;
+  const blankLabel = opts.blankLabel ?? (required ? "Select employee…" : "— none —");
+  const idPart = opts.useIdAttr ? ` id="${escapeHtml(nameAttr)}"` : "";
+  const namePart = ` name="${escapeHtml(nameAttr)}"`;
+  const classPart = opts.className ? ` class="${escapeHtml(opts.className)}"` : "";
+  const requiredPart = required ? " required" : "";
+  const options = employees
+    .map((e) => {
+      const id = e.identity.employeeId;
+      const display = e.publicProfile?.displayName ?? id;
+      const role = e.identity.roleId;
+      const team = e.identity.teamId;
+      return `<option value="${escapeHtml(id)}">${escapeHtml(id)} — ${escapeHtml(display)} (${escapeHtml(role)}, ${escapeHtml(team)})</option>`;
+    })
+    .join("");
+  return `<select${idPart}${namePart}${classPart}${requiredPart}><option value="">${escapeHtml(blankLabel)}</option>${options}</select>`;
+}
+
 function statusClass(status: string | null | undefined): string {
   switch (status) {
     case "executed_task":
@@ -2135,7 +2163,7 @@ function defaultTaskGraphJson(): string {
   ));
 }
 
-function renderIntakeCard(intake: IntakeRequestRecord): string {
+function renderIntakeCard(intake: IntakeRequestRecord, employees: OperatorEmployeeRecord[]): string {
   const canConvert = intake.status !== "converted" && intake.status !== "rejected";
 
   return `
@@ -2158,7 +2186,7 @@ function renderIntakeCard(intake: IntakeRequestRecord): string {
             <form class="stacked-form" data-action="convert-intake">
               <input type="hidden" name="intakeId" value="${escapeHtml(intake.id)}" />
               <label>Converted by employee ID
-                <input name="convertedByEmployeeId" placeholder="live employee id" required />
+                ${renderEmployeeSelect("convertedByEmployeeId", employees, { required: true })}
               </label>
               <label>Owner team
                 <select name="ownerTeamId">
@@ -2185,7 +2213,7 @@ function renderIntakeCard(intake: IntakeRequestRecord): string {
   `;
 }
 
-function renderProjectCard(project: ProjectRecord): string {
+function renderProjectCard(project: ProjectRecord, employees: OperatorEmployeeRecord[]): string {
   return `
     <article class="card">
       <div class="card-header">
@@ -2204,7 +2232,7 @@ function renderProjectCard(project: ProjectRecord): string {
       <form class="stacked-form" data-action="create-project-task-graph">
         <input type="hidden" name="projectId" value="${escapeHtml(project.id)}" />
         <label>Created by employee ID
-          <input name="createdByEmployeeId" placeholder="live employee id" required />
+          ${renderEmployeeSelect("createdByEmployeeId", employees, { required: true })}
         </label>
         <label>Public rationale
           <textarea name="rationale" rows="2">Initial task graph for this project.</textarea>
@@ -2220,6 +2248,7 @@ function renderProjectCard(project: ProjectRecord): string {
 
 export function renderIntakeProjectsOverview(
   overview: CompanyWorkIntakeOverview,
+  employees: OperatorEmployeeRecord[],
 ): string {
   return `
     <main>
@@ -2257,7 +2286,7 @@ export function renderIntakeProjectsOverview(
         <div class="card-grid">
           ${
             overview.intake.length > 0
-              ? overview.intake.map(renderIntakeCard).join("")
+              ? overview.intake.map((intake) => renderIntakeCard(intake, employees)).join("")
               : `<p class="muted">No intake requests yet.</p>`
           }
         </div>
@@ -2268,7 +2297,7 @@ export function renderIntakeProjectsOverview(
         <div class="card-grid">
           ${
             overview.projects.length > 0
-              ? overview.projects.map(renderProjectCard).join("")
+              ? overview.projects.map((project) => renderProjectCard(project, employees)).join("")
               : `<p class="muted">No projects yet.</p>`
           }
         </div>
@@ -2286,7 +2315,7 @@ const PRODUCT_INTERVENTION_ACTIONS: ProductInterventionAction[] = [
   "pause_for_human_review",
 ];
 
-export function renderProductInitiativesOverview(projects: ProjectRecord[]): string {
+export function renderProductInitiativesOverview(projects: ProjectRecord[], employees: OperatorEmployeeRecord[]): string {
   return `
     <main>
       <section class="panel">
@@ -2299,7 +2328,7 @@ export function renderProductInitiativesOverview(projects: ProjectRecord[]): str
 
         <form class="form-grid" id="create-product-initiative-form">
           <input name="title" placeholder="Initiative title" required />
-          <input name="createdByEmployeeId" placeholder="Created by employee ID" />
+          ${renderEmployeeSelect("createdByEmployeeId", employees, { blankLabel: "Created by (optional)" })}
           <select name="initiativeKind">
             <option value="marketing_site">Marketing site</option>
             <option value="customer_intake_surface">Customer intake surface</option>
@@ -2324,7 +2353,7 @@ export function renderProductInitiativesOverview(projects: ProjectRecord[]): str
         <p class="muted small">Manual path for TUTORIAL.md: create intake, then convert it to a product initiative.</p>
         <form class="form-grid" id="create-product-intake-form">
           <input name="title" placeholder="Intake title" value="AEP Marketing Website" required />
-          <input name="requestedBy" placeholder="Requested by employee ID" required />
+          ${renderEmployeeSelect("requestedBy", employees, { required: true, blankLabel: "Requested by employee…" })}
           <textarea name="description" placeholder="Goal, audience, constraints" required></textarea>
           <button class="button" type="submit">Create intake</button>
         </form>
@@ -2361,7 +2390,7 @@ export function renderProductInitiativesOverview(projects: ProjectRecord[]): str
   `;
 }
 
-export function renderProductInitiativeDetail(summary: ProductVisibilitySummary, lastTeamLoopResult?: TeamLoopResult): string {
+export function renderProductInitiativeDetail(summary: ProductVisibilitySummary, lastTeamLoopResult?: TeamLoopResult, employees: OperatorEmployeeRecord[] = []): string {
   const project = summary.project;
   const errorMessages = Array.from(new Set(
     [...summary.tasks.active, ...summary.tasks.recent]
@@ -2406,8 +2435,8 @@ export function renderProductInitiativeDetail(summary: ProductVisibilitySummary,
         <div class="product-control-grid">
           ${renderRuntimeHealthPanel(summary, lastTeamLoopResult)}
           ${renderExecutionControls(summary, lastTeamLoopResult)}
-          ${renderDeploymentControls(summary)}
-          ${renderLifecycleControls(summary)}
+          ${renderDeploymentControls(summary, employees)}
+          ${renderLifecycleControls(summary, employees)}
           ${renderSignalControls(summary)}
         </div>
       </section>
@@ -2474,7 +2503,7 @@ export function renderProductInitiativeDetail(summary: ProductVisibilitySummary,
       <section class="panel">
         <h3>Human intervention</h3>
         <form class="form-grid" id="product-intervention-form" data-project-id="${escapeHtml(project.id)}">
-          <input name="createdByEmployeeId" placeholder="Created by employee ID" required />
+          ${renderEmployeeSelect("createdByEmployeeId", employees, { required: true, blankLabel: "Created by employee…" })}
           <select name="action">
             <option value="add_direction">Modify requirements</option>
             <option value="request_redesign">Request redesign</option>
@@ -2519,7 +2548,7 @@ export function renderProductInitiativeDetail(summary: ProductVisibilitySummary,
   `;
 }
 
-function renderDeploymentControls(summary: ProductVisibilitySummary): string {
+function renderDeploymentControls(summary: ProductVisibilitySummary, employees: OperatorEmployeeRecord[]): string {
   const deployments = summary.deployments.latest;
   const deploymentCandidates = getReadyDeploymentCandidates(summary);
   const deploymentApprovalIds = Array.from(
@@ -2542,7 +2571,7 @@ function renderDeploymentControls(summary: ProductVisibilitySummary): string {
               <option value="${escapeHtml(artifact.id)}">${escapeHtml(artifact.id)} · ${escapeHtml(artifact.artifactType)}</option>
             `).join("")}
         </select>
-        <input name="requestedByEmployeeId" placeholder="Requested by employee ID" />
+        ${renderEmployeeSelect("requestedByEmployeeId", employees, { blankLabel: "Requested by employee (optional)" })}
         <input name="environment" placeholder="Environment" value="staging" />
         <input name="approvalId" placeholder="Approval ID for external_safe candidates" />
         <button class="button button-small" type="submit" ${deploymentCandidates.length === 0 ? "disabled" : ""}>Create deployment record</button>
@@ -2555,8 +2584,8 @@ function renderDeploymentControls(summary: ProductVisibilitySummary): string {
               <option value="${escapeHtml(approvalId)}">${escapeHtml(approvalId)}</option>
             `).join("")}
         </select>
-        <input name="decidedBy" placeholder="Decided by employee ID" />
         <input name="decisionNote" placeholder="Decision note" />
+        ${renderEmployeeSelect("decidedBy", employees, { blankLabel: "Decided by employee (optional)" })}
         <div class="table-actions">
           <button class="button button-small" type="submit" name="decision" value="approve" ${deploymentApprovalIds.length === 0 ? "disabled" : ""}>Approve</button>
           <button class="button button-small button-secondary" type="submit" name="decision" value="reject" ${deploymentApprovalIds.length === 0 ? "disabled" : ""}>Reject</button>
@@ -2570,14 +2599,14 @@ function renderDeploymentControls(summary: ProductVisibilitySummary): string {
               <option value="${escapeHtml(deployment.id)}">${escapeHtml(deployment.id)} · ${escapeHtml(deployment.status)} · ${escapeHtml(deployment.externalVisibility)}</option>
             `).join("")}
         </select>
-        <input name="executedByEmployeeId" placeholder="Executed by employee ID" />
+        ${renderEmployeeSelect("executedByEmployeeId", employees, { blankLabel: "Executed by employee (optional)" })}
         <button class="button button-small" type="submit" ${deployments.length === 0 ? "disabled" : ""}>Execute deployment</button>
       </form>
     </article>
   `;
 }
 
-function renderLifecycleControls(summary: ProductVisibilitySummary): string {
+function renderLifecycleControls(summary: ProductVisibilitySummary, employees: OperatorEmployeeRecord[]): string {
   const { lifecyclePending, lifecycleApproved } = summary.approvals;
 
   const pendingOptions = lifecyclePending.length === 0
@@ -2607,7 +2636,7 @@ function renderLifecycleControls(summary: ProductVisibilitySummary): string {
           <option value="retire">Retire</option>
           <option value="transition">Transition</option>
         </select>
-        <input name="requestedByEmployeeId" placeholder="Requested by employee ID" />
+        ${renderEmployeeSelect("requestedByEmployeeId", employees, { blankLabel: "Requested by employee (optional)" })}
         <input name="reason" placeholder="Reason" />
         <input name="targetState" placeholder="Target state for transition, optional" />
         <button class="button button-small" type="submit">Request lifecycle action</button>
@@ -2615,8 +2644,8 @@ function renderLifecycleControls(summary: ProductVisibilitySummary): string {
       <form class="compact-form" data-form="decide-lifecycle-approval">
         <p class="muted small">Pending approvals (${lifecyclePending.length})</p>
         <select name="approvalId" ${lifecyclePending.length === 0 ? "disabled" : ""}>${pendingOptions}</select>
-        <input name="decidedBy" placeholder="Decided by employee ID" />
         <input name="decisionNote" placeholder="Decision note" />
+        ${renderEmployeeSelect("decidedBy", employees, { blankLabel: "Decided by employee (optional)" })}
         <div class="table-actions">
           <button class="button button-small" type="submit" name="decision" value="approve" ${lifecyclePending.length === 0 ? "disabled" : ""}>Approve lifecycle</button>
           <button class="button button-small button-secondary" type="submit" name="decision" value="reject" ${lifecyclePending.length === 0 ? "disabled" : ""}>Reject lifecycle</button>
@@ -2625,7 +2654,7 @@ function renderLifecycleControls(summary: ProductVisibilitySummary): string {
       <form class="compact-form" data-form="execute-lifecycle" data-project-id="${escapeHtml(summary.project.id)}">
         <p class="muted small">Approved approvals ready to execute (${lifecycleApproved.length})</p>
         <select name="approvalId" ${lifecycleApproved.length === 0 ? "disabled" : ""}>${approvedOptions}</select>
-        <input name="executedByEmployeeId" placeholder="Executed by employee ID" />
+        ${renderEmployeeSelect("executedByEmployeeId", employees, { blankLabel: "Executed by employee (optional)" })}
         <button class="button button-small" type="submit" ${lifecycleApproved.length === 0 ? "disabled" : ""}>Execute lifecycle action</button>
       </form>
     </article>
@@ -4422,7 +4451,7 @@ export function renderTaskDetail(detail: TaskDetail): string {
   `;
 }
 
-function renderThreadDelegationPanel(detail: MessageThreadDetail): string {
+function renderThreadDelegationPanel(detail: MessageThreadDetail, employees: OperatorEmployeeRecord[]): string {
   const eligibleMessages = detail.messages.filter((message) => {
     return (
       Boolean(message.responseActionType) &&
@@ -4474,11 +4503,11 @@ function renderThreadDelegationPanel(detail: MessageThreadDetail): string {
                 </div>
                 <div>
                   <label class="thread-compose-label" for="thread-delegate-assigned-employee-id">Assigned employee (optional)</label>
-                  <input id="thread-delegate-assigned-employee-id" class="thread-compose-input" type="text" />
+                  ${renderEmployeeSelect("thread-delegate-assigned-employee-id", employees, { useIdAttr: true, className: "thread-compose-input" })}
                 </div>
                 <div>
                   <label class="thread-compose-label" for="thread-delegate-owner-employee-id">Owner employee (optional)</label>
-                  <input id="thread-delegate-owner-employee-id" class="thread-compose-input" type="text" />
+                  ${renderEmployeeSelect("thread-delegate-owner-employee-id", employees, { useIdAttr: true, className: "thread-compose-input" })}
                 </div>
                 <div>
                   <label class="thread-compose-label" for="thread-delegate-task-type">Task type</label>
@@ -4510,7 +4539,7 @@ function renderThreadDelegationPanel(detail: MessageThreadDetail): string {
   `;
 }
 
-function renderThreadInteractionPanel(detail: MessageThreadDetail): string {
+function renderThreadInteractionPanel(detail: MessageThreadDetail, employees: OperatorEmployeeRecord[]): string {
   const approvalActions = detail.thread.relatedApprovalId
     ? `
       <div class="thread-action-row">
@@ -4605,11 +4634,11 @@ function renderThreadInteractionPanel(detail: MessageThreadDetail): string {
       }
     </section>
 
-    ${renderThreadDelegationPanel(detail)}
+    ${renderThreadDelegationPanel(detail, employees)}
   `;
 }
 
-export function renderThreadDetail(detail: MessageThreadDetail): string {
+export function renderThreadDetail(detail: MessageThreadDetail, employees: OperatorEmployeeRecord[] = []): string {
   return `
     <section class="panel">
       <div class="panel-header">
@@ -4660,7 +4689,7 @@ export function renderThreadDetail(detail: MessageThreadDetail): string {
       }
     </section>
 
-    ${renderThreadInteractionPanel(detail)}
+    ${renderThreadInteractionPanel(detail, employees)}
 
     <section class="panel">
       <div class="panel-header"><h3>Messages</h3></div>

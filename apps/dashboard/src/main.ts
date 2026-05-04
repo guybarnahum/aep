@@ -2359,23 +2359,35 @@ async function renderRoute(): Promise<void> {
       };
       content += renderWorkOverview(overview);
     } else if (route.kind === "intakeProjects") {
-      const overview: CompanyWorkIntakeOverview = await getCompanyWorkIntakeOverview();
-      content += renderIntakeProjectsOverview(overview);
+      const [overview, deptOverview] = await Promise.all([
+        getCompanyWorkIntakeOverview(),
+        getDepartmentOverview(),
+      ]);
+      content += renderIntakeProjectsOverview(overview, deptOverview.employees);
     } else if (route.kind === "productInitiatives") {
-      const projects = await getProductInitiatives();
-      content += renderProductInitiativesOverview(projects);
+      const [projects, deptOverview] = await Promise.all([
+        getProductInitiatives(),
+        getDepartmentOverview(),
+      ]);
+      content += renderProductInitiativesOverview(projects, deptOverview.employees);
     } else if (route.kind === "productInitiative") {
-      const summary = await getProductVisibility(route.projectId);
+      const [summary, deptOverview] = await Promise.all([
+        getProductVisibility(route.projectId),
+        getDepartmentOverview(),
+      ]);
       const lastTeamLoopResult = summary.tasks.active.length > 0
         ? getTeamLoopResult(summary.tasks.active[0].assignedTeamId)
         : undefined;
-      content += renderProductInitiativeDetail(summary, lastTeamLoopResult);
+      content += renderProductInitiativeDetail(summary, lastTeamLoopResult, deptOverview.employees);
     } else if (route.kind === "task") {
       const detail = await getTaskDetail(route.taskId);
       content += renderTaskDetail(detail);
     } else if (route.kind === "thread") {
-      const detail = await getMessageThreadDetail(route.threadId);
-      content += renderThreadDetail(detail);
+      const [detail, deptOverview] = await Promise.all([
+        getMessageThreadDetail(route.threadId),
+        getDepartmentOverview(),
+      ]);
+      content += renderThreadDetail(detail, deptOverview.employees);
     } else if (
       route.kind === "employees" ||
       route.kind === "employee" ||
