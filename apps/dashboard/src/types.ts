@@ -945,6 +945,7 @@ export type StaffingOverview = {
 
 export type DepartmentOverview = {
   employees: OperatorEmployeeRecord[];
+  roles: RoleJobDescriptionProjection[];
   staffingGaps: StaffingGapOverview;
   staffingRequests: StaffingRequestRecord[];
   escalations: EscalationRecord[];

@@ -21,6 +21,7 @@ import { handleEmployees } from "./routes/employees";
 import { handleEmployeeScope } from "./routes/employee-scope";
 import { handleUpdateEmployee } from "./routes/employee-update";
 import { handleRoles } from "./routes/roles";
+import { handleRoleRuntimeAdmin } from "./routes/role-runtime-admin";
 import {
   handleStaffingRequestDetail,
   handleStaffingRequestStatus,
@@ -232,6 +233,21 @@ async function dispatch(request: Request, env: OperatorAgentEnv, ctx: ExecutionC
     return handleRoles(request, env);
   }
 
+  const roleRuntimeAdminMatch = url.pathname.match(
+    /^\/agent\/roles\/([^/]+)\/runtime$/,
+  );
+  if (roleRuntimeAdminMatch) {
+    return handleRoleRuntimeAdmin(
+      request,
+      env,
+      decodeURIComponent(roleRuntimeAdminMatch[1]),
+    );
+  }
+
+  if (url.pathname === "/agent/runtime-role-policies") {
+    return handleRuntimeRolePolicies(request, env);
+  }
+
   if (url.pathname === "/agent/staffing/requests") {
     return handleStaffingRequests(request, env);
   }
@@ -271,10 +287,6 @@ async function dispatch(request: Request, env: OperatorAgentEnv, ctx: ExecutionC
 
   if (url.pathname === "/agent/staffing/role-gaps") {
     return handleStaffingRoleGaps(request, env);
-  }
-
-  if (url.pathname === "/agent/runtime-role-policies") {
-    return handleRuntimeRolePolicies(request, env);
   }
 
   if (url.pathname === "/agent/mirror-routing-rules") {

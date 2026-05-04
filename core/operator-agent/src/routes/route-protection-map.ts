@@ -315,6 +315,12 @@ export const ROUTE_PROTECTION_MAP: RouteProtectionEntry[] = [
     protectionClass: "admin_runtime",
     note: "Upsert runtime role policy — future home: /admin/runtime/role-policies/*",
   },
+  {
+    pattern: "/agent/roles/*/runtime",
+    methods: ["PATCH"],
+    protectionClass: "admin_runtime",
+    note: "Dev/admin role runtime capability editor — future home: /admin/runtime/roles/*",
+  },
 
   // ── Admin: governance (approvals / escalations) ───────────────────────────
   // Future required permission: governance.approve, governance.escalation

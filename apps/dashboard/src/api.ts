@@ -535,6 +535,7 @@ export async function getDepartmentOverview(): Promise<DepartmentOverview> {
     approvalsPayload,
     roadmapsPayload,
     schedulerStatus,
+    roles,
     staffingGaps,
     staffingRequests,
   ] = await Promise.all([
@@ -560,12 +561,14 @@ export async function getDepartmentOverview(): Promise<DepartmentOverview> {
     ),
     getJson<{ entries: TeamRoadmap[] }>(agentBaseUrl, "/agent/roadmaps"),
     getJson<SchedulerStatus>(agentBaseUrl, "/agent/scheduler-status"),
+    getRoles(),
     getJson<StaffingGapOverview>(agentBaseUrl, "/agent/staffing/role-gaps"),
     getStaffingRequests(),
   ]);
 
   return {
     employees: (employeesPayload.employees ?? []).map(normalizeEmployeeRecord),
+    roles,
     staffingGaps,
     staffingRequests,
     escalations: escalationsPayload.entries ?? [],
@@ -1052,6 +1055,25 @@ export async function updateRuntimeRolePolicy(
   );
 
   return payload.policy;
+}
+
+export async function updateRoleRuntimeCapability(
+  roleId: string,
+  input: {
+    runtimeEnabled: boolean;
+    implementationBinding: string | null;
+  },
+): Promise<RoleJobDescriptionProjection> {
+  const payload = await patchJson<{
+    ok: true;
+    role: RoleJobDescriptionProjection;
+  }>(
+    getOperatorAgentBaseUrl(),
+    `/agent/roles/${encodeURIComponent(roleId)}/runtime`,
+    input as unknown as Record<string, unknown>,
+  );
+
+  return payload.role;
 }
 
 export async function getReviewCycles(): Promise<EmployeeReviewCycleRecord[]> {

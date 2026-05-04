@@ -223,3 +223,31 @@ export async function validateRoleCatalogEntry(
 
   return role;
 }
+
+export async function updateRoleRuntimeCapability(
+  env: OperatorAgentEnv,
+  args: {
+    roleId: string;
+    runtimeEnabled: boolean;
+    implementationBinding: string | null;
+  },
+): Promise<RoleJobDescriptionProjection> {
+  const db = requireDb(env);
+
+  await db
+    .prepare(
+      `UPDATE roles_catalog
+       SET runtime_enabled = ?,
+           implementation_binding = ?
+       WHERE role_id = ?`,
+    )
+    .bind(args.runtimeEnabled ? 1 : 0, args.implementationBinding, args.roleId)
+    .run();
+
+  const role = await getRoleCatalogEntry(env, args.roleId);
+  if (!role) {
+    throw new Error(`Role not found after runtime update: ${args.roleId}`);
+  }
+
+  return role;
+}

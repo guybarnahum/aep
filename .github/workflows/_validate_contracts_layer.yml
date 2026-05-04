@@ -190,6 +190,10 @@ jobs:
         id: admin_surface_contract
         run: npm run ci:admin-surface-contract-check | tee admin-surface-contract-check.log
 
+      - name: Run role runtime admin contract check
+        id: role_runtime_admin_contract
+        run: npm run ci:role-runtime-admin-contract-check | tee role-runtime-admin-contract-check.log
+
       - name: Run product initiative contract check
         id: product_initiative_contract
         continue-on-error: true
@@ -318,6 +322,7 @@ jobs:
             "${{ steps.role_realism_contract.outcome }}" == "success" && \
             "${{ steps.staffing_system_contract.outcome }}" == "success" && \
             "${{ steps.admin_surface_contract.outcome }}" == "success" && \
+            "${{ steps.role_runtime_admin_contract.outcome }}" == "success" && \
             "${{ steps.product_initiative_contract.outcome }}" == "success" && \
             "${{ steps.deployable_artifact_contract.outcome }}" == "success" && \
             "${{ steps.deployment_system_contract.outcome }}" == "success" && \
@@ -390,7 +395,10 @@ jobs:
           echo "- $(status_emoji \"${{ steps.public_rationale_artifact.outcome }}\") public-rationale-artifact-check: ${{ steps.public_rationale_artifact.outcome }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- $(status_emoji \"${{ steps.thread_task_delegation_contract.outcome }}\") thread-task-delegation-contract-check: ${{ steps.thread_task_delegation_contract.outcome }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- $(status_emoji \"${{ steps.role_realism_contract.outcome }}\") role-realism-contract-check: ${{ steps.role_realism_contract.outcome }}" >> "$GITHUB_STEP_SUMMARY"
-          echo "- $(status_emoji \"${{ steps.staffing_system_contract.outcome }}\") staffing-system-contract-check: ${{ steps.staffing_system_contract.outcome }}" >> "$GITHUB_STEP_SUMMARY"          echo "- $(status_emoji "${{ steps.admin_surface_contract.outcome }}") admin-surface-contract-check: ${{ steps.admin_surface_contract.outcome }}" >> "$GITHUB_STEP_SUMMARY"          echo "- $(status_emoji \"${{ steps.product_initiative_contract.outcome }}\") product-initiative-contract-check: ${{ steps.product_initiative_contract.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- $(status_emoji \"${{ steps.staffing_system_contract.outcome }}\") staffing-system-contract-check: ${{ steps.staffing_system_contract.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- $(status_emoji \"${{ steps.admin_surface_contract.outcome }}\") admin-surface-contract-check: ${{ steps.admin_surface_contract.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- $(status_emoji \"${{ steps.role_runtime_admin_contract.outcome }}\") role-runtime-admin-contract-check: ${{ steps.role_runtime_admin_contract.outcome }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- $(status_emoji \"${{ steps.product_initiative_contract.outcome }}\") product-initiative-contract-check: ${{ steps.product_initiative_contract.outcome }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- $(status_emoji \"${{ steps.deployable_artifact_contract.outcome }}\") deployable-artifact-contract-check: ${{ steps.deployable_artifact_contract.outcome }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- $(status_emoji \"${{ steps.deployment_system_contract.outcome }}\") deployment-system-contract-check: ${{ steps.deployment_system_contract.outcome }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- $(status_emoji \"${{ steps.external_surface_contract.outcome }}\") external-surface-contract-check: ${{ steps.external_surface_contract.outcome }}" >> "$GITHUB_STEP_SUMMARY"

@@ -5249,7 +5249,60 @@ export function renderDepartmentOverview(args: {
         })}
         ${renderControlHistoryTable(pagedControlHistory.items)}
       </section>
+
+      ${renderRoleRuntimeAdminTable(overview.roles)}
     </div>
+  `;
+}
+
+function renderRoleRuntimeAdminTable(roles: RoleJobDescriptionProjection[]): string {
+  return `
+    <section class="panel">
+      <div class="panel-header">
+        <div>
+          <h2>Admin: Role runtime</h2>
+          <p class="muted small">
+            Dev/admin control for executable role bindings. This is intentionally narrow until auth roles land.
+          </p>
+        </div>
+      </div>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Role</th>
+            <th>Team</th>
+            <th>Runtime</th>
+            <th>Binding</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${roles.map((role) => `
+            <tr>
+              <td>${escapeHtml(role.roleId)}</td>
+              <td>${escapeHtml(role.teamId)}</td>
+              <td>
+                <span class="${statusClass(role.runtimeEnabled ? "active" : "disabled")}">
+                  ${role.runtimeEnabled ? "enabled" : "disabled"}
+                </span>
+              </td>
+              <td>${escapeHtml(role.implementationBinding ?? "—")}</td>
+              <td>
+                <button
+                  class="button button-small"
+                  data-action="edit-role-runtime"
+                  data-role-id="${escapeHtml(role.roleId)}"
+                  data-runtime-enabled="${role.runtimeEnabled ? "true" : "false"}"
+                  data-implementation-binding="${escapeHtml(role.implementationBinding ?? "")}"
+                >
+                  Edit
+                </button>
+              </td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>
+    </section>
   `;
 }
 

@@ -119,6 +119,7 @@ import {
   updateIntakeStatus,
   updateEmployeeProfile,
   updateRuntimeRolePolicy,
+  updateRoleRuntimeCapability,
   executeProductDeployment,
   executeProductLifecycleAction,
   ingestProductSignal,
@@ -878,6 +879,14 @@ function attachDepartmentActionHandlers(): void {
     .forEach((button) => {
       button.addEventListener("click", async () => {
         await handleFulfillStaffingRequest(button);
+      });
+    });
+
+  document
+    .querySelectorAll<HTMLButtonElement>("[data-action='edit-role-runtime']")
+    .forEach((button) => {
+      button.addEventListener("click", async () => {
+        await handleEditRoleRuntime(button);
       });
     });
 
@@ -1853,6 +1862,62 @@ function parseJsonField<T>(formData: FormData, fieldName: string): T {
   }
 
   return parsed as T;
+}
+
+async function handleEditRoleRuntime(target: HTMLElement): Promise<void> {
+  const roleId = target.dataset.roleId ?? "";
+  if (!roleId) return;
+
+  const currentRuntimeEnabled = target.dataset.runtimeEnabled === "true";
+  const currentBinding = target.dataset.implementationBinding ?? "";
+
+  const dialog = await openDashboardDialog({
+    title: "Edit role runtime",
+    description: `Update runtime execution settings for ${roleId}.`,
+    submitLabel: "Save",
+    fields: [
+      {
+        kind: "select",
+        name: "runtimeEnabled",
+        label: "Runtime enabled",
+        value: currentRuntimeEnabled ? "true" : "false",
+        options: [
+          { value: "true", label: "Enabled" },
+          { value: "false", label: "Disabled" },
+        ],
+      },
+      {
+        kind: "text",
+        name: "implementationBinding",
+        label: "Implementation binding",
+        value: currentBinding || (roleId === "product-manager-web" ? "pm-agent" : ""),
+        placeholder: "pm-agent",
+      },
+    ],
+  });
+
+  if (!dialog) return;
+
+  try {
+    setMutationStatus(`Updating runtime settings for ${roleId}...`);
+    void renderRoute();
+
+    await updateRoleRuntimeCapability(roleId, {
+      runtimeEnabled: dialog.runtimeEnabled === "true",
+      implementationBinding:
+        dialog.implementationBinding.trim().length > 0
+          ? dialog.implementationBinding.trim()
+          : null,
+    });
+
+    setMutationStatus(`Updated runtime settings for ${roleId}`);
+  } catch (error) {
+    setMutationStatus(
+      error instanceof Error ? error.message : "Failed to update role runtime settings",
+    );
+  }
+
+  void renderRoute();
 }
 
 function attachRuntimeRolePolicyHandlers(): void {
