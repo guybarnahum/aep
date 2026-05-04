@@ -2434,8 +2434,8 @@ export function renderProductInitiativeDetail(summary: ProductVisibilitySummary,
         <p class="muted small">These controls call canonical AEP routes only. They do not mutate dashboard-owned state.</p>
         <div class="product-control-grid">
           ${renderRuntimeHealthPanel(summary, lastTeamLoopResult)}
-          ${renderExecutionControls(summary, lastTeamLoopResult)}
           ${renderDeploymentControls(summary, employees)}
+          ${renderExecutionControls(summary, lastTeamLoopResult)}
           ${renderLifecycleControls(summary, employees)}
           ${renderSignalControls(summary)}
         </div>
