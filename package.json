@@ -67,6 +67,7 @@
     "ci:manual-tutorial-readiness-contract-check": "tsx scripts/ci/checks/contracts/manual-tutorial-readiness-contract-check.ts",
     "ci:tutorial-flow-closure-contract-check": "tsx scripts/ci/checks/contracts/tutorial-flow-closure-contract-check.ts",
     "ci:product-operator-ux-contract-check": "tsx scripts/ci/checks/contracts/product-operator-ux-contract-check.ts",
+    "ci:dashboard-employee-id-input-contract-check": "tsx scripts/ci/checks/contracts/dashboard-employee-id-input-contract-check.ts",
     "ci:external-adapter-state-ownership-contract-check": "tsx scripts/ci/checks/contracts/external-adapter-state-ownership-contract-check.ts",
     "ci:staffing-contract-check": "tsx scripts/ci/checks/contracts/staffing-contract-check.ts",
     "ci:staffing-gap-detection-contract-check": "tsx scripts/ci/checks/contracts/staffing-gap-detection-contract-check.ts",

@@ -923,11 +923,40 @@ function attachDepartmentActionHandlers(): void {
   });
 }
 
+async function promptForExistingEmployeeId(label: string): Promise<string | null> {
+  const overview = await getDepartmentOverview();
+  const employees = overview.employees;
+
+  const options = employees
+    .map((employee) => {
+      const id = employee.identity.employeeId;
+      const name = employee.publicProfile?.displayName ?? id;
+      const role = employee.identity.roleId;
+      const team = employee.identity.teamId;
+      return `${id} — ${name} (${role}, ${team})`;
+    })
+    .join("\n");
+
+  const value = window.prompt(
+    `${label}\n\nEnter one of these employee IDs:\n\n${options}`,
+  )?.trim();
+
+  if (!value) return null;
+
+  const match = employees.find((employee) => employee.identity.employeeId === value);
+  if (!match) {
+    window.alert(`Unknown employee ID: ${value}`);
+    return null;
+  }
+
+  return value;
+}
+
 async function handleCreateStaffingRequestFromGap(target: HTMLElement): Promise<void> {
   const roleId = target.dataset.roleId ?? "";
   const teamId = target.dataset.teamId ?? "";
   const reason = target.dataset.reason ?? "role gap";
-  const requestedByEmployeeId = window.prompt("Requested by employee ID?")?.trim() ?? "";
+  const requestedByEmployeeId = await promptForExistingEmployeeId("Requested by employee?");
   if (!roleId || !teamId || !requestedByEmployeeId) return;
 
   try {
@@ -960,7 +989,7 @@ async function handleStaffingRequestStatus(
 
   const approvedByEmployeeId =
     status === "approved"
-      ? window.prompt("Approved by employee ID?")?.trim() ?? ""
+      ? (await promptForExistingEmployeeId("Approved by employee?")) ?? undefined
       : undefined;
   if (status === "approved" && !approvedByEmployeeId) return;
 
@@ -991,7 +1020,7 @@ async function handleFulfillStaffingRequest(target: HTMLElement): Promise<void> 
   if (!staffingRequestId) return;
 
   const employeeName = window.prompt("New employee display name?")?.trim() ?? "";
-  const fulfilledByEmployeeId = window.prompt("Fulfilled by employee ID?")?.trim() ?? "";
+  const fulfilledByEmployeeId = await promptForExistingEmployeeId("Fulfilled by employee?");
   if (!employeeName || !fulfilledByEmployeeId) return;
 
   try {

@@ -118,7 +118,12 @@ Each bug follows this schema:
 
   1. Enter invalid employee_id
   2. Ensure UI rejects or validates
-* **Status**: open
+* **Fix Applied**:
+  Dashboard staffing actions now validate prompted employee IDs against the
+  canonical employee registry before submitting requests. The prompt lists
+  available employee IDs with display name, role, and team, and rejects unknown
+  IDs before calling staffing APIs.
+* **Status**: fixed (pending QA)
 
 ---
 
