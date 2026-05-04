@@ -2353,7 +2353,7 @@ export function renderProductInitiativesOverview(projects: ProjectRecord[], empl
         <p class="muted small">Manual path for TUTORIAL.md: create intake, then convert it to a product initiative.</p>
         <form class="form-grid" id="create-product-intake-form">
           <input name="title" placeholder="Intake title" value="AEP Marketing Website" required />
-          ${renderEmployeeSelect("requestedBy", employees, { required: true, blankLabel: "Requested by employee…" })}
+          ${renderEmployeeSelect("requestedBy", employees, { required: true, blankLabel: "Requested by…" })}
           <textarea name="description" placeholder="Goal, audience, constraints" required></textarea>
           <button class="button" type="submit">Create intake</button>
         </form>
@@ -2503,7 +2503,7 @@ export function renderProductInitiativeDetail(summary: ProductVisibilitySummary,
       <section class="panel">
         <h3>Human intervention</h3>
         <form class="form-grid" id="product-intervention-form" data-project-id="${escapeHtml(project.id)}">
-          ${renderEmployeeSelect("createdByEmployeeId", employees, { required: true, blankLabel: "Created by employee…" })}
+          ${renderEmployeeSelect("createdByEmployeeId", employees, { required: true, blankLabel: "Created by…" })}
           <select name="action">
             <option value="add_direction">Modify requirements</option>
             <option value="request_redesign">Request redesign</option>
@@ -2560,7 +2560,7 @@ function renderDeploymentControls(summary: ProductVisibilitySummary, employees: 
   );
 
   return `
-    <article class="control-card">
+    <article class="control-card control-card-wide">
       <h4>Deployment controls</h4>
       <p class="muted small">External-safe deployments require approval. Internal-only deployments may execute from requested state.</p>
       <form class="compact-form" data-form="create-deployment-record" data-project-id="${escapeHtml(summary.project.id)}">
@@ -2571,8 +2571,7 @@ function renderDeploymentControls(summary: ProductVisibilitySummary, employees: 
               <option value="${escapeHtml(artifact.id)}">${escapeHtml(artifact.id)} · ${escapeHtml(artifact.artifactType)}</option>
             `).join("")}
         </select>
-        ${renderEmployeeSelect("requestedByEmployeeId", employees, { blankLabel: "Requested by employee (optional)" })}
-        <input name="environment" placeholder="Environment" value="staging" />
+        ${renderEmployeeSelect("requestedByEmployeeId", employees, { required: true, blankLabel: "Requested by…" })}
         <input name="approvalId" placeholder="Approval ID for external_safe candidates" />
         <button class="button button-small" type="submit" ${deploymentCandidates.length === 0 ? "disabled" : ""}>Create deployment record</button>
       </form>
@@ -2585,7 +2584,7 @@ function renderDeploymentControls(summary: ProductVisibilitySummary, employees: 
             `).join("")}
         </select>
         <input name="decisionNote" placeholder="Decision note" />
-        ${renderEmployeeSelect("decidedBy", employees, { blankLabel: "Decided by employee (optional)" })}
+        ${renderEmployeeSelect("decidedBy", employees, { required: true, blankLabel: "Decided by…" })}
         <div class="table-actions">
           <button class="button button-small" type="submit" name="decision" value="approve" ${deploymentApprovalIds.length === 0 ? "disabled" : ""}>Approve</button>
           <button class="button button-small button-secondary" type="submit" name="decision" value="reject" ${deploymentApprovalIds.length === 0 ? "disabled" : ""}>Reject</button>
@@ -2599,7 +2598,7 @@ function renderDeploymentControls(summary: ProductVisibilitySummary, employees: 
               <option value="${escapeHtml(deployment.id)}">${escapeHtml(deployment.id)} · ${escapeHtml(deployment.status)} · ${escapeHtml(deployment.externalVisibility)}</option>
             `).join("")}
         </select>
-        ${renderEmployeeSelect("executedByEmployeeId", employees, { blankLabel: "Executed by employee (optional)" })}
+        ${renderEmployeeSelect("executedByEmployeeId", employees, { required: true, blankLabel: "Executed by…" })}
         <button class="button button-small" type="submit" ${deployments.length === 0 ? "disabled" : ""}>Execute deployment</button>
       </form>
     </article>
@@ -2626,7 +2625,7 @@ function renderLifecycleControls(summary: ProductVisibilitySummary, employees: O
       }).join("");
 
   return `
-    <article class="control-card">
+    <article class="control-card control-card-wide">
       <h4>Lifecycle controls</h4>
       <p class="muted small">Request first; execute only after approval is approved.</p>
       <form class="compact-form" data-form="request-lifecycle" data-project-id="${escapeHtml(summary.project.id)}">
@@ -2636,7 +2635,7 @@ function renderLifecycleControls(summary: ProductVisibilitySummary, employees: O
           <option value="retire">Retire</option>
           <option value="transition">Transition</option>
         </select>
-        ${renderEmployeeSelect("requestedByEmployeeId", employees, { blankLabel: "Requested by employee (optional)" })}
+        ${renderEmployeeSelect("requestedByEmployeeId", employees, { required: true, blankLabel: "Requested by…" })}
         <input name="reason" placeholder="Reason" />
         <input name="targetState" placeholder="Target state for transition, optional" />
         <button class="button button-small" type="submit">Request lifecycle action</button>
@@ -2645,7 +2644,7 @@ function renderLifecycleControls(summary: ProductVisibilitySummary, employees: O
         <p class="muted small">Pending approvals (${lifecyclePending.length})</p>
         <select name="approvalId" ${lifecyclePending.length === 0 ? "disabled" : ""}>${pendingOptions}</select>
         <input name="decisionNote" placeholder="Decision note" />
-        ${renderEmployeeSelect("decidedBy", employees, { blankLabel: "Decided by employee (optional)" })}
+        ${renderEmployeeSelect("decidedBy", employees, { required: true, blankLabel: "Decided by…" })}
         <div class="table-actions">
           <button class="button button-small" type="submit" name="decision" value="approve" ${lifecyclePending.length === 0 ? "disabled" : ""}>Approve lifecycle</button>
           <button class="button button-small button-secondary" type="submit" name="decision" value="reject" ${lifecyclePending.length === 0 ? "disabled" : ""}>Reject lifecycle</button>
@@ -2654,7 +2653,7 @@ function renderLifecycleControls(summary: ProductVisibilitySummary, employees: O
       <form class="compact-form" data-form="execute-lifecycle" data-project-id="${escapeHtml(summary.project.id)}">
         <p class="muted small">Approved approvals ready to execute (${lifecycleApproved.length})</p>
         <select name="approvalId" ${lifecycleApproved.length === 0 ? "disabled" : ""}>${approvedOptions}</select>
-        ${renderEmployeeSelect("executedByEmployeeId", employees, { blankLabel: "Executed by employee (optional)" })}
+        ${renderEmployeeSelect("executedByEmployeeId", employees, { required: true, blankLabel: "Executed by…" })}
         <button class="button button-small" type="submit" ${lifecycleApproved.length === 0 ? "disabled" : ""}>Execute lifecycle action</button>
       </form>
     </article>
@@ -2758,7 +2757,7 @@ function renderRuntimeHealthPanel(
       : "";
 
   return `
-    <article class="work-card runtime-health-card">
+    <article class="work-card runtime-health-card control-card-narrow">
       <div class="work-card-top">
         <h4>${escapeHtml(health.title)}</h4>
         <span class="status ${statusCls}">${health.status}</span>
@@ -2794,7 +2793,7 @@ function renderExecutionControls(summary: ProductVisibilitySummary, lastResult?:
     : "";
 
   return `
-    <article class="control-card">
+    <article class="control-card control-card-narrow">
       <h4>Task execution</h4>
       <p class="muted small">Manually trigger the team work loop. Use when the cron scheduler is inactive or tasks are stalled in ready/queued state.</p>
       ${teamIds.length === 0
@@ -2811,7 +2810,7 @@ function renderExecutionControls(summary: ProductVisibilitySummary, lastResult?:
 
 function renderSignalControls(summary: ProductVisibilitySummary): string {
   return `
-    <article class="control-card">
+    <article class="control-card control-card-wide">
       <h4>Signal simulation</h4>
       <p class="muted small">Send validation, monitoring, or customer feedback signals into AEP.</p>
       <form class="compact-form" data-form="ingest-product-signal" data-project-id="${escapeHtml(summary.project.id)}">

@@ -315,8 +315,28 @@ button:disabled {
 
 .product-control-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  grid-template-columns: minmax(240px, 1fr) minmax(320px, 2fr);
+  grid-template-rows: auto auto auto;
   gap: 1rem;
+}
+
+.product-control-grid .control-card-narrow {
+  grid-column: 1;
+}
+
+.product-control-grid .control-card-wide {
+  grid-column: 2;
+  grid-row: span 1;
+}
+
+@media (max-width: 720px) {
+  .product-control-grid {
+    grid-template-columns: 1fr;
+  }
+  .product-control-grid .control-card-narrow,
+  .product-control-grid .control-card-wide {
+    grid-column: 1;
+  }
 }
 
 .control-card {
