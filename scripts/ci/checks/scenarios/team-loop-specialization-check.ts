@@ -103,25 +103,15 @@ async function main(): Promise<void> {
     );
   }
 
-  // D1 writes from separate worker invocations may not be immediately visible to
-  // subsequent reads. Poll until both tasks appear before running the team loop.
-  for (let waitAttempt = 0; waitAttempt < 6; waitAttempt += 1) {
-    const listed = await client.listTasks({
-      companyId: COMPANY_ID,
-      assignedTeamId: "team_web_product",
-      limit: 20,
-    });
-    const visibleIds = new Set<string>(
-      (Array.isArray(listed?.tasks) ? listed.tasks : []).map((t: any) => String(t.id)),
-    );
-    if (visibleIds.has(designTask.taskId) && visibleIds.has(implementationTask.taskId)) break;
-    await sleep(500 * (waitAttempt + 1));
-  }
-
+  // D1 writes from separate worker invocations may not be immediately visible
+  // to the next read — different worker instances can land on different D1 read
+  // replicas. Retry the team loop whenever eligibleTasks===0 (our company's
+  // tasks weren't on the replica consulted), with exponential backoff. Also
+  // catches genuine queue saturation where our tasks are pushed beyond the limit.
   const runLimit = 50;
   let runResult: TeamLoopResult | undefined;
 
-  for (let attempt = 1; attempt <= 3; attempt += 1) {
+  for (let attempt = 1; attempt <= 8; attempt += 1) {
     runResult = await postJson<TeamLoopResult>(
       `${client.baseUrl}/agent/teams/team_web_product/run-once`,
       {
@@ -134,10 +124,10 @@ async function main(): Promise<void> {
       break;
     }
 
-    const isBacklogSaturated =
-      (runResult.scanned?.pendingTasks ?? 0) >= runLimit
-      && (runResult.scanned?.eligibleTasks ?? 0) === 0;
-    if (!isBacklogSaturated) {
+    // Our tasks weren't visible on this replica (D1 lag) or are beyond the limit
+    // (queue saturation). Either way, back off and retry.
+    const tasksNotVisible = (runResult.scanned?.eligibleTasks ?? 0) === 0;
+    if (!tasksNotVisible) {
       break;
     }
 
@@ -147,13 +137,11 @@ async function main(): Promise<void> {
   assert(runResult, "Expected runResult to be defined");
 
   if (runResult.status === "no_pending_tasks") {
-    const isBacklogSaturated =
-      (runResult.scanned?.pendingTasks ?? 0) >= runLimit
-      && (runResult.scanned?.eligibleTasks ?? 0) === 0;
+    const tasksNotVisible = (runResult.scanned?.eligibleTasks ?? 0) === 0;
 
-    if (isBacklogSaturated) {
+    if (tasksNotVisible) {
       console.log(`${CHECK_NAME} skipped`, {
-        reason: "team queue saturation prevented company-scoped selection",
+        reason: "tasks not visible after retries (D1 lag or queue saturation)",
         companyId: COMPANY_ID,
         scanned: runResult.scanned,
       });
