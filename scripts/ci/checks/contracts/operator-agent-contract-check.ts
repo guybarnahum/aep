@@ -460,8 +460,9 @@ async function main(): Promise<void> {
     plannedEmployees.employees.map((employee) => employee.identity.employeeId),
   );
 
+  // product-manager-web (pm002) was promoted to status=active by migration 0043
+  // (runtime_role_policies seed); it is verified by the active-filter block below.
   for (const employeeId of [
-    productManagerWebEmployeeId,
     frontendEngineerEmployeeId,
     validationPmEmployeeId,
     validationEngineerEmployeeId,
@@ -474,6 +475,7 @@ async function main(): Promise<void> {
   }
 
   for (const employeeId of [
+    productManagerWebEmployeeId,
     timeoutRecoveryEmployeeId,
     retrySupervisorEmployeeId,
     infraOpsManagerEmployeeId,
@@ -483,6 +485,21 @@ async function main(): Promise<void> {
         `Expected planned employee filter to exclude ${employeeId}`,
       );
     }
+  }
+
+  const activeEmployees = await client.listEmployees({ status: "active" });
+  if (!activeEmployees.ok) {
+    throw new Error("/agent/employees?status=active did not return ok=true");
+  }
+
+  const activeEmployeeIds = new Set(
+    activeEmployees.employees.map((employee) => employee.identity.employeeId),
+  );
+
+  if (!activeEmployeeIds.has(productManagerWebEmployeeId)) {
+    throw new Error(
+      `Expected active employee filter to include ${productManagerWebEmployeeId}`,
+    );
   }
 
   const webTeamEmployees = await client.listEmployees({
