@@ -19,8 +19,8 @@ assertContains("apps/dashboard/src/api.ts", "/lifecycle-actions");
 assertContains("apps/dashboard/src/api.ts", "/lifecycle-actions/execute");
 assertContains("apps/dashboard/src/api.ts", "/agent/product-signals");
 
-assertContains("apps/dashboard/src/render.ts", "Manual tutorial controls");
-assertContains("apps/dashboard/src/render.ts", "Tutorial intake flow");
+assertContains("apps/dashboard/src/render.ts", "Product operator controls");
+assertContains("apps/dashboard/src/render.ts", "Product intake flow");
 assertContains("apps/dashboard/src/render.ts", "Deployment controls");
 assertContains("apps/dashboard/src/render.ts", "Lifecycle controls");
 assertContains("apps/dashboard/src/render.ts", "Signal simulation");
