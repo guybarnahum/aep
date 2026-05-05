@@ -460,7 +460,7 @@ async function main(): Promise<void> {
     plannedEmployees.employees.map((employee) => employee.identity.employeeId),
   );
 
-  // product-manager-web (pm002) was promoted to status=active by migration 0043
+  // product-manager-web was promoted to status=active by migration 0043
   // (runtime_role_policies seed); it is verified by the active-filter block below.
   for (const employeeId of [
     frontendEngineerEmployeeId,
@@ -1091,7 +1091,7 @@ async function main(): Promise<void> {
   }
 
   // Scope binding (migration 0030) overrides base authority's allowedServices:
-  // pm002 is scoped to service_dashboard/preview, not service_control_plane.
+  // the product-manager-web employee is scoped to service_dashboard/preview, not service_control_plane.
   if (!productManagerPolicy.effectiveAuthority?.allowedServices?.includes("service_dashboard")) {
     throw new Error("Expected product manager web effectiveAuthority.allowedServices to include service_dashboard");
   }
