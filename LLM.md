@@ -1154,7 +1154,35 @@ Boundaries:
 - OPERATOR_ADMIN_EMAILS controls the admin permission set; default operators receive product.lifecycle.request only
 - dashboard toolbar displays operator name/avatar but does not gate UI actions on permissions
 
-### PR27 - Tutorial Flow Closure
+### PR-HIRE-1 - Product Initiative Staffing Request Action
+
+PR-HIRE-1 adds the first product-page staffing bridge for blocked initiatives.
+
+Implemented:
+
+- product visibility identifies task-level runtime staffing blockers from task error messages
+- product initiative detail renders `Staff this role` beside visible staffing blockers
+- the dashboard action creates a canonical submitted staffing request
+- staffing requests may carry an advisory `employeeSpec` payload describing the runtime employee required to unblock the task
+
+Temporary operator attribution:
+
+- until authenticated operator write attribution lands, product-page staffing requests use `operator:manual-qa`
+
+Boundary:
+
+> Product initiatives do not create employees directly.
+
+The flow is:
+
+```text
+initiative staffing blocker
+  -> submitted staffing request
+  -> approval
+  -> fulfillment
+  -> employee
+  -> rerun blocked task
+```
 
 PR27 makes the tutorial flow fully closable from the dashboard by adding the
 missing deployment-record creation step.

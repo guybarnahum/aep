@@ -2456,7 +2456,7 @@ export function renderProductInitiativeDetail(summary: ProductVisibilitySummary,
       <section class="panel">
         <h3>Staffing and blockers</h3>
         <p class="muted small">Initiative blockers, staffing gaps, and missing-capability signals visible to the product initiator.</p>
-        ${renderProductStaffingAndBlockerPanel(summary)}
+        ${renderProductStaffingBlockers(summary)}
       </section>
 
       <section class="panel">
@@ -5303,6 +5303,41 @@ function renderRoleRuntimeAdminTable(roles: RoleJobDescriptionProjection[]): str
         </tbody>
       </table>
     </section>
+  `;
+}
+
+function renderProductStaffingBlockers(summary: ProductVisibilitySummary): string {
+  const blockers = summary.staffing?.staffingBlockers ?? [];
+  if (blockers.length === 0) {
+    return renderProductStaffingAndBlockerPanel(summary);
+  }
+
+  return `
+    <div class="product-evidence-grid">
+      ${blockers.map((blocker) => `
+        <article class="task-graph-node">
+          <strong>${escapeHtml(blocker.taskTitle)}</strong>
+          <div class="muted small">${escapeHtml(blocker.taskId)} · ${escapeHtml(blocker.taskType)}</div>
+          <p class="task-graph-node-error muted small">${escapeHtml(blocker.errorMessage)}</p>
+          <div class="table-actions">
+            <button
+              class="button button-small"
+              type="button"
+              data-action="staff-product-blocker"
+              data-project-id="${escapeHtml(summary.project.id)}"
+              data-task-id="${escapeHtml(blocker.taskId)}"
+              data-task-type="${escapeHtml(blocker.taskType)}"
+              data-task-title="${escapeHtml(blocker.taskTitle)}"
+              data-team-id="${escapeHtml(blocker.teamId)}"
+              data-role-id="${escapeHtml(blocker.roleId ?? "product-manager-web")}"
+              data-error-message="${escapeHtml(blocker.errorMessage)}"
+            >
+              Staff this role
+            </button>
+          </div>
+        </article>
+      `).join("")}
+    </div>
   `;
 }
 

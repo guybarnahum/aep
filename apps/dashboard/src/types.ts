@@ -350,6 +350,10 @@ export type ProductVisibilitySummary = {
     lifecyclePending: ApprovalRecord[];
     lifecycleApproved: ApprovalRecord[];
   };
+  staffing: {
+    blockers: TaskRecord[];
+    staffingBlockers?: ProductStaffingBlocker[];
+  };
 };
 
 export type ProductInterventionResponse = {
@@ -388,6 +392,15 @@ export type ProductDeploymentCreateResponse = {
 };
 
 export type TutorialFlowStepState = "missing" | "ready" | "blocked" | "done";
+
+export type ProductStaffingBlocker = {
+  taskId: string;
+  taskTitle: string;
+  taskType: string;
+  teamId: string;
+  roleId?: string;
+  errorMessage: string;
+};
 
 export type ProductLifecycleAction = "pause" | "resume" | "retire" | "transition";
 

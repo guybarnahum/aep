@@ -32,6 +32,7 @@ type StaffingRequestRow = {
   cancellation_reason?: string | null;
   fulfillment_message_id?: string | null;
   fulfilled_employee_id?: string | null;
+  employee_spec?: string | null;
 };
 
 export type StaffingRequestFulfillmentLink = {
@@ -50,6 +51,7 @@ export type CreateStaffingRequestInput = {
   requestedByEmployeeId: string;
   status?: "draft" | "submitted";
   threadId?: string;
+  employeeSpec?: Record<string, unknown>;
 };
 
 function requireDb(env: OperatorAgentEnv): D1Database {
@@ -131,8 +133,8 @@ export async function createStaffingRequest(
       `INSERT INTO staffing_requests (
       id, company_id, role_id, team_id, reason, urgency,
       source_kind, source_id, requested_by_employee_id, status,
-      thread_id, created_at, updated_at, submitted_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      thread_id, employee_spec, created_at, updated_at, submitted_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .bind(
       id,
@@ -146,6 +148,7 @@ export async function createStaffingRequest(
       input.requestedByEmployeeId,
       status,
       input.threadId ?? null,
+      input.employeeSpec != null ? JSON.stringify(input.employeeSpec) : null,
       now,
       now,
       status === "submitted" ? now : null,

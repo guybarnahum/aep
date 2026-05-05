@@ -462,6 +462,7 @@ export async function createStaffingRequest(input: {
   urgency?: "low" | "normal" | "high" | "critical";
   requestedByEmployeeId: string;
   source: Record<string, string>;
+  employeeSpec?: Record<string, unknown>;
   status?: "draft" | "submitted";
 }): Promise<StaffingRequestRecord> {
   const payload = await postJson<{

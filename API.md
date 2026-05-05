@@ -1007,9 +1007,41 @@ Missing staffing routes:
 
 - Creates a canonical staffing request.
 - Required: `roleId`, `teamId`, `reason`, `requestedByEmployeeId`, `source`.
-- Optional: `companyId`, `urgency`, `status`, `threadId`.
+- Optional: `companyId`, `urgency`, `status`, `threadId`, `employeeSpec`.
 - Initial status is `draft` unless explicitly submitted.
 - Does not create employees.
+
+Product initiative staffing blockers may create submitted staffing requests with
+an optional `employeeSpec` payload. This payload is advisory/specification data
+used by later fulfillment steps; it does not create an employee directly.
+
+Example:
+
+```json
+{
+  "roleId": "product-manager-web",
+  "teamId": "team_web_product",
+  "reason": "Unblock product initiative task task_123",
+  "urgency": "high",
+  "requestedByEmployeeId": "operator:manual-qa",
+  "status": "submitted",
+  "source": {
+    "kind": "product_initiative_blocker",
+    "projectId": "project_123",
+    "taskId": "task_123",
+    "taskType": "project_planning"
+  },
+  "employeeSpec": {
+    "roleId": "product-manager-web",
+    "teamId": "team_web_product",
+    "runtimeStatus": "implemented",
+    "employmentStatus": "active",
+    "schedulerMode": "auto",
+    "implementationBindingRequired": "pm-agent",
+    "suggestedName": "Web Product Manager"
+  }
+}
+```
 
 `GET /agent/staffing/requests/:id`
 

@@ -1093,6 +1093,64 @@ async function handleFulfillStaffingRequest(target: HTMLElement): Promise<void> 
   void renderRoute();
 }
 
+const PLACEHOLDER_OPERATOR_ID = "operator:manual-qa";
+
+async function handleStaffProductBlocker(target: HTMLElement): Promise<void> {
+  const projectId = target.dataset.projectId ?? "";
+  const taskId = target.dataset.taskId ?? "";
+  const taskType = target.dataset.taskType ?? "";
+  const taskTitle = target.dataset.taskTitle ?? "Blocked product task";
+  const teamId = target.dataset.teamId ?? "team_web_product";
+  const roleId = target.dataset.roleId ?? "product-manager-web";
+  const errorMessage = target.dataset.errorMessage ?? "Runtime staffing blocker";
+
+  if (!projectId || !taskId) {
+    setMutationStatus("Unable to create staffing request: missing project/task context");
+    void renderRoute();
+    return;
+  }
+
+  try {
+    setMutationStatus(`Creating staffing request for ${roleId}...`);
+    void renderRoute();
+
+    const request = await createStaffingRequest({
+      roleId,
+      teamId,
+      reason: `Unblock product initiative task ${taskId}: ${errorMessage}`,
+      urgency: "high",
+      requestedByEmployeeId: PLACEHOLDER_OPERATOR_ID,
+      status: "submitted",
+      source: {
+        kind: "product_initiative_blocker",
+        projectId,
+        taskId,
+        taskType,
+        taskTitle,
+      },
+      employeeSpec: {
+        roleId,
+        teamId,
+        runtimeStatus: "implemented",
+        employmentStatus: "active",
+        schedulerMode: "auto",
+        implementationBindingRequired: roleId === "product-manager-web" ? "pm-agent" : "",
+        suggestedName: roleId === "product-manager-web"
+          ? "Web Product Manager"
+          : `${roleId} runtime employee`,
+      },
+    });
+
+    setMutationStatus(`Staffing request submitted: ${request.staffingRequestId}`);
+  } catch (error) {
+    setMutationStatus(
+      error instanceof Error ? error.message : "Failed to create staffing request",
+    );
+  }
+
+  void renderRoute();
+}
+
 async function resolveDashboardRuntimeEmployees(): Promise<{
   infraOpsManagerEmployeeId: string;
   timeoutRecoveryEmployeeId: string;
@@ -2572,6 +2630,15 @@ async function renderRoute(): Promise<void> {
 
     if (route.kind === "productInitiative") {
       attachTeamLoopHandlers();
+
+      document
+        .querySelectorAll<HTMLButtonElement>("[data-action='staff-product-blocker']")
+        .forEach((button) => {
+          button.addEventListener("click", async () => {
+            await handleStaffProductBlocker(button);
+          });
+        });
+
       attachProductInterventionHandlers();
       attachProductOperatorControlHandlers();
       return;

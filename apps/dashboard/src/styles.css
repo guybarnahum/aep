@@ -307,6 +307,10 @@ button:disabled {
   color: #fca5a5;
 }
 
+.task-graph-node .table-actions {
+  margin-top: 10px;
+}
+
 .product-evidence-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));

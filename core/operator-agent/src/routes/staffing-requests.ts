@@ -53,6 +53,12 @@ function parseSource(raw: unknown): StaffingSource | null {
   if (source.kind === "manager" && typeof source.managerEmployeeId === "string") {
     return { kind: "manager", managerEmployeeId: source.managerEmployeeId };
   }
+  if (
+    source.kind === "product_initiative_blocker" &&
+    typeof source.projectId === "string"
+  ) {
+    return { kind: "project", projectId: source.projectId };
+  }
   return null;
 }
 
@@ -107,6 +113,10 @@ export async function handleStaffingRequests(
       ? (body.status as "draft" | "submitted")
       : "draft";
   const source = parseSource(body.source);
+  const employeeSpec =
+    typeof body.employeeSpec === "object" && body.employeeSpec !== null
+      ? (body.employeeSpec as Record<string, unknown>)
+      : undefined;
 
   if (!roleId || !teamId || !reason || !requestedByEmployeeId || !source) {
     return jsonError("roleId, teamId, reason, requestedByEmployeeId, and source are required");
@@ -124,6 +134,7 @@ export async function handleStaffingRequests(
       requestedByEmployeeId,
       status,
       threadId: typeof body.threadId === "string" ? body.threadId : undefined,
+      employeeSpec,
     });
     return Response.json({ ok: true, staffingRequest }, { status: 201 });
   } catch (error) {

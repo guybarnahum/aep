@@ -47,6 +47,17 @@ export type ProductVisibilitySummary = {
     lifecyclePending: ApprovalRecord[];
     lifecycleApproved: ApprovalRecord[];
   };
+  staffing: {
+    blockers: Task[];
+    staffingBlockers: Array<{
+      taskId: string;
+      taskTitle: string;
+      taskType: string;
+      teamId: string;
+      roleId?: string;
+      errorMessage: string;
+    }>;
+  };
 };
 
 function increment(map: Record<string, number>, key: string | undefined): void {
@@ -103,6 +114,38 @@ function isLifecycleApprovalForProject(
 ): boolean {
   const p = approval.payload ?? {};
   return p["kind"] === "product_lifecycle_request" && p["projectId"] === projectId;
+}
+
+function inferRoleIdForStaffingBlocker(task: Task): string | undefined {
+  const roleId = task.payload?.["roleId"];
+  if (typeof roleId === "string" && roleId.trim()) return roleId.trim();
+
+  if (task.taskType === "project_planning") return "product-manager-web";
+  if (task.taskType === "requirements_definition") return "product-manager-web";
+
+  return undefined;
+}
+
+function buildProductStaffingBlockers(
+  tasks: Task[],
+): ProductVisibilitySummary["staffing"]["staffingBlockers"] {
+  return tasks
+    .filter((task) => {
+      const message = task.errorMessage ?? "";
+      return (
+        message.includes("no active runtime employees") ||
+        message.includes("assigned to unavailable runtime employee") ||
+        message.includes("waiting_for_staffing")
+      );
+    })
+    .map((task) => ({
+      taskId: task.id,
+      taskTitle: task.title,
+      taskType: task.taskType,
+      teamId: task.assignedTeamId,
+      roleId: inferRoleIdForStaffingBlocker(task),
+      errorMessage: task.errorMessage ?? "Runtime staffing blocker",
+    }));
 }
 
 export async function buildProductVisibilitySummary(args: {
@@ -179,6 +222,9 @@ export async function buildProductVisibilitySummary(args: {
     );
   }
 
+  const blockers = tasks.filter((task) => task.status === "blocked");
+  const staffingBlockers = buildProductStaffingBlockers(tasks);
+
   return {
     project,
     intake: {
@@ -192,7 +238,7 @@ export async function buildProductVisibilitySummary(args: {
       active: tasks.filter((task) =>
         ["ready", "queued", "in_progress", "parked"].includes(task.status),
       ),
-      blocked: tasks.filter((task) => task.status === "blocked"),
+      blocked: blockers,
       recent: tasks.slice(0, limit),
     },
     artifacts: {
@@ -222,6 +268,10 @@ export async function buildProductVisibilitySummary(args: {
     approvals: {
       lifecyclePending,
       lifecycleApproved,
+    },
+    staffing: {
+      blockers,
+      staffingBlockers,
     },
   };
 }
