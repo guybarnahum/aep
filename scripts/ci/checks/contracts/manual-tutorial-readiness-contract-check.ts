@@ -28,12 +28,12 @@ assertContains("apps/dashboard/src/render.ts", "decide-deployment-approval");
 assertContains("apps/dashboard/src/render.ts", "decide-lifecycle-approval");
 assertContains("apps/dashboard/src/render.ts", "No deployment approvals found");
 assertContains("apps/dashboard/src/render.ts", "No deployment records yet");
-assertContains("apps/dashboard/src/render.ts", "No lifecycle approvals found");
+assertContains("apps/dashboard/src/render.ts", "No pending lifecycle approvals");
 assertContains("apps/dashboard/src/render.ts", "targetState");
 assertContains("apps/dashboard/src/render.ts", "value=\"reject\"");
 
-assertContains("apps/dashboard/src/main.ts", "attachTutorialIntakeHandlers");
-assertContains("apps/dashboard/src/main.ts", "attachManualTutorialControlHandlers");
+assertContains("apps/dashboard/src/main.ts", "attachProductIntakeHandlers");
+assertContains("apps/dashboard/src/main.ts", "attachProductOperatorControlHandlers");
 assertContains("apps/dashboard/src/main.ts", "rejectApproval");
 assertContains("apps/dashboard/src/main.ts", "targetState:");
 
