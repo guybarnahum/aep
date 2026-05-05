@@ -103,6 +103,21 @@ async function main(): Promise<void> {
     );
   }
 
+  // D1 writes from separate worker invocations may not be immediately visible to
+  // subsequent reads. Poll until both tasks appear before running the team loop.
+  for (let waitAttempt = 0; waitAttempt < 6; waitAttempt += 1) {
+    const listed = await client.listTasks({
+      companyId: COMPANY_ID,
+      assignedTeamId: "team_web_product",
+      limit: 20,
+    });
+    const visibleIds = new Set<string>(
+      (Array.isArray(listed?.tasks) ? listed.tasks : []).map((t: any) => String(t.id)),
+    );
+    if (visibleIds.has(designTask.taskId) && visibleIds.has(implementationTask.taskId)) break;
+    await sleep(500 * (waitAttempt + 1));
+  }
+
   const runLimit = 50;
   let runResult: TeamLoopResult | undefined;
 
