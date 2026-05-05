@@ -116,6 +116,7 @@ function rowToContract(row: StaffingRequestRow): StaffingRequestContract {
       employeeCreationRoute: "POST /agent/employees",
       lifecycleRouteRequired: true,
     },
+    employeeSpec: row.employee_spec ? (JSON.parse(row.employee_spec) as Record<string, unknown>) : undefined,
   };
 }
 

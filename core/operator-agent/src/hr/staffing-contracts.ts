@@ -94,6 +94,7 @@ export type StaffingRequestContract = {
   ownership: StaffingOwnership;
   state: StaffingRequestState;
   approval: StaffingApprovalBoundary;
+  employeeSpec?: Record<string, unknown>;
 };
 
 export type HiringRecommendationContract = {

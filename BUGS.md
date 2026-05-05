@@ -375,3 +375,34 @@ Each bug follows this schema:
 - **Fix Applied**:
   In `renderProductInitiativeDetail`, compute `errorMessages` by collecting `errorMessage` from `summary.tasks.active` and `summary.tasks.recent`, deduplicating with `Array.from(new Set(...))`. If non-empty, a `.initiative-error-banner` div is injected at the top of `<main>` (before any panels) showing "Runtime errors detected" with a `<ul>` of deduped messages. New CSS class `.initiative-error-banner` added to `styles.css` with a slightly stronger red treatment (rgba(239,68,68,0.10) background, 0.30 border opacity) than task-level error banners.
 - **Status**: validated ✅
+
+---
+
+### BUG-015 — PR-HIRE-1: `product_initiative_blocker` Source Kind Loses Task-Level Identity After Persistence
+
+- **Area**: Operator-agent / Staffing Requests
+- **Severity**: low (functional for PR-HIRE-1; traceability gap only)
+- **Observed**:
+  `handleStaffingRequests` (routes layer) calls `parseSource()` which maps
+  `{ kind: "product_initiative_blocker", projectId, taskId, taskType, taskTitle }`
+  to `{ kind: "project", projectId }` before persisting. The `source_kind` column
+  therefore stores `"project"` and `source_id` stores `projectId`. `taskId`,
+  `taskType`, and `taskTitle` are not stored in either `source_kind`/`source_id`
+  or any other column at create-time, so they cannot be recovered from the
+  staffing request row alone.
+- **Impact**:
+  - The staffing request is created correctly and the `employeeSpec` column carries
+    `taskId`, `taskType`, and `taskTitle` as advisory metadata, so fulfillment
+    pre-fill is unaffected.
+  - Audit queries that filter by `source_kind = 'task'` will not find
+    product-initiative-blocker requests.
+  - If `employeeSpec` is cleared or was not set, the originating task is
+    irrecoverable from the request row.
+- **Proposed Fix** (deferred post PR-HIRE-1):
+  Add a `source_metadata` TEXT column (JSON) to `staffing_requests`. Populate it
+  with the full raw source object from the request body before normalisation.
+  `rowToContract` exposes it as `sourceMetadata?: Record<string, unknown>`.
+  No schema change is needed to `StaffingSource` — the normalised `source` field
+  stays a typed union; `sourceMetadata` is the untyped archival copy.
+- **Status**: known, deferred ⚠️
+- **Status**: validated ✅

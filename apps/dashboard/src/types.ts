@@ -949,6 +949,7 @@ export type StaffingRequestRecord = {
   requestedByEmployeeId: string;
   source: Record<string, string>;
   state: StaffingRequestState;
+  employeeSpec?: Record<string, unknown>;
 };
 
 export type StaffingOverview = {
