@@ -243,7 +243,7 @@ async function main(): Promise<void> {
         key: "productManager",
         roleId: "product-manager-web",
         teamId: "team_web_product",
-        runtimeStatus: "planned",
+        runtimeStatus: "implemented",
         required: {
           scope: {
             allowedServices: ["service_dashboard"],

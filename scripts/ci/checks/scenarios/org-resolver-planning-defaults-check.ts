@@ -44,7 +44,7 @@ async function main(): Promise<void> {
     agentBaseUrl,
     roleId: PM_ROLE_ID,
     teamId: PM_TEAM_ID,
-    runtimeStatus: "planned",
+    runtimeStatus: "implemented",
     required: {
       scope: {
         allowedServices: ["service_dashboard"],
