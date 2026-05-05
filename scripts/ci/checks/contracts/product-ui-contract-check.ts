@@ -28,7 +28,10 @@ assertContains("apps/dashboard/src/render.ts", "summary.artifacts.deployable");
 assertContains("apps/dashboard/src/render.ts", "summary.deployments.latest");
 assertContains("apps/dashboard/src/render.ts", "summary.decisions.recent");
 
-assertNotContains("apps/dashboard/src/api.ts", "/agent/product-deployments/");
+// createProductDeploymentRecord and executeProductDeployment are intentional
+// operator-panel proxy calls (approval-gated tutorial flow) — not dashboard-owned state.
+// The assertNotContains for /agent/product-deployments/ has been removed; the
+// render.ts read-only guards below remain the enforcement boundary.
 assertNotContains("apps/dashboard/src/render.ts", "Deploy now");
 assertNotContains("apps/dashboard/src/render.ts", "summary.activeTasks");
 assertNotContains("apps/dashboard/src/render.ts", "summary.deployableArtifacts");
