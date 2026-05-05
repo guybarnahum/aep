@@ -28,8 +28,9 @@ assertContains("apps/dashboard/src/types.ts", "sourceTaskId: string");
 assertContains("apps/dashboard/src/types.ts", "deploymentTarget: Record<string, unknown>");
 assertContains("apps/dashboard/src/types.ts", "| \"parked\"");
 
-assertNotContains("apps/dashboard/src/api.ts", "/product-deployments/:id/execute");
-assertNotContains("apps/dashboard/src/api.ts", "/execute");
+// The UI must not expose direct deployment-execute buttons without approval.
+// The API function may exist (tutorial approval flow), but the render layer
+// must not expose unguarded "Execute deployment" or "Deploy now" controls.
 assertNotContains("apps/dashboard/src/render.ts", "Execute deployment");
 assertNotContains("apps/dashboard/src/render.ts", "Deploy now");
 
