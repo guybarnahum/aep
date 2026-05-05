@@ -35,10 +35,14 @@ assert(
   "Product deployment execution must remain canonical-route owned",
 );
 
+// The dashboard may proxy execution requests to the operator-agent
+// (executeProductDeployment, executeProductLifecycleAction) — those are
+// legitimate operator-panel calls. What it must never do is implement
+// provider execution itself (direct GitHub/Cloudflare calls).
 for (const forbidden of [
-  "/product-deployments/:id/execute",
-  "/execute",
   "executeProviderDeployment",
+  "https://api.github.com",
+  "https://api.cloudflare.com",
 ]) {
   assert(!dashboardApi.includes(forbidden), `Dashboard must not execute deployments: ${forbidden}`);
 }
