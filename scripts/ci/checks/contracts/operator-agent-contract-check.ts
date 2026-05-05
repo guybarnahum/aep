@@ -1086,8 +1086,28 @@ async function main(): Promise<void> {
     productManagerWebEmployeeId,
   );
 
-  if (!productManagerPolicy.ok || productManagerPolicy.implemented !== false) {
-    throw new Error("Expected product manager web effective policy to report implemented=false");
+  if (!productManagerPolicy.ok || productManagerPolicy.implemented !== true) {
+    throw new Error("Expected product manager web effective policy to report implemented=true");
+  }
+
+  // Scope binding (migration 0030) overrides base authority's allowedServices:
+  // pm002 is scoped to service_dashboard/preview, not service_control_plane.
+  if (!productManagerPolicy.effectiveAuthority?.allowedServices?.includes("service_dashboard")) {
+    throw new Error("Expected product manager web effectiveAuthority.allowedServices to include service_dashboard");
+  }
+
+  if (!productManagerPolicy.effectiveAuthority?.allowedEnvironmentNames?.includes("preview")) {
+    throw new Error("Expected product manager web effectiveAuthority.allowedEnvironmentNames to include preview");
+  }
+
+  // Verify authority seeded by migration 0043.
+  const pmOperatorActions = productManagerPolicy.baseAuthority?.allowedOperatorActions;
+  if (
+    !Array.isArray(pmOperatorActions)
+    || !pmOperatorActions.includes("plan-work")
+    || !pmOperatorActions.includes("create-task-graph")
+  ) {
+    throw new Error("Expected product manager web baseAuthority.allowedOperatorActions to include plan-work and create-task-graph");
   }
 
   const managerLog = await client.getManagerLog({
