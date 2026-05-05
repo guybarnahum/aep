@@ -356,7 +356,7 @@ async function main(): Promise<void> {
           key: "productManagerWeb",
           roleId: "product-manager-web",
           teamId: "team_web_product",
-          runtimeStatus: "planned",
+          runtimeStatus: "implemented",
           required: {
             scope: {
               allowedServices: ["service_dashboard"],
@@ -582,8 +582,8 @@ async function main(): Promise<void> {
     throw new Error("Expected product manager web employee details in /agent/employees");
   }
 
-  if (productManagerWeb.runtime.runtimeStatus !== "planned") {
-    throw new Error("Expected product manager web employee to be planned");
+  if (productManagerWeb.runtime.runtimeStatus !== "implemented") {
+    throw new Error("Expected product manager web employee runtimeStatus=implemented");
   }
 
   if (productManagerWeb.identity.teamId !== "team_web_product") {
