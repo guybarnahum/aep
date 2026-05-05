@@ -17,7 +17,7 @@ async function main(): Promise<void> {
     agentBaseUrl,
     roleId: "product-manager-web",
     teamId: "team_web_product",
-    runtimeStatus: "planned",
+    runtimeStatus: "implemented",
     required: {
       scope: {
         allowedServices: ["service_dashboard"],
@@ -114,16 +114,18 @@ async function main(): Promise<void> {
     ),
   );
 
-  // ---- effective policy (planned employee)
+  // ---- effective policy (product-manager-web: now implemented after migration 0043)
 
   const plannedPolicy = await client.getEmployeeEffectivePolicy(
     webProductManagerEmployeeId,
   );
 
-  assert.equal(plannedPolicy.implemented, false);
+  assert.equal(plannedPolicy.implemented, true);
   assert.equal(plannedPolicy.companyId, "company_internal_aep");
   assert.equal(plannedPolicy.teamId, "team_web_product");
-  assert.equal(plannedPolicy.status, "planned");
+  assert.equal(plannedPolicy.status, "active");
+  assert(plannedPolicy.effectiveAuthority?.allowedServices?.includes("service_dashboard"));
+  assert(plannedPolicy.effectiveAuthority?.allowedEnvironmentNames?.includes("preview"));
 
   console.log("employee-scope-check passed");
 }
