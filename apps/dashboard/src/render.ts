@@ -267,6 +267,7 @@ function renderStaffingRequestsTable(requests: StaffingRequestRecord[]): string 
           <th>Urgency</th>
           <th>Role</th>
           <th>Team</th>
+          <th>Employee spec</th>
           <th>Reason</th>
           <th>Requested by</th>
           <th>Actions</th>
@@ -281,6 +282,7 @@ function renderStaffingRequestsTable(requests: StaffingRequestRecord[]): string 
                 <td>${escapeHtml(request.urgency)}</td>
                 <td>${escapeHtml(request.roleId)}</td>
                 <td>${escapeHtml(request.teamId)}</td>
+                <td>${renderStaffingEmployeeSpecSummary(request)}</td>
                 <td>${escapeHtml(request.reason)}</td>
                 <td>${escapeHtml(request.requestedByEmployeeId)}</td>
                 <td>
@@ -368,6 +370,7 @@ import type {
   ProductInterventionAction,
   ProductVisibilitySummary,
   StaffingRequestRecord,
+  ProductStaffingBlocker,
   TaskArtifactRecord,
   TaskDependency,
   TaskDetail,
@@ -5255,6 +5258,28 @@ export function renderDepartmentOverview(args: {
   `;
 }
 
+function renderStaffingEmployeeSpecSummary(request: StaffingRequestRecord): string {
+  const spec = request.employeeSpec;
+  if (!spec) {
+    return `<span class="muted small">No runtime employee spec</span>`;
+  }
+
+  return `
+    <div class="staffing-spec-summary">
+      <strong>${escapeHtml(spec.suggestedName ?? spec.roleId)}</strong>
+      <div class="muted small">
+        ${escapeHtml(spec.runtimeStatus)} · ${escapeHtml(spec.employmentStatus)} · ${escapeHtml(spec.schedulerMode)}
+      </div>
+      ${spec.implementationBindingRequired
+        ? `<div class="muted small">binding: ${escapeHtml(spec.implementationBindingRequired)}</div>`
+        : ""}
+      ${spec.sourceTaskId
+        ? `<div class="muted small">source task: ${escapeHtml(spec.sourceTaskId)}</div>`
+        : ""}
+    </div>
+  `;
+}
+
 function renderRoleRuntimeAdminTable(roles: RoleJobDescriptionProjection[]): string {
   return `
     <section class="panel">
@@ -5306,6 +5331,29 @@ function renderRoleRuntimeAdminTable(roles: RoleJobDescriptionProjection[]): str
   `;
 }
 
+function renderProductBlockerEmployeeSpec(blocker: ProductStaffingBlocker): string {
+  const spec = blocker.employeeSpec;
+  if (!spec) {
+    return `
+      <div class="muted small">role: ${escapeHtml(blocker.roleId ?? "product-manager-web")}</div>
+      <div class="muted small">team: ${escapeHtml(blocker.teamId)}</div>
+      <div class="muted small">runtime: implemented · active · auto</div>
+    `;
+  }
+
+  return `
+    <div class="muted small">role: ${escapeHtml(spec.roleId)}</div>
+    <div class="muted small">team: ${escapeHtml(spec.teamId)}</div>
+    <div class="muted small">runtime: ${escapeHtml(spec.runtimeStatus)} · ${escapeHtml(spec.employmentStatus)} · ${escapeHtml(spec.schedulerMode)}</div>
+    ${spec.implementationBindingRequired
+      ? `<div class="muted small">binding: ${escapeHtml(spec.implementationBindingRequired)}</div>`
+      : ""}
+    ${spec.suggestedName
+      ? `<div class="muted small">name: ${escapeHtml(spec.suggestedName)}</div>`
+      : ""}
+  `;
+}
+
 function renderProductStaffingBlockers(summary: ProductVisibilitySummary): string {
   const blockers = summary.staffing?.staffingBlockers ?? [];
   if (blockers.length === 0) {
@@ -5319,6 +5367,10 @@ function renderProductStaffingBlockers(summary: ProductVisibilitySummary): strin
           <strong>${escapeHtml(blocker.taskTitle)}</strong>
           <div class="muted small">${escapeHtml(blocker.taskId)} · ${escapeHtml(blocker.taskType)}</div>
           <p class="task-graph-node-error muted small">${escapeHtml(blocker.errorMessage)}</p>
+          <div class="staffing-spec-preview">
+            <strong>Hiring spec</strong>
+            ${renderProductBlockerEmployeeSpec(blocker)}
+          </div>
           <div class="table-actions">
             <button
               class="button button-small"

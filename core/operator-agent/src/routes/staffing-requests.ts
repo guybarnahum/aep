@@ -5,7 +5,9 @@ import {
   updateStaffingRequestStatus,
 } from "@aep/operator-agent/persistence/d1/staffing-request-store-d1";
 import { validateRoleCatalogEntry } from "@aep/operator-agent/persistence/d1/role-catalog-store-d1";
+import { validateStaffingEmployeeSpec } from "@aep/operator-agent/hr/staffing-request-spec";
 import type {
+  StaffingRequestContract,
   StaffingRequestState,
   StaffingRequestUrgency,
   StaffingSource,
@@ -122,6 +124,12 @@ export async function handleStaffingRequests(
     return jsonError("roleId, teamId, reason, requestedByEmployeeId, and source are required");
   }
 
+  const specValidation = validateStaffingEmployeeSpec(employeeSpec, { roleId, teamId });
+  if (!specValidation.ok) {
+    return jsonError(specValidation.error);
+  }
+  const typedEmployeeSpec = employeeSpec as StaffingRequestContract["employeeSpec"];
+
   try {
     await validateRoleCatalogEntry(env, { roleId, teamId });
     const staffingRequest = await createStaffingRequest(env, {
@@ -134,7 +142,7 @@ export async function handleStaffingRequests(
       requestedByEmployeeId,
       status,
       threadId: typeof body.threadId === "string" ? body.threadId : undefined,
-      employeeSpec,
+      employeeSpec: typedEmployeeSpec,
     });
     return Response.json({ ok: true, staffingRequest }, { status: 201 });
   } catch (error) {

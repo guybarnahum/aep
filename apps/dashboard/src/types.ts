@@ -393,6 +393,19 @@ export type ProductDeploymentCreateResponse = {
 
 export type TutorialFlowStepState = "missing" | "ready" | "blocked" | "done";
 
+export type StaffingEmployeeSpec = {
+  roleId: string;
+  teamId: string;
+  runtimeStatus: "implemented" | "planned" | "disabled";
+  employmentStatus: "active" | "draft" | "on_leave" | "retired" | "terminated" | "archived";
+  schedulerMode: "auto" | "manual" | string;
+  implementationBindingRequired?: string;
+  suggestedName?: string;
+  sourceProjectId?: string;
+  sourceTaskId?: string;
+  sourceTaskType?: string;
+};
+
 export type ProductStaffingBlocker = {
   taskId: string;
   taskTitle: string;
@@ -400,6 +413,7 @@ export type ProductStaffingBlocker = {
   teamId: string;
   roleId?: string;
   errorMessage: string;
+  employeeSpec?: StaffingEmployeeSpec;
 };
 
 export type ProductLifecycleAction = "pause" | "resume" | "retire" | "transition";
@@ -949,7 +963,7 @@ export type StaffingRequestRecord = {
   requestedByEmployeeId: string;
   source: Record<string, string>;
   state: StaffingRequestState;
-  employeeSpec?: Record<string, unknown>;
+  employeeSpec?: StaffingEmployeeSpec;
 };
 
 export type StaffingOverview = {

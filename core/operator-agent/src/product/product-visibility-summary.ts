@@ -56,6 +56,7 @@ export type ProductVisibilitySummary = {
       teamId: string;
       roleId?: string;
       errorMessage: string;
+      employeeSpec?: Record<string, unknown>;
     }>;
   };
 };
@@ -138,14 +139,34 @@ function buildProductStaffingBlockers(
         message.includes("waiting_for_staffing")
       );
     })
-    .map((task) => ({
-      taskId: task.id,
-      taskTitle: task.title,
-      taskType: task.taskType,
-      teamId: task.assignedTeamId,
-      roleId: inferRoleIdForStaffingBlocker(task),
-      errorMessage: task.errorMessage ?? "Runtime staffing blocker",
-    }));
+    .map((task) => {
+      const roleId = inferRoleIdForStaffingBlocker(task);
+      const effectiveRoleId = roleId ?? "product-manager-web";
+      return {
+        taskId: task.id,
+        taskTitle: task.title,
+        taskType: task.taskType,
+        teamId: task.assignedTeamId,
+        roleId,
+        errorMessage: task.errorMessage ?? "Runtime staffing blocker",
+        employeeSpec: {
+          roleId: effectiveRoleId,
+          teamId: task.assignedTeamId,
+          runtimeStatus: "implemented",
+          employmentStatus: "active",
+          schedulerMode: "auto",
+          implementationBindingRequired:
+            effectiveRoleId === "product-manager-web" ? "pm-agent" : "",
+          suggestedName:
+            effectiveRoleId === "product-manager-web"
+              ? "Web Product Manager"
+              : `${effectiveRoleId} employee`,
+          sourceProjectId: typeof task.payload?.projectId === "string" ? task.payload.projectId : undefined,
+          sourceTaskId: task.id,
+          sourceTaskType: task.taskType,
+        },
+      };
+    });
 }
 
 export async function buildProductVisibilitySummary(args: {

@@ -1014,6 +1014,8 @@ Missing staffing routes:
 Product initiative staffing blockers may create submitted staffing requests with
 an optional `employeeSpec` payload. This payload is advisory/specification data
 used by later fulfillment steps; it does not create an employee directly.
+When present, `employeeSpec.roleId` and `employeeSpec.teamId` must match the
+staffing request role/team.
 
 Example:
 

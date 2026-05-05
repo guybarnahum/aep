@@ -1,4 +1,5 @@
 import { fulfillStaffingRequest } from "@aep/operator-agent/hr/staffing-fulfillment";
+import { getStaffingRequest } from "@aep/operator-agent/persistence/d1/staffing-request-store-d1";
 import type { OperatorAgentEnv } from "@aep/operator-agent/types";
 
 function jsonError(message: string, status = 400): Response {
@@ -31,6 +32,20 @@ export async function handleFulfillStaffingRequest(
 
   if (!employeeName || !fulfilledByEmployeeId) {
     return jsonError("employeeName and fulfilledByEmployeeId are required");
+  }
+
+  const staffingRequest = await getStaffingRequest(env, staffingRequestId);
+  if (!staffingRequest) return jsonError(`Unknown staffingRequestId: ${staffingRequestId}`, 404);
+
+  if (staffingRequest.employeeSpec) {
+    const spec = staffingRequest.employeeSpec;
+    if (spec.roleId !== staffingRequest.roleId || spec.teamId !== staffingRequest.teamId) {
+      return jsonError("Staffing request employeeSpec no longer matches request role/team");
+    }
+  }
+
+  if (staffingRequest.state !== "approved") {
+    return jsonError(`Staffing request is not approved (state: ${staffingRequest.state})`, 409);
   }
 
   try {

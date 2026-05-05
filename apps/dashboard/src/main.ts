@@ -1104,6 +1104,11 @@ async function handleStaffProductBlocker(target: HTMLElement): Promise<void> {
   const roleId = target.dataset.roleId ?? "product-manager-web";
   const errorMessage = target.dataset.errorMessage ?? "Runtime staffing blocker";
 
+  const implementationBindingRequired = roleId === "product-manager-web" ? "pm-agent" : "";
+  const suggestedName = roleId === "product-manager-web"
+    ? "Web Product Manager"
+    : `${roleId} runtime employee`;
+
   if (!projectId || !taskId) {
     setMutationStatus("Unable to create staffing request: missing project/task context");
     void renderRoute();
@@ -1134,10 +1139,11 @@ async function handleStaffProductBlocker(target: HTMLElement): Promise<void> {
         runtimeStatus: "implemented",
         employmentStatus: "active",
         schedulerMode: "auto",
-        implementationBindingRequired: roleId === "product-manager-web" ? "pm-agent" : "",
-        suggestedName: roleId === "product-manager-web"
-          ? "Web Product Manager"
-          : `${roleId} runtime employee`,
+        implementationBindingRequired,
+        suggestedName,
+        sourceProjectId: projectId,
+        sourceTaskId: taskId,
+        sourceTaskType: taskType,
       },
     });
 

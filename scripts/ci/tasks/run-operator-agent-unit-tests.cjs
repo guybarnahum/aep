@@ -14,6 +14,7 @@ const TEST_FILES = [
   "core/operator-agent/src/lib/employee-persona-generator.test.ts",
   "core/operator-agent/src/auth/cloudflare-access.test.ts",
   "core/operator-agent/src/auth/operator-identity.test.ts",
+  "core/operator-agent/src/hr/staffing-request-spec.test.ts",
   "core/operator-agent/src/lib/implementation-binding-registry.test.ts",
   "core/operator-agent/src/lib/employee-cognition.test.ts",
   "core/operator-agent/src/persistence/d1/runtime-employee-resolver-d1.test.ts",

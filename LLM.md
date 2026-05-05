@@ -1184,6 +1184,26 @@ initiative staffing blocker
   -> rerun blocked task
 ```
 
+### PR-HIRE-2 - Hiring Spec Visibility and Validation
+
+PR-HIRE-2 makes the staffing request's runtime employee spec explicit and
+visible before fulfillment.
+
+Implemented:
+
+- `employeeSpec` is projected on staffing requests
+- product blocker cards preview the exact runtime employee spec before creating a request
+- staffing dashboard shows the requested runtime employee spec
+- staffing request creation validates that `employeeSpec.roleId/teamId` match the request
+- fulfillment rechecks the spec still matches before creating an employee
+
+Boundary:
+
+> `employeeSpec` is a hiring/fulfillment contract, not an employee.
+
+No product page or staffing request directly creates employees. Employee
+creation remains reserved for the approved fulfillment step.
+
 PR27 makes the tutorial flow fully closable from the dashboard by adding the
 missing deployment-record creation step.
 

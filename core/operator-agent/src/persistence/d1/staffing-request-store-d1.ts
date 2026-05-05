@@ -51,7 +51,7 @@ export type CreateStaffingRequestInput = {
   requestedByEmployeeId: string;
   status?: "draft" | "submitted";
   threadId?: string;
-  employeeSpec?: Record<string, unknown>;
+  employeeSpec?: StaffingRequestContract["employeeSpec"];
 };
 
 function requireDb(env: OperatorAgentEnv): D1Database {
@@ -116,7 +116,10 @@ function rowToContract(row: StaffingRequestRow): StaffingRequestContract {
       employeeCreationRoute: "POST /agent/employees",
       lifecycleRouteRequired: true,
     },
-    employeeSpec: row.employee_spec ? (JSON.parse(row.employee_spec) as Record<string, unknown>) : undefined,
+    employeeSpec:
+      typeof row.employee_spec === "string" && row.employee_spec.trim().length > 0
+        ? JSON.parse(row.employee_spec) as StaffingRequestContract["employeeSpec"]
+        : undefined,
   };
 }
 

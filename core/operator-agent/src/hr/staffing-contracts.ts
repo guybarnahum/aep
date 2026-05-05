@@ -94,7 +94,18 @@ export type StaffingRequestContract = {
   ownership: StaffingOwnership;
   state: StaffingRequestState;
   approval: StaffingApprovalBoundary;
-  employeeSpec?: Record<string, unknown>;
+  employeeSpec?: {
+    roleId: string;
+    teamId: string;
+    runtimeStatus: "implemented" | "planned" | "disabled";
+    employmentStatus: "active" | "draft" | "on_leave" | "retired" | "terminated" | "archived";
+    schedulerMode: string;
+    implementationBindingRequired?: string;
+    suggestedName?: string;
+    sourceProjectId?: string;
+    sourceTaskId?: string;
+    sourceTaskType?: string;
+  };
 };
 
 export type HiringRecommendationContract = {
