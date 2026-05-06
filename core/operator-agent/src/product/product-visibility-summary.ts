@@ -1,4 +1,5 @@
 import type { ApprovalRecord } from "../types";
+import type { StaffingRequestContract } from "@aep/operator-agent/hr/staffing-contracts";
 import type {
   EmployeeMessage,
   IApprovalStore,
@@ -57,6 +58,9 @@ export type ProductVisibilitySummary = {
       roleId?: string;
       errorMessage: string;
       employeeSpec?: Record<string, unknown>;
+      fulfillmentReady: boolean;
+      fulfilledEmployeeId?: string;
+      staffingRequestId?: string;
     }>;
   };
 };
@@ -127,8 +131,35 @@ function inferRoleIdForStaffingBlocker(task: Task): string | undefined {
   return undefined;
 }
 
+function staffingRequestSourceTaskId(request: StaffingRequestContract): string | undefined {
+  const specTaskId = request.employeeSpec?.sourceTaskId;
+  if (typeof specTaskId === "string" && specTaskId.trim().length > 0) {
+    return specTaskId.trim();
+  }
+
+  if (
+    request.source.kind === "project" &&
+    typeof (request.source as unknown as Record<string, unknown>)["taskId"] === "string"
+  ) {
+    return String((request.source as unknown as Record<string, unknown>)["taskId"]);
+  }
+
+  return undefined;
+}
+
+function fulfillmentForTask(
+  staffingRequests: StaffingRequestContract[],
+  taskId: string,
+): StaffingRequestContract | undefined {
+  return staffingRequests.find((request) => {
+    if (request.state !== "fulfilled") return false;
+    return staffingRequestSourceTaskId(request) === taskId;
+  });
+}
+
 function buildProductStaffingBlockers(
   tasks: Task[],
+  staffingRequests: StaffingRequestContract[],
 ): ProductVisibilitySummary["staffing"]["staffingBlockers"] {
   return tasks
     .filter((task) => {
@@ -142,6 +173,7 @@ function buildProductStaffingBlockers(
     .map((task) => {
       const roleId = inferRoleIdForStaffingBlocker(task);
       const effectiveRoleId = roleId ?? "product-manager-web";
+      const fulfilledRequest = fulfillmentForTask(staffingRequests, task.id);
       return {
         taskId: task.id,
         taskTitle: task.title,
@@ -149,6 +181,9 @@ function buildProductStaffingBlockers(
         teamId: task.assignedTeamId,
         roleId,
         errorMessage: task.errorMessage ?? "Runtime staffing blocker",
+        fulfillmentReady: Boolean(fulfilledRequest?.fulfillment?.employeeId),
+        fulfilledEmployeeId: fulfilledRequest?.fulfillment?.employeeId,
+        staffingRequestId: fulfilledRequest?.staffingRequestId,
         employeeSpec: {
           roleId: effectiveRoleId,
           teamId: task.assignedTeamId,
@@ -172,6 +207,7 @@ function buildProductStaffingBlockers(
 export async function buildProductVisibilitySummary(args: {
   store: TaskStore;
   approvalStore?: IApprovalStore;
+  staffingRequests?: StaffingRequestContract[];
   projectId: string;
   limit?: number;
 }): Promise<ProductVisibilitySummary | null> {
@@ -244,7 +280,10 @@ export async function buildProductVisibilitySummary(args: {
   }
 
   const blockers = tasks.filter((task) => task.status === "blocked");
-  const staffingBlockers = buildProductStaffingBlockers(tasks);
+  const staffingBlockers = buildProductStaffingBlockers(
+    tasks,
+    args.staffingRequests ?? [],
+  );
 
   return {
     project,

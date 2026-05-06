@@ -495,9 +495,9 @@ export async function updateStaffingRequestStatus(
 export async function fulfillStaffingRequest(
   staffingRequestId: string,
   input: {
-    employeeName: string;
+    employeeName?: string;
     fulfilledByEmployeeId: string;
-    runtimeStatus?: "planned" | "active" | "disabled";
+    runtimeStatus?: "planned" | "implemented" | "active" | "disabled";
     employmentStatus?: EmployeeEmploymentStatus;
     schedulerMode?: string;
   },

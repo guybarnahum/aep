@@ -120,6 +120,10 @@ function rowToContract(row: StaffingRequestRow): StaffingRequestContract {
       typeof row.employee_spec === "string" && row.employee_spec.trim().length > 0
         ? JSON.parse(row.employee_spec) as StaffingRequestContract["employeeSpec"]
         : undefined,
+    fulfillment:
+      typeof row.fulfilled_employee_id === "string" && row.fulfilled_employee_id.trim().length > 0
+        ? { employeeId: row.fulfilled_employee_id.trim() }
+        : undefined,
   };
 }
 

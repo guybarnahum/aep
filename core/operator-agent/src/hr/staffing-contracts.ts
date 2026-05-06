@@ -106,6 +106,9 @@ export type StaffingRequestContract = {
     sourceTaskId?: string;
     sourceTaskType?: string;
   };
+  fulfillment?: {
+    employeeId: string;
+  };
 };
 
 export type HiringRecommendationContract = {

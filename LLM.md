@@ -1226,6 +1226,29 @@ Boundary:
 
 Product initiatives and staffing requests do not directly mutate employees.
 
+### PR-HIRE-4 - Retry Product Task After Staffing Fulfillment
+
+PR-HIRE-4 connects fulfilled staffing requests back to the product task that
+was blocked by missing runtime staffing.
+
+Implemented:
+
+- product visibility can recognize fulfilled staffing requests linked to a
+  blocker task through `employeeSpec.sourceTaskId`
+- initiative blocker cards show when staffing has been fulfilled and which
+  employee was created
+- the initiative page exposes `Run now with new employee`
+- the run action uses the existing pinned team loop path for the affected task
+- fulfillment writes a visible task diagnostic instead of silently leaving the
+  old staffing error in place
+
+Boundary:
+
+> Fulfillment does not complete tasks.
+
+The system still requires the team work loop to execute the pinned task after
+staffing becomes available.
+
 PR27 makes the tutorial flow fully closable from the dashboard by adding the
 missing deployment-record creation step.
 

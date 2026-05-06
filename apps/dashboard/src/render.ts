@@ -5396,6 +5396,12 @@ function renderProductStaffingBlockers(summary: ProductVisibilitySummary): strin
             <strong>Hiring spec</strong>
             ${renderProductBlockerEmployeeSpec(blocker)}
           </div>
+          ${blocker.fulfillmentReady
+            ? `<div class="success-banner small">
+                Staffing fulfilled by ${escapeHtml(blocker.fulfilledEmployeeId ?? "employee")}.
+                Re-run this task to continue.
+              </div>`
+            : ""}
           <div class="table-actions">
             <button
               class="button button-small"
@@ -5411,6 +5417,17 @@ function renderProductStaffingBlockers(summary: ProductVisibilitySummary): strin
             >
               Staff this role
             </button>
+            ${blocker.fulfillmentReady
+              ? `<button
+                  class="button button-small"
+                  type="button"
+                  data-action="rerun-staffed-product-task"
+                  data-team-id="${escapeHtml(blocker.teamId)}"
+                  data-task-id="${escapeHtml(blocker.taskId)}"
+                >
+                  Run now with new employee
+                </button>`
+              : ""}
           </div>
         </article>
       `).join("")}

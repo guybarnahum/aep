@@ -1095,6 +1095,33 @@ async function handleFulfillStaffingRequest(target: HTMLElement): Promise<void> 
 
 const PLACEHOLDER_OPERATOR_ID = "operator:manual-qa";
 
+async function handleRerunStaffedProductTask(target: HTMLElement): Promise<void> {
+  const teamId = target.dataset.teamId ?? "";
+  const taskId = target.dataset.taskId ?? "";
+
+  if (!teamId || !taskId) {
+    setMutationStatus("Unable to rerun staffed task: missing team/task context");
+    void renderRoute();
+    return;
+  }
+
+  try {
+    setMutationStatus(`Running ${teamId} for staffed task ${taskId}...`);
+    void renderRoute();
+
+    const result = await runTeamOnce(getOperatorAgentBaseUrl(), teamId, taskId);
+    upsertTeamLoopResult(result);
+
+    setMutationStatus(`Ran staffed task ${taskId}: ${result.status}`);
+  } catch (error) {
+    setMutationStatus(
+      error instanceof Error ? error.message : "Failed to rerun staffed task",
+    );
+  }
+
+  void renderRoute();
+}
+
 async function handleStaffProductBlocker(target: HTMLElement): Promise<void> {
   const projectId = target.dataset.projectId ?? "";
   const taskId = target.dataset.taskId ?? "";
@@ -2642,6 +2669,14 @@ async function renderRoute(): Promise<void> {
         .forEach((button) => {
           button.addEventListener("click", async () => {
             await handleStaffProductBlocker(button);
+          });
+        });
+
+      document
+        .querySelectorAll<HTMLButtonElement>("[data-action='rerun-staffed-product-task']")
+        .forEach((button) => {
+          button.addEventListener("click", async () => {
+            await handleRerunStaffedProductTask(button);
           });
         });
 

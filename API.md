@@ -1074,6 +1074,9 @@ Example:
 - Fulfillment verifies the target role is runtime-enabled and that the role
   implementation binding matches `employeeSpec.implementationBindingRequired`.
 - Does not fulfill draft/submitted/rejected/canceled requests.
+- When `employeeSpec.sourceTaskId` is present, fulfillment records a visible
+  task diagnostic showing that staffing has been fulfilled and the task can be
+  rerun.
 - no hiring recommendation route
 
 Missing staffing contracts:

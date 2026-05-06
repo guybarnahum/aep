@@ -1,5 +1,6 @@
 import { getApprovalStore, getTaskStore } from "@aep/operator-agent/lib/store-factory";
 import type { OperatorAgentEnv } from "@aep/operator-agent/types";
+import { listStaffingRequests } from "@aep/operator-agent/persistence/d1/staffing-request-store-d1";
 import { buildProductVisibilitySummary } from "../product/product-visibility-summary";
 
 function jsonError(message: string, status = 400): Response {

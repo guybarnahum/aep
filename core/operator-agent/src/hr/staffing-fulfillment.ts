@@ -40,6 +40,13 @@ function employeeSpecString(
     : undefined;
 }
 
+function employeeSpecTaskId(spec: Record<string, unknown> | undefined): string | undefined {
+  const value = spec?.["sourceTaskId"];
+  return typeof value === "string" && value.trim().length > 0
+    ? value.trim()
+    : undefined;
+}
+
 async function assertFulfillmentRuntimeReady(args: {
   env: OperatorAgentEnv;
   roleId: string;
@@ -174,6 +181,15 @@ export async function fulfillStaffingRequest(
     employeeId: result.employeeId,
     messageId,
   });
+
+  const sourceTaskId = employeeSpecTaskId(staffingRequest.employeeSpec);
+  if (sourceTaskId) {
+    const store = getTaskStore(env);
+    await store.setTaskErrorMessage(
+      sourceTaskId,
+      `Staffing fulfilled by ${result.employeeId}; rerun the task to continue.`,
+    );
+  }
 
   return {
     ok: true,

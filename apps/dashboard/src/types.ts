@@ -414,6 +414,9 @@ export type ProductStaffingBlocker = {
   roleId?: string;
   errorMessage: string;
   employeeSpec?: StaffingEmployeeSpec;
+  fulfillmentReady?: boolean;
+  fulfilledEmployeeId?: string;
+  staffingRequestId?: string;
 };
 
 export type ProductLifecycleAction = "pause" | "resume" | "retire" | "transition";
