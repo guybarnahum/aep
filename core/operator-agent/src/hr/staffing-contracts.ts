@@ -109,6 +109,7 @@ export type StaffingRequestContract = {
   fulfillment?: {
     employeeId: string;
   };
+  updatedAt: string;
 };
 
 export type HiringRecommendationContract = {

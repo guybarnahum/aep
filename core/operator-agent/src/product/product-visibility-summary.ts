@@ -162,7 +162,13 @@ function latestStaffingRequestForTask(
   staffingRequests: StaffingRequestContract[],
   taskId: string,
 ): StaffingRequestContract | undefined {
-  return staffingRequests.find((request) => staffingRequestSourceTaskId(request) === taskId);
+  const candidates = staffingRequests.filter(
+    (request) => staffingRequestSourceTaskId(request) === taskId,
+  );
+  if (candidates.length === 0) return undefined;
+  return candidates.reduce((latest, r) =>
+    r.updatedAt > latest.updatedAt ? r : latest,
+  );
 }
 
 function buildProductStaffingBlockers(

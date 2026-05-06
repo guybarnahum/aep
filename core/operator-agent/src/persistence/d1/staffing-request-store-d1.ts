@@ -124,6 +124,7 @@ function rowToContract(row: StaffingRequestRow): StaffingRequestContract {
       typeof row.fulfilled_employee_id === "string" && row.fulfilled_employee_id.trim().length > 0
         ? { employeeId: row.fulfilled_employee_id.trim() }
         : undefined,
+    updatedAt: row.updated_at,
   };
 }
 
