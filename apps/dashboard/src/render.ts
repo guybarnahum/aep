@@ -268,6 +268,7 @@ function renderStaffingRequestsTable(requests: StaffingRequestRecord[]): string 
           <th>Role</th>
           <th>Team</th>
           <th>Employee spec</th>
+          <th>Runtime readiness</th>
           <th>Reason</th>
           <th>Requested by</th>
           <th>Actions</th>
@@ -283,6 +284,7 @@ function renderStaffingRequestsTable(requests: StaffingRequestRecord[]): string 
                 <td>${escapeHtml(request.roleId)}</td>
                 <td>${escapeHtml(request.teamId)}</td>
                 <td>${renderStaffingEmployeeSpecSummary(request)}</td>
+                <td>${renderStaffingRuntimeReadiness(request)}</td>
                 <td>${escapeHtml(request.reason)}</td>
                 <td>${escapeHtml(request.requestedByEmployeeId)}</td>
                 <td>
@@ -5276,6 +5278,29 @@ function renderStaffingEmployeeSpecSummary(request: StaffingRequestRecord): stri
       ${spec.sourceTaskId
         ? `<div class="muted small">source task: ${escapeHtml(spec.sourceTaskId)}</div>`
         : ""}
+    </div>
+  `;
+}
+
+function renderStaffingRuntimeReadiness(request: StaffingRequestRecord): string {
+  const spec = request.employeeSpec;
+  if (!spec) {
+    return `<span class="muted small">manual fulfillment</span>`;
+  }
+
+  const binding = spec.implementationBindingRequired || "unspecified";
+  const ready =
+    spec.runtimeStatus === "implemented" &&
+    spec.employmentStatus === "active" &&
+    spec.schedulerMode === "auto" &&
+    binding !== "unspecified";
+
+  return `
+    <div class="staffing-spec-summary">
+      <span class="${statusClass(ready ? "active" : "warning")}">
+        ${ready ? "runtime-ready spec" : "needs review"}
+      </span>
+      <div class="muted small">binding: ${escapeHtml(binding)}</div>
     </div>
   `;
 }

@@ -1060,12 +1060,20 @@ Example:
 `POST /agent/staffing/requests/:id/fulfill`
 
 - Fulfills an approved staffing request by creating an employee through the canonical employee lifecycle creation path.
-- Required: `employeeName`, `fulfilledByEmployeeId`.
+- Required: `employeeName` (falls back to `employeeSpec.suggestedName` if omitted), `fulfilledByEmployeeId`.
 - Optional: `runtimeStatus`, `employmentStatus`, `schedulerMode`, public profile fields.
 - Generates the employee ID through the role-based employee ID allocator.
 - Links the created employee back to the staffing request.
 - Publishes a canonical thread message when the staffing request source is a thread.
 - Only approved staffing requests can be fulfilled.
+- If the staffing request carries `employeeSpec`, fulfillment uses it to create
+  a runtime-ready employee by default:
+  - `runtimeStatus = implemented`
+  - `employmentStatus = active`
+  - `schedulerMode = auto`
+- Fulfillment verifies the target role is runtime-enabled and that the role
+  implementation binding matches `employeeSpec.implementationBindingRequired`.
+- Does not fulfill draft/submitted/rejected/canceled requests.
 - no hiring recommendation route
 
 Missing staffing contracts:

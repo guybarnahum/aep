@@ -61,7 +61,7 @@ export type CreateEmployeeInput = {
   teamId: string;
   roleId: AgentRoleId;
   employeeName: string;
-  runtimeStatus?: "planned" | "active" | "disabled";
+  runtimeStatus?: "planned" | "implemented" | "active" | "disabled";
   employmentStatus?: EmployeeEmploymentStatus;
   schedulerMode?: string;
   bio?: string;

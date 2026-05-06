@@ -23,8 +23,16 @@ export async function handleFulfillStaffingRequest(
     return jsonError("Request body must be valid JSON");
   }
 
+  const staffingRequest = await getStaffingRequest(env, staffingRequestId);
+  if (!staffingRequest) return jsonError(`Unknown staffingRequestId: ${staffingRequestId}`, 404);
+
   const employeeName =
-    typeof body.employeeName === "string" ? body.employeeName.trim() : "";
+    typeof body.employeeName === "string" && body.employeeName.trim().length > 0
+      ? body.employeeName.trim()
+      : typeof staffingRequest.employeeSpec?.suggestedName === "string" &&
+          staffingRequest.employeeSpec.suggestedName.trim().length > 0
+        ? staffingRequest.employeeSpec.suggestedName.trim()
+        : "";
   const fulfilledByEmployeeId =
     typeof body.fulfilledByEmployeeId === "string"
       ? body.fulfilledByEmployeeId.trim()
@@ -33,9 +41,6 @@ export async function handleFulfillStaffingRequest(
   if (!employeeName || !fulfilledByEmployeeId) {
     return jsonError("employeeName and fulfilledByEmployeeId are required");
   }
-
-  const staffingRequest = await getStaffingRequest(env, staffingRequestId);
-  if (!staffingRequest) return jsonError(`Unknown staffingRequestId: ${staffingRequestId}`, 404);
 
   if (staffingRequest.employeeSpec) {
     const spec = staffingRequest.employeeSpec;
@@ -53,22 +58,17 @@ export async function handleFulfillStaffingRequest(
       employeeName,
       fulfilledByEmployeeId,
       runtimeStatus:
-        body.runtimeStatus === "planned" ||
-        body.runtimeStatus === "active" ||
-        body.runtimeStatus === "disabled"
-          ? body.runtimeStatus
-          : "planned",
+        typeof staffingRequest.employeeSpec?.runtimeStatus === "string"
+          ? staffingRequest.employeeSpec.runtimeStatus
+          : undefined,
       employmentStatus:
-        body.employmentStatus === "draft" ||
-        body.employmentStatus === "active" ||
-        body.employmentStatus === "on_leave" ||
-        body.employmentStatus === "retired" ||
-        body.employmentStatus === "terminated" ||
-        body.employmentStatus === "archived"
-          ? body.employmentStatus
-          : "draft",
+        typeof staffingRequest.employeeSpec?.employmentStatus === "string"
+          ? staffingRequest.employeeSpec.employmentStatus
+          : undefined,
       schedulerMode:
-        typeof body.schedulerMode === "string" ? body.schedulerMode : "manual_only",
+        typeof staffingRequest.employeeSpec?.schedulerMode === "string"
+          ? staffingRequest.employeeSpec.schedulerMode
+          : undefined,
       bio: typeof body.bio === "string" ? body.bio : undefined,
       tone: typeof body.tone === "string" ? body.tone : undefined,
       skills: Array.isArray(body.skills)

@@ -1204,6 +1204,28 @@ Boundary:
 No product page or staffing request directly creates employees. Employee
 creation remains reserved for the approved fulfillment step.
 
+### PR-HIRE-3 - Runtime-Ready Staffing Fulfillment
+
+PR-HIRE-3 hardens approved staffing fulfillment so a product staffing request
+can actually unblock runtime execution.
+
+Implemented:
+
+- fulfillment reads `employeeSpec` defaults when creating the employee
+- runtime staffing specs create employees as:
+  - `runtimeStatus = implemented`
+  - `employmentStatus = active`
+  - `schedulerMode = auto`
+- fulfillment validates the role is runtime-enabled before employee creation
+- fulfillment validates the role implementation binding matches the requested spec
+- staffing dashboard shows whether the request carries a runtime-ready spec
+
+Boundary:
+
+> Fulfillment is still the only place where staffing requests create employees.
+
+Product initiatives and staffing requests do not directly mutate employees.
+
 PR27 makes the tutorial flow fully closable from the dashboard by adding the
 missing deployment-record creation step.
 

@@ -5,6 +5,7 @@ import type { TeamId } from "@aep/operator-agent/org/teams";
 export type EmployeeRuntimeStatus =
   | "implemented"
   | "planned"
+  | "active"
   | "disabled";
 
 export type EmployeeEmploymentStatus =
