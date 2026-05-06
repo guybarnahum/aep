@@ -1027,6 +1027,8 @@ Dashboard hiring lane:
   - run task
 - The lane is derived from canonical staffing requests and fulfillment links.
 - The product page does not approve, fulfill, or create employees directly.
+- Regression coverage verifies the lane states for unlinked, submitted,
+  approved, fulfilled, duplicate, and unrelated staffing requests.
 
 Example:
 

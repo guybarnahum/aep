@@ -184,6 +184,35 @@ role_gap
 → assigned work
 ```
 
+### Hiring lane for blocked initiatives
+
+When a task is blocked because no active runtime employee covers the required
+role, the dashboard exposes a four-step hiring lane on the initiative detail
+page:
+
+```text
+1. Request staffing  → create staffing_request from the product page
+2. Approve request   → operator approves in the staffing queue
+3. Fulfill employee  → operator fulfills (creates employee) in the staffing queue
+4. Run task          → rerun the blocked task with the new employee
+```
+
+QA steps:
+
+1. Open a product initiative whose planning or requirements task is blocked
+   with "no active runtime employees".
+2. Confirm the staffing blockers panel shows the four-step hiring lane.
+3. Click **Staff this role** — confirm the staffing request is created and the
+   button becomes disabled with label "Staffing request exists".
+4. Open the **Department** tab and approve the staffing request.
+5. Fulfill the staffing request in the staffing queue.
+6. Return to the product initiative page — confirm step 4 is active and
+   **Run now with new employee** is visible.
+7. Click **Run now with new employee** — confirm the task is resubmitted.
+
+The product page does not approve, fulfill, or create employees directly.
+Approval and fulfillment remain in the canonical staffing queue.
+
 ### 6. Produce artifacts
 
 Expected artifacts include:

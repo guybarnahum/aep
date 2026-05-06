@@ -1278,6 +1278,34 @@ The product page may create the initial staffing request and rerun the task
 after fulfillment, but approval and fulfillment remain in the canonical staffing
 queue.
 
+### PR-HIRE-6 - Hiring Flow Regression Coverage
+
+PR-HIRE-6 locks the hiring lane implementation with regression tests and
+documents the QA steps in TUTORIAL.md.
+
+Implemented:
+
+- `product-hiring-lane-visibility.test.ts` (NEW): 6 regression tests for
+  `buildProductVisibilitySummary` with staffing requests:
+  - no linked request → `staffingRequestId` is undefined
+  - submitted request → state surfaces correctly, `fulfillmentReady: false`
+  - approved request → updated state surfaces correctly
+  - fulfilled request → `fulfillmentReady: true` + `fulfilledEmployeeId` set
+  - duplicate requests → latest by `updatedAt` wins
+  - unrelated request (different `sourceTaskId`) → not linked
+- test runner (`run-operator-agent-unit-tests.cjs`) updated to include the new
+  test file between `product-visibility-error-message.test.ts` and
+  `product-lifecycle-approval-visibility.test.ts`
+- `TUTORIAL.md`: "Hiring lane for blocked initiatives" QA walkthrough added
+  under the Product initiator flow section
+- `API.md`: regression coverage note added to the hiring lane docs
+
+Boundary:
+
+> Regression coverage does not extend the API surface. All new test assertions
+> exercise the existing `buildProductVisibilitySummary` function against the
+> staffing request shapes established by PR-HIRE-3 through PR-HIRE-5.
+
 PR27 makes the tutorial flow fully closable from the dashboard by adding the
 missing deployment-record creation step.
 
