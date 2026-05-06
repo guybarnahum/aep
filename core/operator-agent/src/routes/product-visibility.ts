@@ -27,9 +27,11 @@ export async function handleGetProductVisibility(
   }
 
   const url = new URL(request.url);
+  const staffingRequests = await listStaffingRequests(env, { limit: 100 });
   const summary = await buildProductVisibilitySummary({
     store: getTaskStore(env),
     approvalStore: getApprovalStore(env),
+    staffingRequests,
     projectId,
     limit: parseLimit(url.searchParams.get("limit")),
   });
