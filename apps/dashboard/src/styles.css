@@ -311,6 +311,53 @@ button:disabled {
   margin-top: 10px;
 }
 
+.hiring-lane {
+  margin-top: 10px;
+  padding: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.35);
+}
+
+.hiring-lane-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.hiring-lane-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.hiring-lane-step {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+}
+
+.hiring-lane-step-done {
+  color: #86efac;
+  background: rgba(22, 163, 74, 0.12);
+}
+
+.hiring-lane-step-ready {
+  color: #bfdbfe;
+  background: rgba(37, 99, 235, 0.12);
+}
+
+.hiring-lane-step-blocked {
+  color: #fcd34d;
+  background: rgba(217, 119, 6, 0.12);
+}
+
 .product-evidence-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));

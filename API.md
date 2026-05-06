@@ -1017,6 +1017,17 @@ used by later fulfillment steps; it does not create an employee directly.
 When present, `employeeSpec.roleId` and `employeeSpec.teamId` must match the
 staffing request role/team.
 
+Dashboard hiring lane:
+
+- Product initiative blocker cards show the staffing request lifecycle for the
+  affected task:
+  - request staffing
+  - approve request
+  - fulfill employee
+  - run task
+- The lane is derived from canonical staffing requests and fulfillment links.
+- The product page does not approve, fulfill, or create employees directly.
+
 Example:
 
 ```json

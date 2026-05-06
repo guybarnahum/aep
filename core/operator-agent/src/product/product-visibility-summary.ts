@@ -61,6 +61,7 @@ export type ProductVisibilitySummary = {
       fulfillmentReady: boolean;
       fulfilledEmployeeId?: string;
       staffingRequestId?: string;
+      staffingRequestState?: string;
     }>;
   };
 };
@@ -157,6 +158,13 @@ function fulfillmentForTask(
   });
 }
 
+function latestStaffingRequestForTask(
+  staffingRequests: StaffingRequestContract[],
+  taskId: string,
+): StaffingRequestContract | undefined {
+  return staffingRequests.find((request) => staffingRequestSourceTaskId(request) === taskId);
+}
+
 function buildProductStaffingBlockers(
   tasks: Task[],
   staffingRequests: StaffingRequestContract[],
@@ -174,6 +182,7 @@ function buildProductStaffingBlockers(
       const roleId = inferRoleIdForStaffingBlocker(task);
       const effectiveRoleId = roleId ?? "product-manager-web";
       const fulfilledRequest = fulfillmentForTask(staffingRequests, task.id);
+      const latestRequest = latestStaffingRequestForTask(staffingRequests, task.id);
       return {
         taskId: task.id,
         taskTitle: task.title,
@@ -183,7 +192,8 @@ function buildProductStaffingBlockers(
         errorMessage: task.errorMessage ?? "Runtime staffing blocker",
         fulfillmentReady: Boolean(fulfilledRequest?.fulfillment?.employeeId),
         fulfilledEmployeeId: fulfilledRequest?.fulfillment?.employeeId,
-        staffingRequestId: fulfilledRequest?.staffingRequestId,
+        staffingRequestId: fulfilledRequest?.staffingRequestId ?? latestRequest?.staffingRequestId,
+        staffingRequestState: fulfilledRequest?.state ?? latestRequest?.state,
         employeeSpec: {
           roleId: effectiveRoleId,
           teamId: task.assignedTeamId,

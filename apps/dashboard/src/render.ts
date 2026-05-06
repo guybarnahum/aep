@@ -271,6 +271,7 @@ function renderStaffingRequestsTable(requests: StaffingRequestRecord[]): string 
           <th>Runtime readiness</th>
           <th>Reason</th>
           <th>Requested by</th>
+          <th>Source</th>
           <th>Actions</th>
         </tr>
       </thead>
@@ -287,6 +288,7 @@ function renderStaffingRequestsTable(requests: StaffingRequestRecord[]): string 
                 <td>${renderStaffingRuntimeReadiness(request)}</td>
                 <td>${escapeHtml(request.reason)}</td>
                 <td>${escapeHtml(request.requestedByEmployeeId)}</td>
+                <td>${renderStaffingRequestSourceSummary(request)}</td>
                 <td>
                   <div class="table-actions">
                     ${request.state === "draft" ? `
@@ -299,7 +301,7 @@ function renderStaffingRequestsTable(requests: StaffingRequestRecord[]): string 
                       <button class="button button-small button-secondary" data-action="cancel-staffing-request" data-staffing-request-id="${escapeHtml(request.staffingRequestId)}">Cancel</button>
                     ` : ""}
                     ${request.state === "approved" ? `
-                      <button class="button button-small" data-action="fulfill-staffing-request" data-staffing-request-id="${escapeHtml(request.staffingRequestId)}">Fulfill</button>
+                      <button class="button button-small" data-action="fulfill-staffing-request" data-staffing-request-id="${escapeHtml(request.staffingRequestId)}" data-suggested-name="${escapeHtml(request.employeeSpec?.suggestedName ?? "New Employee")}">Fulfill</button>
                     ` : ""}
                   </div>
                 </td>
@@ -5260,6 +5262,22 @@ export function renderDepartmentOverview(args: {
   `;
 }
 
+function renderStaffingRequestSourceSummary(request: StaffingRequestRecord): string {
+  const spec = request.employeeSpec;
+  if (spec?.sourceProjectId || spec?.sourceTaskId) {
+    return `
+      <div class="muted small">
+        ${spec.sourceProjectId
+          ? `<div>project: <a href="#product-initiative/${encodeURIComponent(spec.sourceProjectId)}">${escapeHtml(spec.sourceProjectId)}</a></div>`
+          : ""}
+        ${spec.sourceTaskId ? `<div>task: ${escapeHtml(spec.sourceTaskId)}</div>` : ""}
+      </div>
+    `;
+  }
+
+  return `<span class="muted small">${escapeHtml(String(request.source?.kind ?? "unknown"))}</span>`;
+}
+
 function renderStaffingEmployeeSpecSummary(request: StaffingRequestRecord): string {
   const spec = request.employeeSpec;
   if (!spec) {
@@ -5356,6 +5374,59 @@ function renderRoleRuntimeAdminTable(roles: RoleJobDescriptionProjection[]): str
   `;
 }
 
+function renderHiringLaneStatus(blocker: ProductStaffingBlocker): string {
+  const requestState = blocker.staffingRequestState;
+  const requestId = blocker.staffingRequestId;
+
+  const steps = [
+    {
+      label: "Request staffing",
+      state: requestId ? "done" : "ready",
+    },
+    {
+      label: "Approve request",
+      state:
+        requestState === "approved" || requestState === "fulfilled"
+          ? "done"
+          : requestId
+            ? "ready"
+            : "blocked",
+    },
+    {
+      label: "Fulfill employee",
+      state:
+        requestState === "fulfilled"
+          ? "done"
+          : requestState === "approved"
+            ? "ready"
+            : "blocked",
+    },
+    {
+      label: "Run task",
+      state: blocker.fulfillmentReady ? "ready" : "blocked",
+    },
+  ];
+
+  return `
+    <div class="hiring-lane">
+      <div class="hiring-lane-header">
+        <strong>Hiring lane</strong>
+        ${requestId
+          ? `<span class="muted small">${escapeHtml(requestId)} · ${escapeHtml(requestState ?? "unknown")}</span>`
+          : `<span class="muted small">No staffing request yet</span>`}
+      </div>
+      <div class="hiring-lane-steps">
+        ${steps.map((step) => `
+          <span class="hiring-lane-step hiring-lane-step-${escapeHtml(step.state)}">
+            ${step.state === "done" ? "✅" : step.state === "ready" ? "▶" : "⏳"}
+            ${escapeHtml(step.label)}
+          </span>
+        `).join("")}
+      </div>
+    </div>
+  `;
+}
+
 function renderProductBlockerEmployeeSpec(blocker: ProductStaffingBlocker): string {
   const spec = blocker.employeeSpec;
   if (!spec) {
@@ -5392,6 +5463,7 @@ function renderProductStaffingBlockers(summary: ProductVisibilitySummary): strin
           <strong>${escapeHtml(blocker.taskTitle)}</strong>
           <div class="muted small">${escapeHtml(blocker.taskId)} · ${escapeHtml(blocker.taskType)}</div>
           <p class="task-graph-node-error muted small">${escapeHtml(blocker.errorMessage)}</p>
+          ${renderHiringLaneStatus(blocker)}
           <div class="staffing-spec-preview">
             <strong>Hiring spec</strong>
             ${renderProductBlockerEmployeeSpec(blocker)}
@@ -5414,8 +5486,9 @@ function renderProductStaffingBlockers(summary: ProductVisibilitySummary): strin
               data-team-id="${escapeHtml(blocker.teamId)}"
               data-role-id="${escapeHtml(blocker.roleId ?? "product-manager-web")}"
               data-error-message="${escapeHtml(blocker.errorMessage)}"
+              ${blocker.staffingRequestId ? "disabled" : ""}
             >
-              Staff this role
+              ${blocker.staffingRequestId ? "Staffing request exists" : "Staff this role"}
             </button>
             ${blocker.fulfillmentReady
               ? `<button
@@ -5427,6 +5500,11 @@ function renderProductStaffingBlockers(summary: ProductVisibilitySummary): strin
                 >
                   Run now with new employee
                 </button>`
+              : ""}
+            ${blocker.staffingRequestId && blocker.staffingRequestState !== "fulfilled"
+              ? `<a class="button button-small button-secondary" href="#department">
+                  Open staffing queue
+                </a>`
               : ""}
           </div>
         </article>

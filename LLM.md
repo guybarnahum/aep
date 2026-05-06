@@ -1249,6 +1249,35 @@ Boundary:
 The system still requires the team work loop to execute the pinned task after
 staffing becomes available.
 
+### PR-HIRE-5 - Dashboard Hiring Lane
+
+PR-HIRE-5 makes the end-to-end hiring unblock flow visible and navigable from
+the product initiative page.
+
+Implemented:
+
+- staffing blocker cards show a four-step hiring lane:
+  - request staffing
+  - approve request
+  - fulfill employee
+  - run task
+- blocker cards dedupe against existing staffing requests linked by
+  `employeeSpec.sourceTaskId`
+- once a request exists, the product page stops offering duplicate staffing
+  request creation
+- product blocker cards link the operator to the staffing queue for approval
+  and fulfillment
+- staffing queue rows show source project/task context and use
+  `employeeSpec.suggestedName` as the fulfillment prompt default
+
+Boundary:
+
+> The hiring lane is navigation and visibility, not a shortcut around staffing governance.
+
+The product page may create the initial staffing request and rerun the task
+after fulfillment, but approval and fulfillment remain in the canonical staffing
+queue.
+
 PR27 makes the tutorial flow fully closable from the dashboard by adding the
 missing deployment-record creation step.
 

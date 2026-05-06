@@ -1070,7 +1070,11 @@ async function handleFulfillStaffingRequest(target: HTMLElement): Promise<void> 
   const staffingRequestId = target.dataset.staffingRequestId ?? "";
   if (!staffingRequestId) return;
 
-  const employeeName = window.prompt("New employee display name?")?.trim() ?? "";
+  const suggestedName = target.dataset.suggestedName ?? "New Employee";
+  const employeeName = window.prompt(
+    `Employee name for ${staffingRequestId}:`,
+    suggestedName,
+  )?.trim() ?? "";
   const fulfilledByEmployeeId = await promptForExistingEmployeeId("Fulfilled by employee?");
   if (!employeeName || !fulfilledByEmployeeId) return;
 
@@ -1175,6 +1179,7 @@ async function handleStaffProductBlocker(target: HTMLElement): Promise<void> {
     });
 
     setMutationStatus(`Staffing request submitted: ${request.staffingRequestId}`);
+    window.location.hash = "department";
   } catch (error) {
     setMutationStatus(
       error instanceof Error ? error.message : "Failed to create staffing request",

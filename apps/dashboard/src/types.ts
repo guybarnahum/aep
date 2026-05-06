@@ -417,6 +417,7 @@ export type ProductStaffingBlocker = {
   fulfillmentReady?: boolean;
   fulfilledEmployeeId?: string;
   staffingRequestId?: string;
+  staffingRequestState?: StaffingRequestState;
 };
 
 export type ProductLifecycleAction = "pause" | "resume" | "retire" | "transition";
